@@ -38,9 +38,19 @@ describe('mensaje de WhatsApp', () => {
 });
 
 describe('enlace de WhatsApp', () => {
-  it('usa el teléfono del cliente si existe', () => {
+  it('agrega el prefijo 57 a celulares colombianos de 10 dígitos', () => {
     const link = whatsAppLink('hola', '300 123-4567');
-    expect(link).toBe(`https://wa.me/3001234567?text=${encodeURIComponent('hola')}`);
+    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent('hola')}`);
+  });
+
+  it('respeta números que ya traen indicativo internacional', () => {
+    const link = whatsAppLink('hola', '+57 300 123 4567');
+    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent('hola')}`);
+  });
+
+  it('no toca números que no parecen celular colombiano', () => {
+    const link = whatsAppLink('hola', '16035550100');
+    expect(link).toBe(`https://wa.me/16035550100?text=${encodeURIComponent('hola')}`);
   });
 
   it('funciona sin teléfono', () => {

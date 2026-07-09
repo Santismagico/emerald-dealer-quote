@@ -21,7 +21,15 @@
 - [ ] Recordatorio periódico de exportar respaldo.
 - [ ] Precio del oro: campo auxiliar "precio internacional 24K" que calcule la referencia +$100.000 (pendiente confirmar con Santiago, ver DECISIONS.md D-002).
 
+## v0.2.x — Adiciones solicitadas por Santiago (2026-07-08)
+
+- [x] Corregir botón de WhatsApp (prefijo internacional 57 + apertura confiable en iOS).
+- [ ] Seguimiento de producción interno por cotización: etapas del taller (impresión, fundición, engaste, etc.) con estado y control de pagos. Pendiente definir detalles con Santiago.
+- [ ] Mejorar el logo/ícono de la app (mediano plazo; la interfaz actual gusta y se conserva).
+
 ## v0.3 — Preparación SaaS
+
+**Plan detallado y ejecutable en [SAAS_PLAN.md](SAAS_PLAN.md)** (escrito 2026-07-08; ejecutar solo con orden de Santiago, tras validar con 2-3 joyerías).
 
 - [ ] Backend con `organizations`, `users`, roles y aislamiento por `organization_id` (ver ARCHITECTURE.md).
 - [ ] Autenticación gestionada.

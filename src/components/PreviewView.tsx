@@ -88,7 +88,10 @@ export function PreviewView({
       const saved = await persist();
       const message = buildWhatsAppMessage(saved, calc, store.settings);
       const link = whatsAppLink(message, saved.clientSnapshot?.phone);
-      window.open(link, '_blank', 'noopener');
+      // window.open tras un await es bloqueado por Safari/iOS; navegar directo es confiable
+      // (en el celular abre la app de WhatsApp, en computador abre WhatsApp Web).
+      const win = window.open(link, '_blank', 'noopener');
+      if (!win) window.location.href = link;
     } catch {
       store.showToast('No se pudo abrir WhatsApp.');
     } finally {

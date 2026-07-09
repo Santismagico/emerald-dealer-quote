@@ -31,9 +31,19 @@ export function buildWhatsAppMessage(quote: Quote, calc: CalcResult, settings: S
   return lines.join('\n');
 }
 
+/**
+ * Normaliza un teléfono al formato internacional que exige wa.me.
+ * Un celular colombiano de 10 dígitos que empieza por 3 recibe el prefijo 57.
+ */
+export function normalizePhoneForWhatsApp(phone: string): string {
+  const digits = phone.replace(/[^\d]/g, '');
+  if (digits.length === 10 && digits.startsWith('3')) return `57${digits}`;
+  return digits;
+}
+
 /** Construye el enlace wa.me. El teléfono es opcional (abre selector de chat si falta). */
 export function whatsAppLink(message: string, phone?: string): string {
-  const clean = (phone ?? '').replace(/[^\d]/g, '');
+  const clean = normalizePhoneForWhatsApp(phone ?? '');
   const encoded = encodeURIComponent(message);
   return clean ? `https://wa.me/${clean}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
 }
