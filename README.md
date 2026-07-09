@@ -4,6 +4,8 @@ PWA para que joyerías creen **cotizaciones profesionales de joyas** desde el ce
 
 Marca comercial: **Emerald Dealer** · Nombre técnico: Joyeria Quote Generator
 
+**App en línea:** https://santismagico.github.io/emerald-dealer-quote/ (se actualiza sola con cada push a `main`)
+
 ## Qué hace
 
 - Crear cotizaciones con cliente, pieza, material, peso, piedras, mano de obra, costos, margen interno, descuento, impuestos, anticipo e imágenes.
