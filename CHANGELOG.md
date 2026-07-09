@@ -1,0 +1,22 @@
+# CHANGELOG
+
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
+
+## [0.1.0] — 2026-07-07
+
+Primera versión funcional (MVP local, sin backend).
+
+### Agregado
+
+- Motor de cálculo puro en COP enteros: material, piedras (por piedra/por quilate), mano de obra, costos adicionales, margen interno, descuento (%/fijo), impuesto opcional, anticipo y saldo. Con validaciones y tests.
+- Formulario de cotización en 4 pasos (Cliente, Pieza, Piedras, Costos) con total en vivo, imágenes comprimidas y validación con mensajes humanos.
+- Gestión de clientes (crear, editar, eliminar con confirmación).
+- Historial: búsqueda por cliente/número, filtro por estado, editar, duplicar, cambiar estado, aviso de vencidas.
+- Vista previa doble: cliente (presentable) e interna (confidencial con desglose y margen).
+- PDF del cliente con jsPDF (logo, contacto, piedras comerciales, total, vigencia, condiciones) **sin información sensible** — garantizado por tests.
+- PDF interno rotulado "NO ENTREGAR AL CLIENTE" con estructura de costos y auditoría.
+- Compartir por WhatsApp (mensaje profesional sin datos internos).
+- Persistencia local en IndexedDB; respaldo exportable/importable en JSON con validación y advertencia de reemplazo.
+- PWA instalable: manifest "Emerald Dealer Quote", iconos generados por script propio, service worker con precache (offline básico).
+- Configuración de joyería: marca (default Emerald Dealer), logo, contacto, condiciones, validez, precio interno del oro, margen e impuesto por defecto.
+- Documentación completa: README, AGENTS, PRODUCT_SPEC, ARCHITECTURE, ROADMAP, TEST_PLAN, SECURITY_CHECKLIST, DECISIONS, WEEKLY_PROGRESS.

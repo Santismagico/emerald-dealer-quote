@@ -1,0 +1,239 @@
+// Configuración de la joyería, reglas internas de cálculo y respaldo de datos.
+
+import { useRef, useState } from 'react';
+import { useStore } from '../store';
+import type { Settings } from '../types';
+import { fileToCompressedDataUrl } from '../utils/images';
+import { exportBackup, serializeBackup, parseBackup, importBackup } from '../services/backup';
+import {
+  Button,
+  Field,
+  TextInput,
+  MoneyInput,
+  DecimalInput,
+  TextArea,
+  Toggle,
+  SectionCard,
+  ConfirmDialog
+} from './ui';
+
+export function SettingsView() {
+  const store = useStore();
+  const [form, setForm] = useState<Settings>(store.settings);
+  const [dirty, setDirty] = useState(false);
+  const [importPending, setImportPending] = useState<string | null>(null);
+  const [importError, setImportError] = useState('');
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const patch = (partial: Partial<Settings>) => {
+    setForm((f) => ({ ...f, ...partial }));
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    await store.updateSettings(form);
+    setDirty(false);
+    store.showToast('Ajustes guardados');
+  };
+
+  const handleExport = async () => {
+    const backup = await exportBackup();
+    const json = serializeBackup(backup);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `respaldo-emerald-dealer-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    store.showToast('Respaldo exportado');
+  };
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+    setImportError('');
+    try {
+      const text = await file.text();
+      parseBackup(text); // valida antes de pedir confirmación
+      setImportPending(text);
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : 'Archivo de respaldo inválido.');
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!importPending) return;
+    try {
+      await importBackup(parseBackup(importPending));
+      await store.reloadAll();
+      store.showToast('Respaldo restaurado');
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : 'No se pudo restaurar el respaldo.');
+    } finally {
+      setImportPending(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionCard title="Datos de la joyería" subtitle="Aparecen en el PDF que recibe el cliente.">
+        <Field label="Nombre de la joyería">
+          <TextInput value={form.jewelryName} onChange={(jewelryName) => patch({ jewelryName })} />
+        </Field>
+        <div>
+          <span className="mb-1 block text-sm font-medium text-stone-700">Logo</span>
+          <div className="flex items-center gap-3">
+            {form.logoDataUrl ? (
+              <img src={form.logoDataUrl} alt="Logo" className="h-14 w-14 rounded-xl border border-stone-200 object-contain" />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-stone-300 text-stone-400">
+                —
+              </div>
+            )}
+            <label className="cursor-pointer text-sm font-medium text-brand-800">
+              {form.logoDataUrl ? 'Cambiar logo' : 'Subir logo'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      patch({ logoDataUrl: await fileToCompressedDataUrl(file) });
+                    } catch {
+                      store.showToast('No se pudo cargar el logo.');
+                    }
+                  }
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {form.logoDataUrl ? (
+              <button type="button" className="text-sm text-red-600" onClick={() => patch({ logoDataUrl: '' })}>
+                Quitar
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <Field label="NIT o identificación (opcional)">
+          <TextInput value={form.nit} onChange={(nit) => patch({ nit })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Teléfono">
+            <TextInput value={form.phone} onChange={(phone) => patch({ phone })} inputMode="tel" />
+          </Field>
+          <Field label="WhatsApp">
+            <TextInput value={form.whatsapp} onChange={(whatsapp) => patch({ whatsapp })} inputMode="tel" placeholder="57300…" />
+          </Field>
+        </div>
+        <Field label="Dirección">
+          <TextInput value={form.address} onChange={(address) => patch({ address })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Ciudad">
+            <TextInput value={form.city} onChange={(city) => patch({ city })} />
+          </Field>
+          <Field label="Email">
+            <TextInput value={form.email} onChange={(email) => patch({ email })} inputMode="email" type="email" />
+          </Field>
+        </div>
+        <Field label="Mensaje comercial" hint="Cierre del PDF, ej: Gracias por su confianza.">
+          <TextArea value={form.commercialMessage} onChange={(commercialMessage) => patch({ commercialMessage })} rows={2} />
+        </Field>
+        <Field label="Condiciones comerciales" hint="Se imprimen en el PDF del cliente.">
+          <TextArea value={form.conditions} onChange={(conditions) => patch({ conditions })} rows={3} />
+        </Field>
+      </SectionCard>
+
+      <SectionCard title="Cotizaciones">
+        <Field label="Validez por defecto (días)">
+          <DecimalInput
+            value={form.defaultValidityDays}
+            onValue={(v) => patch({ defaultValidityDays: Math.max(1, Math.round(v)) })}
+            suffix="días"
+          />
+        </Field>
+        <p className="text-sm text-stone-500">Moneda: COP (peso colombiano)</p>
+      </SectionCard>
+
+      <SectionCard
+        title="Cálculo interno"
+        subtitle="Confidencial. Nada de esta sección aparece en el PDF del cliente."
+      >
+        <Field label="Precio del oro por gramo" hint={form.goldPriceNote}>
+          <MoneyInput value={form.goldPricePerGram} onValue={(goldPricePerGram) => patch({ goldPricePerGram })} />
+        </Field>
+        {form.goldPricePerGram === 0 && (
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+            Aún no has configurado el precio del oro. Las cotizaciones en oro saldrán en $0 hasta que lo fijes.
+          </p>
+        )}
+        <Field label="Margen por defecto">
+          <DecimalInput value={form.defaultMarginPercent} onValue={(defaultMarginPercent) => patch({ defaultMarginPercent })} suffix="%" />
+        </Field>
+        <Toggle
+          checked={form.taxEnabledByDefault}
+          onChange={(taxEnabledByDefault) => patch({ taxEnabledByDefault })}
+          label="Aplicar impuesto por defecto"
+        />
+        <Field label="Impuesto por defecto">
+          <DecimalInput value={form.defaultTaxPercent} onValue={(defaultTaxPercent) => patch({ defaultTaxPercent })} suffix="%" />
+        </Field>
+      </SectionCard>
+
+      <SectionCard
+        title="Respaldo de datos"
+        subtitle="Tus datos viven solo en este dispositivo. Exporta un respaldo con frecuencia."
+      >
+        <Button variant="secondary" full onClick={handleExport}>
+          ⬇ Exportar respaldo (JSON)
+        </Button>
+        <Button
+          variant="secondary"
+          full
+          onClick={() => importInputRef.current?.click()}
+        >
+          ⬆ Importar respaldo
+        </Button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            void handleImportFile(e.target.files?.[0] ?? null);
+            e.target.value = '';
+          }}
+        />
+        {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
+      </SectionCard>
+
+      <SectionCard title="Instalar la app" subtitle="Emerald Dealer Quote funciona sin internet una vez instalada.">
+        <p className="text-sm text-stone-600">
+          <strong>iPhone:</strong> abre esta página en Safari → botón Compartir → “Añadir a pantalla de inicio”.
+        </p>
+        <p className="text-sm text-stone-600">
+          <strong>Android:</strong> abre en Chrome → menú ⋮ → “Instalar aplicación”.
+        </p>
+      </SectionCard>
+
+      <div className="sticky bottom-24 z-30">
+        <Button full onClick={handleSave} disabled={!dirty}>
+          {dirty ? 'Guardar ajustes' : 'Ajustes guardados ✓'}
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        open={importPending !== null}
+        title="Restaurar respaldo"
+        message="Esto REEMPLAZARÁ todos los clientes, cotizaciones y ajustes actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?"
+        confirmLabel="Reemplazar todo"
+        danger
+        onCancel={() => setImportPending(null)}
+        onConfirm={() => void confirmImport()}
+      />
+    </div>
+  );
+}
