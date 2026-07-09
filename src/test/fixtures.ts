@@ -95,6 +95,16 @@ export function sampleQuote(overrides: Partial<Quote> = {}): Quote {
         notes: 'Programado para el viernes'
       }
     ],
+    payments: [
+      {
+        id: 'p-1',
+        amount: 1000000,
+        date: '2026-07-05',
+        receivedBy: 'Laura',
+        method: 'Transferencia',
+        notes: ''
+      }
+    ],
     createdAt: '2026-07-07T09:00:00.000Z',
     updatedAt: '2026-07-07T09:30:00.000Z',
     ...overrides

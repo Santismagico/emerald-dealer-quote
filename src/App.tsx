@@ -12,6 +12,17 @@ import { Toast } from './components/ui';
 
 type ViewName = 'history' | 'form' | 'preview' | 'clients' | 'settings';
 
+const APP_URL = 'https://santismagico.github.io/emerald-dealer-quote/';
+
+/**
+ * Detecta navegadores internos (WhatsApp, Facebook, Instagram) donde la PWA
+ * no puede instalarse y el almacenamiento puede fallar.
+ */
+function isInAppBrowser(): boolean {
+  const ua = navigator.userAgent;
+  return /; wv\)/.test(ua) || /FBAN|FB_IAB|Instagram|Line\//i.test(ua);
+}
+
 function emptyQuote(defaults: {
   validityDays: number;
   goldPricePerGram: number;
@@ -46,6 +57,7 @@ function emptyQuote(defaults: {
     clientNotes: '',
     images: [],
     production: [],
+    payments: [],
     createdAt: now,
     updatedAt: now
   };
@@ -55,6 +67,7 @@ function AppShell() {
   const store = useStore();
   const [view, setView] = useState<ViewName>('history');
   const [draft, setDraft] = useState<Quote | null>(null);
+  const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
 
   if (!store.ready) {
     return (
@@ -91,8 +104,9 @@ function AppShell() {
       status: 'borrador',
       date: todayISO(),
       validUntil: addDays(todayISO(), store.settings.defaultValidityDays),
-      // La copia es una pieza nueva: el avance de taller no se hereda.
+      // La copia es una pieza nueva: el avance de taller y los abonos no se heredan.
       production: [],
+      payments: [],
       createdAt: now,
       updatedAt: now
     };
@@ -102,8 +116,9 @@ function AppShell() {
     setView('form');
   };
 
-  const openPreview = (quote: Quote) => {
+  const openPreview = (quote: Quote, tab: 'cliente' | 'interno' = 'cliente') => {
     setDraft(quote);
+    setPreviewTab(tab);
     setView('preview');
   };
 
@@ -121,11 +136,14 @@ function AppShell() {
         </div>
       </header>
 
+      {isInAppBrowser() && <InAppBrowserBanner />}
+
       <main className="flex-1 px-4 pb-28 pt-4">
         {view === 'history' && (
           <HistoryView
             onNew={startNewQuote}
-            onOpen={openPreview}
+            onOpen={(q) => openPreview(q)}
+            onOpenInternal={(q) => openPreview(q, 'interno')}
             onEdit={editQuote}
             onDuplicate={duplicateQuote}
           />
@@ -145,6 +163,8 @@ function AppShell() {
         )}
         {view === 'preview' && draft && (
           <PreviewView
+            key={`${draft.id}-${previewTab}`}
+            initialTab={previewTab}
             quote={draft}
             onEdit={() => setView('form')}
             onSaved={(quote) => setDraft(quote)}
@@ -168,6 +188,32 @@ function AppShell() {
       </nav>
 
       <Toast message={store.toast} />
+    </div>
+  );
+}
+
+function InAppBrowserBanner() {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="bg-amber-100 px-4 py-3">
+      <p className="text-sm text-amber-900">
+        Parece que abriste la app dentro de otra aplicación (WhatsApp, Instagram…). Para que funcione bien y puedas
+        instalarla, ábrela en <strong>Chrome</strong> o <strong>Safari</strong>.
+      </p>
+      <button
+        type="button"
+        className="mt-2 rounded-lg bg-amber-200 px-3 py-2 text-sm font-medium text-amber-900"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(APP_URL);
+            setCopied(true);
+          } catch {
+            // Si el portapapeles falla, el usuario puede copiar la URL de la barra.
+          }
+        }}
+      >
+        {copied ? 'Enlace copiado ✓' : 'Copiar enlace de la app'}
+      </button>
     </div>
   );
 }

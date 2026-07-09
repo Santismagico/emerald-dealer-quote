@@ -39,6 +39,10 @@ Hacer en un celular real (ideal iPhone + Safari):
 - [ ] Marcar etapas (pendiente → en proceso → lista) y registrar un pago (monto, fecha, a quién, quién pagó) → cerrar la app y verificar que el avance persiste.
 - [ ] Verificar que la producción aparece en el PDF interno pero NO en el PDF del cliente ni en el mensaje de WhatsApp.
 - [ ] Compartir por WhatsApp con un cliente de celular colombiano → el chat abre directamente (prefijo 57 automático).
+- [ ] En el historial, tocar "🛠 Producción: X/N" de una cotización aprobada → abre directo la vista interna del taller.
+- [ ] Registrar un abono (monto, fecha, quién lo recibió, medio) → verificar total abonado y saldo real; cerrar la app y confirmar que persiste.
+- [ ] Verificar que los abonos aparecen en el PDF interno pero NO en el PDF del cliente.
+- [ ] Abrir el enlace desde el chat de WhatsApp en Android → debe aparecer el aviso para abrir en Chrome con botón de copiar enlace.
 
 ## Resultado de la última ejecución
 

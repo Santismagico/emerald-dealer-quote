@@ -57,6 +57,13 @@ describe('PDF del cliente: privacidad', () => {
     expect(text).not.toContain('taller ramírez');
     expect(text).not.toContain('pagó');
   });
+
+  it('no contiene los abonos internos ni quién los recibió', () => {
+    expect(text).not.toContain('abono');
+    expect(text).not.toContain('laura');
+    expect(text).not.toContain('transferencia');
+    expect(text).not.toContain('recibió');
+  });
 });
 
 describe('PDF del cliente: contenido esperado', () => {
@@ -107,6 +114,13 @@ describe('documento interno', () => {
   it('incluye las notas internas y la nota del oro', () => {
     expect(text).toContain('proveedor');
     expect(text).toContain('24K');
+  });
+
+  it('incluye los abonos con quién los recibió y el saldo real', () => {
+    expect(text).toContain('Abonos recibidos (interno)');
+    expect(text).toContain('1.000.000 el 5 de julio de 2026 — recibió Laura (Transferencia)');
+    expect(text).toContain('Total abonado');
+    expect(text).toContain('Saldo real');
   });
 
   it('incluye el seguimiento de producción con estados y pagos', () => {

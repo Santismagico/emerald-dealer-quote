@@ -273,6 +273,8 @@ export function SettingsView() {
         </Button>
       </div>
 
+      <p className="pb-2 text-center text-xs text-stone-400">Emerald Dealer Quote v{__APP_VERSION__}</p>
+
       <ConfirmDialog
         open={importPending !== null}
         title="Restaurar respaldo"

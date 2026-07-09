@@ -14,6 +14,27 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Red de seguridad: si la app no logra arrancar (navegador interno de
+      // WhatsApp, navegador muy viejo, error de red), muestra instrucciones
+      // en vez de una pantalla en blanco.
+      (function () {
+        function showFallback() {
+          var root = document.getElementById('root');
+          if (root && !root.hasChildNodes()) {
+            root.innerHTML =
+              '<div style="font-family:sans-serif;padding:32px 24px;text-align:center;color:#1c1917">' +
+              '<h2 style="color:#064e3b">Emerald Dealer Quote</h2>' +
+              '<p>No se pudo cargar la aplicación en este navegador.</p>' +
+              '<p>Copia esta dirección y ábrela directamente en <strong>Chrome</strong> (Android) o <strong>Safari</strong> (iPhone):</p>' +
+              '<p style="background:#f5f5f4;padding:12px;border-radius:12px;word-break:break-all"><strong>santismagico.github.io/emerald-dealer-quote</strong></p>' +
+              '</div>';
+          }
+        }
+        window.addEventListener('error', function () { setTimeout(showFallback, 500); }, true);
+        setTimeout(showFallback, 10000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

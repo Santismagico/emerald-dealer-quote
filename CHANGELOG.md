@@ -2,6 +2,18 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [0.4.0] — 2026-07-09
+
+### Agregado
+
+- **Abonos recibidos del cliente** (vista interna): registro de cada pago que entra — cuánto, cuándo, quién lo recibió, medio de pago y nota — con total abonado y saldo real pendiente. Aparece en el PDF interno; jamás en el PDF ni WhatsApp del cliente (tests de privacidad ampliados).
+- **Acceso directo a producción**: en el historial, las cotizaciones aprobadas muestran un botón "🛠 Producción: X/N etapas listas" que abre directamente la vista interna del taller (antes había que descubrir la pestaña Interna).
+- Protecciones para Android/navegadores internos: aviso cuando la app se abre dentro de WhatsApp/Instagram (con botón para copiar el enlace y abrirlo en Chrome), pantalla de instrucciones si la app no logra cargar (en vez de pantalla en blanco), y número de versión visible en Ajustes para diagnóstico.
+
+### Corregido
+
+- Ediciones rápidas consecutivas en producción/abonos ya no se pisan entre sí (la pantalla se actualiza antes de esperar la base de datos).
+
 ## [0.3.0] — 2026-07-08
 
 ### Agregado

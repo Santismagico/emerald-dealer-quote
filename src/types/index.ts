@@ -56,6 +56,23 @@ export type DiscountType = 'porcentaje' | 'valor';
 export type StageStatus = 'pendiente' | 'enProceso' | 'lista';
 
 /**
+ * Abono recibido del cliente (SOLO uso interno).
+ * Registra cuánto entró, cuándo y quién lo recibió.
+ */
+export interface ClientPayment {
+  id: string;
+  /** Monto del abono en COP. */
+  amount: number;
+  /** Fecha del abono (YYYY-MM-DD). */
+  date: string;
+  /** Quién recibió el abono en la joyería. */
+  receivedBy: string;
+  /** Medio: efectivo, transferencia, etc. */
+  method: string;
+  notes: string;
+}
+
+/**
  * Etapa de producción del taller (SOLO uso interno, nunca visible al cliente).
  * Controla el avance de fabricación y los pagos de cada etapa.
  */
@@ -118,6 +135,8 @@ export interface Quote {
    * etapas estándar cuando la cotización pasa a estado "aprobada".
    */
   production: ProductionStage[];
+  /** Abonos recibidos del cliente (interno). */
+  payments: ClientPayment[];
   createdAt: string;
   updatedAt: string;
 }

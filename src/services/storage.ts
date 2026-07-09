@@ -71,8 +71,8 @@ export async function deleteClient(id: string): Promise<void> {
 export async function listQuotes(): Promise<Quote[]> {
   const quotes = await dbGetAll<Quote>('quotes');
   return quotes
-    // Cotizaciones guardadas por versiones sin seguimiento de producción.
-    .map((q) => (q.production ? q : { ...q, production: [] }))
+    // Cotizaciones guardadas por versiones sin producción ni abonos.
+    .map((q) => ({ ...q, production: q.production ?? [], payments: q.payments ?? [] }))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 

@@ -4,10 +4,11 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import type { Quote, QuoteStatus, ProductionStage } from '../types';
+import type { Quote, QuoteStatus, ProductionStage, ClientPayment } from '../types';
 import { QUOTE_STATUSES } from '../types';
 import { defaultProductionStages } from '../services/production';
 import { ProductionPanel } from './ProductionPanel';
+import { PaymentsPanel } from './PaymentsPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { buildClientPdfContent, stoneClientDescription } from '../services/pdfContent';
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
@@ -20,15 +21,17 @@ export function PreviewView({
   quote,
   onEdit,
   onSaved,
-  onClose
+  onClose,
+  initialTab = 'cliente'
 }: {
   quote: Quote;
   onEdit: () => void;
   onSaved: (quote: Quote) => void;
   onClose: () => void;
+  initialTab?: 'cliente' | 'interno';
 }) {
   const store = useStore();
-  const [tab, setTab] = useState<'cliente' | 'interno'>('cliente');
+  const [tab, setTab] = useState<'cliente' | 'interno'>(initialTab);
   const [busy, setBusy] = useState(false);
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
@@ -118,11 +121,21 @@ export function PreviewView({
     store.showToast(`Estado: ${status}`);
   };
 
-  /** Los cambios de producción se guardan de inmediato (sin botón adicional). */
+  /**
+   * Los cambios de producción y abonos se guardan de inmediato (sin botón).
+   * La pantalla se actualiza ANTES de esperar la base de datos: si no,
+   * dos ediciones rápidas seguidas podrían pisarse entre sí.
+   */
   const updateProduction = async (production: ProductionStage[]) => {
     const saved: Quote = { ...quote, production, updatedAt: new Date().toISOString() };
-    await store.upsertQuote(saved);
     onSaved(saved);
+    await store.upsertQuote(saved);
+  };
+
+  const updatePayments = async (payments: ClientPayment[]) => {
+    const saved: Quote = { ...quote, payments, updatedAt: new Date().toISOString() };
+    onSaved(saved);
+    await store.upsertQuote(saved);
   };
 
   return (
@@ -259,6 +272,8 @@ export function PreviewView({
             </div>
           )}
           <p className="mt-4 text-xs text-stone-500">{store.settings.goldPriceNote}</p>
+
+          <PaymentsPanel payments={quote.payments} quoteTotal={calc.total} onChange={(p) => void updatePayments(p)} />
 
           {quote.status === 'aprobada' && (
             <ProductionPanel stages={quote.production} quoteTotal={calc.total} onChange={(p) => void updateProduction(p)} />

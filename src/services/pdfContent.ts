@@ -6,6 +6,7 @@ import type { Quote, Settings, Stone } from '../types';
 import type { CalcResult } from '../calc/engine';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
+import { paymentsTotal } from './payments';
 
 export interface PdfSection {
   title: string;
@@ -173,6 +174,24 @@ export function buildInternalPdfContent(quote: Quote, calc: CalcResult, settings
     ['Saldo', formatCOP(calc.balance)]
   ];
   sections.push({ title: 'Estructura de costos (confidencial)', rows: costRows });
+
+  const payments = quote.payments ?? [];
+  if (payments.length > 0) {
+    const totalPaid = paymentsTotal(payments);
+    sections.push({
+      title: 'Abonos recibidos (interno)',
+      paragraphs: [
+        ...payments.map((p) => {
+          let line = `• ${formatCOP(p.amount)} el ${formatDateCO(p.date)}`;
+          if (p.receivedBy) line += ` — recibió ${p.receivedBy}`;
+          if (p.method) line += ` (${p.method})`;
+          if (p.notes.trim()) line += ` — ${p.notes.trim()}`;
+          return line;
+        }),
+        `Total abonado: ${formatCOP(totalPaid)} — Saldo real: ${formatCOP(calc.total - totalPaid)}`
+      ]
+    });
+  }
 
   const production = quote.production ?? [];
   if (production.length > 0) {
