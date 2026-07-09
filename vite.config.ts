@@ -4,7 +4,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// En GitHub Pages la app vive bajo /<nombre-repo>/; localmente bajo /.
+// El workflow de despliegue define DEPLOY_BASE.
+const base = process.env.DEPLOY_BASE || '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -19,7 +24,8 @@ export default defineConfig({
         theme_color: '#064e3b',
         background_color: '#fafaf9',
         display: 'standalone',
-        start_url: '/',
+        start_url: base,
+        scope: base,
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
