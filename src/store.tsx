@@ -4,6 +4,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { Settings, Client, Quote } from './types';
 import * as storage from './services/storage';
+import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
 
 interface AppStore {
   ready: boolean;
@@ -19,6 +20,8 @@ interface AppStore {
   removeQuote: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   reloadAll: () => Promise<void>;
+  /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
+  refreshGoldPrice: () => Promise<GoldPriceBreakdown>;
 }
 
 const StoreContext = createContext<AppStore | null>(null);
@@ -41,13 +44,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setQuotes(q);
   }, []);
 
+  const refreshGoldPrice = useCallback(async () => {
+    const current = await storage.loadSettings();
+    const info = await fetchGoldPriceCOP(current.goldMarkupPerGram);
+    const next: Settings = {
+      ...current,
+      goldPricePerGram: info.totalCopPerGram,
+      goldPriceUpdatedAt: info.fetchedAt
+    };
+    await storage.saveSettings(next);
+    setSettings(next);
+    return info;
+  }, []);
+
   useEffect(() => {
     reloadAll()
       .catch(() => {
         // Si IndexedDB falla (modo privado extremo), la app sigue con datos en memoria.
       })
       .finally(() => setReady(true));
-  }, [reloadAll]);
+    // Al abrir la app con internet, actualiza el precio del oro del día.
+    // Sin conexión, se conserva el último precio guardado.
+    refreshGoldPrice().catch(() => {});
+  }, [reloadAll, refreshGoldPrice]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -100,7 +119,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         upsertQuote,
         removeQuote,
         nextQuoteNumber,
-        reloadAll
+        reloadAll,
+        refreshGoldPrice
       }}
     >
       {children}

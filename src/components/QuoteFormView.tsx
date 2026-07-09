@@ -187,9 +187,21 @@ export function QuoteFormView({
           <Field label="Precio del material por gramo" hint="Dato interno: no aparece en el PDF del cliente.">
             <MoneyInput value={quote.materialPricePerGram} onValue={(materialPricePerGram) => patch({ materialPricePerGram })} />
           </Field>
-          {quote.material === 'Oro' && quote.materialPricePerGram === 0 && (
+          {quote.material === 'Oro' &&
+            store.settings.goldPricePerGram > 0 &&
+            quote.materialPricePerGram !== store.settings.goldPricePerGram && (
+              <button
+                type="button"
+                className="w-full rounded-xl bg-brand-50 p-3 text-left text-sm text-brand-900"
+                onClick={() => patch({ materialPricePerGram: store.settings.goldPricePerGram })}
+              >
+                Precio del oro del día: <strong>{formatCOP(store.settings.goldPricePerGram)}</strong>/g. Toca para
+                aplicarlo.
+              </button>
+            )}
+          {quote.material === 'Oro' && quote.materialPricePerGram === 0 && store.settings.goldPricePerGram === 0 && (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              El precio del oro está en $0. Configúralo en Ajustes o escríbelo aquí.
+              El precio del oro está en $0. Conéctate a internet para actualizarlo en Ajustes o escríbelo aquí.
             </p>
           )}
           <p className="text-sm text-stone-500">Subtotal material: {formatCOP(calc.materialSubtotal)}</p>

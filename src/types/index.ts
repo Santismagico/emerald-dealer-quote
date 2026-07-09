@@ -109,10 +109,15 @@ export interface Settings {
   currency: 'COP';
   /**
    * Precio interno del oro por gramo (COP). SOLO uso interno.
-   * Referencia comercial vigente del negocio: precio internacional 24K + $100.000 COP por gramo.
-   * Ver DECISIONS.md. Nunca se muestra al cliente.
+   * Regla comercial del negocio: precio internacional 24K del día + recargo fijo
+   * por gramo (goldMarkupPerGram). Se actualiza automáticamente con internet;
+   * sin conexión se usa el último valor guardado. Nunca se muestra al cliente.
    */
   goldPricePerGram: number;
+  /** Recargo fijo por gramo que se suma al precio internacional (COP). */
+  goldMarkupPerGram: number;
+  /** Última actualización automática del precio del oro (ISO). Vacío si nunca. */
+  goldPriceUpdatedAt: string;
   /** Nota interna sobre cómo se calcula el precio del oro. */
   goldPriceNote: string;
   /** Margen interno por defecto (%) aplicado sobre el costo base. */

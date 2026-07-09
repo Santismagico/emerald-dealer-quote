@@ -2,6 +2,14 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [0.2.0] — 2026-07-08
+
+### Agregado
+
+- **Precio del oro automático**: al abrir la app con internet consulta el precio internacional 24K del día (gold-api.com) y la tasa USD→COP (open.er-api.com), y fija el precio interno como internacional + recargo por gramo (por defecto $100.000, configurable). Botón "Actualizar precio ahora" en Ajustes con fecha de última actualización. Sin conexión se conserva el último precio y hay campo manual de respaldo. Cálculo puro con tests (75 en total).
+- En el formulario de cotización, aviso con un toque para aplicar el precio del oro del día si difiere del de la cotización.
+- Despliegue automático a GitHub Pages: https://santismagico.github.io/emerald-dealer-quote/
+
 ## [0.1.0] — 2026-07-07
 
 Primera versión funcional (MVP local, sin backend).

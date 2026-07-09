@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { Settings } from '../types';
 import { fileToCompressedDataUrl } from '../utils/images';
+import { formatCOP } from '../utils/money';
+import { formatDateCO } from '../utils/dates';
 import { exportBackup, serializeBackup, parseBackup, importBackup } from '../services/backup';
 import {
   Button,
@@ -23,6 +25,7 @@ export function SettingsView() {
   const [dirty, setDirty] = useState(false);
   const [importPending, setImportPending] = useState<string | null>(null);
   const [importError, setImportError] = useState('');
+  const [goldBusy, setGoldBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const patch = (partial: Partial<Settings>) => {
@@ -162,12 +165,57 @@ export function SettingsView() {
         title="Cálculo interno"
         subtitle="Confidencial. Nada de esta sección aparece en el PDF del cliente."
       >
-        <Field label="Precio del oro por gramo" hint={form.goldPriceNote}>
+        <div className="rounded-xl bg-brand-50 p-3">
+          <p className="text-sm font-medium text-brand-900">Precio del oro por gramo (automático)</p>
+          <p className="mt-1 text-2xl font-bold text-brand-900">{formatCOP(form.goldPricePerGram)}</p>
+          <p className="mt-1 text-xs text-stone-600">
+            = precio internacional 24K del día + {formatCOP(form.goldMarkupPerGram)} de recargo por gramo.
+          </p>
+          <p className="text-xs text-stone-500">
+            {form.goldPriceUpdatedAt
+              ? `Última actualización: ${formatDateCO(form.goldPriceUpdatedAt.slice(0, 10))}`
+              : 'Aún no se ha actualizado. Se actualiza solo al abrir la app con internet.'}
+          </p>
+          <div className="mt-2">
+            <Button
+              variant="secondary"
+              full
+              disabled={goldBusy}
+              onClick={async () => {
+                setGoldBusy(true);
+                try {
+                  await store.updateSettings(form);
+                  const info = await store.refreshGoldPrice();
+                  setForm((f) => ({
+                    ...f,
+                    goldPricePerGram: info.totalCopPerGram,
+                    goldPriceUpdatedAt: info.fetchedAt
+                  }));
+                  setDirty(false);
+                  store.showToast('Precio del oro actualizado');
+                } catch {
+                  store.showToast('Sin conexión: se conserva el último precio guardado.');
+                } finally {
+                  setGoldBusy(false);
+                }
+              }}
+            >
+              {goldBusy ? 'Consultando precio…' : '↻ Actualizar precio ahora'}
+            </Button>
+          </div>
+        </div>
+        <Field label="Recargo por gramo" hint="Se suma al precio internacional. Regla del negocio: $100.000.">
+          <MoneyInput value={form.goldMarkupPerGram} onValue={(goldMarkupPerGram) => patch({ goldMarkupPerGram })} />
+        </Field>
+        <Field
+          label="Precio manual (respaldo sin internet)"
+          hint="Si no hay conexión, puedes fijar el precio a mano. Se reemplaza en la próxima actualización automática."
+        >
           <MoneyInput value={form.goldPricePerGram} onValue={(goldPricePerGram) => patch({ goldPricePerGram })} />
         </Field>
         {form.goldPricePerGram === 0 && (
           <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-            Aún no has configurado el precio del oro. Las cotizaciones en oro saldrán en $0 hasta que lo fijes.
+            El precio del oro está en $0. Conéctate a internet y toca “Actualizar precio ahora”, o fija un precio manual.
           </p>
         )}
         <Field label="Margen por defecto">

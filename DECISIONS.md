@@ -6,16 +6,19 @@ Formato: cada decisión tiene ID, fecha, estado (vigente / pendiente de confirma
 
 Carpeta vacía → se creó desde cero con el stack sugerido en la especificación. Sin router (5 vistas con estado simple), sin gestor de estado externo (Context + hooks bastan para este tamaño).
 
-## D-002 · Precio del oro: configuración interna editable · 2026-07-07 · ⚠ Pendiente de confirmar
+## D-002 · Precio del oro: automático (internacional del día + $100.000/g) · 2026-07-08 · Vigente (confirmado por Santiago)
 
-La lógica comercial de Santiago es **precio internacional 24K + $100.000 COP por gramo**. Decisión tomada:
+Santiago confirmó el 2026-07-08 que el precio debe ser automático: **la app consulta el precio internacional 24K del día y siempre suma $100.000 COP por gramo**. Implementación (`src/services/goldPrice.ts`):
 
-- El sistema guarda un único campo editable `goldPricePerGram` (COP/gramo) en Ajustes, con la regla documentada como nota interna visible solo para la joyería.
-- **No** se automatizó la consulta del precio internacional (requeriría API externa e internet; el MVP es offline). El usuario calcula su referencia y escribe el valor.
-- Por defecto vale `0` y la app muestra advertencia hasta que se configure. **No se inventó un precio.**
-- Nunca aparece en PDF ni vista del cliente (verificado por tests).
+- Fuentes gratuitas sin clave: `api.gold-api.com/price/XAU` (oro USD/onza troy) y `open.er-api.com/v6/latest/USD` (tasa USD→COP). Conversión: `(USD_onza ÷ 31,1034768 g) × COP_USD`, redondeado a entero + recargo.
+- Se actualiza **al abrir la app con internet** y con el botón "Actualizar precio ahora" en Ajustes.
+- Sin conexión: se conserva el último precio guardado (la app sigue siendo usable offline) y existe un campo de precio manual de respaldo.
+- El recargo es configurable (`goldMarkupPerGram`, por defecto $100.000).
+- El cálculo es puro y está testeado (`goldPrice.test.ts`). Nunca aparece en PDF ni vista del cliente (tests de privacidad).
 
-Pendiente: confirmar con Santiago si quiere un campo auxiliar "precio internacional 24K" que sume los $100.000 automáticamente (ROADMAP v0.2).
+Riesgo aceptado: dependencia de dos APIs gratuitas de terceros. Si alguna falla, la app avisa y usa el último valor guardado; cambiar de proveedor solo toca `goldPrice.ts`.
+
+_(Reemplaza la versión anterior de D-002 que dejaba el precio 100% manual.)_
 
 ## D-003 · Margen interno por defecto = 0% · 2026-07-07 · Vigente
 

@@ -34,7 +34,7 @@ npm run icons      # regenerar los iconos PWA en public/
 
 ## Primer uso
 
-1. Abre **Ajustes** y configura el nombre de la joyería, contacto y — importante — el **precio del oro por gramo** (dato interno, nunca visible al cliente).
+1. Abre **Ajustes** y configura el nombre de la joyería y el contacto. El **precio del oro por gramo** se actualiza solo al abrir la app con internet (precio internacional 24K del día + $100.000 de recargo; es un dato interno, nunca visible al cliente). Sin conexión se usa el último precio guardado.
 2. Crea clientes en la pestaña **Clientes**.
 3. Crea una cotización con **＋ Nueva**: el formulario va por pasos (Cliente → Pieza → Piedras → Costos).
 4. En la **vista previa** puedes guardar, generar el PDF del cliente, ver la vista interna y compartir por WhatsApp.

@@ -18,11 +18,13 @@ export function defaultSettings(): Settings {
     commercialMessage: 'Gracias por su confianza. Será un gusto atenderle.',
     defaultValidityDays: 15,
     currency: 'COP',
-    // 0 = sin configurar. La interfaz avisa al usuario que debe fijarlo en Ajustes.
-    // Referencia comercial del negocio (solo interna): precio internacional 24K + $100.000 COP/g.
+    // 0 = aún sin actualizar. Se actualiza solo al abrir la app con internet.
+    // Regla comercial (solo interna): precio internacional 24K del día + recargo por gramo.
     goldPricePerGram: 0,
+    goldMarkupPerGram: 100000,
+    goldPriceUpdatedAt: '',
     goldPriceNote:
-      'Referencia interna: precio internacional del oro 24K + $100.000 COP por gramo. Este dato es confidencial y nunca se muestra al cliente.',
+      'Regla interna: precio internacional del oro 24K del día + $100.000 COP por gramo. Este dato es confidencial y nunca se muestra al cliente.',
     defaultMarginPercent: 0,
     taxEnabledByDefault: false,
     defaultTaxPercent: 19,
