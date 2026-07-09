@@ -4,8 +4,10 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import type { Quote, QuoteStatus } from '../types';
+import type { Quote, QuoteStatus, ProductionStage } from '../types';
 import { QUOTE_STATUSES } from '../types';
+import { defaultProductionStages } from '../services/production';
+import { ProductionPanel } from './ProductionPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { buildClientPdfContent, stoneClientDescription } from '../services/pdfContent';
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
@@ -104,11 +106,23 @@ export function PreviewView({
       ...quote,
       number: quote.number || (await store.nextQuoteNumber()),
       status,
+      // Al aprobar arranca el trabajo del taller: se crea el seguimiento estándar.
+      production:
+        status === 'aprobada' && quote.production.length === 0
+          ? defaultProductionStages()
+          : quote.production,
       updatedAt: new Date().toISOString()
     };
     await store.upsertQuote(saved);
     onSaved(saved);
     store.showToast(`Estado: ${status}`);
+  };
+
+  /** Los cambios de producción se guardan de inmediato (sin botón adicional). */
+  const updateProduction = async (production: ProductionStage[]) => {
+    const saved: Quote = { ...quote, production, updatedAt: new Date().toISOString() };
+    await store.upsertQuote(saved);
+    onSaved(saved);
   };
 
   return (
@@ -245,6 +259,17 @@ export function PreviewView({
             </div>
           )}
           <p className="mt-4 text-xs text-stone-500">{store.settings.goldPriceNote}</p>
+
+          {quote.status === 'aprobada' && (
+            <ProductionPanel stages={quote.production} quoteTotal={calc.total} onChange={(p) => void updateProduction(p)} />
+          )}
+          {quote.status !== 'aprobada' && quote.production.length === 0 && (
+            <p className="mt-4 rounded-xl bg-white/60 p-3 text-xs text-stone-500">
+              🛠 El seguimiento de producción del taller (etapas y pagos) aparece aquí cuando la cotización pasa a
+              estado <strong>aprobada</strong>.
+            </p>
+          )}
+
           <div className="mt-4">
             <Button variant="secondary" full onClick={handleInternalPdf} disabled={busy}>
               Descargar PDF interno

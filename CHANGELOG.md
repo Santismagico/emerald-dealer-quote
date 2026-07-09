@@ -2,6 +2,16 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [0.3.0] — 2026-07-08
+
+### Agregado
+
+- **Seguimiento de producción del taller** (solo vista interna, definido con Santiago): al aprobar una cotización se crean las etapas estándar (Diseño → Impresión cera/3D → Fundición → Armado y engaste → Pulido → Entrega), cada una con estado (pendiente / en proceso / lista con fecha automática) y control de pago (cuánto, cuándo, a quién se le pagó y quién pagó). Etapas editables por pieza. Resumen de gasto real (total, pagado, por pagar) y utilidad estimada (cotizado − gastos registrados). Aparece en el PDF interno y en el historial (avance X/N); jamás en el PDF ni WhatsApp del cliente (tests de privacidad ampliados).
+
+### Corregido
+
+- Botón de WhatsApp: los celulares colombianos de 10 dígitos reciben el prefijo internacional 57 (sin él, wa.me no abría el chat) y la apertura usa navegación directa cuando el navegador bloquea la ventana emergente (Safari/iOS).
+
 ## [0.2.1] — 2026-07-08
 
 ### Agregado

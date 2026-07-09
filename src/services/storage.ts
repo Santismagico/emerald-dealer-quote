@@ -70,7 +70,10 @@ export async function deleteClient(id: string): Promise<void> {
 
 export async function listQuotes(): Promise<Quote[]> {
   const quotes = await dbGetAll<Quote>('quotes');
-  return quotes.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return quotes
+    // Cotizaciones guardadas por versiones sin seguimiento de producción.
+    .map((q) => (q.production ? q : { ...q, production: [] }))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export async function saveQuote(quote: Quote): Promise<void> {

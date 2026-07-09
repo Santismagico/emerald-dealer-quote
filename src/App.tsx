@@ -45,6 +45,7 @@ function emptyQuote(defaults: {
     internalNotes: '',
     clientNotes: '',
     images: [],
+    production: [],
     createdAt: now,
     updatedAt: now
   };
@@ -90,6 +91,8 @@ function AppShell() {
       status: 'borrador',
       date: todayISO(),
       validUntil: addDays(todayISO(), store.settings.defaultValidityDays),
+      // La copia es una pieza nueva: el avance de taller no se hereda.
+      production: [],
       createdAt: now,
       updatedAt: now
     };

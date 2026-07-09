@@ -53,6 +53,31 @@ export interface Client {
 
 export type DiscountType = 'porcentaje' | 'valor';
 
+export type StageStatus = 'pendiente' | 'enProceso' | 'lista';
+
+/**
+ * Etapa de producción del taller (SOLO uso interno, nunca visible al cliente).
+ * Controla el avance de fabricación y los pagos de cada etapa.
+ */
+export interface ProductionStage {
+  id: string;
+  /** Nombre de la etapa: Diseño, Fundición, etc. */
+  name: string;
+  status: StageStatus;
+  /** Fecha (YYYY-MM-DD) en que la etapa quedó lista. Vacío si no. */
+  completedAt: string;
+  /** Costo de la etapa en COP. */
+  cost: number;
+  paid: boolean;
+  /** Fecha del pago (YYYY-MM-DD). */
+  paidAt: string;
+  /** A quién se le pagó (taller o proveedor). */
+  paidTo: string;
+  /** Quién hizo el pago. */
+  paidBy: string;
+  notes: string;
+}
+
 export interface Quote {
   id: string;
   /** Número visible de la cotización, ej: ED-2026-0001 */
@@ -88,6 +113,11 @@ export interface Quote {
   clientNotes: string;
   /** Imágenes de referencia como data URLs comprimidas. */
   images: string[];
+  /**
+   * Seguimiento de producción del taller (interno). Se inicializa con las
+   * etapas estándar cuando la cotización pasa a estado "aprobada".
+   */
+  production: ProductionStage[];
   createdAt: string;
   updatedAt: string;
 }

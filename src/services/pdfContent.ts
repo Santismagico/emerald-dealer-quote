@@ -174,6 +174,35 @@ export function buildInternalPdfContent(quote: Quote, calc: CalcResult, settings
   ];
   sections.push({ title: 'Estructura de costos (confidencial)', rows: costRows });
 
+  const production = quote.production ?? [];
+  if (production.length > 0) {
+    sections.push({
+      title: 'Producción del taller (interno)',
+      paragraphs: production.map((st) => {
+        const statusLabel =
+          st.status === 'lista'
+            ? `lista${st.completedAt ? ` el ${formatDateCO(st.completedAt)}` : ''}`
+            : st.status === 'enProceso'
+              ? 'en proceso'
+              : 'pendiente';
+        let payment = '';
+        if (st.cost > 0) {
+          payment = ` — ${formatCOP(st.cost)}`;
+          if (st.paid) {
+            payment += ' pagado';
+            if (st.paidAt) payment += ` el ${formatDateCO(st.paidAt)}`;
+            if (st.paidTo) payment += ` a ${st.paidTo}`;
+            if (st.paidBy) payment += ` (pagó ${st.paidBy})`;
+          } else {
+            payment += ' por pagar';
+          }
+        }
+        const note = st.notes.trim() ? ` — ${st.notes.trim()}` : '';
+        return `• ${st.name}: ${statusLabel}${payment}${note}`;
+      })
+    });
+  }
+
   const auditParagraphs = [
     `Creada: ${quote.createdAt}`,
     `Última actualización: ${quote.updatedAt}`,

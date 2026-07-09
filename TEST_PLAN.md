@@ -35,6 +35,10 @@ Hacer en un celular real (ideal iPhone + Safari):
 - [ ] Instalar como PWA (iPhone: Compartir → Añadir a pantalla de inicio) y abrir sin conexión.
 - [ ] Revisar que no haya scroll horizontal en ninguna pantalla ni zoom al enfocar inputs.
 - [ ] Eliminar cotización → pide confirmación.
+- [ ] Aprobar una cotización → aparece "Producción del taller" en la vista interna con las 6 etapas estándar.
+- [ ] Marcar etapas (pendiente → en proceso → lista) y registrar un pago (monto, fecha, a quién, quién pagó) → cerrar la app y verificar que el avance persiste.
+- [ ] Verificar que la producción aparece en el PDF interno pero NO en el PDF del cliente ni en el mensaje de WhatsApp.
+- [ ] Compartir por WhatsApp con un cliente de celular colombiano → el chat abre directamente (prefijo 57 automático).
 
 ## Resultado de la última ejecución
 

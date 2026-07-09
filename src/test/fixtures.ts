@@ -69,6 +69,32 @@ export function sampleQuote(overrides: Partial<Quote> = {}): Quote {
     internalNotes: 'Costo real de la piedra fue menor, revisar proveedor.',
     clientNotes: 'Incluye estuche de lujo.',
     images: [],
+    production: [
+      {
+        id: 'st-1',
+        name: 'Fundición',
+        status: 'lista',
+        completedAt: '2026-07-06',
+        cost: 300000,
+        paid: true,
+        paidAt: '2026-07-06',
+        paidTo: 'Taller Ramírez',
+        paidBy: 'Santiago',
+        notes: ''
+      },
+      {
+        id: 'st-2',
+        name: 'Pulido',
+        status: 'enProceso',
+        completedAt: '',
+        cost: 120000,
+        paid: false,
+        paidAt: '',
+        paidTo: '',
+        paidBy: '',
+        notes: 'Programado para el viernes'
+      }
+    ],
     createdAt: '2026-07-07T09:00:00.000Z',
     updatedAt: '2026-07-07T09:30:00.000Z',
     ...overrides

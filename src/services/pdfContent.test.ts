@@ -50,6 +50,13 @@ describe('PDF del cliente: privacidad', () => {
     expect(text).not.toContain('muzo');
     expect(text).not.toContain('lote 12');
   });
+
+  it('no contiene el seguimiento de producción del taller', () => {
+    expect(text).not.toContain('producción');
+    expect(text).not.toContain('fundición');
+    expect(text).not.toContain('taller ramírez');
+    expect(text).not.toContain('pagó');
+  });
 });
 
 describe('PDF del cliente: contenido esperado', () => {
@@ -100,6 +107,13 @@ describe('documento interno', () => {
   it('incluye las notas internas y la nota del oro', () => {
     expect(text).toContain('proveedor');
     expect(text).toContain('24K');
+  });
+
+  it('incluye el seguimiento de producción con estados y pagos', () => {
+    expect(text).toContain('Fundición: lista el 6 de julio de 2026');
+    expect(text).toContain('300.000 pagado el 6 de julio de 2026 a Taller Ramírez (pagó Santiago)');
+    expect(text).toContain('Pulido: en proceso');
+    expect(text).toContain('120.000 por pagar');
   });
 
   it('está marcado como documento interno', () => {

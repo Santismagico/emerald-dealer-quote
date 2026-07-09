@@ -26,7 +26,8 @@ Una joyería necesita cotizar piezas de joyería de forma rápida, profesional y
 | 11 | WhatsApp (mensaje profesional sin datos internos) | ✅ Implementado |
 | 12 | Experiencia móvil (iPhone primero, sin overflow, inputs 16px, safe areas) | ✅ Implementado |
 | 13 | PWA (manifest, iconos, service worker, offline) | ✅ Implementado |
-| 14 | Arquitectura futura SaaS | 📄 Documentado, no implementado |
+| 14 | Arquitectura futura SaaS | 📄 Documentado, no implementado (plan ejecutable en SAAS_PLAN.md) |
+| 15 | Seguimiento de producción del taller (etapas, estados, pagos: cuánto/cuándo/a quién/quién pagó; solo interno, en cotizaciones aprobadas) | ✅ Implementado (v0.3.0) |
 
 ## Reglas de cálculo
 

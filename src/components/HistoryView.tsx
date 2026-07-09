@@ -99,6 +99,12 @@ export function HistoryView({
                     {quote.pieceType}
                     {quote.pieceDescription ? ` · ${quote.pieceDescription}` : ''}
                   </p>
+                  {quote.status === 'aprobada' && quote.production.length > 0 && (
+                    <p className="mt-0.5 text-xs text-amber-700">
+                      🛠 Producción: {quote.production.filter((s) => s.status === 'lista').length}/
+                      {quote.production.length} etapas listas
+                    </p>
+                  )}
                 </button>
                 <div className="mt-3 flex gap-2 border-t border-stone-100 pt-3">
                   <ActionLink label="Editar" onClick={() => onEdit(quote)} />
