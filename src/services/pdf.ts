@@ -196,14 +196,19 @@ function renderTotals(state: RenderState, content: PdfContent): void {
 
 function renderFooter(doc: jsPDF, content: PdfContent): void {
   const pages = doc.getNumberOfPages();
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8.5);
+  // El mensaje comercial puede ocupar varias líneas: se ajusta al ancho útil.
+  const lines = doc.splitTextToSize(content.footer, CONTENT_W - 14) as string[];
+  const startY = PAGE_H - 8 - (lines.length - 1) * 3.8;
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8.5);
     doc.setTextColor(...GRAY);
-    doc.text(content.footer, PAGE_W / 2, PAGE_H - 10, { align: 'center' });
+    doc.text(lines, PAGE_W / 2, startY, { align: 'center' });
     if (pages > 1) {
-      doc.text(`${i}/${pages}`, PAGE_W - MARGIN, PAGE_H - 10, { align: 'right' });
+      doc.text(`${i}/${pages}`, PAGE_W - MARGIN, PAGE_H - 8, { align: 'right' });
     }
   }
 }

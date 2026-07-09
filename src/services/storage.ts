@@ -15,7 +15,8 @@ export function defaultSettings(): Settings {
     address: '',
     city: '',
     email: '',
-    commercialMessage: 'Gracias por su confianza. Será un gusto atenderle.',
+    commercialMessage:
+      'Cada joya de nuestra casa es un emblema de lujo y distinción, creada para acompañar los momentos que merecen quedar en la memoria. Esta pieza será elaborada con dedicación artesanal, cuidando cada detalle de su fabricación para entregarle una obra digna de usted. Gracias por su confianza.',
     defaultValidityDays: 15,
     currency: 'COP',
     // 0 = aún sin actualizar. Se actualiza solo al abrir la app con internet.
@@ -34,12 +35,20 @@ export function defaultSettings(): Settings {
   };
 }
 
+// Mensaje por defecto de versiones anteriores: si el usuario no lo personalizó,
+// se actualiza al nuevo mensaje comercial (migración suave, no destructiva).
+const LEGACY_DEFAULT_MESSAGE = 'Gracias por su confianza. Será un gusto atenderle.';
+
 export async function loadSettings(): Promise<Settings> {
   const stored = await dbGet<Settings & { id: string }>('settings', SETTINGS_KEY);
   if (!stored) return defaultSettings();
   // Mezcla con defaults para tolerar settings guardados por versiones anteriores.
   const { id: _id, ...rest } = stored;
-  return { ...defaultSettings(), ...rest };
+  const merged = { ...defaultSettings(), ...rest };
+  if (merged.commercialMessage === LEGACY_DEFAULT_MESSAGE) {
+    merged.commercialMessage = defaultSettings().commercialMessage;
+  }
+  return merged;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {

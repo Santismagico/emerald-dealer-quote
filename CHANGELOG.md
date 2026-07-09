@@ -2,6 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [0.2.1] — 2026-07-08
+
+### Agregado
+
+- Nuevo mensaje comercial por defecto (PDF y vista del cliente): resalta el carácter emblemático de lujo de la joya y la dedicación artesanal de su fabricación. Editable en Ajustes. Migración suave: solo se aplica si el usuario no había personalizado el mensaje anterior.
+- El pie del PDF ahora ajusta mensajes largos en varias líneas sin deformarse.
+
 ## [0.2.0] — 2026-07-08
 
 ### Agregado
