@@ -283,6 +283,26 @@ export function EmptyState({ title, message }: { title: string; message: string 
   );
 }
 
+/** Fila etiqueta/valor para resúmenes internos (costos, abonos, producción). */
+export function SummaryRow({
+  label,
+  value,
+  bold = false,
+  valueClass
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  valueClass?: string;
+}) {
+  return (
+    <div className={`flex justify-between gap-3 text-sm ${bold ? 'font-semibold' : ''}`}>
+      <span className="text-stone-600">{label}</span>
+      <span className={valueClass ?? 'text-stone-900'}>{value}</span>
+    </div>
+  );
+}
+
 export function Toast({ message }: { message: string | null }) {
   if (!message) return null;
   return (

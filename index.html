@@ -20,6 +20,8 @@
       // en vez de una pantalla en blanco.
       (function () {
         function showFallback() {
+          // Si el script principal ya arrancó, no es un fallo real (red lenta).
+          if (window.__EDQ_STARTED) return;
           var root = document.getElementById('root');
           if (root && !root.hasChildNodes()) {
             root.innerHTML =
@@ -31,8 +33,8 @@
               '</div>';
           }
         }
-        window.addEventListener('error', function () { setTimeout(showFallback, 500); }, true);
-        setTimeout(showFallback, 10000);
+        window.addEventListener('error', function () { setTimeout(showFallback, 1500); }, true);
+        setTimeout(showFallback, 15000);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

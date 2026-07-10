@@ -4,10 +4,11 @@
 
 import { useState } from 'react';
 import type { ProductionStage, StageStatus } from '../types';
-import { emptyStage, productionSummary } from '../services/production';
+import { emptyStage, productionSummary, defaultProductionStages } from '../services/production';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
-import { Button, Field, TextInput, MoneyInput, Toggle, ConfirmDialog } from './ui';
+import { patchById } from '../utils/collections';
+import { Button, Field, TextInput, MoneyInput, Toggle, ConfirmDialog, SummaryRow } from './ui';
 
 const STATUS_LABEL: Record<StageStatus, string> = {
   pendiente: 'Pendiente',
@@ -43,7 +44,7 @@ export function ProductionPanel({
   const estimatedProfit = quoteTotal - summary.totalCost;
 
   const patchStage = (id: string, partial: Partial<ProductionStage>) =>
-    onChange(stages.map((s) => (s.id === id ? { ...s, ...partial } : s)));
+    onChange(patchById(stages, id, partial));
 
   const cycleStatus = (stage: ProductionStage) => {
     const status = NEXT_STATUS[stage.status];
@@ -64,6 +65,14 @@ export function ProductionPanel({
         </span>
       </div>
 
+      {stages.length === 0 && (
+        <div className="mb-2">
+          <Button variant="secondary" full onClick={() => onChange(defaultProductionStages())}>
+            ＋ Crear etapas estándar del taller
+          </Button>
+        </div>
+      )}
+
       <ul className="space-y-2">
         {stages.map((stage) => (
           <li key={stage.id} className="rounded-xl bg-white p-3 shadow-sm">
@@ -83,7 +92,7 @@ export function ProductionPanel({
               <button
                 type="button"
                 onClick={() => cycleStatus(stage)}
-                className={`shrink-0 rounded-full px-3 py-2 text-xs font-medium ${STATUS_STYLE[stage.status]}`}
+                className={`min-h-11 shrink-0 rounded-full px-3.5 py-2 text-xs font-medium ${STATUS_STYLE[stage.status]}`}
               >
                 {STATUS_LABEL[stage.status]}
                 {stage.status === 'lista' && stage.completedAt ? (
@@ -157,7 +166,7 @@ export function ProductionPanel({
             label="Utilidad estimada (cotizado − gastos registrados)"
             value={formatCOP(estimatedProfit)}
             bold
-            negative={estimatedProfit < 0}
+            valueClass={estimatedProfit < 0 ? 'text-red-600' : undefined}
           />
         </div>
         <p className="text-[11px] text-stone-400">
@@ -177,25 +186,6 @@ export function ProductionPanel({
           setToRemove(null);
         }}
       />
-    </div>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  bold = false,
-  negative = false
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-  negative?: boolean;
-}) {
-  return (
-    <div className={`flex justify-between gap-3 text-sm ${bold ? 'font-semibold' : ''}`}>
-      <span className="text-stone-600">{label}</span>
-      <span className={negative ? 'text-red-600' : 'text-stone-900'}>{value}</span>
     </div>
   );
 }

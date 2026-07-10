@@ -202,7 +202,7 @@ function InAppBrowserBanner() {
       </p>
       <button
         type="button"
-        className="mt-2 rounded-lg bg-amber-200 px-3 py-2 text-sm font-medium text-amber-900"
+        className="mt-2 min-h-11 rounded-lg bg-amber-200 px-4 py-2 text-sm font-medium text-amber-900"
         onClick={async () => {
           try {
             await navigator.clipboard.writeText(APP_URL);

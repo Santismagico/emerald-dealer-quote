@@ -10,6 +10,13 @@
 
 export const GRAMS_PER_TROY_OUNCE = 31.1034768;
 
+// Límites de sanidad: si una API es comprometida o devuelve basura, un valor
+// absurdo NO debe convertirse en precio de cotización (auditoría de seguridad).
+const MIN_USD_PER_OUNCE = 500;
+const MAX_USD_PER_OUNCE = 20000;
+const MIN_COP_PER_USD = 1000;
+const MAX_COP_PER_USD = 20000;
+
 const GOLD_API_URL = 'https://api.gold-api.com/price/XAU';
 const FX_API_URL = 'https://open.er-api.com/v6/latest/USD';
 const TIMEOUT_MS = 12000;
@@ -43,6 +50,12 @@ export function computeGoldPricePerGram(
   }
   if (!Number.isFinite(copPerUsd) || copPerUsd <= 0) {
     throw new Error('La tasa de cambio USD/COP recibida no es válida.');
+  }
+  if (usdPerOunce < MIN_USD_PER_OUNCE || usdPerOunce > MAX_USD_PER_OUNCE) {
+    throw new Error('El precio internacional del oro recibido está fuera de un rango razonable. No se actualizó el precio.');
+  }
+  if (copPerUsd < MIN_COP_PER_USD || copPerUsd > MAX_COP_PER_USD) {
+    throw new Error('La tasa de cambio USD/COP recibida está fuera de un rango razonable. No se actualizó el precio.');
   }
   if (!Number.isFinite(markupPerGram) || markupPerGram < 0) {
     throw new Error('El recargo por gramo no es válido.');

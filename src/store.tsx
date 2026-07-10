@@ -45,8 +45,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshGoldPrice = useCallback(async () => {
+    const markup = (await storage.loadSettings()).goldMarkupPerGram;
+    const info = await fetchGoldPriceCOP(markup);
+    // Releer los settings DESPUÉS de esperar la red: si el usuario guardó
+    // cambios durante la consulta, no se pisan (carrera detectada en auditoría).
     const current = await storage.loadSettings();
-    const info = await fetchGoldPriceCOP(current.goldMarkupPerGram);
     const next: Settings = {
       ...current,
       goldPricePerGram: info.totalCopPerGram,
@@ -62,10 +65,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Si IndexedDB falla (modo privado extremo), la app sigue con datos en memoria.
       })
-      .finally(() => setReady(true));
-    // Al abrir la app con internet, actualiza el precio del oro del día.
-    // Sin conexión, se conserva el último precio guardado.
-    refreshGoldPrice().catch(() => {});
+      .finally(() => setReady(true))
+      // Después de cargar, actualiza el precio del oro del día (si hay internet).
+      // Encadenado para no competir con la carga inicial de settings.
+      .then(() => refreshGoldPrice())
+      .catch(() => {});
   }, [reloadAll, refreshGoldPrice]);
 
   const showToast = useCallback((message: string) => {
@@ -89,13 +93,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const upsertQuote = useCallback(async (quote: Quote) => {
+    // Se parcha el estado localmente: recargar TODAS las cotizaciones (con sus
+    // fotos) desde IndexedDB en cada guardado causaba lag al teclear en
+    // producción/abonos (hallazgo de eficiencia de la auditoría).
+    setQuotes((prev) =>
+      [quote, ...prev.filter((q) => q.id !== quote.id)].sort((a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt)
+      )
+    );
     await storage.saveQuote(quote);
-    setQuotes(await storage.listQuotes());
   }, []);
 
   const removeQuote = useCallback(async (id: string) => {
+    setQuotes((prev) => prev.filter((q) => q.id !== id));
     await storage.deleteQuote(id);
-    setQuotes(await storage.listQuotes());
   }, []);
 
   const nextQuoteNumber = useCallback(async () => {

@@ -41,3 +41,8 @@ export function parseDecimal(text: string): number {
 export function roundCOP(value: number): number {
   return Math.round(value);
 }
+
+/** COP entero seguro para sumas: valores no numéricos o negativos cuentan como 0. */
+export function toSafeCOP(value: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}

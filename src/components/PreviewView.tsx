@@ -15,7 +15,7 @@ import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
-import { Button, Select, StatusBadge } from './ui';
+import { Button, Select, StatusBadge, SummaryRow } from './ui';
 
 export function PreviewView({
   quote,
@@ -93,10 +93,16 @@ export function PreviewView({
       const saved = await persist();
       const message = buildWhatsAppMessage(saved, calc, store.settings);
       const link = whatsAppLink(message, saved.clientSnapshot?.phone);
-      // window.open tras un await es bloqueado por Safari/iOS; navegar directo es confiable
-      // (en el celular abre la app de WhatsApp, en computador abre WhatsApp Web).
-      const win = window.open(link, '_blank', 'noopener');
-      if (!win) window.location.href = link;
+      // OJO: no pasar 'noopener' como feature — hace que window.open devuelva
+      // null AUNQUE la ventana se abra, y el fallback navegaría la app entera
+      // (bug detectado en auditoría). Se anula opener a mano.
+      const win = window.open(link, '_blank');
+      if (win) {
+        win.opener = null;
+      } else {
+        // Ventana bloqueada (Safari tras un await): navegación directa como último recurso.
+        window.location.href = link;
+      }
     } catch {
       store.showToast('No se pudo abrir WhatsApp.');
     } finally {
@@ -122,21 +128,18 @@ export function PreviewView({
   };
 
   /**
-   * Los cambios de producción y abonos se guardan de inmediato (sin botón).
+   * Guardado inmediato de un parche sobre la cotización (producción, abonos).
    * La pantalla se actualiza ANTES de esperar la base de datos: si no,
    * dos ediciones rápidas seguidas podrían pisarse entre sí.
    */
-  const updateProduction = async (production: ProductionStage[]) => {
-    const saved: Quote = { ...quote, production, updatedAt: new Date().toISOString() };
+  const saveQuotePatch = async (partial: Partial<Quote>) => {
+    const saved: Quote = { ...quote, ...partial, updatedAt: new Date().toISOString() };
     onSaved(saved);
     await store.upsertQuote(saved);
   };
 
-  const updatePayments = async (payments: ClientPayment[]) => {
-    const saved: Quote = { ...quote, payments, updatedAt: new Date().toISOString() };
-    onSaved(saved);
-    await store.upsertQuote(saved);
-  };
+  const updateProduction = (production: ProductionStage[]) => saveQuotePatch({ production });
+  const updatePayments = (payments: ClientPayment[]) => saveQuotePatch({ payments });
 
   return (
     <div className="space-y-4">
@@ -241,18 +244,18 @@ export function PreviewView({
             🔒 Información confidencial — no compartir con el cliente
           </p>
           <div className="space-y-1.5">
-            <InternalRow label="Subtotal material" value={formatCOP(calc.materialSubtotal)} />
-            <InternalRow label="Subtotal piedras" value={formatCOP(calc.stonesSubtotal)} />
-            <InternalRow label="Mano de obra" value={formatCOP(calc.laborSubtotal)} />
-            <InternalRow label="Costos adicionales" value={formatCOP(calc.extrasSubtotal)} />
-            <InternalRow label="Costo base" value={formatCOP(calc.baseCost)} bold />
-            <InternalRow label={`Margen (${quote.marginPercent}%)`} value={formatCOP(calc.marginAmount)} />
-            <InternalRow label="Subtotal comercial" value={formatCOP(calc.subtotal)} />
-            <InternalRow label="Descuento" value={`- ${formatCOP(calc.discountAmount)}`} />
-            <InternalRow label="Impuesto" value={formatCOP(calc.taxAmount)} />
-            <InternalRow label="Total" value={formatCOP(calc.total)} bold />
-            <InternalRow label="Anticipo" value={formatCOP(calc.deposit)} />
-            <InternalRow label="Saldo" value={formatCOP(calc.balance)} />
+            <SummaryRow label="Subtotal material" value={formatCOP(calc.materialSubtotal)} />
+            <SummaryRow label="Subtotal piedras" value={formatCOP(calc.stonesSubtotal)} />
+            <SummaryRow label="Mano de obra" value={formatCOP(calc.laborSubtotal)} />
+            <SummaryRow label="Costos adicionales" value={formatCOP(calc.extrasSubtotal)} />
+            <SummaryRow label="Costo base" value={formatCOP(calc.baseCost)} bold />
+            <SummaryRow label={`Margen (${quote.marginPercent}%)`} value={formatCOP(calc.marginAmount)} />
+            <SummaryRow label="Subtotal comercial" value={formatCOP(calc.subtotal)} />
+            <SummaryRow label="Descuento" value={`- ${formatCOP(calc.discountAmount)}`} />
+            <SummaryRow label="Impuesto" value={formatCOP(calc.taxAmount)} />
+            <SummaryRow label="Total" value={formatCOP(calc.total)} bold />
+            <SummaryRow label="Anticipo" value={formatCOP(calc.deposit)} />
+            <SummaryRow label="Saldo" value={formatCOP(calc.balance)} />
           </div>
           {quote.stones.length > 0 && (
             <div className="mt-4">
@@ -322,11 +325,3 @@ export function PreviewView({
   );
 }
 
-function InternalRow({ label, value, bold = false }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div className={`flex justify-between text-sm ${bold ? 'font-semibold text-stone-900' : 'text-stone-700'}`}>
-      <span>{label}</span>
-      <span>{value}</span>
-    </div>
-  );
-}

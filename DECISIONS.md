@@ -44,6 +44,20 @@ El motor limita el descuento al subtotal y el anticipo al total (nunca totales n
 
 El PDF no puede adjuntarse automáticamente por URL de WhatsApp; el flujo es: descargar PDF + mensaje con resumen y total. Adjuntar vía Web Share API queda en ROADMAP v0.2.
 
+## D-010 · Auditoría de seguridad multi-ángulo (v0.5.0) · 2026-07-09 · Vigente
+
+Se ejecutó una revisión con 8 ángulos independientes (línea a línea, guardias eliminadas, trazado entre archivos, seguridad, reutilización, simplificación/eficiencia, arquitectura, convenciones). Resultado: 8 hallazgos principales corregidos + mejoras estructurales. Decisiones derivadas:
+
+- **`services/schema.ts` es la única fuente de defaults, migraciones y normalización.** Toda lectura de datos (local, respaldo, futura nube) pasa por `normalizeQuote`/`normalizeSettings`. Ninguna vista debe defenderse por su cuenta de datos con forma vieja.
+- **Settings versionados** (`settingsVersion`): las migraciones se encadenan por versión, no por comparación de strings.
+- **Respaldo v2**: `parseBackup` acepta v1 y v2 y normaliza todo; nunca se persiste un dato sin normalizar.
+- **CSP en producción** (plugin en vite.config.ts): red permitida solo hacia las 2 APIs del oro; scripts inline permitidos por hash.
+- **Límites del precio del oro**: USD/onza aceptado entre 500 y 20.000; COP/USD entre 1.000 y 20.000. Fuera de rango → error humano y se conserva el último precio.
+
+## D-011 · Normalización de teléfonos para WhatsApp · 2026-07-09 · Vigente
+
+Números de 10 dígitos que empiezan por 3 (celular) o 60 (fijo) reciben el prefijo 57. Limitación aceptada y documentada: un número extranjero guardado sin indicativo (ej. un celular de EE. UU. de 10 dígitos que empiece por 3) es indistinguible de uno colombiano; el negocio opera en Colombia y el remedio es guardar los números extranjeros con su indicativo (+1…).
+
 ## D-009 · Nodo instalado con winget · 2026-07-07 · Vigente
 
 El equipo no tenía Node.js. Se instaló OpenJS.NodeJS.LTS 24.18.0 vía winget para poder construir el proyecto.

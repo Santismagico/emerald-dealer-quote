@@ -33,11 +33,15 @@ export function buildWhatsAppMessage(quote: Quote, calc: CalcResult, settings: S
 
 /**
  * Normaliza un teléfono al formato internacional que exige wa.me.
- * Un celular colombiano de 10 dígitos que empieza por 3 recibe el prefijo 57.
+ * Números colombianos de 10 dígitos — celulares (3xx) y fijos (60x) —
+ * reciben el prefijo 57. Limitación documentada en DECISIONS.md: un número
+ * extranjero guardado sin indicativo es indistinguible de uno colombiano.
  */
 export function normalizePhoneForWhatsApp(phone: string): string {
-  const digits = phone.replace(/[^\d]/g, '');
-  if (digits.length === 10 && digits.startsWith('3')) return `57${digits}`;
+  const digits = phone.replace(/[^\d]/g, '').replace(/^0+/, '');
+  if (digits.length === 10 && (digits.startsWith('3') || digits.startsWith('60'))) {
+    return `57${digits}`;
+  }
   return digits;
 }
 

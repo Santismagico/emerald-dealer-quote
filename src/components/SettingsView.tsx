@@ -27,6 +27,12 @@ export function SettingsView() {
   const [importError, setImportError] = useState('');
   const [goldBusy, setGoldBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  // Valor del oro que tenía el formulario al abrirse: permite saber si el
+  // usuario lo editó a mano o si debe conservarse el auto-actualizado.
+  const initialGoldRef = useRef({
+    price: store.settings.goldPricePerGram,
+    updatedAt: store.settings.goldPriceUpdatedAt
+  });
 
   const patch = (partial: Partial<Settings>) => {
     setForm((f) => ({ ...f, ...partial }));
@@ -34,7 +40,17 @@ export function SettingsView() {
   };
 
   const handleSave = async () => {
-    await store.updateSettings(form);
+    const next = { ...form };
+    // Si el precio del oro se auto-actualizó en segundo plano y el usuario NO
+    // tocó el campo manual, guardar el formulario no debe revertirlo
+    // (carrera detectada en auditoría).
+    if (form.goldPricePerGram === initialGoldRef.current.price) {
+      next.goldPricePerGram = store.settings.goldPricePerGram;
+      next.goldPriceUpdatedAt = store.settings.goldPriceUpdatedAt;
+    }
+    await store.updateSettings(next);
+    setForm(next);
+    initialGoldRef.current = { price: next.goldPricePerGram, updatedAt: next.goldPriceUpdatedAt };
     setDirty(false);
     store.showToast('Ajustes guardados');
   };
@@ -191,6 +207,7 @@ export function SettingsView() {
                     goldPricePerGram: info.totalCopPerGram,
                     goldPriceUpdatedAt: info.fetchedAt
                   }));
+                  initialGoldRef.current = { price: info.totalCopPerGram, updatedAt: info.fetchedAt };
                   setDirty(false);
                   store.showToast('Precio del oro actualizado');
                 } catch {

@@ -9,6 +9,7 @@ import { newId } from '../utils/id';
 import { calculateQuote, validateCalcInput, quoteToCalcInput, stoneSubtotal } from '../calc/engine';
 import { formatCOP } from '../utils/money';
 import { fileToCompressedDataUrl } from '../utils/images';
+import { patchById } from '../utils/collections';
 import {
   Button,
   Field,
@@ -187,7 +188,9 @@ export function QuoteFormView({
           <Field label="Precio del material por gramo" hint="Dato interno: no aparece en el PDF del cliente.">
             <MoneyInput value={quote.materialPricePerGram} onValue={(materialPricePerGram) => patch({ materialPricePerGram })} />
           </Field>
+          {/* Solo en borradores: repreciar una cotización ya enviada/aprobada no debe ser un toque accidental. */}
           {quote.material === 'Oro' &&
+            quote.status === 'borrador' &&
             store.settings.goldPricePerGram > 0 &&
             quote.materialPricePerGram !== store.settings.goldPricePerGram && (
               <button
@@ -411,8 +414,7 @@ function StonesStep({
   onChange: (stones: Stone[]) => void;
   subtotal: number;
 }) {
-  const patchStone = (id: string, partial: Partial<Stone>) =>
-    onChange(stones.map((s) => (s.id === id ? { ...s, ...partial } : s)));
+  const patchStone = (id: string, partial: Partial<Stone>) => onChange(patchById(stones, id, partial));
 
   return (
     <div className="space-y-4">

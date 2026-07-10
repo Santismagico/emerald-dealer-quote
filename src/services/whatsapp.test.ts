@@ -53,6 +53,16 @@ describe('enlace de WhatsApp', () => {
     expect(link).toBe(`https://wa.me/16035550100?text=${encodeURIComponent('hola')}`);
   });
 
+  it('agrega el prefijo 57 a fijos colombianos (60x) para no enrutar a Malasia', () => {
+    const link = whatsAppLink('hola', '601 555 1234');
+    expect(link).toBe(`https://wa.me/576015551234?text=${encodeURIComponent('hola')}`);
+  });
+
+  it('ignora ceros iniciales antes de normalizar', () => {
+    const link = whatsAppLink('hola', '0300 123 4567');
+    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent('hola')}`);
+  });
+
   it('funciona sin teléfono', () => {
     expect(whatsAppLink('hola')).toBe(`https://wa.me/?text=${encodeURIComponent('hola')}`);
   });

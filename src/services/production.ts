@@ -3,7 +3,7 @@
 
 import type { ProductionStage } from '../types';
 import { newId } from '../utils/id';
-import { roundCOP } from '../utils/money';
+import { toSafeCOP } from '../utils/money';
 
 /** Etapas estándar del proceso de joyería, en orden de fabricación. */
 export const DEFAULT_STAGE_NAMES = [
@@ -52,7 +52,7 @@ export function productionSummary(stages: ProductionStage[]): ProductionSummary 
   let paidCost = 0;
   let stagesDone = 0;
   for (const stage of stages) {
-    const cost = roundCOP(Math.max(Number.isFinite(stage.cost) ? stage.cost : 0, 0));
+    const cost = toSafeCOP(stage.cost);
     totalCost += cost;
     if (stage.paid) paidCost += cost;
     if (stage.status === 'lista') stagesDone += 1;

@@ -29,6 +29,13 @@ describe('precio del oro: internacional + recargo por gramo', () => {
     expect(r.totalCopPerGram).toBe(r.internationalCopPerGram + 150000);
   });
 
+  it('rechaza valores fuera de rango razonable (API comprometida o dañada)', () => {
+    expect(() => computeGoldPricePerGram(3.5, 3300, 100000)).toThrow('fuera de un rango razonable');
+    expect(() => computeGoldPricePerGram(999999, 3300, 100000)).toThrow('fuera de un rango razonable');
+    expect(() => computeGoldPricePerGram(4000, 33, 100000)).toThrow('fuera de un rango razonable');
+    expect(() => computeGoldPricePerGram(4000, 999999, 100000)).toThrow('fuera de un rango razonable');
+  });
+
   it('rechaza datos inválidos de las fuentes', () => {
     expect(() => computeGoldPricePerGram(NaN, 3300, 100000)).toThrow('oro');
     expect(() => computeGoldPricePerGram(0, 3300, 100000)).toThrow('oro');

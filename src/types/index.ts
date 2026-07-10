@@ -177,11 +177,14 @@ export interface Settings {
   conditions: string;
   /** Consecutivo para numerar cotizaciones. */
   quoteCounter: number;
+  /** Versión del esquema de settings (para migraciones). Ver services/schema.ts. */
+  settingsVersion: number;
 }
 
 export interface BackupFile {
   app: 'emerald-dealer-quote';
-  version: 1;
+  /** Versión del formato de respaldo. Ver services/backup.ts. */
+  version: number;
   exportedAt: string;
   settings: Settings | null;
   clients: Client[];

@@ -106,7 +106,7 @@ export function HistoryView({
                   <button
                     type="button"
                     onClick={() => onOpenInternal(quote)}
-                    className="mt-2 flex w-full items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-left"
+                    className="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-left"
                   >
                     <span className="text-sm font-medium text-amber-800">
                       🛠 Producción: {quote.production.filter((s) => s.status === 'lista').length}/

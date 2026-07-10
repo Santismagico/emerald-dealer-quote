@@ -2,6 +2,35 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [0.5.0] — 2026-07-09
+
+Auditoría de seguridad y calidad (8 ángulos de revisión + verificación). Ver DECISIONS.md D-010.
+
+### Seguridad
+
+- **Normalización central de datos** (`services/schema.ts`): todo dato que entra (base local de versiones viejas, respaldos importados, futura nube) se corrige a la forma actual. Un respaldo corrupto o editado ya no puede dejar la app en pantalla blanca.
+- **Imágenes**: solo se aceptan imágenes generadas por la app (data URLs); URLs externas en respaldos se descartan (evita rastreo de cuándo se abre una cotización).
+- **Content-Security-Policy** en producción: solo se permite red hacia las dos APIs del precio del oro; scripts externos e inyectados quedan bloqueados (mitiga dependencias comprometidas).
+- **Límites de sanidad del precio del oro**: valores absurdos de las APIs (fuera de rangos razonables) se rechazan en vez de convertirse en cotizaciones con pérdida.
+- Respaldo formato v2 con importación normalizada (acepta v1 y v2); settings con versionado de esquema para migraciones futuras.
+
+### Corregido
+
+- Compartir por WhatsApp abría la app fuera de sí misma (window.open con 'noopener' devuelve null por especificación); ahora abre una sola vez y sin perder la app.
+- Dos carreras que podían revertir cambios guardados en Ajustes (actualización del oro en segundo plano vs. guardado del formulario).
+- El pie multilínea del PDF podía imprimirse sobre el contenido; ahora la paginación reserva su espacio real.
+- Fijos colombianos (60x) mal enrutados en WhatsApp (iban a Malasia); ceros iniciales ignorados.
+- Cotizaciones aprobadas por versiones anteriores ahora pueden crear sus etapas estándar con un botón.
+- El aviso de "aplicar precio del oro del día" solo aparece en borradores (no repreciar cotizaciones ya enviadas por accidente).
+- La pantalla de "no se pudo cargar" ya no salta en redes lentas si la app sí está cargando.
+
+### Rendimiento y mantenimiento
+
+- Guardar producción/abonos ya no recarga todas las cotizaciones (con fotos) desde la base local en cada tecla.
+- Helpers compartidos: `toSafeCOP`, `patchById`, `SummaryRow` (elimina código triplicado entre paneles).
+- 3 botones nuevos elevados al mínimo táctil de 44px.
+- 101 pruebas automáticas (26 nuevas).
+
 ## [0.4.0] — 2026-07-09
 
 ### Agregado

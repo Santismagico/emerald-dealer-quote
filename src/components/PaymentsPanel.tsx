@@ -7,7 +7,8 @@ import type { ClientPayment } from '../types';
 import { emptyPayment, paymentsTotal } from '../services/payments';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
-import { Button, Field, TextInput, MoneyInput, ConfirmDialog } from './ui';
+import { patchById } from '../utils/collections';
+import { Button, Field, TextInput, MoneyInput, ConfirmDialog, SummaryRow } from './ui';
 
 export function PaymentsPanel({
   payments,
@@ -25,7 +26,7 @@ export function PaymentsPanel({
   const realBalance = quoteTotal - totalPaid;
 
   const patchPayment = (id: string, partial: Partial<ClientPayment>) =>
-    onChange(payments.map((p) => (p.id === id ? { ...p, ...partial } : p)));
+    onChange(patchById(payments, id, partial));
 
   return (
     <div className="mt-4 border-t border-amber-200 pt-4">
@@ -106,14 +107,13 @@ export function PaymentsPanel({
       </div>
 
       <div className="mt-3 space-y-1 rounded-xl bg-white p-3 shadow-sm">
-        <div className="flex justify-between text-sm text-stone-600">
-          <span>Total abonado</span>
-          <span className="text-stone-900">{formatCOP(totalPaid)}</span>
-        </div>
-        <div className="flex justify-between text-sm font-semibold">
-          <span className="text-stone-600">Saldo real pendiente</span>
-          <span className={realBalance < 0 ? 'text-red-600' : 'text-stone-900'}>{formatCOP(realBalance)}</span>
-        </div>
+        <SummaryRow label="Total abonado" value={formatCOP(totalPaid)} />
+        <SummaryRow
+          label="Saldo real pendiente"
+          value={formatCOP(realBalance)}
+          bold
+          valueClass={realBalance < 0 ? 'text-red-600' : undefined}
+        />
         {realBalance < 0 && (
           <p className="text-[11px] text-red-600">Los abonos superan el total cotizado: revisa los montos.</p>
         )}
