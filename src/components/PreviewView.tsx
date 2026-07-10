@@ -10,12 +10,12 @@ import { defaultProductionStages } from '../services/production';
 import { ProductionPanel } from './ProductionPanel';
 import { PaymentsPanel } from './PaymentsPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
-import { buildClientPdfContent, stoneClientDescription } from '../services/pdfContent';
+import { buildClientPdfContent, stoneClientDescription, findSensitiveWordsInClientText } from '../services/pdfContent';
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
-import { Button, Select, StatusBadge, SummaryRow } from './ui';
+import { Button, ConfirmDialog, Select, StatusBadge, SummaryRow } from './ui';
 
 export function PreviewView({
   quote,
@@ -33,6 +33,12 @@ export function PreviewView({
   const store = useStore();
   const [tab, setTab] = useState<'cliente' | 'interno'>(initialTab);
   const [busy, setBusy] = useState(false);
+  // Aviso de privacidad pendiente de confirmar: qué acción se quiso ejecutar
+  // y qué palabras sensibles se detectaron en el texto visible al cliente.
+  const [sensitiveWarning, setSensitiveWarning] = useState<{
+    action: 'pdf' | 'whatsapp';
+    words: string[];
+  } | null>(null);
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
   const clientContent = useMemo(
@@ -61,7 +67,7 @@ export function PreviewView({
     }
   };
 
-  const handleClientPdf = async () => {
+  const doClientPdf = async () => {
     setBusy(true);
     try {
       const saved = await persist();
@@ -71,6 +77,20 @@ export function PreviewView({
       store.showToast('No se pudo generar el PDF.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Antes de generar el PDF del cliente o compartir, revisa que el texto
+   * visible no contenga palabras internas (costo, margen, etc.) escritas
+   * por error. Si las hay, pide confirmación; si no, ejecuta directo.
+   */
+  const guardSensitive = (action: 'pdf' | 'whatsapp', run: () => Promise<void>) => {
+    const words = findSensitiveWordsInClientText(quote);
+    if (words.length > 0) {
+      setSensitiveWarning({ action, words });
+    } else {
+      void run();
     }
   };
 
@@ -87,7 +107,7 @@ export function PreviewView({
     }
   };
 
-  const handleWhatsApp = async () => {
+  const doWhatsApp = async () => {
     setBusy(true);
     try {
       const saved = await persist();
@@ -312,15 +332,38 @@ export function PreviewView({
           <Button onClick={handleSave} disabled={busy}>
             💾 Guardar
           </Button>
-          <Button variant="secondary" onClick={handleClientPdf} disabled={busy}>
+          <Button variant="secondary" onClick={() => guardSensitive('pdf', doClientPdf)} disabled={busy}>
             📄 PDF cliente
           </Button>
-          <Button onClick={handleWhatsApp} disabled={busy}>
+          <Button onClick={() => guardSensitive('whatsapp', doWhatsApp)} disabled={busy}>
             📲 WhatsApp
           </Button>
         </div>
         {busy ? <p className="mt-2 text-center text-sm text-stone-500">Procesando…</p> : null}
       </div>
+
+      <ConfirmDialog
+        open={sensitiveWarning !== null}
+        title="⚠ Posible información interna"
+        message={
+          sensitiveWarning
+            ? `El texto que verá el cliente menciona: ${sensitiveWarning.words.join(', ')}. ` +
+              'Revisa las observaciones y la descripción de la pieza antes de enviarla. ' +
+              (sensitiveWarning.action === 'pdf'
+                ? '¿Generar el PDF de todos modos?'
+                : '¿Compartir por WhatsApp de todos modos?')
+            : ''
+        }
+        confirmLabel="Continuar igual"
+        danger
+        onConfirm={() => {
+          const action = sensitiveWarning?.action;
+          setSensitiveWarning(null);
+          if (action === 'pdf') void doClientPdf();
+          if (action === 'whatsapp') void doWhatsApp();
+        }}
+        onCancel={() => setSensitiveWarning(null)}
+      />
     </div>
   );
 }

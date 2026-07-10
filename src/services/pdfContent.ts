@@ -28,6 +28,48 @@ export interface PdfContent {
   footer: string;
 }
 
+// Términos que jamás deberían aparecer en texto visible para el cliente.
+// Coinciden por palabra completa ("costoso" no dispara "costo") ignorando
+// mayúsculas y tildes. Lista alineada con la regla 1 de AGENTS.md.
+const SENSITIVE_TERMS: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'costo', pattern: /\bcostos?\b/ },
+  { label: 'margen', pattern: /\bmargen(es)?\b/ },
+  { label: 'utilidad', pattern: /\butilidad(es)?\b/ },
+  { label: 'ganancia', pattern: /\bganancias?\b/ },
+  { label: 'precio por gramo', pattern: /\b(por|x)\s+gramo\b|\$\s*\/\s*g(ramo)?\b/ },
+  { label: '18K', pattern: /\b18\s*k(ilates)?\b/ },
+  { label: '24K', pattern: /\b24\s*k(ilates)?\b/ },
+  { label: 'interno', pattern: /\bintern[oa]s?\b/ }
+];
+
+/** Quita tildes (diacríticos U+0300–U+036F) y pasa a minúsculas antes de comparar. */
+function normalizeForScan(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * Revisa los textos de la cotización que ve el cliente (observaciones,
+ * descripción de la pieza y descripción de las piedras) y devuelve las
+ * palabras sensibles encontradas. Defensa contra errores de digitación:
+ * la UI debe avisar antes de generar el PDF del cliente o compartir.
+ */
+export function findSensitiveWordsInClientText(quote: Quote): string[] {
+  const visibleTexts = [
+    quote.clientNotes,
+    quote.pieceDescription,
+    ...quote.stones.map((s) => stoneClientDescription(s))
+  ];
+  const haystack = normalizeForScan(visibleTexts.join('\n'));
+  const found: string[] = [];
+  for (const { label, pattern } of SENSITIVE_TERMS) {
+    if (pattern.test(haystack)) found.push(label);
+  }
+  return found;
+}
+
 /** Descripción comercial de una piedra (apta para el cliente). */
 export function stoneClientDescription(stone: Stone): string {
   const parts: string[] = [];
