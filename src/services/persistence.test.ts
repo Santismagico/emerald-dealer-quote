@@ -14,6 +14,7 @@ import {
 } from './storage';
 import { exportBackup, serializeBackup, parseBackup, importBackup } from './backup';
 import { sampleQuote, sampleClient } from '../test/fixtures';
+import { getEffectiveQuoteStatus } from './quoteStatus';
 
 describe('persistencia de cotizaciones', () => {
   it('guarda y recupera una cotización', async () => {
@@ -38,6 +39,24 @@ describe('persistencia de cotizaciones', () => {
     await deleteQuote('q-del');
     const quotes = await listQuotes();
     expect(quotes.find((q) => q.id === 'q-del')).toBeUndefined();
+  });
+
+  it('calcula el vencimiento sin escribir el estado ni updatedAt en IndexedDB', async () => {
+    const quote = sampleQuote({
+      id: 'q-derived-expired',
+      status: 'pendiente',
+      validUntil: '2026-07-10',
+      updatedAt: '2026-07-01T08:00:00.000Z'
+    });
+    await saveQuote(quote);
+
+    const loaded = (await listQuotes()).find((item) => item.id === quote.id);
+    expect(loaded).toBeDefined();
+    expect(getEffectiveQuoteStatus(loaded!, '2026-07-11')).toBe('vencida');
+
+    const persisted = (await listQuotes()).find((item) => item.id === quote.id);
+    expect(persisted?.status).toBe('pendiente');
+    expect(persisted?.updatedAt).toBe('2026-07-01T08:00:00.000Z');
   });
 });
 

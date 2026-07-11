@@ -10,6 +10,19 @@ export function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Comprueba que el texto sea una fecha real con formato YYYY-MM-DD. */
+export function isValidISODate(isoDate: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 /** Suma días a una fecha YYYY-MM-DD. */
 export function addDays(isoDate: string, days: number): string {
   const d = parseISODate(isoDate);
@@ -30,8 +43,8 @@ export function formatDateCO(isoDate: string): string {
   return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-/** true si la fecha YYYY-MM-DD ya pasó respecto a hoy. */
-export function isExpired(validUntil: string): boolean {
-  if (!validUntil) return false;
-  return validUntil < todayISO();
+/** true si validUntil ya pasó respecto a una fecha YYYY-MM-DD fija. */
+export function isExpired(validUntil: string, today: string): boolean {
+  if (!isValidISODate(validUntil) || !isValidISODate(today)) return false;
+  return validUntil < today;
 }

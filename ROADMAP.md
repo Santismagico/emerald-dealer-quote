@@ -16,7 +16,7 @@
 
 - [ ] Probar en un iPhone real (Safari) y ajustar detalles de safe areas.
 - [ ] Adjuntar el PDF directamente al compartir (Web Share API nivel 2, donde esté soportada).
-- [ ] Marcado automático de cotizaciones vencidas (hoy se muestra aviso visual).
+- [x] Marcado automático de cotizaciones vencidas como estado derivado, sin modificar los datos guardados.
 - [ ] Plantillas de condiciones y piezas frecuentes.
 - [ ] Recordatorio periódico de exportar respaldo.
 - [ ] Precio del oro: campo auxiliar "precio internacional 24K" que calcule la referencia +$100.000 (pendiente confirmar con Santiago, ver DECISIONS.md D-002).

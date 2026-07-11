@@ -7,7 +7,12 @@ import type { Quote, QuoteStatus } from '../types';
 import { QUOTE_STATUSES } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { formatCOP } from '../utils/money';
-import { formatDateCO, isExpired } from '../utils/dates';
+import { formatDateCO, todayISO } from '../utils/dates';
+import {
+  countHistoryQuotesByStatus,
+  filterHistoryQuotes,
+  getEffectiveQuoteStatus
+} from '../services/quoteStatus';
 import { Button, StatusBadge, ConfirmDialog, EmptyState, TextInput } from './ui';
 
 export function HistoryView({
@@ -27,16 +32,16 @@ export function HistoryView({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'todas'>('todas');
   const [toDelete, setToDelete] = useState<Quote | null>(null);
+  const today = todayISO();
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return store.quotes.filter((q) => {
-      if (statusFilter !== 'todas' && q.status !== statusFilter) return false;
-      if (!term) return true;
-      const haystack = `${q.number} ${q.clientSnapshot?.name ?? ''} ${q.pieceDescription}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [store.quotes, search, statusFilter]);
+  const filtered = useMemo(
+    () => filterHistoryQuotes(store.quotes, search, statusFilter, today),
+    [store.quotes, search, statusFilter, today]
+  );
+  const statusCounts = useMemo(
+    () => countHistoryQuotesByStatus(store.quotes, search, today),
+    [store.quotes, search, today]
+  );
 
   return (
     <div className="space-y-4">
@@ -57,7 +62,7 @@ export function HistoryView({
                 statusFilter === s ? 'bg-brand-800 text-white' : 'bg-white text-stone-600'
               }`}
             >
-              {s}
+              {s} ({statusCounts[s]})
             </button>
           ))}
         </div>
@@ -69,14 +74,14 @@ export function HistoryView({
           message={
             store.quotes.length === 0
               ? 'Crea tu primera cotización con el botón de arriba.'
-              : 'Ninguna cotización coincide con la búsqueda.'
+              : 'Ninguna cotización coincide con la búsqueda o el filtro.'
           }
         />
       ) : (
         <ul className="space-y-3">
           {filtered.map((quote) => {
             const total = calculateQuote(quoteToCalcInput(quote)).total;
-            const expired = isExpired(quote.validUntil) && (quote.status === 'pendiente' || quote.status === 'borrador');
+            const effectiveStatus = getEffectiveQuoteStatus(quote, today);
             return (
               <li key={quote.id} className="rounded-2xl bg-white p-4 shadow-sm">
                 <button type="button" className="block w-full text-left" onClick={() => onOpen(quote)}>
@@ -92,8 +97,7 @@ export function HistoryView({
                     <div className="shrink-0 text-right">
                       <p className="font-semibold text-brand-900">{formatCOP(total)}</p>
                       <div className="mt-1 flex items-center justify-end gap-1">
-                        <StatusBadge status={quote.status} />
-                        {expired ? <span className="text-xs text-red-600">vencida</span> : null}
+                        <StatusBadge status={effectiveStatus} />
                       </div>
                     </div>
                   </div>

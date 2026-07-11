@@ -10,6 +10,8 @@ import { calculateQuote, validateCalcInput, quoteToCalcInput, stoneSubtotal } fr
 import { formatCOP } from '../utils/money';
 import { fileToCompressedDataUrl } from '../utils/images';
 import { patchById } from '../utils/collections';
+import { getEffectiveQuoteStatus } from '../services/quoteStatus';
+import { todayISO } from '../utils/dates';
 import {
   Button,
   Field,
@@ -57,6 +59,7 @@ export function QuoteFormView({
   const [imageError, setImageError] = useState('');
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
+  const effectiveStatus = getEffectiveQuoteStatus(quote, todayISO());
 
   const patch = (partial: Partial<Quote>) => setQuote((q) => ({ ...q, ...partial }));
 
@@ -133,6 +136,12 @@ export function QuoteFormView({
           <Field label="Válida hasta">
             <TextInput type="date" value={quote.validUntil} onChange={(validUntil) => patch({ validUntil })} />
           </Field>
+          {effectiveStatus !== quote.status ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+              Esta cotización se muestra como vencida porque su fecha ya pasó. Cambiar la fecha aquí no modifica el
+              estado guardado automáticamente.
+            </p>
+          ) : null}
           {quote.number ? (
             <p className="text-sm text-stone-500">Número: {quote.number}</p>
           ) : (

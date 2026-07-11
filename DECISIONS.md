@@ -76,3 +76,11 @@ Las comparaciones ignoran mayúsculas y tildes y usan palabras/frases completas.
 Si hay un hallazgo, la acción se detiene y el usuario puede cancelar. Continuar requiere confirmar expresamente el posible riesgo de exposición. Esta defensa no modifica el PDF interno ni la vista interna.
 
 Riesgo residual aceptado: el detector es textual y no puede leer palabras incrustadas dentro del logo o de imágenes de referencia. Agregar OCR ampliaría dependencias y alcance, por lo que no corresponde a esta etapa.
+
+## D-013 · Vencimiento como estado derivado en la interfaz · 2026-07-11 · Vigente
+
+Una cotización se muestra como `vencida` únicamente cuando su fecha de vencimiento es anterior al día actual y el estado guardado es `borrador` o `pendiente`. La regla vive en la función pura `getEffectiveQuoteStatus(quote, today)` y recibe una fecha fija para que su resultado sea determinista y comprobable.
+
+El estado efectivo se usa en las insignias, los filtros y los conteos del historial. No se guarda automáticamente en IndexedDB, no modifica `updatedAt` y no reemplaza el objeto original que se abre, edita o duplica. Las cotizaciones aprobadas, rechazadas, ya vencidas o con cualquier otro estado se conservan tal como están. Una fecha vacía, imposible o con formato inválido tampoco provoca un vencimiento automático.
+
+El PDF cliente, el PDF interno y el motor de cálculo no dependen de este estado visual y no se modificaron en esta etapa.

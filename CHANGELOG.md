@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-11
 
+### Historial
+
+- **Cotizaciones vencidas como estado derivado:** los borradores y pendientes con fecha anterior al día actual se muestran y filtran como vencidos, sin cambiar el estado guardado ni `updatedAt`.
+- Las insignias, filtros y conteos del historial usan la misma regla. La búsqueda conserva esos conteos de forma coherente.
+- Las cotizaciones aprobadas, rechazadas, ya vencidas o con otros estados no cambian automáticamente. Las fechas vacías o inválidas se tratan de forma segura.
+- Abrir, editar y duplicar sigue usando la cotización original. Al duplicar se conserva el flujo existente: la copia nace como borrador con fechas nuevas.
+
 ### Seguridad
 
 - **Detector de información sensible completado:** antes de generar el PDF cliente se analiza el texto final completo del documento; antes de abrir WhatsApp se analiza el mensaje exacto que se compartirá. Material, marca, contacto, cliente, piedras, condiciones y mensaje comercial ya no quedan fuera por usar una lista manual de campos.
@@ -12,7 +19,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ### Pruebas
 
-- 162 pruebas automáticas en verde. La nueva cobertura incluye términos individuales, mayúsculas, tildes, variantes 18K/24K, campos reales de PDF y WhatsApp, falsos positivos, contenido limpio, múltiples hallazgos y exclusión de datos internos.
+- 181 pruebas automáticas en verde. La cobertura incluye el detector de información sensible y 19 pruebas nuevas para vencimientos, estados protegidos, fechas inválidas, filtros, búsqueda, conteos, inmutabilidad y ausencia de escrituras automáticas en IndexedDB.
 - Build de producción y comprobación TypeScript completados sin errores.
 
 ## [0.5.0] — 2026-07-09

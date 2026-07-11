@@ -18,8 +18,9 @@ import {
 } from '../services/pdfContent';
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
+import { getEffectiveQuoteStatus } from '../services/quoteStatus';
 import { formatCOP } from '../utils/money';
-import { formatDateCO } from '../utils/dates';
+import { formatDateCO, todayISO } from '../utils/dates';
 import { Button, ConfirmDialog, Select, StatusBadge, SummaryRow } from './ui';
 
 export function PreviewView({
@@ -46,6 +47,7 @@ export function PreviewView({
   } | null>(null);
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
+  const effectiveStatus = getEffectiveQuoteStatus(quote, todayISO());
   const clientContent = useMemo(
     () => buildClientPdfContent(quote, calc, store.settings),
     [quote, calc, store.settings]
@@ -175,7 +177,7 @@ export function PreviewView({
         <button type="button" className="text-sm font-medium text-brand-800" onClick={onClose}>
           ← Volver
         </button>
-        <StatusBadge status={quote.status} />
+        <StatusBadge status={effectiveStatus} />
       </div>
 
       {/* Pestañas cliente / interno */}
@@ -332,6 +334,12 @@ export function PreviewView({
             onChange={(v) => void changeStatus(v as QuoteStatus)}
             options={QUOTE_STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
           />
+          {effectiveStatus !== quote.status ? (
+            <p className="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              Esta cotización se muestra como vencida porque su fecha ya pasó. Su estado guardado sigue siendo{' '}
+              <strong>{quote.status}</strong> hasta que lo cambies aquí.
+            </p>
+          ) : null}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={onEdit} disabled={busy}>
