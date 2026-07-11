@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildWhatsAppMessage, whatsAppLink } from './whatsapp';
+import { findSensitiveWordsInText } from './pdfContent';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { sampleQuote, sampleSettings } from '../test/fixtures';
 
@@ -34,6 +35,46 @@ describe('mensaje de WhatsApp', () => {
   it('saluda genérico si no hay cliente', () => {
     const anon = buildWhatsAppMessage(sampleQuote({ clientSnapshot: null }), calc, settings);
     expect(anon.startsWith('Hola,')).toBe(true);
+  });
+
+  it('detecta información sensible en la descripción del mensaje real', () => {
+    const unsafeQuote = sampleQuote({ pieceDescription: 'Anillo con costo interno' });
+    const unsafeMessage = buildWhatsAppMessage(
+      unsafeQuote,
+      calculateQuote(quoteToCalcInput(unsafeQuote)),
+      settings
+    );
+
+    expect(findSensitiveWordsInText(unsafeMessage)).toEqual(expect.arrayContaining(['costo', 'interno']));
+  });
+
+  it('detecta información sensible en material, joyería y cliente del mensaje real', () => {
+    const unsafeQuote = sampleQuote({
+      material: 'Oro 18K',
+      clientSnapshot: { ...sampleQuote().clientSnapshot!, name: 'Cliente Confidencial' }
+    });
+    const unsafeMessage = buildWhatsAppMessage(
+      unsafeQuote,
+      calculateQuote(quoteToCalcInput(unsafeQuote)),
+      sampleSettings({ jewelryName: 'Joyas Margen' })
+    );
+
+    expect(findSensitiveWordsInText(unsafeMessage)).toEqual(
+      expect.arrayContaining(['18K', 'confidencial', 'margen'])
+    );
+  });
+
+  it('no alerta por condiciones o pie comercial que WhatsApp no envía', () => {
+    const cleanMessage = buildWhatsAppMessage(
+      quote,
+      calc,
+      sampleSettings({
+        conditions: 'Costo interno por gramo.',
+        commercialMessage: 'Margen confidencial.'
+      })
+    );
+
+    expect(findSensitiveWordsInText(cleanMessage)).toEqual([]);
   });
 });
 

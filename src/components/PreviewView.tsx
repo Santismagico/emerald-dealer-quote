@@ -10,7 +10,12 @@ import { defaultProductionStages } from '../services/production';
 import { ProductionPanel } from './ProductionPanel';
 import { PaymentsPanel } from './PaymentsPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
-import { buildClientPdfContent, stoneClientDescription, findSensitiveWordsInClientText } from '../services/pdfContent';
+import {
+  buildClientPdfContent,
+  stoneClientDescription,
+  findSensitiveWordsInClientText,
+  findSensitiveWordsInText
+} from '../services/pdfContent';
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
 import { formatCOP } from '../utils/money';
@@ -86,7 +91,10 @@ export function PreviewView({
    * por error. Si las hay, pide confirmación; si no, ejecuta directo.
    */
   const guardSensitive = (action: 'pdf' | 'whatsapp', run: () => Promise<void>) => {
-    const words = findSensitiveWordsInClientText(quote);
+    const words =
+      action === 'pdf'
+        ? findSensitiveWordsInClientText(quote, calc, store.settings)
+        : findSensitiveWordsInText(buildWhatsAppMessage(quote, calc, store.settings));
     if (words.length > 0) {
       setSensitiveWarning({ action, words });
     } else {
@@ -347,14 +355,14 @@ export function PreviewView({
         title="⚠ Posible información interna"
         message={
           sensitiveWarning
-            ? `El texto que verá el cliente menciona: ${sensitiveWarning.words.join(', ')}. ` +
-              'Revisa las observaciones y la descripción de la pieza antes de enviarla. ' +
+            ? `Se detectó posible información confidencial en el contenido que verá el cliente: ${sensitiveWarning.words.join(', ')}. ` +
+              'Revisa todos los textos antes de continuar. Si continúas, confirmas que aceptas el riesgo de exponer información interna. ' +
               (sensitiveWarning.action === 'pdf'
                 ? '¿Generar el PDF de todos modos?'
                 : '¿Compartir por WhatsApp de todos modos?')
             : ''
         }
-        confirmLabel="Continuar igual"
+        confirmLabel="Confirmar y continuar"
         danger
         onConfirm={() => {
           const action = sensitiveWarning?.action;
@@ -367,4 +375,3 @@ export function PreviewView({
     </div>
   );
 }
-

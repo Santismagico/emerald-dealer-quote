@@ -2,6 +2,19 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [Unreleased] — 2026-07-11
+
+### Seguridad
+
+- **Detector de información sensible completado:** antes de generar el PDF cliente se analiza el texto final completo del documento; antes de abrir WhatsApp se analiza el mensaje exacto que se compartirá. Material, marca, contacto, cliente, piedras, condiciones y mensaje comercial ya no quedan fuera por usar una lista manual de campos.
+- Detección sin distinguir mayúsculas ni tildes para costos, margen, utilidad, ganancia, rentabilidad, precio por gramo, `$/g`, pureza 18K/24K, fórmula, texto confidencial/interno y `markup`, con variantes comunes y límites de palabra para evitar alertas como “valor total” o “pieza costosa”.
+- El aviso permite cancelar y ahora exige una confirmación explícita del posible riesgo antes de continuar. El PDF interno y la vista interna no cambian.
+
+### Pruebas
+
+- 162 pruebas automáticas en verde. La nueva cobertura incluye términos individuales, mayúsculas, tildes, variantes 18K/24K, campos reales de PDF y WhatsApp, falsos positivos, contenido limpio, múltiples hallazgos y exclusión de datos internos.
+- Build de producción y comprobación TypeScript completados sin errores.
+
 ## [0.5.0] — 2026-07-09
 
 Auditoría de seguridad y calidad (8 ángulos de revisión + verificación). Ver DECISIONS.md D-010.

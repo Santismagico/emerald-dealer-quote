@@ -29,17 +29,27 @@ export interface PdfContent {
 }
 
 // Términos que jamás deberían aparecer en texto visible para el cliente.
-// Coinciden por palabra completa ("costoso" no dispara "costo") ignorando
-// mayúsculas y tildes. Lista alineada con la regla 1 de AGENTS.md.
+// Coinciden por palabra o frase completa ("costoso" no dispara "costo")
+// ignorando mayúsculas y tildes. Lista alineada con la regla 1 de AGENTS.md.
 const SENSITIVE_TERMS: Array<{ label: string; pattern: RegExp }> = [
-  { label: 'costo', pattern: /\bcostos?\b/ },
-  { label: 'margen', pattern: /\bmargen(es)?\b/ },
-  { label: 'utilidad', pattern: /\butilidad(es)?\b/ },
+  { label: 'costo', pattern: /\b(?:costos?|costes?)\b/ },
+  { label: 'margen', pattern: /\bmargen(?:es)?\b/ },
+  { label: 'utilidad', pattern: /\butilidad(?:es)?\b/ },
   { label: 'ganancia', pattern: /\bganancias?\b/ },
-  { label: 'precio por gramo', pattern: /\b(por|x)\s+gramo\b|\$\s*\/\s*g(ramo)?\b/ },
-  { label: '18K', pattern: /\b18\s*k(ilates)?\b/ },
-  { label: '24K', pattern: /\b24\s*k(ilates)?\b/ },
-  { label: 'interno', pattern: /\bintern[oa]s?\b/ }
+  { label: 'rentabilidad', pattern: /\brentabilidad(?:es)?\b/ },
+  {
+    label: 'precio por gramo',
+    pattern:
+      /\b(?:precio|valor)[\s-]+(?:por|x|del)[\s-]+gramos?\b|\b(?:precio|valor)\s*\/\s*gramos?\b|\bpesos?\s+por\s+gramo\b/
+  },
+  { label: '$/g', pattern: /(?:\$|cop)\s*\/\s*g(?:ramos?)?\b/ },
+  { label: '18K', pattern: /\b18\s*(?:k|kt|kilates?|quilates?)\b/ },
+  { label: '24K', pattern: /\b24\s*(?:k|kt|kilates?|quilates?)\b/ },
+  { label: 'pureza', pattern: /\bpurezas?\b/ },
+  { label: 'fórmula', pattern: /\bformulas?\b/ },
+  { label: 'confidencial', pattern: /\bconfidencial(?:es)?\b/ },
+  { label: 'interno', pattern: /\bintern[oa]s?\b/ },
+  { label: 'markup', pattern: /\bmark(?:\s*-\s*|\s+)?up\b/ }
 ];
 
 /** Quita tildes (diacríticos U+0300–U+036F) y pasa a minúsculas antes de comparar. */
@@ -50,24 +60,28 @@ function normalizeForScan(text: string): string {
     .replace(/[̀-ͯ]/g, '');
 }
 
-/**
- * Revisa los textos de la cotización que ve el cliente (observaciones,
- * descripción de la pieza y descripción de las piedras) y devuelve las
- * palabras sensibles encontradas. Defensa contra errores de digitación:
- * la UI debe avisar antes de generar el PDF del cliente o compartir.
- */
-export function findSensitiveWordsInClientText(quote: Quote): string[] {
-  const visibleTexts = [
-    quote.clientNotes,
-    quote.pieceDescription,
-    ...quote.stones.map((s) => stoneClientDescription(s))
-  ];
-  const haystack = normalizeForScan(visibleTexts.join('\n'));
+/** Revisa un texto que está a punto de enviarse al cliente. */
+export function findSensitiveWordsInText(text: string): string[] {
+  const haystack = normalizeForScan(text);
   const found: string[] = [];
   for (const { label, pattern } of SENSITIVE_TERMS) {
     if (pattern.test(haystack)) found.push(label);
   }
   return found;
+}
+
+/**
+ * Revisa el contenido final del PDF cliente, no una lista manual de campos.
+ * Así también quedan cubiertos material, marca, contacto, condiciones,
+ * mensaje comercial y cualquier texto visible que se agregue en el futuro.
+ */
+export function findSensitiveWordsInClientText(
+  quote: Quote,
+  calc: CalcResult,
+  settings: Settings
+): string[] {
+  const clientContent = buildClientPdfContent(quote, calc, settings);
+  return findSensitiveWordsInText(contentToPlainText(clientContent));
 }
 
 /** Descripción comercial de una piedra (apta para el cliente). */

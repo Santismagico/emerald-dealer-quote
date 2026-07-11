@@ -61,3 +61,18 @@ Números de 10 dígitos que empiezan por 3 (celular) o 60 (fijo) reciben el pref
 ## D-009 · Nodo instalado con winget · 2026-07-07 · Vigente
 
 El equipo no tenía Node.js. Se instaló OpenJS.NodeJS.LTS 24.18.0 vía winget para poder construir el proyecto.
+
+## D-012 · Detector sobre la salida real de cada canal · 2026-07-11 · Vigente
+
+La protección contra exposición accidental no mantiene una lista manual de campos. Analiza el texto final que está a punto de salir:
+
+- PDF cliente: `contentToPlainText(buildClientPdfContent(...))` mediante `findSensitiveWordsInClientText`.
+- WhatsApp: resultado exacto de `buildWhatsAppMessage(...)` mediante `findSensitiveWordsInText`.
+
+Así quedan cubiertos automáticamente material, marca, contacto, datos visibles del cliente, descripción, piedras, condiciones y mensaje comercial, además de futuros textos que se agreguen al PDF. Cada canal se revisa por separado para no alertar en WhatsApp por condiciones o pies que ese mensaje no envía.
+
+Las comparaciones ignoran mayúsculas y tildes y usan palabras/frases completas. Se detectan los términos de AGENTS.md y equivalentes financieros o de pureza claramente confidenciales; no se marcan palabras generales como “valor”, “total”, “precio”, “oro” o “gramo” de forma aislada.
+
+Si hay un hallazgo, la acción se detiene y el usuario puede cancelar. Continuar requiere confirmar expresamente el posible riesgo de exposición. Esta defensa no modifica el PDF interno ni la vista interna.
+
+Riesgo residual aceptado: el detector es textual y no puede leer palabras incrustadas dentro del logo o de imágenes de referencia. Agregar OCR ampliaría dependencias y alcance, por lo que no corresponde a esta etapa.
