@@ -22,6 +22,35 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await dbPut('settings', { id: SETTINGS_KEY, ...settings });
 }
 
+/** Registra un respaldo solo después de que el navegador inició su descarga. */
+export async function recordBackupExported(exportedAt: string): Promise<Settings> {
+  const current = await loadSettings();
+  const next = normalizeSettings({
+    ...current,
+    lastBackupExportedAt: exportedAt,
+    backupReminderSnoozedUntil: ''
+  });
+  await saveSettings(next);
+  return next;
+}
+
+/** Posponer solo afecta el aviso local; no exporta ni transmite información. */
+export async function snoozeBackupReminder(snoozedUntil: string): Promise<Settings> {
+  const current = await loadSettings();
+  const next = normalizeSettings({ ...current, backupReminderSnoozedUntil: snoozedUntil });
+  await saveSettings(next);
+  return next;
+}
+
+/** Guarda una única referencia para datos antiguos sin fecha válida. */
+export async function ensureBackupReminderFirstDataAt(startedAt: string): Promise<Settings> {
+  const current = await loadSettings();
+  if (Number.isFinite(Date.parse(current.backupReminderFirstDataAt))) return current;
+  const next = normalizeSettings({ ...current, backupReminderFirstDataAt: startedAt });
+  await saveSettings(next);
+  return next;
+}
+
 export async function listClients(): Promise<Client[]> {
   const clients = await dbGetAll<unknown>('clients');
   return clients.map(normalizeClient).sort((a, b) => {

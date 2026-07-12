@@ -20,7 +20,7 @@ import { QUOTE_STATUSES, PIECE_TYPES } from '../types';
 import { newId } from '../utils/id';
 
 /** Versión del esquema de settings. Súbela al agregar una migración. */
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export function defaultSettings(): Settings {
   return {
@@ -48,6 +48,9 @@ export function defaultSettings(): Settings {
     conditions:
       'Precios sujetos a cambio según el mercado del oro y disponibilidad de piedras. Cotización válida hasta la fecha indicada. El trabajo inicia con la confirmación del anticipo.',
     quoteCounter: 1,
+    lastBackupExportedAt: '',
+    backupReminderSnoozedUntil: '',
+    backupReminderFirstDataAt: '',
     settingsVersion: SETTINGS_VERSION
   };
 }

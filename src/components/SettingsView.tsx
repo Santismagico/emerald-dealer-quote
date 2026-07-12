@@ -6,7 +6,7 @@ import type { BackupFile, Settings } from '../types';
 import { fileToCompressedDataUrl } from '../utils/images';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
-import { exportBackup, serializeBackup, parseBackup, importBackup } from '../services/backup';
+import { parseBackup, importBackup } from '../services/backup';
 import { defaultSettings } from '../services/storage';
 import {
   Button,
@@ -77,6 +77,12 @@ export function SettingsView() {
       next.goldPricePerGram = store.settings.goldPricePerGram;
       next.goldPriceUpdatedAt = store.settings.goldPriceUpdatedAt;
     }
+    // Estos controles no se editan en el formulario. Se conservan desde el
+    // estado actual para que un guardado pendiente no borre un respaldo o una
+    // posposición que acabó de registrarse desde el banner.
+    next.lastBackupExportedAt = store.settings.lastBackupExportedAt;
+    next.backupReminderSnoozedUntil = store.settings.backupReminderSnoozedUntil;
+    next.backupReminderFirstDataAt = store.settings.backupReminderFirstDataAt;
     await store.updateSettings(next);
     setForm(next);
     initialGoldRef.current = { price: next.goldPricePerGram, updatedAt: next.goldPriceUpdatedAt };
@@ -85,17 +91,12 @@ export function SettingsView() {
   };
 
   const handleExport = async () => {
-    const backup = await exportBackup();
-    const json = serializeBackup(backup);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const date = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `respaldo-emerald-dealer-${date}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    store.showToast('Respaldo exportado');
+    try {
+      const exported = await store.exportBackup();
+      if (exported) store.showToast('Respaldo exportado');
+    } catch {
+      store.showToast('No se pudo completar el respaldo. Intenta de nuevo.');
+    }
   };
 
   const handleImportFile = async (file: File | null) => {
@@ -319,8 +320,8 @@ export function SettingsView() {
         title="Respaldo de datos"
         subtitle="Tus datos viven solo en este dispositivo. Exporta un respaldo con frecuencia."
       >
-        <Button variant="secondary" full onClick={handleExport}>
-          ⬇ Exportar respaldo (JSON)
+        <Button variant="secondary" full disabled={store.backupExporting} onClick={handleExport}>
+          {store.backupExporting ? 'Preparando respaldo…' : '⬇ Exportar respaldo (JSON)'}
         </Button>
         <Button
           variant="secondary"

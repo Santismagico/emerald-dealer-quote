@@ -32,6 +32,23 @@ export function serializeBackup(backup: BackupFile): string {
   return JSON.stringify(backup, null, 2);
 }
 
+/** Inicia la descarga del respaldo JSON compatible usado por toda la aplicación. */
+export async function downloadBackupFile(): Promise<void> {
+  const backup = await exportBackup();
+  const json = serializeBackup(backup);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `respaldo-emerald-dealer-${date}.json`;
+    link.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /** Valida y normaliza por completo antes de que pueda empezar una escritura. */
 function normalizeBackup(data: unknown): BackupFile {
   if (typeof data !== 'object' || data === null) {

@@ -10,7 +10,10 @@ import {
   loadSettings,
   saveSettings,
   nextQuoteNumber,
-  defaultSettings
+  defaultSettings,
+  recordBackupExported,
+  snoozeBackupReminder,
+  ensureBackupReminderFirstDataAt
 } from './storage';
 import { exportBackup, serializeBackup, parseBackup, importBackup } from './backup';
 import { sampleQuote, sampleClient } from '../test/fixtures';
@@ -159,6 +162,41 @@ describe('settings', () => {
     const year = new Date().getFullYear();
     expect(await nextQuoteNumber()).toBe(`ED-${year}-0007`);
     expect(await nextQuoteNumber()).toBe(`ED-${year}-0008`);
+  });
+
+  it('registra una exportación confirmada y elimina la posposición', async () => {
+    await saveSettings({
+      ...defaultSettings(),
+      backupReminderSnoozedUntil: '2026-07-12T12:00:00.000Z'
+    });
+
+    await recordBackupExported('2026-07-11T12:00:00.000Z');
+
+    const settings = await loadSettings();
+    expect(settings.lastBackupExportedAt).toBe('2026-07-11T12:00:00.000Z');
+    expect(settings.backupReminderSnoozedUntil).toBe('');
+  });
+
+  it('guarda una posposición sin alterar la última exportación', async () => {
+    await saveSettings({
+      ...defaultSettings(),
+      lastBackupExportedAt: '2026-07-01T12:00:00.000Z'
+    });
+
+    await snoozeBackupReminder('2026-07-12T12:00:00.000Z');
+
+    const settings = await loadSettings();
+    expect(settings.lastBackupExportedAt).toBe('2026-07-01T12:00:00.000Z');
+    expect(settings.backupReminderSnoozedUntil).toBe('2026-07-12T12:00:00.000Z');
+  });
+
+  it('reemplaza una referencia inicial inválida una sola vez', async () => {
+    await saveSettings({ ...defaultSettings(), backupReminderFirstDataAt: 'fecha inválida' });
+
+    await ensureBackupReminderFirstDataAt('2026-07-11T12:00:00.000Z');
+    await ensureBackupReminderFirstDataAt('2026-07-12T12:00:00.000Z');
+
+    expect((await loadSettings()).backupReminderFirstDataAt).toBe('2026-07-11T12:00:00.000Z');
   });
 });
 

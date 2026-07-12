@@ -108,3 +108,13 @@ La restauración valida y normaliza por completo el archivo antes de tocar Index
 Un respaldo aceptado sin ajustes (`settings: null`, compatible con formatos antiguos) reemplaza el registro anterior y hace que la aplicación vuelva a sus ajustes por defecto. Esto evita mezclar clientes y cotizaciones restaurados con reglas internas ajenas al archivo.
 
 La interfaz guarda una sola copia ya validada del respaldo, evita confirmaciones simultáneas, ejecuta `reloadAll` únicamente después del commit y sincroniza el formulario local de Ajustes antes de mostrar éxito. No se agregó ninguna dependencia, no cambió `DB_VERSION` y no se modificó la estructura de IndexedDB.
+
+## D-016 · Recordatorio semanal de respaldo local · 2026-07-11 · Vigente
+
+El recordatorio es un banner dentro de la aplicación: aparece únicamente si existen clientes o cotizaciones y han pasado siete días desde la primera información útil o desde la última exportación confirmada. Puede posponerse por 24 horas; cerrar el banner equivale exactamente a esa misma posposición.
+
+La regla vive en `getBackupReminderState(...)`, una función pura que recibe la fecha actual de forma explícita y compara instantes absolutos. Por eso se puede probar sin depender del reloj real ni adelantar el aviso por cambios de zona horaria. Si datos antiguos no tienen una fecha válida, se guarda una única referencia local (`backupReminderFirstDataAt`) para iniciar el intervalo sin modificar clientes ni cotizaciones ni repetir el aviso en cada apertura.
+
+Los controles nuevos viven en `Settings`: `lastBackupExportedAt`, `backupReminderSnoozedUntil` y `backupReminderFirstDataAt`. Se añadió la versión 3 de configuración, sin cambiar la estructura de IndexedDB; ajustes y respaldos v1/v2 reciben defaults seguros al normalizarse.
+
+La exportación manual de Ajustes y la del banner usan el mismo JSON existente. Solo después de que el navegador inició la descarga se registra la fecha, se limpia la posposición y se oculta el aviso. Un controlador único bloquea toques repetidos. No se usa notificación, permiso, correo, WhatsApp, servidor, nube ni exportación automática.

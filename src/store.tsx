@@ -1,10 +1,15 @@
 // Estado global de la app: settings, clientes y cotizaciones,
 // sincronizado con IndexedDB a través de services/storage.
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import type { Settings, Client, Quote } from './types';
 import * as storage from './services/storage';
 import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
+import { downloadBackupFile } from './services/backup';
+import {
+  createBackupExportController,
+  type BackupExportController
+} from './services/backupReminder';
 
 interface AppStore {
   ready: boolean;
@@ -12,8 +17,12 @@ interface AppStore {
   clients: Client[];
   quotes: Quote[];
   toast: string | null;
+  backupExporting: boolean;
   showToast: (message: string) => void;
   updateSettings: (settings: Settings) => Promise<void>;
+  exportBackup: () => Promise<boolean>;
+  snoozeBackupReminder: (snoozedUntil: string) => Promise<void>;
+  ensureBackupReminderFirstDataAt: (startedAt: string) => Promise<void>;
   upsertClient: (client: Client) => Promise<void>;
   removeClient: (id: string) => Promise<void>;
   upsertQuote: (quote: Quote) => Promise<void>;
@@ -32,6 +41,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [backupExporting, setBackupExporting] = useState(false);
 
   const reloadAll = useCallback(async () => {
     const [s, c, q] = await Promise.all([
@@ -82,6 +92,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettings(next);
   }, []);
 
+  const recordBackupExported = useCallback(async (exportedAt: string) => {
+    const next = await storage.recordBackupExported(exportedAt);
+    setSettings(next);
+  }, []);
+
+  const backupExportControllerRef = useRef<BackupExportController | null>(null);
+  if (!backupExportControllerRef.current) {
+    backupExportControllerRef.current = createBackupExportController({
+      download: downloadBackupFile,
+      recordExported: recordBackupExported,
+      now: () => new Date(),
+      onExportingChange: setBackupExporting
+    });
+  }
+
+  const exportBackup = useCallback(() => backupExportControllerRef.current!.start(), []);
+
+  const snoozeBackupReminder = useCallback(async (snoozedUntil: string) => {
+    const next = await storage.snoozeBackupReminder(snoozedUntil);
+    setSettings(next);
+  }, []);
+
+  const ensureBackupReminderFirstDataAt = useCallback(async (startedAt: string) => {
+    const next = await storage.ensureBackupReminderFirstDataAt(startedAt);
+    setSettings(next);
+  }, []);
+
   const upsertClient = useCallback(async (client: Client) => {
     await storage.saveClient(client);
     setClients(await storage.listClients());
@@ -123,8 +160,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         clients,
         quotes,
         toast,
+        backupExporting,
         showToast,
         updateSettings,
+        exportBackup,
+        snoozeBackupReminder,
+        ensureBackupReminderFirstDataAt,
         upsertClient,
         removeClient,
         upsertQuote,

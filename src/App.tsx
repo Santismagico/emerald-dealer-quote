@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store';
 import type { Quote } from './types';
 import { newId } from './utils/id';
@@ -10,6 +10,10 @@ import { ClientsView } from './components/ClientsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
+import {
+  getBackupReminderSnoozedUntil,
+  getBackupReminderState
+} from './services/backupReminder';
 
 type ViewName = 'history' | 'form' | 'preview' | 'clients' | 'settings';
 
@@ -69,7 +73,73 @@ function AppShell() {
   const [view, setView] = useState<ViewName>('history');
   const [draft, setDraft] = useState<Quote | null>(null);
   const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
+  const [reminderNow, setReminderNow] = useState(() => new Date());
+  const [snoozingReminder, setSnoozingReminder] = useState(false);
   const previewRef = useRef<PreviewViewHandle>(null);
+  const reminderAnchorRef = useRef(false);
+  const snoozeRef = useRef(false);
+
+  const backupReminder = getBackupReminderState({
+    settings: store.settings,
+    clients: store.clients,
+    quotes: store.quotes,
+    now: reminderNow
+  });
+
+  useEffect(() => {
+    const refresh = () => setReminderNow(new Date());
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const interval = window.setInterval(refresh, 60 * 60 * 1000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!store.ready || !backupReminder.needsFirstDataAnchor || reminderAnchorRef.current) return;
+    reminderAnchorRef.current = true;
+    void store.ensureBackupReminderFirstDataAt(reminderNow.toISOString()).catch(() => {
+      // Si IndexedDB no está disponible, el aviso se mantiene oculto en vez de insistir en cada apertura.
+    });
+  }, [
+    backupReminder.needsFirstDataAnchor,
+    reminderNow,
+    store.ready,
+    store.ensureBackupReminderFirstDataAt
+  ]);
+
+  const exportBackupFromReminder = async () => {
+    try {
+      const exported = await store.exportBackup();
+      if (exported) {
+        setReminderNow(new Date());
+        store.showToast('Respaldo exportado');
+      }
+    } catch {
+      store.showToast('No se pudo completar el respaldo. Intenta de nuevo.');
+    }
+  };
+
+  const snoozeBackupReminder = async () => {
+    if (snoozeRef.current || store.backupExporting) return;
+    snoozeRef.current = true;
+    setSnoozingReminder(true);
+    const now = new Date();
+    try {
+      await store.snoozeBackupReminder(getBackupReminderSnoozedUntil(now));
+      setReminderNow(now);
+      store.showToast('Te lo recordaremos mañana.');
+    } catch {
+      store.showToast('No se pudo posponer el recordatorio. Intenta de nuevo.');
+    } finally {
+      snoozeRef.current = false;
+      setSnoozingReminder(false);
+    }
+  };
 
   if (!store.ready) {
     return (
@@ -157,6 +227,13 @@ function AppShell() {
       {isInAppBrowser() && <InAppBrowserBanner />}
 
       <main className="flex-1 px-4 pb-28 pt-4">
+        {backupReminder.shouldShow && !store.backupExporting ? (
+          <BackupReminderBanner
+            busy={snoozingReminder}
+            onExport={() => void exportBackupFromReminder()}
+            onSnooze={() => void snoozeBackupReminder()}
+          />
+        ) : null}
         {view === 'history' && (
           <HistoryView
             onNew={startNewQuote}
@@ -228,6 +305,56 @@ function AppShell() {
 
       <Toast message={store.toast} />
     </div>
+  );
+}
+
+function BackupReminderBanner({
+  busy,
+  onExport,
+  onSnooze
+}: {
+  busy: boolean;
+  onExport: () => void;
+  onSnooze: () => void;
+}) {
+  return (
+    <section className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-brand-900">Respaldo recomendado</h2>
+          <p className="mt-1 text-sm text-brand-800">
+            Protege tu información. Han pasado varios días desde el último respaldo.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar y recordar mañana"
+          disabled={busy}
+          className="min-h-11 min-w-11 rounded-lg text-xl text-brand-800 disabled:text-stone-400"
+          onClick={onSnooze}
+        >
+          ×
+        </button>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          className="min-h-12 rounded-xl bg-brand-800 px-4 font-medium text-white disabled:bg-stone-300"
+          disabled={busy}
+          onClick={onExport}
+        >
+          Exportar respaldo
+        </button>
+        <button
+          type="button"
+          className="min-h-12 rounded-xl border border-brand-700 bg-white px-4 font-medium text-brand-800 disabled:border-stone-300 disabled:text-stone-400"
+          disabled={busy}
+          onClick={onSnooze}
+        >
+          {busy ? 'Posponiendo…' : 'Recordar mañana'}
+        </button>
+      </div>
+    </section>
   );
 }
 

@@ -130,5 +130,8 @@ describe('normalizeSettings: migraciones y saneamiento', () => {
     const s = normalizeSettings({ currency: 'USD', settingsVersion: 1 });
     expect(s.currency).toBe('COP');
     expect(s.settingsVersion).toBe(SETTINGS_VERSION);
+    expect(s.lastBackupExportedAt).toBe('');
+    expect(s.backupReminderSnoozedUntil).toBe('');
+    expect(s.backupReminderFirstDataAt).toBe('');
   });
 });

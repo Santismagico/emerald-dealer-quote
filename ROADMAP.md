@@ -18,7 +18,7 @@
 - [ ] Adjuntar el PDF directamente al compartir (Web Share API nivel 2, donde esté soportada).
 - [x] Marcado automático de cotizaciones vencidas como estado derivado, sin modificar los datos guardados.
 - [ ] Plantillas de condiciones y piezas frecuentes.
-- [ ] Recordatorio periódico de exportar respaldo.
+- [x] Recordatorio semanal local para exportar respaldo, con posposición de 24 horas y sin exportación automática.
 - [ ] Precio del oro: campo auxiliar "precio internacional 24K" que calcule la referencia +$100.000 (pendiente confirmar con Santiago, ver DECISIONS.md D-002).
 
 ## v0.2.x — Adiciones solicitadas por Santiago (2026-07-08)

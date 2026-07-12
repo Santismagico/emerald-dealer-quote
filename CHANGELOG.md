@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-11
 
+### Respaldo
+
+- **Recordatorio semanal local:** cuando existen clientes o cotizaciones, un banner discreto invita a exportar el respaldo después de siete días sin una exportación confirmada. Puede posponerse por 24 horas.
+- El aviso no usa notificaciones, servidores, correo ni WhatsApp; tampoco exporta ni sube información automáticamente.
+- El botón del banner y el de Ajustes usan la misma exportación JSON compatible. Solo después de iniciar la descarga se registra la fecha y se oculta el aviso.
+- Los respaldos con fechas antiguas o incompletas siguen siendo compatibles. Una referencia local única evita que datos viejos sin fecha válida muestren el aviso repetidamente al abrir la aplicación.
+
 ### Integridad de datos
 
 - **Restauración de respaldo atómica:** ajustes, clientes y cotizaciones se reemplazan dentro de una única transacción local. Si falla cualquier borrado o escritura, se revierte todo y permanecen completos los datos anteriores.
@@ -35,7 +42,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ### Pruebas
 
-- 234 pruebas automáticas en verde. La Etapa 4A agrega 27 pruebas para normalización e inmutabilidad de clientes, validación de identificadores, exportación segura, restauraciones completas, compatibilidad v1/v2, mensajes de éxito y rollback real ante fallos en ajustes, clientes o cotizaciones.
+- 255 pruebas automáticas en verde. La Etapa 4B agrega 21 pruebas para el intervalo semanal, la fecha inicial más antigua, posposición, fechas inválidas o futuras, control de doble toque y registro seguro de la exportación. Las 234 pruebas previas, incluida la restauración atómica, siguen en verde.
 - Build de producción y comprobación TypeScript completados sin errores.
 
 ## [0.5.0] — 2026-07-09

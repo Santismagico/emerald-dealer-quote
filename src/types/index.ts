@@ -177,6 +177,12 @@ export interface Settings {
   conditions: string;
   /** Consecutivo para numerar cotizaciones. */
   quoteCounter: number;
+  /** Última exportación de respaldo iniciada correctamente (ISO). */
+  lastBackupExportedAt: string;
+  /** Hasta cuándo se oculta el recordatorio de respaldo (ISO). */
+  backupReminderSnoozedUntil: string;
+  /** Referencia segura para datos antiguos que no conservan fecha de creación válida. */
+  backupReminderFirstDataAt: string;
   /** Versión del esquema de settings (para migraciones). Ver services/schema.ts. */
   settingsVersion: number;
 }
