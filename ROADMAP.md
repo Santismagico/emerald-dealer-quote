@@ -33,6 +33,24 @@
 - [ ] Migraciones versionadas de IndexedDB (escalera oldVersion) cuando se necesite el primer índice o cambio de estructura.
 - [x] Guardado diferido y seguro en producción/abonos: pausa de 650 ms, blur, cierre, navegación, serialización y reintento.
 
+## v1.0 — Ecosistema Emerald Dealer (autorizado por Santiago el 2026-07-12)
+
+La aplicación pasa de "cotizadora" a ecosistema del negocio con cuatro áreas en la
+navegación inferior: **Cotizador · Taller · Agenda · Piedras · Más**. Detalle ejecutable
+en [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md); decisiones en DECISIONS.md D-020.
+
+- [x] Cambio rápido de estado tocando la etiqueta en el historial (D-019).
+- [ ] **Etapa 6 — Taller como área propia:** pestaña Taller con los trabajos (cotizaciones
+  aprobadas), su progreso de producción y sus abonos, reorganizados fuera del flujo de
+  cotización. Sin cambios de estructura de datos.
+- [ ] **Etapa 7 — Agenda de asesorías:** registro interno de citas (Santiago las anota;
+  el cliente sigue contactando por WhatsApp). Primera migración real de IndexedDB
+  (v1→v2) y respaldo de cuatro almacenes.
+- [ ] **Etapa 8 — Piedras:** registro de compras y ventas de piedras con inventario
+  derivado por motor puro. Migración v2→v3 y respaldo de cinco almacenes.
+- [ ] **Etapa 9 — Cierre del día:** PDF interno con todos los movimientos del día
+  (piedras, abonos, cotizaciones creadas/aprobadas, pagos del taller).
+
 ## Fase futura — Preparación SaaS
 
 **Plan detallado y ejecutable en [SAAS_PLAN.md](SAAS_PLAN.md)** (escrito 2026-07-08; ejecutar solo con orden de Santiago, tras validar con 2-3 joyerías).

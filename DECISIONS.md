@@ -144,3 +144,15 @@ La consulta del precio del oro puede terminar después de que cambie el recargo.
 La etiqueta de estado de cada cotización en el historial es tocable y abre un menú con los estados asignables: borrador, pendiente, aprobada y rechazada. Elegir uno guarda la cotización con `updatedAt` nuevo mediante el mismo `upsertQuote` que usan las demás ediciones; no existe una vía de guardado paralela.
 
 "Vencida" no aparece como opción manual porque es un estado derivado de la fecha de validez (D-013): asignarla a mano sería redundante y quitarla a mano sería imposible mientras la fecha siga en el pasado. Cuando la cotización mostrada está vencida, el menú lo explica y sugiere cambiar la fecha o elegir otro estado. La lógica pura vive en `src/services/quoteStatus.ts` (`SELECTABLE_QUOTE_STATUSES`, `withQuoteStatus`) con pruebas propias.
+
+## D-020 · Ecosistema Emerald Dealer v1.0 · 2026-07-12 · Vigente
+
+Santiago autorizó convertir la cotizadora en el ecosistema del negocio con cuatro áreas: Cotizador, Taller, Agenda y Piedras, más una pestaña "Más" (Clientes, Ajustes, Cierre del día). El plan ejecutable por etapas está en `docs/EXECUTION_PLAN.md` (Etapas 6 a 9).
+
+Decisiones de negocio tomadas por Santiago ese día:
+
+1. **Asesorías con agenda interna.** El cliente sigue contactando por WhatsApp y Santiago registra la cita en la app. No hay reservas en línea ni servicios externos de citas; todo permanece local y privado. La reserva en línea propia queda descartada mientras el plan SaaS siga congelado.
+2. **Cierre del día con todo el negocio.** El PDF interno diario incluye compras y ventas de piedras, abonos recibidos, cotizaciones creadas y aprobadas, y pagos del taller. Es un documento interno: solo descarga directa, nunca Web Share ni WhatsApp.
+3. **Ejecución mixta.** Claude construye las partes delicadas (navegación, migraciones de IndexedDB, respaldo/restauración, motor del reporte, auditorías); Codex construye las vistas repetitivas siguiendo las órdenes del plan.
+
+El Taller (Etapa 6) es solo reorganización de interfaz: reutiliza la lógica de producción y abonos ya probada (D-014) sin cambiar el esquema de datos. Las Etapas 7 y 8 introducen las primeras migraciones reales de IndexedDB (v1→v2 y v2→v3) con escalera `oldVersion`, pagando la deuda anotada en ROADMAP, y amplían el respaldo atómico de 3 a 4 y 5 almacenes (extiende D-015).

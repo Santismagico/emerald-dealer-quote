@@ -79,7 +79,9 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-Las **Etapas 1, 2, 3, 4A, 4B, 5 y la consolidación 5.5 están completadas como candidata no publicada**. El siguiente paso es probar la instalación PWA, el bloqueo de información interna y el selector de compartir en un iPhone real y un Android real mediante una copia local privada. Las plantillas solo pueden abordarse con una nueva autorización de Santiago.
+El 2026-07-12 Santiago autorizó el **Ecosistema Emerald Dealer v1.0** (Cotizador · Taller · Agenda · Piedras · Más). El plan por etapas está en `docs/EXECUTION_PLAN.md` y las decisiones de negocio en DECISIONS.md D-020. El siguiente paso es la **Etapa 6 (Taller como área propia)**, empezando por la tarea 6.1 (nueva navegación, a cargo de Claude).
+
+Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
 ## Pruebas que debe ejecutar todo agente antes de dar algo por terminado
 
@@ -99,4 +101,5 @@ npm test && npm run build
 | 2026-07-11 | Etapa 4B: recordatorio de respaldo | Aviso semanal local, posposición de 24 horas y exportación confirmada; 255 tests y build en verde | c525e01 |
 | 2026-07-12 | Etapa 5: compartir PDF cliente | Selector nativo cuando es compatible, descarga segura como respaldo, privacidad y doble toque protegidos; 283 tests y build en verde | 508555f |
 | 2026-07-12 | Etapa 5.5: consolidación Codex | Privacidad sin bypass, Ajustes simultáneos protegidos, documentación alineada; 294 tests y build en verde; candidata no publicada | `punto-seguro-codex-etapa5-2026-07-12` |
-| 2026-07-12 | Cambio rápido de estado (Fable) | Etiqueta de estado tocable en el historial con menú de estados asignables; 298 tests y build en verde; verificado en navegador | pendiente de commit |
+| 2026-07-12 | Cambio rápido de estado (Fable) | Etiqueta de estado tocable en el historial con menú de estados asignables; 298 tests y build en verde; verificado en navegador | 2bfda23 |
+| 2026-07-12 | Plan Ecosistema v1.0 (Fable) | Etapas 6–9 escritas en docs/EXECUTION_PLAN.md; decisiones de negocio en D-020 | — |
