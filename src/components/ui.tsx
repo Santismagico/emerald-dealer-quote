@@ -53,12 +53,14 @@ const inputClass =
 export function TextInput({
   value,
   onChange,
+  onBlur,
   placeholder,
   type = 'text',
   inputMode
 }: {
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   type?: string;
   inputMode?: 'text' | 'tel' | 'email' | 'numeric' | 'decimal';
@@ -71,6 +73,7 @@ export function TextInput({
       value={value}
       placeholder={placeholder}
       onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+      onBlur={onBlur}
     />
   );
 }
@@ -79,10 +82,12 @@ export function TextInput({
 export function MoneyInput({
   value,
   onValue,
+  onBlur,
   placeholder = '0'
 }: {
   value: number;
   onValue: (value: number) => void;
+  onBlur?: () => void;
   placeholder?: string;
 }) {
   const [text, setText] = useState(value ? formatThousands(value) : '');
@@ -102,6 +107,7 @@ export function MoneyInput({
           setText(parsed ? formatThousands(parsed) : '');
           onValue(parsed);
         }}
+        onBlur={onBlur}
       />
     </div>
   );

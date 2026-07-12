@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import type { ClientPayment } from '../types';
+import { runAfterSuccessfulFlush, type QuoteSaveMode } from '../services/quoteAutosave';
 import { emptyPayment, paymentsTotal } from '../services/payments';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
@@ -13,20 +14,32 @@ import { Button, Field, TextInput, MoneyInput, ConfirmDialog, SummaryRow } from 
 export function PaymentsPanel({
   payments,
   quoteTotal,
-  onChange
+  onChange,
+  onCommit
 }: {
   payments: ClientPayment[];
   quoteTotal: number;
-  onChange: (payments: ClientPayment[]) => void;
+  onChange: (updater: (current: ClientPayment[]) => ClientPayment[], mode: QuoteSaveMode) => void;
+  onCommit: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [toRemove, setToRemove] = useState<ClientPayment | null>(null);
 
   const totalPaid = paymentsTotal(payments);
   const realBalance = quoteTotal - totalPaid;
+  const commitInBackground = () => void onCommit().catch(() => {});
 
   const patchPayment = (id: string, partial: Partial<ClientPayment>) =>
-    onChange(patchById(payments, id, partial));
+    onChange((current) => patchById(current, id, partial), 'deferred');
+
+  const toggleExpanded = async (id: string) => {
+    const action = () => setExpanded(expanded === id ? null : id);
+    if (expanded === null) {
+      action();
+      return;
+    }
+    await runAfterSuccessfulFlush(onCommit, action);
+  };
 
   return (
     <div className="mt-4 border-t border-amber-200 pt-4">
@@ -46,7 +59,7 @@ export function PaymentsPanel({
             <button
               type="button"
               className="block w-full text-left"
-              onClick={() => setExpanded(expanded === payment.id ? null : payment.id)}
+              onClick={() => void toggleExpanded(payment.id)}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-stone-800">{formatCOP(payment.amount)}</span>
@@ -61,15 +74,26 @@ export function PaymentsPanel({
             {expanded === payment.id && (
               <div className="mt-3 space-y-3 border-t border-stone-100 pt-3">
                 <Field label="Monto del abono">
-                  <MoneyInput value={payment.amount} onValue={(amount) => patchPayment(payment.id, { amount })} />
+                  <MoneyInput
+                    value={payment.amount}
+                    onValue={(amount) => patchPayment(payment.id, { amount })}
+                    onBlur={commitInBackground}
+                  />
                 </Field>
                 <Field label="Fecha">
-                  <TextInput type="date" value={payment.date} onChange={(date) => patchPayment(payment.id, { date })} />
+                  <TextInput
+                    type="date"
+                    value={payment.date}
+                    onChange={(date) =>
+                      onChange((current) => patchById(current, payment.id, { date }), 'immediate')
+                    }
+                  />
                 </Field>
                 <Field label="Quién lo recibió">
                   <TextInput
                     value={payment.receivedBy}
                     onChange={(receivedBy) => patchPayment(payment.id, { receivedBy })}
+                    onBlur={commitInBackground}
                     placeholder="Nombre de quien recibió el dinero"
                   />
                 </Field>
@@ -77,11 +101,16 @@ export function PaymentsPanel({
                   <TextInput
                     value={payment.method}
                     onChange={(method) => patchPayment(payment.id, { method })}
+                    onBlur={commitInBackground}
                     placeholder="Efectivo, transferencia, Nequi…"
                   />
                 </Field>
                 <Field label="Nota">
-                  <TextInput value={payment.notes} onChange={(notes) => patchPayment(payment.id, { notes })} />
+                  <TextInput
+                    value={payment.notes}
+                    onChange={(notes) => patchPayment(payment.id, { notes })}
+                    onBlur={commitInBackground}
+                  />
                 </Field>
                 <Button variant="danger" full onClick={() => setToRemove(payment)}>
                   Eliminar abono
@@ -98,7 +127,7 @@ export function PaymentsPanel({
           full
           onClick={() => {
             const payment = emptyPayment();
-            onChange([...payments, payment]);
+            onChange((current) => [...current, payment], 'immediate');
             setExpanded(payment.id);
           }}
         >
@@ -127,7 +156,7 @@ export function PaymentsPanel({
         danger
         onCancel={() => setToRemove(null)}
         onConfirm={() => {
-          if (toRemove) onChange(payments.filter((p) => p.id !== toRemove.id));
+          if (toRemove) onChange((current) => current.filter((payment) => payment.id !== toRemove.id), 'immediate');
           setToRemove(null);
         }}
       />

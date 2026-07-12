@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import type { ProductionStage, StageStatus } from '../types';
+import { runAfterSuccessfulFlush, type QuoteSaveMode } from '../services/quoteAutosave';
 import { emptyStage, productionSummary, defaultProductionStages } from '../services/production';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
@@ -31,27 +32,47 @@ const NEXT_STATUS: Record<StageStatus, StageStatus> = {
 export function ProductionPanel({
   stages,
   quoteTotal,
-  onChange
+  onChange,
+  onCommit
 }: {
   stages: ProductionStage[];
   quoteTotal: number;
-  onChange: (stages: ProductionStage[]) => void;
+  onChange: (updater: (current: ProductionStage[]) => ProductionStage[], mode: QuoteSaveMode) => void;
+  onCommit: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [toRemove, setToRemove] = useState<ProductionStage | null>(null);
 
   const summary = productionSummary(stages);
   const estimatedProfit = quoteTotal - summary.totalCost;
+  const commitInBackground = () => void onCommit().catch(() => {});
 
   const patchStage = (id: string, partial: Partial<ProductionStage>) =>
-    onChange(patchById(stages, id, partial));
+    onChange((current) => patchById(current, id, partial), 'deferred');
 
   const cycleStatus = (stage: ProductionStage) => {
-    const status = NEXT_STATUS[stage.status];
-    patchStage(stage.id, {
-      status,
-      completedAt: status === 'lista' ? stage.completedAt || todayISO() : ''
-    });
+    onChange(
+      (current) =>
+        current.map((item) => {
+          if (item.id !== stage.id) return item;
+          const status = NEXT_STATUS[item.status];
+          return {
+            ...item,
+            status,
+            completedAt: status === 'lista' ? item.completedAt || todayISO() : ''
+          };
+        }),
+      'immediate'
+    );
+  };
+
+  const toggleExpanded = async (id: string) => {
+    const action = () => setExpanded(expanded === id ? null : id);
+    if (expanded === null) {
+      action();
+      return;
+    }
+    await runAfterSuccessfulFlush(onCommit, action);
   };
 
   return (
@@ -67,7 +88,13 @@ export function ProductionPanel({
 
       {stages.length === 0 && (
         <div className="mb-2">
-          <Button variant="secondary" full onClick={() => onChange(defaultProductionStages())}>
+          <Button
+            variant="secondary"
+            full
+            onClick={() =>
+              onChange((current) => (current.length === 0 ? defaultProductionStages() : current), 'immediate')
+            }
+          >
             ＋ Crear etapas estándar del taller
           </Button>
         </div>
@@ -80,7 +107,7 @@ export function ProductionPanel({
               <button
                 type="button"
                 className="min-w-0 flex-1 text-left"
-                onClick={() => setExpanded(expanded === stage.id ? null : stage.id)}
+                onClick={() => void toggleExpanded(stage.id)}
               >
                 <p className="truncate text-sm font-medium text-stone-800">{stage.name}</p>
                 <p className="text-xs text-stone-500">
@@ -104,35 +131,69 @@ export function ProductionPanel({
             {expanded === stage.id && (
               <div className="mt-3 space-y-3 border-t border-stone-100 pt-3">
                 <Field label="Nombre de la etapa">
-                  <TextInput value={stage.name} onChange={(name) => patchStage(stage.id, { name })} />
+                  <TextInput
+                    value={stage.name}
+                    onChange={(name) => patchStage(stage.id, { name })}
+                    onBlur={commitInBackground}
+                  />
                 </Field>
                 <Field label="Costo de la etapa">
-                  <MoneyInput value={stage.cost} onValue={(cost) => patchStage(stage.id, { cost })} />
+                  <MoneyInput
+                    value={stage.cost}
+                    onValue={(cost) => patchStage(stage.id, { cost })}
+                    onBlur={commitInBackground}
+                  />
                 </Field>
                 <Toggle
                   checked={stage.paid}
-                  onChange={(paid) => patchStage(stage.id, { paid, paidAt: paid ? stage.paidAt || todayISO() : '' })}
+                  onChange={() =>
+                    onChange(
+                      (current) =>
+                        current.map((item) => {
+                          if (item.id !== stage.id) return item;
+                          const paid = !item.paid;
+                          return { ...item, paid, paidAt: paid ? item.paidAt || todayISO() : '' };
+                        }),
+                      'immediate'
+                    )
+                  }
                   label="¿Ya se pagó?"
                 />
                 {stage.paid && (
                   <>
                     <Field label="Fecha del pago">
-                      <TextInput type="date" value={stage.paidAt} onChange={(paidAt) => patchStage(stage.id, { paidAt })} />
+                      <TextInput
+                        type="date"
+                        value={stage.paidAt}
+                        onChange={(paidAt) =>
+                          onChange((current) => patchById(current, stage.id, { paidAt }), 'immediate')
+                        }
+                      />
                     </Field>
                     <Field label="A quién se le pagó">
                       <TextInput
                         value={stage.paidTo}
                         onChange={(paidTo) => patchStage(stage.id, { paidTo })}
+                        onBlur={commitInBackground}
                         placeholder="Taller o proveedor"
                       />
                     </Field>
                     <Field label="Quién hizo el pago">
-                      <TextInput value={stage.paidBy} onChange={(paidBy) => patchStage(stage.id, { paidBy })} placeholder="Nombre" />
+                      <TextInput
+                        value={stage.paidBy}
+                        onChange={(paidBy) => patchStage(stage.id, { paidBy })}
+                        onBlur={commitInBackground}
+                        placeholder="Nombre"
+                      />
                     </Field>
                   </>
                 )}
                 <Field label="Nota">
-                  <TextInput value={stage.notes} onChange={(notes) => patchStage(stage.id, { notes })} />
+                  <TextInput
+                    value={stage.notes}
+                    onChange={(notes) => patchStage(stage.id, { notes })}
+                    onBlur={commitInBackground}
+                  />
                 </Field>
                 <Button variant="danger" full onClick={() => setToRemove(stage)}>
                   Quitar etapa
@@ -149,7 +210,7 @@ export function ProductionPanel({
           full
           onClick={() => {
             const stage = emptyStage('Nueva etapa');
-            onChange([...stages, stage]);
+            onChange((current) => [...current, stage], 'immediate');
             setExpanded(stage.id);
           }}
         >
@@ -182,7 +243,7 @@ export function ProductionPanel({
         danger
         onCancel={() => setToRemove(null)}
         onConfirm={() => {
-          if (toRemove) onChange(stages.filter((s) => s.id !== toRemove.id));
+          if (toRemove) onChange((current) => current.filter((stage) => stage.id !== toRemove.id), 'immediate');
           setToRemove(null);
         }}
       />

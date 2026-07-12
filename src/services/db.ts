@@ -36,8 +36,16 @@ function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBOb
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(store, mode);
         const request = run(tx.objectStore(store));
-        request.onsuccess = () => resolve(request.result as T);
+        let result!: T;
+        request.onsuccess = () => {
+          result = request.result as T;
+        };
         request.onerror = () => reject(request.error ?? new Error('Error de base de datos local.'));
+        // Una solicitud exitosa todavía puede pertenecer a una transacción sin confirmar.
+        // Resolver al completar la transacción garantiza que "Guardado" signifique commit real.
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error ?? request.error ?? new Error('Error de base de datos local.'));
+        tx.onabort = () => reject(tx.error ?? new Error('La operación de base de datos fue cancelada.'));
       })
   );
 }

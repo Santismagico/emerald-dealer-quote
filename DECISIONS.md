@@ -84,3 +84,17 @@ Una cotización se muestra como `vencida` únicamente cuando su fecha de vencimi
 El estado efectivo se usa en las insignias, los filtros y los conteos del historial. No se guarda automáticamente en IndexedDB, no modifica `updatedAt` y no reemplaza el objeto original que se abre, edita o duplica. Las cotizaciones aprobadas, rechazadas, ya vencidas o con cualquier otro estado se conservan tal como están. Una fecha vacía, imposible o con formato inválido tampoco provoca un vencimiento automático.
 
 El PDF cliente, el PDF interno y el motor de cálculo no dependen de este estado visual y no se modificaron en esta etapa.
+
+## D-014 · Guardado diferido y serializado para producción y abonos · 2026-07-11 · Vigente
+
+Los cambios internos de producción y abonos usan una única sesión de guardado por cotización (`quoteAutosave.ts`). La interfaz se actualiza inmediatamente y siempre combina el siguiente cambio sobre la versión local más reciente, no sobre una copia anterior de React.
+
+- Texto y dinero esperan 650 ms sin actividad para reducir escrituras completas en IndexedDB.
+- Blur, contracción de tarjeta, cambio de pestaña y navegación fuerzan el guardado pendiente.
+- Estados, fechas, interruptores, altas y eliminaciones fuerzan guardado inmediato.
+- Nunca hay dos escrituras activas al mismo tiempo. Si llegan cambios durante una escritura, al terminar se guarda únicamente la versión más reciente.
+- Un error conserva el borrador local, bloquea la salida que requería guardado y permite reintentar desde un aviso visible.
+- La promesa de la capa IndexedDB se resuelve en `transaction.oncomplete`; por eso “Guardado” significa que la transacción terminó, no solo que aceptó la solicitud.
+- `visibilitychange` intenta hacer flush como respaldo al ocultar la PWA, pero la integridad no depende de eventos de cierre del navegador.
+
+No se agregó ninguna dependencia ni se cambió la estructura de IndexedDB. El motor de cálculo, el precio del oro, los PDF, WhatsApp, el detector sensible y el estado vencido permanecen fuera de esta decisión.

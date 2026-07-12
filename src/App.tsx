@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store';
 import type { Quote } from './types';
 import { newId } from './utils/id';
 import { todayISO, addDays } from './utils/dates';
 import { HistoryView } from './components/HistoryView';
 import { QuoteFormView } from './components/QuoteFormView';
-import { PreviewView } from './components/PreviewView';
+import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
 import { ClientsView } from './components/ClientsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
+import { runAfterSuccessfulFlush } from './services/quoteAutosave';
 
 type ViewName = 'history' | 'form' | 'preview' | 'clients' | 'settings';
 
@@ -68,6 +69,7 @@ function AppShell() {
   const [view, setView] = useState<ViewName>('history');
   const [draft, setDraft] = useState<Quote | null>(null);
   const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
+  const previewRef = useRef<PreviewViewHandle>(null);
 
   if (!store.ready) {
     return (
@@ -122,6 +124,22 @@ function AppShell() {
     setView('preview');
   };
 
+  const runAfterPreviewFlush = async (action: () => void) => {
+    if (view === 'preview') {
+      const saved = await runAfterSuccessfulFlush(
+        async () => {
+          await previewRef.current?.flushPending();
+        },
+        action
+      );
+      if (!saved) {
+        store.showToast('No se pudo guardar. Reintenta antes de salir.');
+      }
+      return;
+    }
+    action();
+  };
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col bg-stone-100">
       <header className="safe-top sticky top-0 z-40 bg-brand-900 text-white shadow">
@@ -163,6 +181,7 @@ function AppShell() {
         )}
         {view === 'preview' && draft && (
           <PreviewView
+            ref={previewRef}
             key={`${draft.id}-${previewTab}`}
             initialTab={previewTab}
             quote={draft}
@@ -180,10 +199,30 @@ function AppShell() {
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg border-t border-stone-200 bg-white">
         <div className="grid grid-cols-4">
-          <NavButton label="Cotizaciones" icon="🗂" active={view === 'history' || view === 'preview'} onClick={() => setView('history')} />
-          <NavButton label="Nueva" icon="＋" active={view === 'form'} onClick={startNewQuote} />
-          <NavButton label="Clientes" icon="👤" active={view === 'clients'} onClick={() => setView('clients')} />
-          <NavButton label="Ajustes" icon="⚙" active={view === 'settings'} onClick={() => setView('settings')} />
+          <NavButton
+            label="Cotizaciones"
+            icon="🗂"
+            active={view === 'history' || view === 'preview'}
+            onClick={() => void runAfterPreviewFlush(() => setView('history'))}
+          />
+          <NavButton
+            label="Nueva"
+            icon="＋"
+            active={view === 'form'}
+            onClick={() => void runAfterPreviewFlush(startNewQuote)}
+          />
+          <NavButton
+            label="Clientes"
+            icon="👤"
+            active={view === 'clients'}
+            onClick={() => void runAfterPreviewFlush(() => setView('clients'))}
+          />
+          <NavButton
+            label="Ajustes"
+            icon="⚙"
+            active={view === 'settings'}
+            onClick={() => void runAfterPreviewFlush(() => setView('settings'))}
+          />
         </div>
       </nav>
 

@@ -2,7 +2,7 @@
 // "Cliente" (lo que verá el cliente) e "Interno" (confidencial).
 // Desde aquí se guarda, se genera PDF y se comparte por WhatsApp.
 
-import { useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { Quote, QuoteStatus, ProductionStage, ClientPayment } from '../types';
 import { QUOTE_STATUSES } from '../types';
@@ -19,32 +19,121 @@ import {
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
 import { getEffectiveQuoteStatus } from '../services/quoteStatus';
+import {
+  createQuoteAutosaveController,
+  runAfterSuccessfulFlush,
+  type QuoteAutosaveController,
+  type QuoteAutosaveStatus,
+  type QuoteSaveMode
+} from '../services/quoteAutosave';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
 import { Button, ConfirmDialog, Select, StatusBadge, SummaryRow } from './ui';
 
-export function PreviewView({
-  quote,
-  onEdit,
-  onSaved,
-  onClose,
-  initialTab = 'cliente'
-}: {
+export interface PreviewViewHandle {
+  flushPending: () => Promise<void>;
+}
+
+interface PreviewViewProps {
   quote: Quote;
   onEdit: () => void;
   onSaved: (quote: Quote) => void;
   onClose: () => void;
   initialTab?: 'cliente' | 'interno';
-}) {
+}
+
+export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(function PreviewView(
+  { quote, onEdit, onSaved, onClose, initialTab = 'cliente' },
+  ref
+) {
   const store = useStore();
   const [tab, setTab] = useState<'cliente' | 'interno'>(initialTab);
   const [busy, setBusy] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<QuoteAutosaveStatus>('idle');
+  const mountedRef = useRef(true);
+  const numberPromiseRef = useRef<Promise<string> | null>(null);
   // Aviso de privacidad pendiente de confirmar: qué acción se quiso ejecutar
   // y qué palabras sensibles se detectaron en el texto visible al cliente.
   const [sensitiveWarning, setSensitiveWarning] = useState<{
     action: 'pdf' | 'whatsapp';
     words: string[];
   } | null>(null);
+
+  const callbacksRef = useRef({
+    save: store.upsertQuote,
+    nextQuoteNumber: store.nextQuoteNumber,
+    onSaved,
+    showToast: store.showToast
+  });
+  callbacksRef.current = {
+    save: store.upsertQuote,
+    nextQuoteNumber: store.nextQuoteNumber,
+    onSaved,
+    showToast: store.showToast
+  };
+
+  const autosaveRef = useRef<QuoteAutosaveController | null>(null);
+  const requestQuoteNumber = async () => {
+    if (numberPromiseRef.current === null) {
+      numberPromiseRef.current = callbacksRef.current.nextQuoteNumber();
+    }
+    const pendingNumber = numberPromiseRef.current;
+    try {
+      return await pendingNumber;
+    } finally {
+      if (numberPromiseRef.current === pendingNumber) numberPromiseRef.current = null;
+    }
+  };
+
+  if (autosaveRef.current === null) {
+    autosaveRef.current = createQuoteAutosaveController({
+      initialQuote: quote,
+      save: async (latest) => {
+        if (!latest.number) {
+          const number = await requestQuoteNumber();
+          if (!autosaveRef.current?.getLatest().number) {
+            autosaveRef.current?.update((current) => ({ ...current, number }));
+          }
+          return;
+        }
+        await callbacksRef.current.save(latest);
+      },
+      onDraft: (latest) => callbacksRef.current.onSaved(latest),
+      onStatus: (status) => {
+        if (mountedRef.current) setSaveStatus(status);
+      }
+    });
+  }
+  const autosave = autosaveRef.current;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flushPending: async () => {
+        await autosave.flush();
+      }
+    }),
+    [autosave]
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const flushWhenHidden = () => {
+      if (document.visibilityState === 'hidden') {
+        void autosave.flush().catch(() => {
+          // Al volver a la app se conserva el borrador y aparece la opción de reintentar.
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', flushWhenHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', flushWhenHidden);
+      mountedRef.current = false;
+      void autosave.flush().catch(() => {
+        callbacksRef.current.showToast('No se pudo guardar. Los cambios siguen en pantalla.');
+      });
+    };
+  }, [autosave]);
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
   const effectiveStatus = getEffectiveQuoteStatus(quote, todayISO());
@@ -53,13 +142,21 @@ export function PreviewView({
     [quote, calc, store.settings]
   );
 
-  /** Guarda la cotización asignando número si aún no tiene. Devuelve la versión guardada. */
+  const ensureQuoteNumber = async (): Promise<Quote> => {
+    const current = autosave.getLatest();
+    if (current.number) return current;
+
+    const number = await requestQuoteNumber();
+    if (!autosave.getLatest().number) {
+      autosave.update((latest) => ({ ...latest, number }));
+    }
+    return autosave.getLatest();
+  };
+
+  /** Guarda la última versión local, nunca la prop capturada por un render anterior. */
   const persist = async (): Promise<Quote> => {
-    const number = quote.number || (await store.nextQuoteNumber());
-    const saved: Quote = { ...quote, number, updatedAt: new Date().toISOString() };
-    await store.upsertQuote(saved);
-    onSaved(saved);
-    return saved;
+    await ensureQuoteNumber();
+    return autosave.commit();
   };
 
   const handleSave = async () => {
@@ -78,7 +175,7 @@ export function PreviewView({
     setBusy(true);
     try {
       const saved = await persist();
-      await downloadClientPdf(saved, calc, store.settings);
+      await downloadClientPdf(saved, calculateQuote(quoteToCalcInput(saved)), store.settings);
       store.showToast('PDF del cliente generado');
     } catch {
       store.showToast('No se pudo generar el PDF.');
@@ -93,10 +190,12 @@ export function PreviewView({
    * por error. Si las hay, pide confirmación; si no, ejecuta directo.
    */
   const guardSensitive = (action: 'pdf' | 'whatsapp', run: () => Promise<void>) => {
+    const current = autosave.getLatest();
+    const currentCalc = calculateQuote(quoteToCalcInput(current));
     const words =
       action === 'pdf'
-        ? findSensitiveWordsInClientText(quote, calc, store.settings)
-        : findSensitiveWordsInText(buildWhatsAppMessage(quote, calc, store.settings));
+        ? findSensitiveWordsInClientText(current, currentCalc, store.settings)
+        : findSensitiveWordsInText(buildWhatsAppMessage(current, currentCalc, store.settings));
     if (words.length > 0) {
       setSensitiveWarning({ action, words });
     } else {
@@ -108,7 +207,7 @@ export function PreviewView({
     setBusy(true);
     try {
       const saved = await persist();
-      await downloadInternalPdf(saved, calc, store.settings);
+      await downloadInternalPdf(saved, calculateQuote(quoteToCalcInput(saved)), store.settings);
       store.showToast('PDF interno generado');
     } catch {
       store.showToast('No se pudo generar el PDF interno.');
@@ -121,7 +220,7 @@ export function PreviewView({
     setBusy(true);
     try {
       const saved = await persist();
-      const message = buildWhatsAppMessage(saved, calc, store.settings);
+      const message = buildWhatsAppMessage(saved, calculateQuote(quoteToCalcInput(saved)), store.settings);
       const link = whatsAppLink(message, saved.clientSnapshot?.phone);
       // OJO: no pasar 'noopener' como feature — hace que window.open devuelva
       // null AUNQUE la ventana se abra, y el fallback navegaría la app entera
@@ -141,40 +240,62 @@ export function PreviewView({
   };
 
   const changeStatus = async (status: QuoteStatus) => {
-    const saved: Quote = {
-      ...quote,
-      number: quote.number || (await store.nextQuoteNumber()),
-      status,
-      // Al aprobar arranca el trabajo del taller: se crea el seguimiento estándar.
-      production:
-        status === 'aprobada' && quote.production.length === 0
-          ? defaultProductionStages()
-          : quote.production,
-      updatedAt: new Date().toISOString()
-    };
-    await store.upsertQuote(saved);
-    onSaved(saved);
-    store.showToast(`Estado: ${status}`);
+    try {
+      autosave.update((current) => ({
+        ...current,
+        status,
+        // Al aprobar arranca el trabajo del taller: se crea el seguimiento estándar.
+        production:
+          status === 'aprobada' && current.production.length === 0
+            ? defaultProductionStages()
+            : current.production
+      }));
+      await ensureQuoteNumber();
+      await autosave.flush();
+      store.showToast(`Estado: ${status}`);
+    } catch {
+      store.showToast('No se pudo guardar el estado. Puedes reintentar.');
+    }
   };
 
-  /**
-   * Guardado inmediato de un parche sobre la cotización (producción, abonos).
-   * La pantalla se actualiza ANTES de esperar la base de datos: si no,
-   * dos ediciones rápidas seguidas podrían pisarse entre sí.
-   */
-  const saveQuotePatch = async (partial: Partial<Quote>) => {
-    const saved: Quote = { ...quote, ...partial, updatedAt: new Date().toISOString() };
-    onSaved(saved);
-    await store.upsertQuote(saved);
+  const flushPending = async () => {
+    await autosave.flush();
   };
 
-  const updateProduction = (production: ProductionStage[]) => saveQuotePatch({ production });
-  const updatePayments = (payments: ClientPayment[]) => saveQuotePatch({ payments });
+  const updateProduction = (
+    updater: (current: ProductionStage[]) => ProductionStage[],
+    mode: QuoteSaveMode
+  ) => {
+    autosave.update((current) => ({ ...current, production: updater(current.production) }), mode);
+  };
+
+  const updatePayments = (
+    updater: (current: ClientPayment[]) => ClientPayment[],
+    mode: QuoteSaveMode
+  ) => {
+    autosave.update((current) => ({ ...current, payments: updater(current.payments) }), mode);
+  };
+
+  const runAfterFlush = async (action: () => void) => {
+    const saved = await runAfterSuccessfulFlush(flushPending, action);
+    if (!saved) {
+      store.showToast('No se pudo guardar. Reintenta antes de salir.');
+    }
+  };
+
+  const changeTab = async (next: 'cliente' | 'interno') => {
+    if (next === tab) return;
+    await runAfterFlush(() => setTab(next));
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <button type="button" className="text-sm font-medium text-brand-800" onClick={onClose}>
+        <button
+          type="button"
+          className="min-h-11 text-sm font-medium text-brand-800"
+          onClick={() => void runAfterFlush(onClose)}
+        >
           ← Volver
         </button>
         <StatusBadge status={effectiveStatus} />
@@ -184,19 +305,48 @@ export function PreviewView({
       <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
         <button
           type="button"
-          onClick={() => setTab('cliente')}
-          className={`rounded-full py-2 text-sm font-medium ${tab === 'cliente' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'}`}
+          onClick={() => void changeTab('cliente')}
+          className={`min-h-11 rounded-full py-2 text-sm font-medium ${tab === 'cliente' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'}`}
         >
           Vista cliente
         </button>
         <button
           type="button"
-          onClick={() => setTab('interno')}
-          className={`rounded-full py-2 text-sm font-medium ${tab === 'interno' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'}`}
+          onClick={() => void changeTab('interno')}
+          className={`min-h-11 rounded-full py-2 text-sm font-medium ${tab === 'interno' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'}`}
         >
           🔒 Interna
         </button>
       </div>
+
+      {saveStatus !== 'idle' ? (
+        <div
+          aria-live="polite"
+          className={`flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-xs ${
+            saveStatus === 'error'
+              ? 'bg-red-50 text-red-700'
+              : saveStatus === 'saved'
+                ? 'bg-brand-50 text-brand-800'
+                : 'bg-stone-200 text-stone-600'
+          }`}
+        >
+          <span>
+            {saveStatus === 'pending' && 'Cambios pendientes…'}
+            {saveStatus === 'saving' && 'Guardando…'}
+            {saveStatus === 'saved' && 'Guardado.'}
+            {saveStatus === 'error' && 'No se pudo guardar. Tus cambios siguen en pantalla.'}
+          </span>
+          {saveStatus === 'error' ? (
+            <button
+              type="button"
+              className="min-h-11 shrink-0 rounded-lg px-3 font-medium text-red-700 underline"
+              onClick={() => void autosave.retry().catch(() => {})}
+            >
+              Reintentar
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {tab === 'cliente' ? (
         <div className="rounded-2xl bg-white p-5 shadow-sm">
@@ -306,10 +456,20 @@ export function PreviewView({
           )}
           <p className="mt-4 text-xs text-stone-500">{store.settings.goldPriceNote}</p>
 
-          <PaymentsPanel payments={quote.payments} quoteTotal={calc.total} onChange={(p) => void updatePayments(p)} />
+          <PaymentsPanel
+            payments={quote.payments}
+            quoteTotal={calc.total}
+            onChange={updatePayments}
+            onCommit={flushPending}
+          />
 
           {quote.status === 'aprobada' && (
-            <ProductionPanel stages={quote.production} quoteTotal={calc.total} onChange={(p) => void updateProduction(p)} />
+            <ProductionPanel
+              stages={quote.production}
+              quoteTotal={calc.total}
+              onChange={updateProduction}
+              onCommit={flushPending}
+            />
           )}
           {quote.status !== 'aprobada' && quote.production.length === 0 && (
             <p className="mt-4 rounded-xl bg-white/60 p-3 text-xs text-stone-500">
@@ -342,7 +502,7 @@ export function PreviewView({
           ) : null}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={onEdit} disabled={busy}>
+          <Button variant="secondary" onClick={() => void runAfterFlush(onEdit)} disabled={busy}>
             ✏ Editar
           </Button>
           <Button onClick={handleSave} disabled={busy}>
@@ -382,4 +542,4 @@ export function PreviewView({
       />
     </div>
   );
-}
+});

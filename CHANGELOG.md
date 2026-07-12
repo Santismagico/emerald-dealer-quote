@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-11
 
+### Guardado interno
+
+- **Producción y abonos sin escrituras por tecla:** la pantalla cambia inmediatamente, pero los campos de texto y dinero esperan 650 ms de inactividad antes de guardar.
+- Perder el foco, contraer o cambiar una tarjeta, cambiar de pestaña, volver al historial, abrir la edición general o usar la navegación inferior fuerza el guardado pendiente antes de continuar.
+- Estados, fechas, interruptores, altas y eliminaciones se guardan inmediatamente. Todos los cambios se combinan sobre la versión local más reciente para que producción y abonos no se pisen.
+- Solo existe una escritura activa por cotización. Si llega otra edición mientras se guarda, se persiste después únicamente la última versión disponible.
+- Si IndexedDB falla, el dato permanece en pantalla, se muestra una advertencia y aparece la opción **Reintentar**. “Guardado” se muestra únicamente cuando la transacción local terminó realmente.
+
 ### Historial
 
 - **Cotizaciones vencidas como estado derivado:** los borradores y pendientes con fecha anterior al día actual se muestran y filtran como vencidos, sin cambiar el estado guardado ni `updatedAt`.
@@ -19,7 +27,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ### Pruebas
 
-- 181 pruebas automáticas en verde. La cobertura incluye el detector de información sensible y 19 pruebas nuevas para vencimientos, estados protegidos, fechas inválidas, filtros, búsqueda, conteos, inmutabilidad y ausencia de escrituras automáticas en IndexedDB.
+- 207 pruebas automáticas en verde. La Etapa 3 agrega 26 pruebas para reducción de escrituras, última versión, blur/flush, navegación protegida, altas y eliminaciones, cambios importantes, concurrencia, errores, reintento, numeración, privacidad, cálculo, inmutabilidad, timers y confirmación real de IndexedDB.
 - Build de producción y comprobación TypeScript completados sin errores.
 
 ## [0.5.0] — 2026-07-09

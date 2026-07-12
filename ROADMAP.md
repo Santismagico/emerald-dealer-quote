@@ -24,12 +24,12 @@
 ## v0.2.x — Adiciones solicitadas por Santiago (2026-07-08)
 
 - [x] Corregir botón de WhatsApp (prefijo internacional 57 + apertura confiable en iOS).
-- [ ] Seguimiento de producción interno por cotización: etapas del taller (impresión, fundición, engaste, etc.) con estado y control de pagos. Pendiente definir detalles con Santiago.
+- [x] Seguimiento de producción interno por cotización: etapas del taller con estado, costos y control de pagos.
 - [ ] Mejorar el logo/ícono de la app (mediano plazo; la interfaz actual gusta y se conserva).
 - [x] Auditoría de seguridad multi-ángulo y correcciones (v0.5.0, ver DECISIONS.md D-010).
-- [ ] Aviso al generar PDF del cliente si las observaciones visibles contienen palabras sensibles (costo, margen, $/g) — defensa contra error de digitación.
+- [x] Aviso antes de PDF cliente y WhatsApp si el contenido visible contiene información sensible.
 - [ ] Migraciones versionadas de IndexedDB (escalera oldVersion) cuando se necesite el primer índice o cambio de estructura.
-- [ ] Debounce/guardado al cerrar tarjeta en producción/abonos para reducir escrituras por tecla (hoy es correcto pero escribe mucho).
+- [x] Guardado diferido y seguro en producción/abonos: pausa de 650 ms, blur, cierre, navegación, serialización y reintento.
 
 ## v0.3 — Preparación SaaS
 
