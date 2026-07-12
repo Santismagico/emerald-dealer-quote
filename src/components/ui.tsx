@@ -245,6 +245,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
   danger = false,
   busy = false,
   onConfirm,
@@ -254,6 +255,7 @@ export function ConfirmDialog({
   title: string;
   message: string;
   confirmLabel?: string;
+  cancelLabel?: string | null;
   danger?: boolean;
   busy?: boolean;
   onConfirm: () => void;
@@ -266,11 +268,13 @@ export function ConfirmDialog({
         <h3 className="text-base font-semibold text-stone-900">{title}</h3>
         <p className="mt-2 text-sm text-stone-600">{message}</p>
         <div className="mt-5 flex gap-3">
-          <div className="flex-1">
-            <Button variant="ghost" full disabled={busy} onClick={onCancel}>
-              Cancelar
-            </Button>
-          </div>
+          {cancelLabel !== null ? (
+            <div className="flex-1">
+              <Button variant="ghost" full disabled={busy} onClick={onCancel}>
+                {cancelLabel}
+              </Button>
+            </div>
+          ) : null}
           <div className="flex-1">
             <Button variant={danger ? 'danger' : 'primary'} full disabled={busy} onClick={onConfirm}>
               {confirmLabel}

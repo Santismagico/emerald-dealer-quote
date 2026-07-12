@@ -16,7 +16,7 @@ Santiago confirmó el 2026-07-08 que el precio debe ser automático: **la app co
 - El recargo es configurable (`goldMarkupPerGram`, por defecto $100.000).
 - El cálculo es puro y está testeado (`goldPrice.test.ts`). Nunca aparece en PDF ni vista del cliente (tests de privacidad).
 
-Riesgo aceptado: dependencia de dos APIs gratuitas de terceros. Si alguna falla, la app avisa y usa el último valor guardado; cambiar de proveedor solo toca `goldPrice.ts`.
+Riesgo aceptado: dependencia de dos APIs gratuitas de terceros. Si alguna falla, la app conserva el último valor guardado. La actualización manual muestra el aviso de falta de conexión; la actualización automática al abrir la app falla en silencio para no interrumpir el uso. Cambiar de proveedor solo toca `goldPrice.ts`.
 
 _(Reemplaza la versión anterior de D-002 que dejaba el precio 100% manual.)_
 
@@ -40,9 +40,9 @@ Formato `ED-AAAA-NNNN` con consecutivo en settings. Se asigna en el primer guard
 
 El motor limita el descuento al subtotal y el anticipo al total (nunca totales ni saldos negativos), y la validación avisa al usuario cuando lo intenta. Decisión conservadora para proteger la caja de la joyería.
 
-## D-008 · WhatsApp vía enlace wa.me con texto · 2026-07-07 · Vigente
+## D-008 · WhatsApp vía enlace wa.me con texto · 2026-07-07 · Reemplazada por D-017
 
-El PDF no puede adjuntarse automáticamente por URL de WhatsApp; el flujo es: descargar PDF + mensaje con resumen y total. Adjuntar vía Web Share API queda en ROADMAP v0.2.
+El enlace `wa.me` continúa enviando únicamente un mensaje con resumen y total. La entrega de un PDF por el selector nativo del dispositivo se decidió después en D-017 y permanece como una acción separada que no elige WhatsApp automáticamente.
 
 ## D-010 · Auditoría de seguridad multi-ángulo (v0.5.0) · 2026-07-09 · Vigente
 
@@ -51,7 +51,7 @@ Se ejecutó una revisión con 8 ángulos independientes (línea a línea, guardi
 - **`services/schema.ts` es la única fuente de defaults, migraciones y normalización.** Toda lectura de datos (local, respaldo, futura nube) pasa por `normalizeQuote`/`normalizeSettings`. Ninguna vista debe defenderse por su cuenta de datos con forma vieja.
 - **Settings versionados** (`settingsVersion`): las migraciones se encadenan por versión, no por comparación de strings.
 - **Respaldo v2**: `parseBackup` acepta v1 y v2 y normaliza todo; nunca se persiste un dato sin normalizar.
-- **CSP en producción** (plugin en vite.config.ts): red permitida solo hacia las 2 APIs del oro; scripts inline permitidos por hash.
+- **CSP en producción** (plugin en vite.config.ts): conexiones permitidas al propio origen y a las 2 APIs del oro; scripts inline permitidos por hash.
 - **Límites del precio del oro**: USD/onza aceptado entre 500 y 20.000; COP/USD entre 1.000 y 20.000. Fuera de rango → error humano y se conserva el último precio.
 
 ## D-011 · Normalización de teléfonos para WhatsApp · 2026-07-09 · Vigente
@@ -73,7 +73,7 @@ Así quedan cubiertos automáticamente material, marca, contacto, datos visibles
 
 Las comparaciones ignoran mayúsculas y tildes y usan palabras/frases completas. Se detectan los términos de AGENTS.md y equivalentes financieros o de pureza claramente confidenciales; no se marcan palabras generales como “valor”, “total”, “precio”, “oro” o “gramo” de forma aislada.
 
-Si hay un hallazgo, la acción se detiene y el usuario puede cancelar. Continuar requiere confirmar expresamente el posible riesgo de exposición. Esta defensa no modifica el PDF interno ni la vista interna.
+Si hay un hallazgo, la salida se bloquea: no se genera ni comparte el PDF cliente y no se abre WhatsApp. El usuario debe corregir o retirar la información interna antes de intentarlo de nuevo; no existe confirmación que permita saltar esta protección. Esta defensa no modifica el PDF interno ni la vista interna.
 
 Riesgo residual aceptado: el detector es textual y no puede leer palabras incrustadas dentro del logo o de imágenes de referencia. Agregar OCR ampliaría dependencias y alcance, por lo que no corresponde a esta etapa.
 
@@ -123,10 +123,18 @@ La exportación manual de Ajustes y la del banner usan el mismo JSON existente. 
 
 La acción **Compartir PDF** crea un único `File` con MIME `application/pdf` y nombre seguro basado en el número de cotización. Tanto la descarga normal como Web Share usan `createClientPdfFile`, que parte exclusivamente de `buildClientPdfContent`; no existe una segunda versión del documento. Esta acción no acepta el PDF interno ni respaldos JSON.
 
-Antes de guardar, numerar o generar el archivo se ejecuta el mismo detector del contenido final del PDF cliente. Si hay un término sensible, cancelar detiene todo; continuar exige confirmar expresamente la posible exposición. Después se guarda la última versión local y se garantiza el número de cotización antes de crear el archivo.
+Antes de guardar, numerar o generar el archivo se ejecuta el mismo detector del contenido final del PDF cliente. Si hay un término sensible, la salida se bloquea y el usuario debe corregirlo; no existe una opción para continuar bajo riesgo. Solo cuando el contenido es seguro se guarda la última versión local y se garantiza el número de cotización antes de crear el archivo.
 
 Web Share API abre el selector nativo del sistema operativo y **no puede elegir WhatsApp automáticamente ni confirmar que una aplicación recibió el archivo**. Por eso el resultado visible dice que el PDF se entregó al menú de compartir. El botón existente de WhatsApp continúa enviando solamente su texto mediante `wa.me` y permanece separado.
 
 Solo se usa Web Share si existen `navigator.share` y `navigator.canShare({ files })` y este último acepta el PDF. Si falta soporte o aparece un error de compatibilidad, se descarga el mismo archivo y se explica que debe adjuntarse manualmente; no se abre WhatsApp. `AbortError` significa cancelación normal y nunca dispara la descarga. Un error inesperado tampoco se presenta como éxito y deja disponible la descarga manual.
 
 Riesgo residual aceptado: Web Share requiere activación directa del usuario. Guardar y generar el PDF son operaciones asíncronas anteriores al selector y algunos navegadores pueden perder esa activación. No se usan atajos inseguros; un `NotAllowedError` se trata como incompatibilidad y activa la descarga confiable. La compatibilidad final debe comprobarse manualmente en un iPhone y un Android reales.
+
+## D-018 · Actualizaciones atómicas de ajustes internos · 2026-07-12 · Vigente
+
+El consecutivo de cotizaciones, las fechas del recordatorio de respaldo y la actualización del precio del oro comparten el registro local de Ajustes. Cada cambio parcial debe leerse, combinarse y guardarse dentro de una sola operación de IndexedDB para que dos acciones simultáneas no se pisen.
+
+La interfaz puede seguir guardando los campos editables de Ajustes, pero debe preservar el consecutivo y los controles internos más recientes. Dos solicitudes simultáneas de número deben producir números distintos y avanzar el contador dos veces. No se cambia la estructura de IndexedDB ni se agrega ninguna dependencia.
+
+La consulta del precio del oro puede terminar después de que cambie el recargo. Al guardarla, el total se recompone con el recargo más reciente dentro de esa misma operación. Además, la interfaz indica expresamente si el precio fue editado a mano; no se deduce comparándolo con un estado que pudo cambiar mientras el formulario estaba abierto.

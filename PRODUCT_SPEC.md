@@ -2,7 +2,7 @@
 
 ## Problema
 
-Una joyería necesita cotizar piezas de joyería de forma rápida, profesional y confiable: ingresar cliente, material, peso, piedras, mano de obra, costos, margen, descuentos e impuestos; generar un PDF presentable para el cliente y conservar historial. La información sensible (costos, margen, fórmula del oro) debe quedar solo en la vista interna.
+Una joyería necesita cotizar piezas de joyería de forma rápida, profesional y confiable: ingresar cliente, material, peso, piedras, mano de obra, costos, margen, descuentos e impuestos; generar un PDF presentable para el cliente y conservar historial. La información sensible (costos, margen, fórmula del oro) debe quedar solo en la vista interna; cualquier salida al cliente que la contenga debe bloquearse hasta corregirla.
 
 ## Usuarios
 
@@ -28,6 +28,8 @@ Una joyería necesita cotizar piezas de joyería de forma rápida, profesional y
 | 13 | PWA (manifest, iconos, service worker, offline) | ✅ Implementado |
 | 14 | Arquitectura futura SaaS | 📄 Documentado, no implementado (plan ejecutable en SAAS_PLAN.md) |
 | 15 | Seguimiento de producción del taller (etapas, estados, pagos: cuánto/cuándo/a quién/quién pagó; solo interno, en cotizaciones aprobadas) | ✅ Implementado (v0.3.0) |
+| 16 | Abonos recibidos del cliente (monto, fecha, receptor, medio, nota, total abonado y saldo real; solo interno) | ✅ Implementado (v0.4.0) |
+| 17 | Compartir un único PDF cliente mediante el selector nativo, con descarga segura cuando no hay soporte | ✅ Implementado (Etapa 5) |
 
 ## Reglas de cálculo
 
@@ -54,6 +56,7 @@ Todos los valores se redondean a **pesos enteros**. Negativos se rechazan en val
 | Piedras en descripción comercial | Margen y utilidad |
 | Total, anticipo, saldo, descuento aplicado | Fórmula/nota del precio del oro |
 | Vigencia, condiciones, observaciones visibles, imágenes | Observaciones internas y notas de piedras |
+| — | Producción, pagos del taller y abonos recibidos del cliente |
 
 ## Fuera de alcance del MVP (a propósito)
 

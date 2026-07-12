@@ -78,6 +78,11 @@ describe('detector de información sensible', () => {
 
   it.each([
     ['precio por gramo', 'precio por gramo'],
+    ['Precio material por gramo: $550.000', 'precio por gramo'],
+    ['precio del material por gramo', 'precio por gramo'],
+    ['precio de material por gramo', 'precio por gramo'],
+    ['precio oro por gramo', 'precio por gramo'],
+    ['valor del oro por gramo', 'precio por gramo'],
     ['precio-por-gramo', 'precio por gramo'],
     ['valor por gramo', 'precio por gramo'],
     ['precio del gramo', 'precio por gramo'],
@@ -123,6 +128,12 @@ describe('detector de información sensible', () => {
     expect(detectedInClientPdf({}, { conditions: 'El precio por gramo es confidencial.' })).toEqual(
       expect.arrayContaining(['precio por gramo', 'confidencial'])
     );
+  });
+
+  it('bloquea la frase exacta de precio del material dentro del PDF cliente', () => {
+    expect(
+      detectedInClientPdf({}, { conditions: 'Precio material por gramo: $550.000' })
+    ).toContain('precio por gramo');
   });
 
   it('detecta términos en el mensaje comercial', () => {

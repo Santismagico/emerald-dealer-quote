@@ -112,6 +112,68 @@ export function dbPut(store: StoreName, value: unknown): Promise<void> {
   return txRequest<void>(store, 'readwrite', (s) => s.put(value));
 }
 
+/**
+ * Lee, transforma y guarda un registro dentro de UNA sola transacción.
+ * Las transacciones readwrite del mismo almacén se ejecutan en orden, por lo
+ * que dos acciones simultáneas no pueden basarse en el mismo valor anterior.
+ */
+export function dbUpdate<T>(
+  store: StoreName,
+  key: string,
+  update: (current: T | undefined) => T
+): Promise<T> {
+  return openDb().then(
+    (db) =>
+      new Promise<T>((resolve, reject) => {
+        let tx: IDBTransaction;
+        try {
+          tx = db.transaction(store, 'readwrite');
+        } catch (error) {
+          reject(
+            error instanceof Error ? error : new Error('No se pudo iniciar la operación local.')
+          );
+          return;
+        }
+
+        const objectStore = tx.objectStore(store);
+        const request = objectStore.get(key);
+        let next!: T;
+        let callbackError: unknown;
+        let settled = false;
+
+        const rejectOnce = (fallback: string) => {
+          if (settled) return;
+          settled = true;
+          reject(callbackError instanceof Error ? callbackError : tx.error ?? new Error(fallback));
+        };
+
+        request.onsuccess = () => {
+          try {
+            next = update(request.result as T | undefined);
+            objectStore.put(next);
+          } catch (error) {
+            callbackError = error;
+            try {
+              tx.abort();
+            } catch {
+              rejectOnce('No se pudo completar la operación local.');
+            }
+          }
+        };
+        // Los errores de get/put abortan la transacción. Se rechaza en onabort
+        // después de que IndexedDB termine el rollback.
+        request.onerror = () => {};
+        tx.onerror = () => {};
+        tx.onabort = () => rejectOnce('La operación local fue cancelada.');
+        tx.oncomplete = () => {
+          if (settled) return;
+          settled = true;
+          resolve(next);
+        };
+      })
+  );
+}
+
 export function dbGet<T>(store: StoreName, key: string): Promise<T | undefined> {
   return txRequest<T | undefined>(store, 'readonly', (s) => s.get(key));
 }

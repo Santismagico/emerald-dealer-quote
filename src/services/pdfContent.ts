@@ -40,7 +40,7 @@ const SENSITIVE_TERMS: Array<{ label: string; pattern: RegExp }> = [
   {
     label: 'precio por gramo',
     pattern:
-      /\b(?:precio|valor)[\s-]+(?:por|x|del)[\s-]+gramos?\b|\b(?:precio|valor)\s*\/\s*gramos?\b|\bpesos?\s+por\s+gramo\b/
+      /\b(?:precio|valor)[\s-]+(?:(?:de(?:l|[\s-]+la)?[\s-]+)?(?:material|oro)[\s-]+)?(?:por|x|del)[\s-]+gramos?\b|\b(?:precio|valor)\s*\/\s*gramos?\b|\bpesos?\s+por\s+gramo\b/
   },
   { label: '$/g', pattern: /(?:\$|cop)\s*\/\s*g(?:ramos?)?\b/ },
   { label: '18K', pattern: /\b18\s*(?:k|kt|kilates?|quilates?)\b/ },

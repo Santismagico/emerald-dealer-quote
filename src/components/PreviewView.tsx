@@ -60,12 +60,8 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
   const [saveStatus, setSaveStatus] = useState<QuoteAutosaveStatus>('idle');
   const mountedRef = useRef(true);
   const numberPromiseRef = useRef<Promise<string> | null>(null);
-  // Aviso de privacidad pendiente de confirmar: qué acción se quiso ejecutar
-  // y qué palabras sensibles se detectaron en el texto visible al cliente.
-  const [sensitiveWarning, setSensitiveWarning] = useState<{
-    action: 'pdf' | 'sharePdf' | 'whatsapp';
-    words: string[];
-  } | null>(null);
+  // Aviso de privacidad: la salida queda bloqueada hasta corregir el texto.
+  const [sensitiveWarning, setSensitiveWarning] = useState<string[] | null>(null);
 
   const callbacksRef = useRef({
     save: store.upsertQuote,
@@ -190,10 +186,24 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
   };
 
   const doClientPdf = async () => {
+    const current = autosave.getLatest();
+    const currentCalc = calculateQuote(quoteToCalcInput(current));
+    const words = findSensitiveWordsInClientText(current, currentCalc, store.settings);
+    if (words.length > 0) {
+      setSensitiveWarning(words);
+      return;
+    }
+
     setBusy(true);
     try {
       const saved = await persist();
-      await downloadClientPdf(saved, calculateQuote(quoteToCalcInput(saved)), store.settings);
+      const savedCalc = calculateQuote(quoteToCalcInput(saved));
+      const savedWords = findSensitiveWordsInClientText(saved, savedCalc, store.settings);
+      if (savedWords.length > 0) {
+        setSensitiveWarning(savedWords);
+        return;
+      }
+      await downloadClientPdf(saved, savedCalc, store.settings);
       store.showToast('PDF del cliente generado');
     } catch {
       store.showToast('No se pudo generar el PDF.');
@@ -202,7 +212,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
     }
   };
 
-  const doShareClientPdf = async (confirmedSensitive = false) => {
+  const doShareClientPdf = async () => {
     try {
       const outcome = await pdfShareController.start(async () => {
         const current = autosave.getLatest();
@@ -211,7 +221,6 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           quote: current,
           calc: currentCalc,
           settings: store.settings,
-          confirmedSensitive,
           persist,
           share: (saved) =>
             shareClientPdf(saved, calculateQuote(quoteToCalcInput(saved)), store.settings)
@@ -220,32 +229,13 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
 
       if (outcome === null) return;
       if (outcome.status === 'sensitive') {
-        setSensitiveWarning({ action: 'sharePdf', words: outcome.words });
+        setSensitiveWarning(outcome.words);
         return;
       }
 
       store.showToast(clientPdfShareMessage(outcome.result));
     } catch {
       store.showToast('No se pudo preparar el PDF. Puedes descargarlo manualmente.');
-    }
-  };
-
-  /**
-   * Antes de generar el PDF del cliente o compartir, revisa que el texto
-   * visible no contenga palabras internas (costo, margen, etc.) escritas
-   * por error. Si las hay, pide confirmación; si no, ejecuta directo.
-   */
-  const guardSensitive = (action: 'pdf' | 'whatsapp', run: () => Promise<void>) => {
-    const current = autosave.getLatest();
-    const currentCalc = calculateQuote(quoteToCalcInput(current));
-    const words =
-      action === 'pdf'
-        ? findSensitiveWordsInClientText(current, currentCalc, store.settings)
-        : findSensitiveWordsInText(buildWhatsAppMessage(current, currentCalc, store.settings));
-    if (words.length > 0) {
-      setSensitiveWarning({ action, words });
-    } else {
-      void run();
     }
   };
 
@@ -263,10 +253,23 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
   };
 
   const doWhatsApp = async () => {
+    const current = autosave.getLatest();
+    const currentCalc = calculateQuote(quoteToCalcInput(current));
+    const words = findSensitiveWordsInText(buildWhatsAppMessage(current, currentCalc, store.settings));
+    if (words.length > 0) {
+      setSensitiveWarning(words);
+      return;
+    }
+
     setBusy(true);
     try {
       const saved = await persist();
       const message = buildWhatsAppMessage(saved, calculateQuote(quoteToCalcInput(saved)), store.settings);
+      const savedWords = findSensitiveWordsInText(message);
+      if (savedWords.length > 0) {
+        setSensitiveWarning(savedWords);
+        return;
+      }
       const link = whatsAppLink(message, saved.clientSnapshot?.phone);
       // OJO: no pasar 'noopener' como feature — hace que window.open devuelva
       // null AUNQUE la ventana se abra, y el fallback navegaría la app entera
@@ -554,10 +557,10 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           <Button onClick={handleSave} disabled={busy}>
             💾 Guardar
           </Button>
-          <Button variant="secondary" onClick={() => guardSensitive('pdf', doClientPdf)} disabled={busy}>
+          <Button variant="secondary" onClick={() => void doClientPdf()} disabled={busy}>
             📄 PDF cliente
           </Button>
-          <Button onClick={() => guardSensitive('whatsapp', doWhatsApp)} disabled={busy}>
+          <Button onClick={() => void doWhatsApp()} disabled={busy}>
             📲 WhatsApp
           </Button>
           <div className="col-span-2">
@@ -575,27 +578,11 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
 
       <ConfirmDialog
         open={sensitiveWarning !== null}
-        title="⚠ Posible información interna"
-        message={
-          sensitiveWarning
-            ? `Se detectó posible información confidencial en el contenido que verá el cliente: ${sensitiveWarning.words.join(', ')}. ` +
-              'Revisa todos los textos antes de continuar. Si continúas, confirmas que aceptas el riesgo de exponer información interna. ' +
-              (sensitiveWarning.action === 'pdf'
-                ? '¿Generar el PDF de todos modos?'
-                : sensitiveWarning.action === 'sharePdf'
-                  ? '¿Preparar el PDF para compartir de todos modos?'
-                  : '¿Compartir por WhatsApp de todos modos?')
-            : ''
-        }
-        confirmLabel="Confirmar y continuar"
-        danger
-        onConfirm={() => {
-          const action = sensitiveWarning?.action;
-          setSensitiveWarning(null);
-          if (action === 'pdf') void doClientPdf();
-          if (action === 'sharePdf') void doShareClientPdf(true);
-          if (action === 'whatsapp') void doWhatsApp();
-        }}
+        title="Salida bloqueada"
+        message="Se detectó información reservada en el contenido para el cliente. La salida no se generó ni se compartió. Vuelve a editar la cotización y corrige el texto antes de intentarlo otra vez."
+        confirmLabel="Volver y corregir"
+        cancelLabel={null}
+        onConfirm={() => setSensitiveWarning(null)}
         onCancel={() => setSensitiveWarning(null)}
       />
     </div>

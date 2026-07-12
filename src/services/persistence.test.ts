@@ -13,7 +13,10 @@ import {
   defaultSettings,
   recordBackupExported,
   snoozeBackupReminder,
-  ensureBackupReminderFirstDataAt
+  ensureBackupReminderFirstDataAt,
+  updateSettingsAtomically,
+  saveEditableSettings,
+  saveFetchedGoldPrice
 } from './storage';
 import { exportBackup, serializeBackup, parseBackup, importBackup } from './backup';
 import { sampleQuote, sampleClient } from '../test/fixtures';
@@ -162,6 +165,101 @@ describe('settings', () => {
     const year = new Date().getFullYear();
     expect(await nextQuoteNumber()).toBe(`ED-${year}-0007`);
     expect(await nextQuoteNumber()).toBe(`ED-${year}-0008`);
+  });
+
+  it('entrega consecutivos únicos cuando se crean cotizaciones al mismo tiempo', async () => {
+    await saveSettings({ ...defaultSettings(), quoteCounter: 41 });
+    const year = new Date().getFullYear();
+
+    const numbers = await Promise.all([
+      nextQuoteNumber(),
+      nextQuoteNumber(),
+      nextQuoteNumber(),
+      nextQuoteNumber()
+    ]);
+
+    expect(new Set(numbers).size).toBe(4);
+    expect([...numbers].sort()).toEqual([
+      `ED-${year}-0041`,
+      `ED-${year}-0042`,
+      `ED-${year}-0043`,
+      `ED-${year}-0044`
+    ]);
+    expect((await loadSettings()).quoteCounter).toBe(45);
+  });
+
+  it('conserva contador, respaldo y precio cuando se actualizan al mismo tiempo', async () => {
+    const staleForm = {
+      ...defaultSettings(),
+      jewelryName: 'Formulario guardado',
+      quoteCounter: 70
+    };
+    await saveSettings(staleForm);
+    const year = new Date().getFullYear();
+
+    const [number] = await Promise.all([
+      nextQuoteNumber(),
+      recordBackupExported('2026-07-11T18:00:00.000Z'),
+      ensureBackupReminderFirstDataAt('2026-07-11T17:59:00.000Z'),
+      updateSettingsAtomically((current) => ({
+        ...current,
+        goldPricePerGram: 777000,
+        goldPriceUpdatedAt: '2026-07-11T18:01:00.000Z'
+      })),
+      saveEditableSettings({ ...staleForm, jewelryName: 'Ajustes nuevos' }, false)
+    ]);
+
+    const current = await loadSettings();
+    expect(number).toBe(`ED-${year}-0070`);
+    expect(current.quoteCounter).toBe(71);
+    expect(current.lastBackupExportedAt).toBe('2026-07-11T18:00:00.000Z');
+    expect(current.backupReminderFirstDataAt).toBe('2026-07-11T17:59:00.000Z');
+    expect(current.goldPricePerGram).toBe(777000);
+    expect(current.goldPriceUpdatedAt).toBe('2026-07-11T18:01:00.000Z');
+    expect(current.jewelryName).toBe('Ajustes nuevos');
+  });
+
+  it('aplica una consulta de oro con el recargo más reciente', async () => {
+    const initial = {
+      ...defaultSettings(),
+      goldMarkupPerGram: 100000,
+      goldPricePerGram: 600000
+    };
+    await saveSettings(initial);
+
+    const fetched = {
+      usdPerOunce: 4000,
+      copPerUsd: 3500,
+      internationalCopPerGram: 500000,
+      markupPerGram: 100000,
+      totalCopPerGram: 600000,
+      fetchedAt: '2026-07-11T19:00:00.000Z'
+    };
+
+    await saveEditableSettings({ ...initial, goldMarkupPerGram: 150000 }, false);
+    const applied = await saveFetchedGoldPrice(fetched);
+
+    expect(applied.info.markupPerGram).toBe(150000);
+    expect(applied.info.totalCopPerGram).toBe(650000);
+    expect(applied.settings.goldMarkupPerGram).toBe(150000);
+    expect(applied.settings.goldPricePerGram).toBe(650000);
+  });
+
+  it('solo reemplaza el precio guardado cuando la edición manual es explícita', async () => {
+    const current = {
+      ...defaultSettings(),
+      goldPricePerGram: 777000,
+      goldPriceUpdatedAt: '2026-07-11T18:01:00.000Z'
+    };
+    const staleForm = {
+      ...current,
+      goldPricePerGram: 555000,
+      goldPriceUpdatedAt: '2026-07-10T18:01:00.000Z'
+    };
+    await saveSettings(current);
+
+    expect((await saveEditableSettings(staleForm, false)).goldPricePerGram).toBe(777000);
+    expect((await saveEditableSettings(staleForm, true)).goldPricePerGram).toBe(555000);
   });
 
   it('registra una exportación confirmada y elimina la posposición', async () => {

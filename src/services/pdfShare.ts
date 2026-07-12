@@ -101,14 +101,15 @@ export async function runClientPdfShareFlow(options: {
   quote: Quote;
   calc: CalcResult;
   settings: Settings;
-  confirmedSensitive: boolean;
   persist: () => Promise<Quote>;
   share: (savedQuote: Quote) => Promise<ClientPdfShareResult>;
 }): Promise<ClientPdfShareFlowResult> {
   const words = findSensitiveWordsInClientText(options.quote, options.calc, options.settings);
-  if (words.length > 0 && !options.confirmedSensitive) return { status: 'sensitive', words };
+  if (words.length > 0) return { status: 'sensitive', words };
 
   const savedQuote = await options.persist();
+  const savedWords = findSensitiveWordsInClientText(savedQuote, options.calc, options.settings);
+  if (savedWords.length > 0) return { status: 'sensitive', words: savedWords };
   return { status: 'completed', result: await options.share(savedQuote) };
 }
 

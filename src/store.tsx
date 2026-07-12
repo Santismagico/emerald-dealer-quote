@@ -19,7 +19,7 @@ interface AppStore {
   toast: string | null;
   backupExporting: boolean;
   showToast: (message: string) => void;
-  updateSettings: (settings: Settings) => Promise<void>;
+  updateSettings: (settings: Settings, goldPriceWasEdited: boolean) => Promise<Settings>;
   exportBackup: () => Promise<boolean>;
   snoozeBackupReminder: (snoozedUntil: string) => Promise<void>;
   ensureBackupReminderFirstDataAt: (startedAt: string) => Promise<void>;
@@ -56,16 +56,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refreshGoldPrice = useCallback(async () => {
     const markup = (await storage.loadSettings()).goldMarkupPerGram;
-    const info = await fetchGoldPriceCOP(markup);
-    // Releer los settings DESPUÉS de esperar la red: si el usuario guardó
-    // cambios durante la consulta, no se pisan (carrera detectada en auditoría).
-    const current = await storage.loadSettings();
-    const next: Settings = {
-      ...current,
-      goldPricePerGram: info.totalCopPerGram,
-      goldPriceUpdatedAt: info.fetchedAt
-    };
-    await storage.saveSettings(next);
+    const fetched = await fetchGoldPriceCOP(markup);
+    const { settings: next, info } = await storage.saveFetchedGoldPrice(fetched);
     setSettings(next);
     return info;
   }, []);
@@ -87,9 +79,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => setToast(null), 2500);
   }, []);
 
-  const updateSettings = useCallback(async (next: Settings) => {
-    await storage.saveSettings(next);
-    setSettings(next);
+  const updateSettings = useCallback(async (next: Settings, goldPriceWasEdited: boolean) => {
+    const saved = await storage.saveEditableSettings(next, goldPriceWasEdited);
+    setSettings(saved);
+    return saved;
   }, []);
 
   const recordBackupExported = useCallback(async (exportedAt: string) => {

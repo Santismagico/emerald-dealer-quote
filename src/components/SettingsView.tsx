@@ -70,10 +70,11 @@ export function SettingsView() {
 
   const handleSave = async () => {
     const next = { ...form };
+    const goldPriceWasEdited = form.goldPricePerGram !== initialGoldRef.current.price;
     // Si el precio del oro se auto-actualizó en segundo plano y el usuario NO
     // tocó el campo manual, guardar el formulario no debe revertirlo
     // (carrera detectada en auditoría).
-    if (form.goldPricePerGram === initialGoldRef.current.price) {
+    if (!goldPriceWasEdited) {
       next.goldPricePerGram = store.settings.goldPricePerGram;
       next.goldPriceUpdatedAt = store.settings.goldPriceUpdatedAt;
     }
@@ -83,9 +84,9 @@ export function SettingsView() {
     next.lastBackupExportedAt = store.settings.lastBackupExportedAt;
     next.backupReminderSnoozedUntil = store.settings.backupReminderSnoozedUntil;
     next.backupReminderFirstDataAt = store.settings.backupReminderFirstDataAt;
-    await store.updateSettings(next);
-    setForm(next);
-    initialGoldRef.current = { price: next.goldPricePerGram, updatedAt: next.goldPriceUpdatedAt };
+    const saved = await store.updateSettings(next, goldPriceWasEdited);
+    setForm(saved);
+    initialGoldRef.current = { price: saved.goldPricePerGram, updatedAt: saved.goldPriceUpdatedAt };
     setDirty(false);
     store.showToast('Ajustes guardados');
   };
@@ -268,7 +269,14 @@ export function SettingsView() {
               onClick={async () => {
                 setGoldBusy(true);
                 try {
-                  await store.updateSettings(form);
+                  const goldPriceWasEdited = form.goldPricePerGram !== initialGoldRef.current.price;
+                  const saved = await store.updateSettings(form, goldPriceWasEdited);
+                  setForm(saved);
+                  initialGoldRef.current = {
+                    price: saved.goldPricePerGram,
+                    updatedAt: saved.goldPriceUpdatedAt
+                  };
+                  setDirty(false);
                   const info = await store.refreshGoldPrice();
                   setForm((f) => ({
                     ...f,

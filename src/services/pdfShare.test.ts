@@ -200,7 +200,6 @@ describe('orden y privacidad del flujo de compartir', () => {
       quote: withoutNumber,
       calc: calculateQuote(quoteToCalcInput(withoutNumber)),
       settings,
-      confirmedSensitive: false,
       persist,
       share
     });
@@ -215,7 +214,6 @@ describe('orden y privacidad del flujo de compartir', () => {
       quote: unsafe,
       calc: calculateQuote(quoteToCalcInput(unsafe)),
       settings,
-      confirmedSensitive: false,
       persist,
       share
     });
@@ -232,7 +230,6 @@ describe('orden y privacidad del flujo de compartir', () => {
       quote: unsafe,
       calc: calculateQuote(quoteToCalcInput(unsafe)),
       settings,
-      confirmedSensitive: false,
       persist,
       share
     });
@@ -241,21 +238,40 @@ describe('orden y privacidad del flujo de compartir', () => {
     expect(share).not.toHaveBeenCalled();
   });
 
-  it('confirmar el aviso sensible permite continuar conscientemente', async () => {
+  it('un nuevo intento sigue bloqueado mientras el contenido sensible permanezca', async () => {
     const unsafe = sampleQuote({ clientNotes: 'Margen confidencial' });
     const persist = vi.fn(async () => unsafe);
     const share = vi.fn(async () => ({ status: 'shared' as const }));
-    const result = await runClientPdfShareFlow({
+    const attempt = () => runClientPdfShareFlow({
       quote: unsafe,
       calc: calculateQuote(quoteToCalcInput(unsafe)),
       settings,
-      confirmedSensitive: true,
       persist,
       share
     });
-    expect(result).toEqual({ status: 'completed', result: { status: 'shared' } });
+    expect(await attempt()).toMatchObject({ status: 'sensitive' });
+    expect(await attempt()).toMatchObject({ status: 'sensitive' });
+    expect(persist).not.toHaveBeenCalled();
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  it('bloquea si el contenido reservado aparece mientras se termina de guardar', async () => {
+    const safe = sampleQuote({ clientNotes: 'Incluye estuche.' });
+    const unsafeSaved = sampleQuote({ clientNotes: 'Precio material por gramo: $550.000' });
+    const persist = vi.fn(async () => unsafeSaved);
+    const share = vi.fn(async () => ({ status: 'shared' as const }));
+
+    const result = await runClientPdfShareFlow({
+      quote: safe,
+      calc: calculateQuote(quoteToCalcInput(safe)),
+      settings,
+      persist,
+      share
+    });
+
+    expect(result).toMatchObject({ status: 'sensitive' });
     expect(persist).toHaveBeenCalledOnce();
-    expect(share).toHaveBeenCalledOnce();
+    expect(share).not.toHaveBeenCalled();
   });
 
   it('la acción de compartir nunca selecciona el PDF interno', async () => {

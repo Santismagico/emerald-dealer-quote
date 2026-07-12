@@ -4,6 +4,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-12
 
+### Consolidación Etapa 5.5
+
+- La salida al cliente queda bloqueada cuando el contenido final detecta información interna. Ya no existe una confirmación que permita generar o compartir el PDF cliente ni abrir WhatsApp bajo riesgo.
+- El detector cubre también expresiones como “precio material por gramo”, “precio del material por gramo” y “valor del oro por gramo”, que antes podían atravesar la revisión textual.
+- El consecutivo, el recordatorio de respaldo y el precio del oro actualizan el registro de Ajustes sin pisarse cuando coinciden dos acciones. Dos cotizaciones simultáneas no pueden recibir el mismo número; una consulta del oro aplica siempre el recargo más reciente y un formulario atrasado no restaura un precio anterior.
+- La documentación se alinea con el respaldo v2 compatible con v1/v2, Web Share, los 16 archivos de pruebas y el funcionamiento real de publicación, CSP y actualización del oro.
+
 ### Compartir PDF
 
 - Nueva acción **Compartir PDF** en la vista previa: prepara un único archivo `application/pdf` con nombre seguro, guarda y numera primero la cotización y abre el selector nativo del dispositivo cuando Web Share API nivel 2 acepta archivos.
@@ -21,6 +28,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ### Integridad de datos
 
+- Las actualizaciones parciales de Ajustes se realizan como una sola operación local: el consecutivo, el precio del oro y las fechas del recordatorio conservan siempre los cambios más recientes.
 - **Restauración de respaldo atómica:** ajustes, clientes y cotizaciones se reemplazan dentro de una única transacción local. Si falla cualquier borrado o escritura, se revierte todo y permanecen completos los datos anteriores.
 - El respaldo se valida y normaliza por completo antes de iniciar la escritura. La confirmación de éxito ocurre únicamente después del commit real; la recarga de la pantalla sucede después de esa confirmación.
 - Los clientes se normalizan al leer y guardar: campos antiguos o corruptos reciben valores seguros, claves desconocidas se descartan y el orden alfabético se conserva.
@@ -46,12 +54,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 - **Detector de información sensible completado:** antes de generar el PDF cliente se analiza el texto final completo del documento; antes de abrir WhatsApp se analiza el mensaje exacto que se compartirá. Material, marca, contacto, cliente, piedras, condiciones y mensaje comercial ya no quedan fuera por usar una lista manual de campos.
 - Detección sin distinguir mayúsculas ni tildes para costos, margen, utilidad, ganancia, rentabilidad, precio por gramo, `$/g`, pureza 18K/24K, fórmula, texto confidencial/interno y `markup`, con variantes comunes y límites de palabra para evitar alertas como “valor total” o “pieza costosa”.
-- El aviso permite cancelar y ahora exige una confirmación explícita del posible riesgo antes de continuar. El PDF interno y la vista interna no cambian.
+- Si el detector encuentra información interna, la acción se bloquea hasta que el contenido se corrija. No existe una opción para continuar bajo riesgo. El PDF interno y la vista interna no cambian.
 
 ### Pruebas
 
-- 283 pruebas automáticas en verde. La Etapa 5 agrega 28 pruebas para Blob/File PDF, nombre y MIME seguros, contenido cliente, compatibilidad Web Share, fallback, cancelación, errores, doble toque, orden de numeración y detector sensible. Las 255 pruebas previas, incluido WhatsApp con texto, siguen en verde.
-- Build de producción y comprobación TypeScript completados sin errores.
+- Antes de iniciar la consolidación, la Etapa 5 cerró con 283 pruebas automáticas en verde distribuidas en 16 archivos y con el build completado sin errores.
+- La consolidación de la Etapa 5.5 cerró con **294 pruebas aprobadas en 16 archivos** y con el build de producción completado sin errores.
 
 ## [0.5.0] — 2026-07-09
 
@@ -61,7 +69,7 @@ Auditoría de seguridad y calidad (8 ángulos de revisión + verificación). Ver
 
 - **Normalización central de datos** (`services/schema.ts`): todo dato que entra (base local de versiones viejas, respaldos importados, futura nube) se corrige a la forma actual. Un respaldo corrupto o editado ya no puede dejar la app en pantalla blanca.
 - **Imágenes**: solo se aceptan imágenes generadas por la app (data URLs); URLs externas en respaldos se descartan (evita rastreo de cuándo se abre una cotización).
-- **Content-Security-Policy** en producción: solo se permite red hacia las dos APIs del precio del oro; scripts externos e inyectados quedan bloqueados (mitiga dependencias comprometidas).
+- **Content-Security-Policy** en producción: permite conexiones al propio origen y a las dos APIs del precio del oro; scripts externos e inyectados quedan bloqueados (mitiga dependencias comprometidas).
 - **Límites de sanidad del precio del oro**: valores absurdos de las APIs (fuera de rangos razonables) se rechazan en vez de convertirse en cotizaciones con pérdida.
 - Respaldo formato v2 con importación normalizada (acepta v1 y v2); settings con versionado de esquema para migraciones futuras.
 
