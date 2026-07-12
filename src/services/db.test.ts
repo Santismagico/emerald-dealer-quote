@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 function fakeIndexedDb() {
+  const requestedStores: string[] = [];
+  let abortCalls = 0;
   const request = {
     result: undefined,
     error: null,
@@ -15,7 +17,13 @@ function fakeIndexedDb() {
     oncomplete: null,
     onerror: null,
     onabort: null,
-    objectStore: () => objectStore
+    objectStore: (name: string) => {
+      requestedStores.push(name);
+      return objectStore;
+    },
+    abort: () => {
+      abortCalls += 1;
+    }
   } as unknown as IDBTransaction;
   const database = {
     transaction: () => transaction
@@ -31,7 +39,14 @@ function fakeIndexedDb() {
     open: () => openRequest
   } as unknown as IDBFactory;
 
-  return { indexedDb, openRequest, request, transaction };
+  return {
+    indexedDb,
+    openRequest,
+    request,
+    transaction,
+    requestedStores,
+    abortCalls: () => abortCalls
+  };
 }
 
 async function startPut() {
@@ -73,5 +88,53 @@ describe('confirmación de transacciones IndexedDB', () => {
     transaction.onabort?.call(transaction, {} as Event);
 
     await expect(saving).rejects.toThrow('cancelada');
+  });
+
+  it('la escritura multi-store se confirma una sola vez después de oncomplete', async () => {
+    vi.resetModules();
+    const fake = fakeIndexedDb();
+    vi.stubGlobal('indexedDB', fake.indexedDb);
+    const { dbWriteTransaction } = await import('./db');
+    const saving = dbWriteTransaction(['settings', 'clients', 'quotes'], (getStore) => {
+      getStore('settings');
+      getStore('clients');
+      getStore('quotes');
+    });
+    fake.openRequest.onsuccess?.call(fake.openRequest, {} as Event);
+    await Promise.resolve();
+    let completions = 0;
+    void saving.then(() => {
+      completions += 1;
+    });
+
+    expect(fake.requestedStores).toEqual(['settings', 'clients', 'quotes']);
+    expect(completions).toBe(0);
+    fake.transaction.oncomplete?.call(fake.transaction, {} as Event);
+    await saving;
+    fake.transaction.oncomplete?.call(fake.transaction, {} as Event);
+    await Promise.resolve();
+    expect(completions).toBe(1);
+  });
+
+  it('si el callback falla, solicita aborto y espera onabort antes de rechazar', async () => {
+    vi.resetModules();
+    const fake = fakeIndexedDb();
+    vi.stubGlobal('indexedDB', fake.indexedDb);
+    const { dbWriteTransaction } = await import('./db');
+    const saving = dbWriteTransaction(['settings', 'clients', 'quotes'], () => {
+      throw new Error('fallo simulado');
+    });
+    fake.openRequest.onsuccess?.call(fake.openRequest, {} as Event);
+    await Promise.resolve();
+    let rejected = false;
+    void saving.catch(() => {
+      rejected = true;
+    });
+
+    expect(fake.abortCalls()).toBe(1);
+    expect(rejected).toBe(false);
+    fake.transaction.onabort?.call(fake.transaction, {} as Event);
+    await expect(saving).rejects.toThrow('fallo simulado');
+    expect(rejected).toBe(true);
   });
 });

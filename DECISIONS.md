@@ -98,3 +98,13 @@ Los cambios internos de producción y abonos usan una única sesión de guardado
 - `visibilitychange` intenta hacer flush como respaldo al ocultar la PWA, pero la integridad no depende de eventos de cierre del navegador.
 
 No se agregó ninguna dependencia ni se cambió la estructura de IndexedDB. El motor de cálculo, el precio del oro, los PDF, WhatsApp, el detector sensible y el estado vencido permanecen fuera de esta decisión.
+
+## D-015 · Normalización de clientes y restauración atómica · 2026-07-11 · Vigente
+
+`normalizeClient` en `services/schema.ts` es la única regla para sanear clientes. `listClients` normaliza todos los registros antes de ordenarlos y `saveClient` normaliza antes de persistir. La exportación usa estas mismas lecturas normalizadas, por lo que datos antiguos o claves desconocidas no vuelven a salir en un respaldo.
+
+La restauración valida y normaliza por completo el archivo antes de tocar IndexedDB, incluidos identificadores vacíos o duplicados que podrían sobrescribir registros. Después abre una única transacción `readwrite` sobre `settings`, `clients` y `quotes`, limpia y escribe los tres almacenes dentro de ella, y solo confirma en `transaction.oncomplete`. Cualquier fallo provoca `transaction.onabort`; la promesa rechaza después de que IndexedDB terminó el rollback y la interfaz informa que los datos anteriores se conservaron.
+
+Un respaldo aceptado sin ajustes (`settings: null`, compatible con formatos antiguos) reemplaza el registro anterior y hace que la aplicación vuelva a sus ajustes por defecto. Esto evita mezclar clientes y cotizaciones restaurados con reglas internas ajenas al archivo.
+
+La interfaz guarda una sola copia ya validada del respaldo, evita confirmaciones simultáneas, ejecuta `reloadAll` únicamente después del commit y sincroniza el formulario local de Ajustes antes de mostrar éxito. No se agregó ninguna dependencia, no cambió `DB_VERSION` y no se modificó la estructura de IndexedDB.

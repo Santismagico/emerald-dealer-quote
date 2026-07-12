@@ -28,6 +28,7 @@
 - [ ] Mejorar el logo/ícono de la app (mediano plazo; la interfaz actual gusta y se conserva).
 - [x] Auditoría de seguridad multi-ángulo y correcciones (v0.5.0, ver DECISIONS.md D-010).
 - [x] Aviso antes de PDF cliente y WhatsApp si el contenido visible contiene información sensible.
+- [x] Integridad de datos: clientes normalizados y restauración atómica de ajustes, clientes y cotizaciones con rollback completo.
 - [ ] Migraciones versionadas de IndexedDB (escalera oldVersion) cuando se necesite el primer índice o cambio de estructura.
 - [x] Guardado diferido y seguro en producción/abonos: pausa de 650 ms, blur, cierre, navegación, serialización y reintento.
 

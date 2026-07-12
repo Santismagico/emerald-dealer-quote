@@ -2,11 +2,12 @@
 
 import { useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { Settings } from '../types';
+import type { BackupFile, Settings } from '../types';
 import { fileToCompressedDataUrl } from '../utils/images';
 import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
 import { exportBackup, serializeBackup, parseBackup, importBackup } from '../services/backup';
+import { defaultSettings } from '../services/storage';
 import {
   Button,
   Field,
@@ -19,12 +20,40 @@ import {
   ConfirmDialog
 } from './ui';
 
+type BackupRestoreResult = 'success' | 'restore-failed' | 'reload-failed';
+
+/** Orden comprobable del flujo: restaurar, sincronizar, recargar y recién entonces avisar éxito. */
+export async function runBackupRestoreFlow(actions: {
+  restore: () => Promise<void>;
+  afterCommit: () => void;
+  reloadAll: () => Promise<void>;
+  showSuccess: () => void;
+}): Promise<BackupRestoreResult> {
+  try {
+    await actions.restore();
+  } catch {
+    return 'restore-failed';
+  }
+
+  try {
+    actions.afterCommit();
+    await actions.reloadAll();
+  } catch {
+    return 'reload-failed';
+  }
+
+  actions.showSuccess();
+  return 'success';
+}
+
 export function SettingsView() {
   const store = useStore();
   const [form, setForm] = useState<Settings>(store.settings);
   const [dirty, setDirty] = useState(false);
-  const [importPending, setImportPending] = useState<string | null>(null);
+  const [importPending, setImportPending] = useState<BackupFile | null>(null);
   const [importError, setImportError] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const importBusyRef = useRef(false);
   const [goldBusy, setGoldBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   // Valor del oro que tenía el formulario al abrirse: permite saber si el
@@ -72,24 +101,62 @@ export function SettingsView() {
   const handleImportFile = async (file: File | null) => {
     if (!file) return;
     setImportError('');
+    let text: string;
     try {
-      const text = await file.text();
-      parseBackup(text); // valida antes de pedir confirmación
-      setImportPending(text);
+      text = await file.text();
+    } catch {
+      setImportError('No se pudo leer el archivo de respaldo.');
+      return;
+    }
+    try {
+      // Conserva el objeto ya validado; importBackup lo vuelve a validar como
+      // defensa antes de iniciar la escritura atómica.
+      setImportPending(parseBackup(text));
     } catch (e) {
       setImportError(e instanceof Error ? e.message : 'Archivo de respaldo inválido.');
     }
   };
 
   const confirmImport = async () => {
-    if (!importPending) return;
+    if (!importPending || importBusyRef.current) return;
+    importBusyRef.current = true;
+    setImportBusy(true);
+    const pending = importPending;
     try {
-      await importBackup(parseBackup(importPending));
-      await store.reloadAll();
-      store.showToast('Respaldo restaurado');
-    } catch (e) {
-      setImportError(e instanceof Error ? e.message : 'No se pudo restaurar el respaldo.');
+      const restoredSettings = pending.settings ?? defaultSettings();
+      const result = await runBackupRestoreFlow({
+        restore: () => importBackup(pending),
+        afterCommit: () => {
+          // Evita que un formulario anterior vuelva a sobrescribir los ajustes
+          // restaurados mientras React actualiza el resto de la aplicación.
+          setForm(restoredSettings);
+          initialGoldRef.current = {
+            price: restoredSettings.goldPricePerGram,
+            updatedAt: restoredSettings.goldPriceUpdatedAt
+          };
+          setDirty(false);
+        },
+        // Solo se recarga la memoria de React después del commit real.
+        reloadAll: store.reloadAll,
+        showSuccess: () => store.showToast('Respaldo restaurado')
+      });
+
+      if (result === 'restore-failed') {
+        setImportError(
+          'No se pudo restaurar el respaldo. Tus datos anteriores se conservaron.'
+        );
+      } else if (result === 'reload-failed') {
+        setImportError(
+          'El respaldo se restauró, pero no se pudo actualizar la pantalla. Cierra y vuelve a abrir la aplicación.'
+        );
+      }
+    } catch {
+      setImportError(
+        'El respaldo se restauró, pero no se pudo actualizar la pantalla. Cierra y vuelve a abrir la aplicación.'
+      );
     } finally {
+      importBusyRef.current = false;
+      setImportBusy(false);
       setImportPending(null);
     }
   };
@@ -296,8 +363,9 @@ export function SettingsView() {
         open={importPending !== null}
         title="Restaurar respaldo"
         message="Esto REEMPLAZARÁ todos los clientes, cotizaciones y ajustes actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?"
-        confirmLabel="Reemplazar todo"
+        confirmLabel={importBusy ? 'Restaurando…' : 'Reemplazar todo'}
         danger
+        busy={importBusy}
         onCancel={() => setImportPending(null)}
         onConfirm={() => void confirmImport()}
       />

@@ -4,8 +4,8 @@
 // base local (hallazgo de la auditoría de seguridad 2026-07-09).
 
 import type { BackupFile, Client, Quote } from '../types';
-import { dbGetAll, dbClear, dbPut } from './db';
-import { loadSettings, saveSettings } from './storage';
+import { dbWriteTransaction } from './db';
+import { loadSettings, listClients, listQuotes, SETTINGS_KEY } from './storage';
 import { normalizeSettings, normalizeQuote, normalizeClient } from './schema';
 
 /** Versión actual del formato de respaldo. Se aceptan al importar: 1 y 2. */
@@ -15,8 +15,8 @@ const ACCEPTED_VERSIONS = [1, 2];
 export async function exportBackup(): Promise<BackupFile> {
   const [settings, clients, quotes] = await Promise.all([
     loadSettings(),
-    dbGetAll<Client>('clients'),
-    dbGetAll<Quote>('quotes')
+    listClients(),
+    listQuotes()
   ]);
   return {
     app: 'emerald-dealer-quote',
@@ -24,7 +24,7 @@ export async function exportBackup(): Promise<BackupFile> {
     exportedAt: new Date().toISOString(),
     settings,
     clients,
-    quotes: quotes.map(normalizeQuote)
+    quotes
   };
 }
 
@@ -32,14 +32,8 @@ export function serializeBackup(backup: BackupFile): string {
   return JSON.stringify(backup, null, 2);
 }
 
-/** Valida, normaliza y parsea un respaldo. Lanza Error con mensaje humano si no es válido. */
-export function parseBackup(json: string): BackupFile {
-  let data: unknown;
-  try {
-    data = JSON.parse(json);
-  } catch {
-    throw new Error('El archivo no es un JSON válido.');
-  }
+/** Valida y normaliza por completo antes de que pueda empezar una escritura. */
+function normalizeBackup(data: unknown): BackupFile {
   if (typeof data !== 'object' || data === null) {
     throw new Error('El archivo no tiene el formato de respaldo esperado.');
   }
@@ -53,25 +47,58 @@ export function parseBackup(json: string): BackupFile {
   if (!Array.isArray(b.clients) || !Array.isArray(b.quotes)) {
     throw new Error('El respaldo está incompleto (faltan clientes o cotizaciones).');
   }
+  const rawSettings = b.settings ?? null;
+  if (rawSettings !== null && (typeof rawSettings !== 'object' || Array.isArray(rawSettings))) {
+    throw new Error('El respaldo contiene ajustes inválidos.');
+  }
+  const quoteIds = new Set<string>();
   for (const q of b.quotes) {
     if (typeof (q as Quote)?.id !== 'string' || typeof (q as Quote)?.number !== 'string') {
       throw new Error('El respaldo contiene cotizaciones inválidas.');
     }
+    const id = (q as Quote).id;
+    if (!id.trim()) {
+      throw new Error('El respaldo contiene cotizaciones con identificador vacío.');
+    }
+    if (quoteIds.has(id)) {
+      throw new Error('El respaldo contiene cotizaciones duplicadas.');
+    }
+    quoteIds.add(id);
   }
+  const clientIds = new Set<string>();
   for (const c of b.clients) {
     if (typeof (c as Client)?.id !== 'string' || typeof (c as Client)?.name !== 'string') {
       throw new Error('El respaldo contiene clientes inválidos.');
     }
+    const id = (c as Client).id;
+    if (!id.trim()) {
+      throw new Error('El respaldo contiene clientes con identificador vacío.');
+    }
+    if (clientIds.has(id)) {
+      throw new Error('El respaldo contiene clientes duplicados.');
+    }
+    clientIds.add(id);
   }
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
     exportedAt: typeof b.exportedAt === 'string' ? b.exportedAt : '',
     // Normalización total: tipos corruptos se corrigen, imágenes externas se descartan.
-    settings: b.settings ? normalizeSettings(b.settings) : null,
+    settings: rawSettings === null ? null : normalizeSettings(rawSettings),
     clients: b.clients.map(normalizeClient),
     quotes: b.quotes.map(normalizeQuote)
   };
+}
+
+/** Valida, normaliza y parsea un respaldo. Lanza Error con mensaje humano si no es válido. */
+export function parseBackup(json: string): BackupFile {
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    throw new Error('El archivo no es un JSON válido.');
+  }
+  return normalizeBackup(data);
 }
 
 /**
@@ -79,14 +106,33 @@ export function parseBackup(json: string): BackupFile {
  * La interfaz debe pedir confirmación explícita antes de llamar esto.
  */
 export async function importBackup(backup: BackupFile): Promise<void> {
-  await Promise.all([dbClear('clients'), dbClear('quotes')]);
-  for (const client of backup.clients) {
-    await dbPut('clients', client);
-  }
-  for (const quote of backup.quotes) {
-    await dbPut('quotes', quote);
-  }
-  if (backup.settings) {
-    await saveSettings(backup.settings);
+  // Defensa en profundidad: aunque el llamador no haya usado parseBackup, toda
+  // validación y normalización termina antes de abrir la transacción destructiva.
+  const normalized = normalizeBackup(backup);
+
+  try {
+    await dbWriteTransaction(['settings', 'clients', 'quotes'], (getStore) => {
+      const settingsStore = getStore('settings');
+      const clientsStore = getStore('clients');
+      const quotesStore = getStore('quotes');
+
+      settingsStore.clear();
+      clientsStore.clear();
+      quotesStore.clear();
+
+      if (normalized.settings) {
+        settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
+      }
+      for (const client of normalized.clients) {
+        clientsStore.put(client);
+      }
+      for (const quote of normalized.quotes) {
+        quotesStore.put(quote);
+      }
+    });
+  } catch {
+    throw new Error(
+      'No se pudo restaurar el respaldo. Tus datos anteriores se conservaron.'
+    );
   }
 }

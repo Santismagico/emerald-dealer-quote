@@ -4,12 +4,12 @@
 
 import type { Settings, Client, Quote } from '../types';
 import { dbGet, dbPut, dbGetAll, dbDelete } from './db';
-import { defaultSettings, normalizeSettings, normalizeQuote } from './schema';
+import { defaultSettings, normalizeSettings, normalizeQuote, normalizeClient } from './schema';
 
 // Re-export para compatibilidad: el resto de la app importa defaultSettings desde aquí.
 export { defaultSettings } from './schema';
 
-const SETTINGS_KEY = 'main';
+export const SETTINGS_KEY = 'main';
 
 export async function loadSettings(): Promise<Settings> {
   const stored = await dbGet<Settings & { id: string }>('settings', SETTINGS_KEY);
@@ -23,12 +23,15 @@ export async function saveSettings(settings: Settings): Promise<void> {
 }
 
 export async function listClients(): Promise<Client[]> {
-  const clients = await dbGetAll<Client>('clients');
-  return clients.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const clients = await dbGetAll<unknown>('clients');
+  return clients.map(normalizeClient).sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    return byName || a.id.localeCompare(b.id, 'es');
+  });
 }
 
 export async function saveClient(client: Client): Promise<void> {
-  await dbPut('clients', client);
+  await dbPut('clients', normalizeClient(client));
 }
 
 export async function deleteClient(id: string): Promise<void> {

@@ -1,6 +1,57 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeQuote, normalizeSettings, defaultSettings, SETTINGS_VERSION } from './schema';
-import { sampleQuote } from '../test/fixtures';
+import {
+  normalizeClient,
+  normalizeQuote,
+  normalizeSettings,
+  defaultSettings,
+  SETTINGS_VERSION
+} from './schema';
+import { sampleClient, sampleQuote } from '../test/fixtures';
+
+describe('normalizeClient: datos antiguos o corruptos', () => {
+  it('conserva un cliente válido en un objeto nuevo', () => {
+    const client = sampleClient();
+    const normalized = normalizeClient(client);
+
+    expect(normalized).toEqual(client);
+    expect(normalized).not.toBe(client);
+  });
+
+  it('completa campos faltantes y corrige tipos inválidos', () => {
+    const normalized = normalizeClient({
+      id: 'c-antiguo',
+      name: 'Cliente antiguo',
+      phone: 3001234567,
+      email: null,
+      notes: ['dato viejo']
+    });
+
+    expect(normalized).toEqual({
+      id: 'c-antiguo',
+      name: 'Cliente antiguo',
+      phone: '',
+      email: '',
+      city: '',
+      document: '',
+      notes: '',
+      createdAt: ''
+    });
+  });
+
+  it('descarta claves desconocidas sin mutar el objeto original', () => {
+    const original = Object.freeze({
+      ...sampleClient({ id: 'c-claves' }),
+      claveAjena: 'no debe sobrevivir'
+    });
+    const before = { ...original };
+
+    const normalized = normalizeClient(original);
+
+    expect(normalized).toEqual(sampleClient({ id: 'c-claves' }));
+    expect('claveAjena' in normalized).toBe(false);
+    expect(original).toEqual(before);
+  });
+});
 
 describe('normalizeQuote: datos corruptos o de versiones viejas', () => {
   it('una cotización bien formada pasa sin cambios (identidad)', () => {

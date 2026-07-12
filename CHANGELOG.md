@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-11
 
+### Integridad de datos
+
+- **Restauración de respaldo atómica:** ajustes, clientes y cotizaciones se reemplazan dentro de una única transacción local. Si falla cualquier borrado o escritura, se revierte todo y permanecen completos los datos anteriores.
+- El respaldo se valida y normaliza por completo antes de iniciar la escritura. La confirmación de éxito ocurre únicamente después del commit real; la recarga de la pantalla sucede después de esa confirmación.
+- Los clientes se normalizan al leer y guardar: campos antiguos o corruptos reciben valores seguros, claves desconocidas se descartan y el orden alfabético se conserva.
+- La exportación usa las lecturas normalizadas. Los respaldos v1 y v2 continúan siendo compatibles; si un respaldo antiguo no contiene ajustes, se restauran los valores por defecto en vez de mezclar ajustes anteriores.
+- La pantalla de Ajustes conserva un solo respaldo validado, bloquea una doble confirmación mientras restaura y sincroniza el formulario para que valores anteriores no sobrescriban lo recién importado.
+
 ### Guardado interno
 
 - **Producción y abonos sin escrituras por tecla:** la pantalla cambia inmediatamente, pero los campos de texto y dinero esperan 650 ms de inactividad antes de guardar.
@@ -27,7 +35,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ### Pruebas
 
-- 207 pruebas automáticas en verde. La Etapa 3 agrega 26 pruebas para reducción de escrituras, última versión, blur/flush, navegación protegida, altas y eliminaciones, cambios importantes, concurrencia, errores, reintento, numeración, privacidad, cálculo, inmutabilidad, timers y confirmación real de IndexedDB.
+- 234 pruebas automáticas en verde. La Etapa 4A agrega 27 pruebas para normalización e inmutabilidad de clientes, validación de identificadores, exportación segura, restauraciones completas, compatibilidad v1/v2, mensajes de éxito y rollback real ante fallos en ajustes, clientes o cotizaciones.
 - Build de producción y comprobación TypeScript completados sin errores.
 
 ## [0.5.0] — 2026-07-09

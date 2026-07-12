@@ -15,6 +15,7 @@ import {
 import { exportBackup, serializeBackup, parseBackup, importBackup } from './backup';
 import { sampleQuote, sampleClient } from '../test/fixtures';
 import { getEffectiveQuoteStatus } from './quoteStatus';
+import { dbGet, dbPut } from './db';
 
 describe('persistencia de cotizaciones', () => {
   it('guarda y recupera una cotización', async () => {
@@ -57,6 +58,86 @@ describe('persistencia de cotizaciones', () => {
     const persisted = (await listQuotes()).find((item) => item.id === quote.id);
     expect(persisted?.status).toBe('pendiente');
     expect(persisted?.updatedAt).toBe('2026-07-01T08:00:00.000Z');
+  });
+});
+
+describe('persistencia normalizada de clientes', () => {
+  it('listClients normaliza clientes antiguos e incompletos', async () => {
+    await dbPut('clients', {
+      id: 'c-legacy-normalize',
+      name: 42,
+      phone: 3001234567,
+      email: null,
+      notes: ['anterior']
+    });
+
+    const client = (await listClients()).find((item) => item.id === 'c-legacy-normalize');
+    expect(client).toEqual({
+      id: 'c-legacy-normalize',
+      name: '',
+      phone: '',
+      email: '',
+      city: '',
+      document: '',
+      notes: '',
+      createdAt: ''
+    });
+  });
+
+  it('listClients descarta claves desconocidas', async () => {
+    await dbPut('clients', {
+      ...sampleClient({ id: 'c-legacy-extra', name: 'Cliente con clave extra' }),
+      claveAjena: 'no debe llegar a la interfaz'
+    });
+
+    const client = (await listClients()).find((item) => item.id === 'c-legacy-extra');
+    expect(client).toEqual(sampleClient({ id: 'c-legacy-extra', name: 'Cliente con clave extra' }));
+    expect(client && 'claveAjena' in client).toBe(false);
+  });
+
+  it('listClients conserva un orden alfabético estable', async () => {
+    const clients = [
+      sampleClient({ id: 'c-order-3', name: 'Zulema' }),
+      sampleClient({ id: 'c-order-2', name: 'Beatriz' }),
+      sampleClient({ id: 'c-order-1', name: 'Ángela' })
+    ];
+    for (const client of clients) await dbPut('clients', client);
+
+    const ids = new Set(clients.map((client) => client.id));
+    const ordered = (await listClients()).filter((client) => ids.has(client.id));
+    expect(ordered.map((client) => client.name)).toEqual(['Ángela', 'Beatriz', 'Zulema']);
+  });
+
+  it('saveClient no persiste una estructura corrupta ni muta la entrada', async () => {
+    const corrupt = {
+      ...sampleClient({ id: 'c-save-normalized' }),
+      name: 42,
+      phone: 3001234567,
+      email: null,
+      claveAjena: 'no guardar'
+    };
+    const before = { ...corrupt };
+
+    await saveClient(corrupt as unknown as Parameters<typeof saveClient>[0]);
+
+    const stored = await dbGet<Record<string, unknown>>('clients', 'c-save-normalized');
+    expect(stored).toEqual({
+      ...sampleClient({ id: 'c-save-normalized', name: '', phone: '', email: '' })
+    });
+    expect(corrupt).toEqual(before);
+  });
+
+  it('exportBackup conserva la exportación y sanea clientes locales antiguos', async () => {
+    await dbPut('clients', {
+      ...sampleClient({ id: 'c-export-normalized' }),
+      phone: 123,
+      claveAjena: 'no exportar'
+    });
+
+    const backup = await exportBackup();
+    const exported = backup.clients.find((client) => client.id === 'c-export-normalized');
+    expect(exported?.phone).toBe('');
+    expect(exported && 'claveAjena' in exported).toBe(false);
   });
 });
 

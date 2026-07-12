@@ -6,6 +6,8 @@ const DB_VERSION = 1;
 
 export type StoreName = 'settings' | 'clients' | 'quotes';
 
+type StoreAccessor = (store: StoreName) => IDBObjectStore;
+
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
@@ -46,6 +48,62 @@ function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBOb
         tx.oncomplete = () => resolve(result);
         tx.onerror = () => reject(tx.error ?? request.error ?? new Error('Error de base de datos local.'));
         tx.onabort = () => reject(tx.error ?? new Error('La operación de base de datos fue cancelada.'));
+      })
+  );
+}
+
+/**
+ * Ejecuta varias escrituras dentro de UNA sola transacción IndexedDB.
+ * El callback debe encolar sus solicitudes de forma síncrona: la promesa se
+ * resuelve únicamente cuando IndexedDB confirma el commit completo.
+ */
+export function dbWriteTransaction(
+  stores: readonly StoreName[],
+  run: (getStore: StoreAccessor) => void
+): Promise<void> {
+  return openDb().then(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        let tx: IDBTransaction;
+        try {
+          tx = db.transaction([...stores], 'readwrite');
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error('No se pudo iniciar la operación local.'));
+          return;
+        }
+
+        let settled = false;
+        let callbackError: unknown;
+        const rejectOnce = (fallback: string) => {
+          if (settled) return;
+          settled = true;
+          reject(
+            callbackError instanceof Error
+              ? callbackError
+              : tx.error ?? new Error(fallback)
+          );
+        };
+
+        tx.oncomplete = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        // Un error de solicitud aborta la transacción por defecto. Se espera
+        // onabort para rechazar solo después de que IndexedDB termine el rollback.
+        tx.onerror = () => {};
+        tx.onabort = () => rejectOnce('La operación local fue cancelada.');
+
+        try {
+          run((store) => tx.objectStore(store));
+        } catch (error) {
+          callbackError = error;
+          try {
+            tx.abort();
+          } catch {
+            rejectOnce('No se pudo completar la operación local.');
+          }
+        }
       })
   );
 }
