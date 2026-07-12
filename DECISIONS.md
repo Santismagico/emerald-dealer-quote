@@ -138,3 +138,9 @@ El consecutivo de cotizaciones, las fechas del recordatorio de respaldo y la act
 La interfaz puede seguir guardando los campos editables de Ajustes, pero debe preservar el consecutivo y los controles internos más recientes. Dos solicitudes simultáneas de número deben producir números distintos y avanzar el contador dos veces. No se cambia la estructura de IndexedDB ni se agrega ninguna dependencia.
 
 La consulta del precio del oro puede terminar después de que cambie el recargo. Al guardarla, el total se recompone con el recargo más reciente dentro de esa misma operación. Además, la interfaz indica expresamente si el precio fue editado a mano; no se deduce comparándolo con un estado que pudo cambiar mientras el formulario estaba abierto.
+
+## D-019 · Cambio rápido de estado desde el historial · 2026-07-12 · Vigente
+
+La etiqueta de estado de cada cotización en el historial es tocable y abre un menú con los estados asignables: borrador, pendiente, aprobada y rechazada. Elegir uno guarda la cotización con `updatedAt` nuevo mediante el mismo `upsertQuote` que usan las demás ediciones; no existe una vía de guardado paralela.
+
+"Vencida" no aparece como opción manual porque es un estado derivado de la fecha de validez (D-013): asignarla a mano sería redundante y quitarla a mano sería imposible mientras la fecha siga en el pasado. Cuando la cotización mostrada está vencida, el menú lo explica y sugiere cambiar la fecha o elegir otro estado. La lógica pura vive en `src/services/quoteStatus.ts` (`SELECTABLE_QUOTE_STATUSES`, `withQuoteStatus`) con pruebas propias.

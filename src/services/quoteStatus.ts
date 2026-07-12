@@ -5,6 +5,23 @@ import { isExpired } from '../utils/dates';
 export type HistoryStatusFilter = QuoteStatus | 'todas';
 
 /**
+ * Estados que Santiago puede asignar a mano desde el historial.
+ * "vencida" queda fuera: es un estado derivado de la fecha (D-013)
+ * y volvería solo aunque se quitara manualmente.
+ */
+export const SELECTABLE_QUOTE_STATUSES: QuoteStatus[] = [
+  'borrador',
+  'pendiente',
+  'aprobada',
+  'rechazada'
+];
+
+/** Copia de la cotización con el nuevo estado, sin tocar el objeto original. */
+export function withQuoteStatus(quote: Quote, status: QuoteStatus, nowIso: string): Quote {
+  return { ...quote, status, updatedAt: nowIso };
+}
+
+/**
  * Estado que debe mostrar la interfaz sin modificar la cotización guardada.
  * Solo borradores y pendientes pasan a vencida cuando la fecha ya terminó.
  */

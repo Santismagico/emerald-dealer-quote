@@ -3,7 +3,9 @@ import { sampleClient, sampleQuote } from '../test/fixtures';
 import {
   countHistoryQuotesByStatus,
   filterHistoryQuotes,
-  getEffectiveQuoteStatus
+  getEffectiveQuoteStatus,
+  SELECTABLE_QUOTE_STATUSES,
+  withQuoteStatus
 } from './quoteStatus';
 
 const TODAY = '2026-07-11';
@@ -136,5 +138,38 @@ describe('historial con estado derivado', () => {
   it('el estado mostrado por el historial coincide con el estado efectivo', () => {
     const visibleQuote = filterHistoryQuotes([expiredPending], '', 'vencida', TODAY)[0];
     expect(getEffectiveQuoteStatus(visibleQuote, TODAY)).toBe('vencida');
+  });
+});
+
+describe('cambio rápido de estado desde el historial', () => {
+  const NOW = '2026-07-12T10:00:00.000Z';
+
+  it('los estados seleccionables no incluyen vencida (estado derivado, D-013)', () => {
+    expect(SELECTABLE_QUOTE_STATUSES).toEqual(['borrador', 'pendiente', 'aprobada', 'rechazada']);
+    expect(SELECTABLE_QUOTE_STATUSES).not.toContain('vencida');
+  });
+
+  it('cambia el estado y actualiza updatedAt sin tocar nada más', () => {
+    const quote = sampleQuote({ status: 'pendiente', updatedAt: '2026-07-01T08:00:00.000Z' });
+    const changed = withQuoteStatus(quote, 'aprobada', NOW);
+
+    expect(changed.status).toBe('aprobada');
+    expect(changed.updatedAt).toBe(NOW);
+    expect({ ...changed, status: quote.status, updatedAt: quote.updatedAt }).toEqual(quote);
+  });
+
+  it('no modifica el objeto original', () => {
+    const quote = sampleQuote({ status: 'pendiente', updatedAt: '2026-07-01T08:00:00.000Z' });
+    const original = structuredClone(quote);
+
+    withQuoteStatus(quote, 'rechazada', NOW);
+
+    expect(quote).toEqual(original);
+  });
+
+  it('permite salir de una vencida guardada asignando un estado real', () => {
+    const quote = sampleQuote({ status: 'vencida', validUntil: '2026-07-30' });
+    const changed = withQuoteStatus(quote, 'pendiente', NOW);
+    expect(getEffectiveQuoteStatus(changed, '2026-07-12')).toBe('pendiente');
   });
 });
