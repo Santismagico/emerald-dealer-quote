@@ -118,3 +118,15 @@ La regla vive en `getBackupReminderState(...)`, una función pura que recibe la 
 Los controles nuevos viven en `Settings`: `lastBackupExportedAt`, `backupReminderSnoozedUntil` y `backupReminderFirstDataAt`. Se añadió la versión 3 de configuración, sin cambiar la estructura de IndexedDB; ajustes y respaldos v1/v2 reciben defaults seguros al normalizarse.
 
 La exportación manual de Ajustes y la del banner usan el mismo JSON existente. Solo después de que el navegador inició la descarga se registra la fecha, se limpia la posposición y se oculta el aviso. Un controlador único bloquea toques repetidos. No se usa notificación, permiso, correo, WhatsApp, servidor, nube ni exportación automática.
+
+## D-017 · Web Share entrega el PDF cliente al selector nativo · 2026-07-12 · Vigente
+
+La acción **Compartir PDF** crea un único `File` con MIME `application/pdf` y nombre seguro basado en el número de cotización. Tanto la descarga normal como Web Share usan `createClientPdfFile`, que parte exclusivamente de `buildClientPdfContent`; no existe una segunda versión del documento. Esta acción no acepta el PDF interno ni respaldos JSON.
+
+Antes de guardar, numerar o generar el archivo se ejecuta el mismo detector del contenido final del PDF cliente. Si hay un término sensible, cancelar detiene todo; continuar exige confirmar expresamente la posible exposición. Después se guarda la última versión local y se garantiza el número de cotización antes de crear el archivo.
+
+Web Share API abre el selector nativo del sistema operativo y **no puede elegir WhatsApp automáticamente ni confirmar que una aplicación recibió el archivo**. Por eso el resultado visible dice que el PDF se entregó al menú de compartir. El botón existente de WhatsApp continúa enviando solamente su texto mediante `wa.me` y permanece separado.
+
+Solo se usa Web Share si existen `navigator.share` y `navigator.canShare({ files })` y este último acepta el PDF. Si falta soporte o aparece un error de compatibilidad, se descarga el mismo archivo y se explica que debe adjuntarse manualmente; no se abre WhatsApp. `AbortError` significa cancelación normal y nunca dispara la descarga. Un error inesperado tampoco se presenta como éxito y deja disponible la descarga manual.
+
+Riesgo residual aceptado: Web Share requiere activación directa del usuario. Guardar y generar el PDF son operaciones asíncronas anteriores al selector y algunos navegadores pueden perder esa activación. No se usan atajos inseguros; un `NotAllowedError` se trata como incompatibilidad y activa la descarga confiable. La compatibilidad final debe comprobarse manualmente en un iPhone y un Android reales.

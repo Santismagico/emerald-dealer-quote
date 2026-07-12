@@ -226,11 +226,58 @@ async function renderPdf(content: PdfContent, images: string[], logoDataUrl: str
   return doc;
 }
 
-/** Genera y descarga el PDF para el cliente. */
-export async function downloadClientPdf(quote: Quote, calc: CalcResult, settings: Settings): Promise<void> {
-  const content = buildClientPdfContent(quote, calc, settings);
+/** Única fuente de contenido permitida para descargar o compartir el PDF cliente. */
+export function getClientPdfContent(quote: Quote, calc: CalcResult, settings: Settings): PdfContent {
+  return buildClientPdfContent(quote, calc, settings);
+}
+
+function safeFilePart(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+export function clientPdfFileName(quoteNumber: string): string {
+  return `Cotizacion-${safeFilePart(quoteNumber) || 'Sin-numero'}.pdf`;
+}
+
+/** Genera el PDF cliente una sola vez como Blob reutilizable. */
+export async function createClientPdfBlob(quote: Quote, calc: CalcResult, settings: Settings): Promise<Blob> {
+  const content = getClientPdfContent(quote, calc, settings);
   const doc = await renderPdf(content, quote.images, settings.logoDataUrl);
-  doc.save(`Cotizacion-${quote.number}.pdf`);
+  const blob = doc.output('blob');
+  return blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+}
+
+/** Construye el archivo exacto que puede descargarse o entregarse a Web Share. */
+export async function createClientPdfFile(quote: Quote, calc: CalcResult, settings: Settings): Promise<File> {
+  const blob = await createClientPdfBlob(quote, calc, settings);
+  return new File([blob], clientPdfFileName(quote.number), { type: 'application/pdf' });
+}
+
+export function downloadPdfFile(file: File): void {
+  const url = URL.createObjectURL(file);
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.name;
+    link.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Genera y descarga el mismo archivo PDF que se usa para compartir. */
+export async function downloadClientPdf(
+  quote: Quote,
+  calc: CalcResult,
+  settings: Settings,
+  download: (file: File) => void = downloadPdfFile
+): Promise<void> {
+  download(await createClientPdfFile(quote, calc, settings));
 }
 
 /** Genera y descarga el PDF interno (confidencial). */

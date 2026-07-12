@@ -2,7 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
-## [Unreleased] — 2026-07-11
+## [Unreleased] — 2026-07-12
+
+### Compartir PDF
+
+- Nueva acción **Compartir PDF** en la vista previa: prepara un único archivo `application/pdf` con nombre seguro, guarda y numera primero la cotización y abre el selector nativo del dispositivo cuando Web Share API nivel 2 acepta archivos.
+- El selector recibe únicamente el PDF cliente. El PDF interno y el respaldo JSON no forman parte de esta acción. La descarga tradicional y el archivo compartido usan el mismo generador y el mismo contenido cliente.
+- Si el dispositivo no permite compartir archivos, el mismo PDF se descarga para adjuntarlo manualmente. La app no abre WhatsApp después del fallback y mantiene separado el botón actual de WhatsApp con texto.
+- Cancelar el selector nativo no muestra una alarma ni inicia una descarga. Los errores inesperados no se presentan como éxito y conservan la descarga manual disponible.
+- El detector de información sensible se ejecuta antes de guardar, numerar, generar o compartir. Un doble toque no puede abrir dos selectores ni producir dos descargas.
 
 ### Respaldo
 
@@ -42,7 +50,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ### Pruebas
 
-- 255 pruebas automáticas en verde. La Etapa 4B agrega 21 pruebas para el intervalo semanal, la fecha inicial más antigua, posposición, fechas inválidas o futuras, control de doble toque y registro seguro de la exportación. Las 234 pruebas previas, incluida la restauración atómica, siguen en verde.
+- 283 pruebas automáticas en verde. La Etapa 5 agrega 28 pruebas para Blob/File PDF, nombre y MIME seguros, contenido cliente, compatibilidad Web Share, fallback, cancelación, errores, doble toque, orden de numeración y detector sensible. Las 255 pruebas previas, incluido WhatsApp con texto, siguen en verde.
 - Build de producción y comprobación TypeScript completados sin errores.
 
 ## [0.5.0] — 2026-07-09

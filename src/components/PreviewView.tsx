@@ -17,6 +17,13 @@ import {
   findSensitiveWordsInText
 } from '../services/pdfContent';
 import { downloadClientPdf, downloadInternalPdf } from '../services/pdf';
+import {
+  clientPdfShareMessage,
+  createPdfShareController,
+  runClientPdfShareFlow,
+  shareClientPdf,
+  type PdfShareController
+} from '../services/pdfShare';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
 import { getEffectiveQuoteStatus } from '../services/quoteStatus';
 import {
@@ -49,13 +56,14 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
   const store = useStore();
   const [tab, setTab] = useState<'cliente' | 'interno'>(initialTab);
   const [busy, setBusy] = useState(false);
+  const [sharePreparing, setSharePreparing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<QuoteAutosaveStatus>('idle');
   const mountedRef = useRef(true);
   const numberPromiseRef = useRef<Promise<string> | null>(null);
   // Aviso de privacidad pendiente de confirmar: qué acción se quiso ejecutar
   // y qué palabras sensibles se detectaron en el texto visible al cliente.
   const [sensitiveWarning, setSensitiveWarning] = useState<{
-    action: 'pdf' | 'whatsapp';
+    action: 'pdf' | 'sharePdf' | 'whatsapp';
     words: string[];
   } | null>(null);
 
@@ -73,6 +81,16 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
   };
 
   const autosaveRef = useRef<QuoteAutosaveController | null>(null);
+  const pdfShareControllerRef = useRef<PdfShareController | null>(null);
+  if (pdfShareControllerRef.current === null) {
+    pdfShareControllerRef.current = createPdfShareController((sharing) => {
+      if (mountedRef.current) {
+        setBusy(sharing);
+        setSharePreparing(sharing);
+      }
+    });
+  }
+  const pdfShareController = pdfShareControllerRef.current;
   const requestQuoteNumber = async () => {
     if (numberPromiseRef.current === null) {
       numberPromiseRef.current = callbacksRef.current.nextQuoteNumber();
@@ -181,6 +199,34 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       store.showToast('No se pudo generar el PDF.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const doShareClientPdf = async (confirmedSensitive = false) => {
+    try {
+      const outcome = await pdfShareController.start(async () => {
+        const current = autosave.getLatest();
+        const currentCalc = calculateQuote(quoteToCalcInput(current));
+        return runClientPdfShareFlow({
+          quote: current,
+          calc: currentCalc,
+          settings: store.settings,
+          confirmedSensitive,
+          persist,
+          share: (saved) =>
+            shareClientPdf(saved, calculateQuote(quoteToCalcInput(saved)), store.settings)
+        });
+      });
+
+      if (outcome === null) return;
+      if (outcome.status === 'sensitive') {
+        setSensitiveWarning({ action: 'sharePdf', words: outcome.words });
+        return;
+      }
+
+      store.showToast(clientPdfShareMessage(outcome.result));
+    } catch {
+      store.showToast('No se pudo preparar el PDF. Puedes descargarlo manualmente.');
     }
   };
 
@@ -514,8 +560,17 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           <Button onClick={() => guardSensitive('whatsapp', doWhatsApp)} disabled={busy}>
             📲 WhatsApp
           </Button>
+          <div className="col-span-2">
+            <Button variant="secondary" full onClick={() => void doShareClientPdf()} disabled={busy}>
+              📤 Compartir PDF
+            </Button>
+          </div>
         </div>
-        {busy ? <p className="mt-2 text-center text-sm text-stone-500">Procesando…</p> : null}
+        {busy ? (
+          <p className="mt-2 text-center text-sm text-stone-500">
+            {sharePreparing ? 'Preparando PDF para compartir…' : 'Procesando…'}
+          </p>
+        ) : null}
       </div>
 
       <ConfirmDialog
@@ -527,7 +582,9 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
               'Revisa todos los textos antes de continuar. Si continúas, confirmas que aceptas el riesgo de exponer información interna. ' +
               (sensitiveWarning.action === 'pdf'
                 ? '¿Generar el PDF de todos modos?'
-                : '¿Compartir por WhatsApp de todos modos?')
+                : sensitiveWarning.action === 'sharePdf'
+                  ? '¿Preparar el PDF para compartir de todos modos?'
+                  : '¿Compartir por WhatsApp de todos modos?')
             : ''
         }
         confirmLabel="Confirmar y continuar"
@@ -536,6 +593,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           const action = sensitiveWarning?.action;
           setSensitiveWarning(null);
           if (action === 'pdf') void doClientPdf();
+          if (action === 'sharePdf') void doShareClientPdf(true);
           if (action === 'whatsapp') void doWhatsApp();
         }}
         onCancel={() => setSensitiveWarning(null)}

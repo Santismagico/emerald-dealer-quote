@@ -15,7 +15,7 @@
 ## v0.2 — Pulido (siguiente)
 
 - [ ] Probar en un iPhone real (Safari) y ajustar detalles de safe areas.
-- [ ] Adjuntar el PDF directamente al compartir (Web Share API nivel 2, donde esté soportada).
+- [x] Adjuntar el PDF cliente directamente al selector nativo (Web Share API nivel 2, donde esté soportada), con descarga segura como fallback.
 - [x] Marcado automático de cotizaciones vencidas como estado derivado, sin modificar los datos guardados.
 - [ ] Plantillas de condiciones y piezas frecuentes.
 - [x] Recordatorio semanal local para exportar respaldo, con posposición de 24 horas y sin exportación automática.
