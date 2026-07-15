@@ -178,3 +178,17 @@ Una **cita** guarda: cliente vinculado opcional o nombre libre, fecha, hora HH:M
 El **respaldo sube a la versión 3** e incluye las citas. Se aceptan v1, v2 y v3: los respaldos viejos restauran con la agenda vacía y nunca fallan por no traerla. La restauración atómica cubre ahora los 4 almacenes con el mismo rollback completo (extiende D-015). El recordatorio semanal de respaldo cuenta las citas como datos que lo ameritan.
 
 El formulario de citas usa **guardado explícito** (botón Guardar), no el guardado diferido de cotizaciones: una cita se edita en ráfagas cortas y el guardado por botón es más simple y suficiente; el diferido queda reservado para producción/abonos donde se teclea mucho (D-014). El aviso de citas de hoy es un banner y un globito numérico locales que solo cuentan las programadas del día; no hay notificaciones push ni permisos del sistema.
+
+## D-023 · Piedras por lotes rastreables · 2026-07-15 · Vigente
+
+Decisiones de negocio de Santiago (2026-07-15), que cambiaron el diseño planeado de "movimientos simples" a **lotes rastreables**:
+
+1. **Cada compra crea un lote** identificado (ej: "Muzo 12") y **cada venta se descuenta de un lote específico**, para saber qué se ganó con cada uno.
+2. **Piedras queda separado del cotizador**: usar una piedra propia en una joya no descuenta inventario automáticamente; Santiago decide si registrarla como venta.
+3. La pestaña muestra **existencias + flujo**: lo que queda por tipo de piedra y el dinero del negocio (invertido, recibido, neto).
+
+Modelo técnico: un `StoneLot` guarda la compra (nombre opcional, tipo de piedra, descripción, fecha, proveedor, quilates, cantidad, costo COP entero, notas) y sus **ventas embebidas** (`sales[]`), igual que los abonos viven dentro de una cotización. Así una venta no puede quedar huérfana, la validación es local al lote (no se puede vender más de lo disponible; el mensaje de rechazo lo produce el motor puro `validateStoneSale`) y la escritura es atómica por lote. El resultado del lote es vendido − costo, marcado "parcial" mientras queden existencias; un lote está "agotado" cuando no quedan piedras ni quilates. La suma de quilates se redondea a 3 decimales para evitar ruido de coma flotante.
+
+Infraestructura: migración IndexedDB v2→v3 (almacén `stoneLots`, un escalón más de la escalera D-022) y respaldo v4 que acepta v1–v4; los respaldos viejos restauran con lotes vacíos y la restauración atómica cubre 5 almacenes. El recordatorio semanal cuenta los lotes como datos que merecen respaldo. Nota: durante el desarrollo existió brevemente un almacén `stoneMovements` (modelo de movimientos) que nunca llegó a un commit ni a ningún dispositivo real; la v3 publicada crea únicamente `stoneLots`.
+
+Los lotes y sus precios son SOLO internos: ninguna ruta los lleva al PDF cliente, Web Share ni WhatsApp. Formularios con guardado explícito (patrón D-022).

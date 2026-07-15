@@ -214,6 +214,58 @@ export interface Appointment {
   updatedAt: string;
 }
 
+/**
+ * Venta parcial o total de un lote de piedras (SOLO uso interno).
+ * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
+ * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
+ */
+export interface StoneSale {
+  id: string;
+  /** Fecha de la venta (YYYY-MM-DD). */
+  date: string;
+  /** A quién se le vendió (texto libre). */
+  buyer: string;
+  /** Quilates vendidos en esta venta. */
+  carats: number;
+  /** Número de piedras vendidas. */
+  quantity: number;
+  /** Valor total recibido en COP entero. */
+  valueCop: number;
+  notes: string;
+}
+
+/**
+ * Lote de piedras compradas (SOLO uso interno). Decisión de Santiago
+ * 2026-07-15: cada compra crea un lote rastreable y cada venta se descuenta
+ * de un lote específico, para saber qué se ganó con cada uno. El inventario
+ * se DERIVA de los lotes y sus ventas; jamás se guarda un contador a mano.
+ * Nunca aparece en ningún documento del cliente.
+ */
+export interface StoneLot {
+  id: string;
+  /** Nombre del lote, ej: "Muzo 12". Si queda vacío, la app muestra piedra + fecha. */
+  name: string;
+  /** Tipo de piedra: Esmeralda, Zafiro, etc. Agrupa el inventario. */
+  stoneType: string;
+  /** Descripción libre (talla, calidad, origen…). */
+  description: string;
+  /** Fecha de la compra (YYYY-MM-DD). */
+  purchaseDate: string;
+  /** A quién se le compró (texto libre). */
+  supplier: string;
+  /** Quilates comprados. */
+  carats: number;
+  /** Número de piedras compradas. */
+  quantity: number;
+  /** Costo total de la compra en COP entero. */
+  purchaseValueCop: number;
+  notes: string;
+  /** Ventas del lote, en el orden en que se registraron. */
+  sales: StoneSale[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BackupFile {
   app: 'emerald-dealer-quote';
   /** Versión del formato de respaldo. Ver services/backup.ts. */
@@ -224,6 +276,8 @@ export interface BackupFile {
   quotes: Quote[];
   /** Citas de asesoría. Los respaldos v1/v2 no las traen y se importan como lista vacía. */
   appointments: Appointment[];
+  /** Lotes de piedras con sus ventas. Los respaldos v1/v2/v3 no los traen y se importan vacíos. */
+  stoneLots: StoneLot[];
 }
 
 export const PIECE_TYPES: PieceType[] = [

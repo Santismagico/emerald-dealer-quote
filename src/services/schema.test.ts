@@ -4,6 +4,7 @@ import {
   normalizeClient,
   normalizeQuote,
   normalizeSettings,
+  normalizeStoneLot,
   defaultSettings,
   SETTINGS_VERSION
 } from './schema';
@@ -173,5 +174,57 @@ describe('normalizeAppointment', () => {
 
   it('un estado desconocido vuelve a programada', () => {
     expect(normalizeAppointment({ status: 'confirmadísima' }).status).toBe('programada');
+  });
+});
+
+describe('normalizeStoneLot', () => {
+  it('convierte basura en un lote válido con defaults seguros', () => {
+    const l = normalizeStoneLot(null);
+    expect(l.id).toBeTruthy();
+    expect(l.carats).toBe(0);
+    expect(l.purchaseValueCop).toBe(0);
+    expect(l.sales).toEqual([]);
+  });
+
+  it('conserva un lote bien formado con sus ventas', () => {
+    const valid = {
+      id: 'l-1',
+      name: 'Muzo 12',
+      stoneType: 'Esmeralda',
+      description: 'Calidad alta',
+      purchaseDate: '2026-07-15',
+      supplier: 'Proveedor Muzo',
+      carats: 5,
+      quantity: 4,
+      purchaseValueCop: 6000000,
+      notes: '',
+      sales: [
+        { id: 'v-1', date: '2026-07-15', buyer: 'Cliente', carats: 1, quantity: 1, valueCop: 2000000, notes: '' }
+      ],
+      createdAt: '2026-07-15T09:00:00.000Z',
+      updatedAt: '2026-07-15T09:00:00.000Z'
+    };
+    expect(normalizeStoneLot(valid)).toEqual(valid);
+  });
+
+  it('lleva a cero los números negativos o corruptos del lote y sus ventas', () => {
+    const l = normalizeStoneLot({
+      carats: -2,
+      quantity: 'muchas',
+      purchaseValueCop: -100,
+      sales: [{ id: 'v-1', carats: -1, valueCop: 'regalo' }]
+    });
+    expect(l.carats).toBe(0);
+    expect(l.quantity).toBe(0);
+    expect(l.purchaseValueCop).toBe(0);
+    expect(l.sales[0].carats).toBe(0);
+    expect(l.sales[0].valueCop).toBe(0);
+  });
+
+  it('las ventas que no son objetos se convierten en ventas vacías con id propio', () => {
+    const l = normalizeStoneLot({ sales: ['basura', null] });
+    expect(l.sales.length).toBe(2);
+    expect(l.sales[0].id).toBeTruthy();
+    expect(l.sales[0].id).not.toBe(l.sales[1].id);
   });
 });

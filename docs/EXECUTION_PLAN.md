@@ -99,19 +99,35 @@ Santiago registra la cita. Nada se publica ni se sincroniza. Ejecutada
 
 ---
 
-## Etapa 8 — Piedras: inventario y movimientos
+## Etapa 8 — Piedras: lotes rastreables — ✅ COMPLETADA 2026-07-15
 
-- [ ] 8.1 (Claude) Migración v2→v3: almacén `stoneMovements`. Movimiento:
-      id, tipo (`compra | venta`), fecha, piedra (tipo, quilates, cantidad,
-      descripción), contraparte (texto libre), valor en COP entero, notas.
-- [ ] 8.2 (Claude) Motor puro de inventario con tests: existencias y valores
-      derivados de los movimientos (nunca un contador editado a mano).
-- [ ] 8.3 (Claude) Respaldo y restauración atómica de 5 almacenes.
-- [ ] 8.4 (Codex) Vista Piedras: registrar compra/venta, inventario actual,
-      historial de movimientos con búsqueda por fecha y tipo.
-- [ ] 8.5 Privacidad: los movimientos y precios de piedras son internos. Ninguna
-      ruta los lleva a canales de cliente.
-- [ ] 8.6 (Claude) Auditoría, tests, build, commit.
+**Decisión de negocio (Santiago, 2026-07-15, ver D-023):** el diseño cambió del
+registro de movimientos simples al modelo de **lotes rastreables**: cada compra
+crea un lote identificado y cada venta se descuenta de un lote específico, para
+saber qué se ganó con cada uno. Además: Piedras queda **separado** del cotizador
+de joyas, y la pestaña muestra **existencias + flujo de dinero**. Ejecutada
+íntegramente por Claude (Fable).
+
+- [x] 8.1 (Claude) Migración v2→v3: almacén `stoneLots`. Lote: nombre opcional,
+      tipo de piedra, descripción, fecha de compra, proveedor, quilates,
+      cantidad, costo en COP entero, notas y sus VENTAS embebidas (fecha,
+      comprador, quilates, cantidad, valor) — como los abonos dentro de una
+      cotización: una venta no puede quedar huérfana ni superar el lote.
+- [x] 8.2 (Claude) Motor puro `stones.ts` con tests: resumen por lote (vendido,
+      restante, agotado, resultado), existencias por tipo de piedra, flujo
+      (invertido/recibido/neto) y validación de ventas contra lo disponible.
+      Nada se guarda como contador a mano.
+- [x] 8.3 (Claude) Respaldo v4 con lotes; acepta v1–v4 (los viejos restauran con
+      lotes vacíos). Restauración atómica de 5 almacenes con rollback.
+- [x] 8.4 (Claude) Vista Piedras (`StonesView.tsx`): nueva compra (lote), detalle
+      del lote con sus ventas, registrar/editar/eliminar venta con validación de
+      existencias, editar compra, existencias por tipo, flujo del negocio,
+      búsqueda y filtros Con existencias / Agotados / Todos.
+- [x] 8.5 Privacidad: lotes y precios de piedras son internos. Ninguna ruta los
+      lleva a canales de cliente (tests de privacidad intactos).
+- [x] 8.6 (Claude) Auditoría, 372 tests y build en verde, flujo completo
+      verificado en navegador (lote, venta, sobreventa rechazada, persistencia),
+      commit.
 
 ---
 

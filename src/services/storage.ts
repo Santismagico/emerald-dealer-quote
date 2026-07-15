@@ -2,7 +2,7 @@
 // Todo dato leído pasa por services/schema.ts (normalización + migraciones):
 // las vistas siempre reciben la forma actual del tipo, venga de la versión que venga.
 
-import type { Settings, Client, Quote, Appointment } from '../types';
+import type { Settings, Client, Quote, Appointment, StoneLot } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate } from './db';
 import {
@@ -10,9 +10,11 @@ import {
   normalizeSettings,
   normalizeQuote,
   normalizeClient,
-  normalizeAppointment
+  normalizeAppointment,
+  normalizeStoneLot
 } from './schema';
 import { compareAppointments } from './agenda';
+import { compareStoneLots } from './stones';
 
 // Re-export para compatibilidad: el resto de la app importa defaultSettings desde aquí.
 export { defaultSettings } from './schema';
@@ -155,6 +157,19 @@ export async function saveAppointment(appointment: Appointment): Promise<void> {
 
 export async function deleteAppointment(id: string): Promise<void> {
   await dbDelete('appointments', id);
+}
+
+export async function listStoneLots(): Promise<StoneLot[]> {
+  const lots = await dbGetAll<unknown>('stoneLots');
+  return lots.map(normalizeStoneLot).sort(compareStoneLots);
+}
+
+export async function saveStoneLot(lot: StoneLot): Promise<void> {
+  await dbPut('stoneLots', normalizeStoneLot(lot));
+}
+
+export async function deleteStoneLot(id: string): Promise<void> {
+  await dbDelete('stoneLots', id);
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */

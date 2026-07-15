@@ -32,6 +32,7 @@ PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colomb
 - Cambio rápido de estado desde el historial: tocar la etiqueta de estado de una cotización abre un menú para asignar borrador, pendiente, aprobada o rechazada sin entrar a la cotización (D-019). Verificado en navegador: el cambio persiste tras recargar y activa el acceso de producción al aprobar.
 - **Etapa 6 completada (Ecosistema): Taller como área propia (D-021).** Navegación de tres pestañas (Cotizador · Taller · Más), lista de trabajos derivada de las aprobadas (lógica pura `workshop.ts` con tests), pantalla de trabajo con producción y abonos usando el mismo guardado diferido, resumen + "Abrir en el Taller" en la vista interna, y creación de etapas estándar al aprobar desde cualquier lugar. Verificado en navegador: etapas, abono y persistencia tras recarga.
 - **Etapa 7 completada (Ecosistema): Agenda de asesorías (D-022).** Pestaña Agenda con citas internas (fecha, hora opcional, duración, motivo, cliente vinculado o nombre libre), estados con menú de un toque, aviso local de citas de hoy (banner + globito en la pestaña), filtros y búsqueda. Primera migración IndexedDB v1→v2 con escalera idempotente probada contra una base v1 real; respaldo v3 con 4 almacenes atómicos que acepta respaldos v1/v2. Verificado en navegador: migración en vivo sin pérdida, cita creada, estado cambiado y persistencia tras recarga.
+- **Etapa 8 completada (Ecosistema): Piedras por lotes rastreables (D-023).** Pestaña Piedras: cada compra crea un lote con sus ventas embebidas; la app impide vender más de lo disponible (validación del motor puro), muestra el resultado por lote, existencias por tipo y flujo del negocio. Migración v2→v3 probada contra una base v2 real; respaldo v4 de 5 almacenes atómicos que acepta v1–v4. Separado del cotizador por decisión de Santiago. Verificado en navegador: lote creado, venta registrada con cuentas correctas, sobreventa rechazada y persistencia tras recarga.
 
 ## Estado de la consolidación
 
@@ -81,7 +82,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-El 2026-07-12 Santiago autorizó el **Ecosistema Emerald Dealer v1.0** (Cotizador · Taller · Agenda · Piedras · Más). El plan por etapas está en `docs/EXECUTION_PLAN.md` y las decisiones de negocio en DECISIONS.md D-020. Las **Etapas 6 (Taller, D-021) y 7 (Agenda, D-022) están completadas y verificadas**. El siguiente paso es la **Etapa 8 (Piedras: inventario y movimientos)**, que empieza por la migración IndexedDB v2→v3 (tarea 8.1, a cargo de Claude) — la escalera de migraciones ya existe, solo se agrega un escalón.
+El 2026-07-12 Santiago autorizó el **Ecosistema Emerald Dealer v1.0** (Cotizador · Taller · Agenda · Piedras · Más). El plan por etapas está en `docs/EXECUTION_PLAN.md` y las decisiones de negocio en DECISIONS.md D-020. Las **Etapas 6 (Taller, D-021), 7 (Agenda, D-022) y 8 (Piedras, D-023) están completadas y verificadas**; las cinco pestañas del ecosistema ya existen. El siguiente y último paso del plan es la **Etapa 9 (Cierre del día)**: el PDF interno con todos los movimientos del día (tarea 9.1, motor puro `dailyReport.ts`, a cargo de Claude).
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
@@ -106,4 +107,5 @@ npm test && npm run build
 | 2026-07-12 | Cambio rápido de estado (Fable) | Etiqueta de estado tocable en el historial con menú de estados asignables; 298 tests y build en verde; verificado en navegador | 2bfda23 |
 | 2026-07-12 | Plan Ecosistema v1.0 (Fable) | Etapas 6–9 escritas en docs/EXECUTION_PLAN.md; decisiones de negocio en D-020 | 489134d |
 | 2026-07-12 | Etapa 6: Taller como área propia (Fable) | Navegación Cotizador·Taller·Más, trabajos derivados con lógica pura, pantalla de trabajo con guardado diferido; 309 tests y build en verde; verificado en navegador | cded994 |
-| 2026-07-14 | Etapa 7: Agenda de asesorías (Fable) | Migración IndexedDB v1→v2, respaldo v3 de 4 almacenes, pestaña Agenda con aviso de hoy; 337 tests y build en verde; migración y flujo verificados en navegador | pendiente de commit |
+| 2026-07-14 | Etapa 7: Agenda de asesorías (Fable) | Migración IndexedDB v1→v2, respaldo v3 de 4 almacenes, pestaña Agenda con aviso de hoy; 337 tests y build en verde; migración y flujo verificados en navegador | cc33c5a |
+| 2026-07-15 | Etapa 8: Piedras por lotes (Fable) | Lotes rastreables con ventas embebidas y validación de existencias, migración v2→v3, respaldo v4 de 5 almacenes; 372 tests y build en verde; flujo verificado en navegador | pendiente de commit |

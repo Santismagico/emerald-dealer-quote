@@ -2,7 +2,16 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
-## [Unreleased] — 2026-07-14
+## [Unreleased] — 2026-07-15
+
+### Ecosistema: Piedras por lotes rastreables (Etapa 8)
+
+- Nueva pestaña **Piedras**: cada compra crea un lote identificado (ej: "Muzo 12") con tipo de piedra, quilates, cantidad, costo y proveedor; cada venta se registra dentro de su lote y descuenta existencias.
+- La app impide vender más piedras o quilates de los que el lote tiene disponibles, y muestra el resultado de cada lote (vendido − costo), marcado como "parcial" mientras queden existencias.
+- Resumen del negocio: existencias por tipo de piedra (lo que queda en los lotes) y flujo de dinero (invertido, recibido por ventas y neto).
+- Búsqueda por lote, piedra o persona, y filtros Con existencias / Agotados / Todos.
+- Migración de la base local v2→v3 (nuevo almacén de lotes) conservando todos los datos, y respaldo v4 que incluye los lotes; los respaldos anteriores siguen funcionando.
+- Todo el negocio de piedras es interno: jamás aparece en el PDF del cliente, en Compartir ni en WhatsApp. Queda separado del cotizador de joyas por decisión de Santiago.
 
 ### Ecosistema: Agenda de asesorías (Etapa 7)
 

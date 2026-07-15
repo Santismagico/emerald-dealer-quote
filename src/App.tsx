@@ -9,6 +9,7 @@ import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
 import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { AgendaView } from './components/AgendaView';
+import { StonesView } from './components/StonesView';
 import { ClientsView } from './components/ClientsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
@@ -26,6 +27,7 @@ type ViewName =
   | 'workshop'
   | 'workshopJob'
   | 'agenda'
+  | 'stones'
   | 'more'
   | 'clients'
   | 'settings';
@@ -314,6 +316,7 @@ function AppShell() {
         )}
         {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
         {view === 'agenda' && <AgendaView />}
+        {view === 'stones' && <StonesView />}
         {view === 'workshopJob' && draft && (
           <WorkshopJobView
             ref={workshopJobRef}
@@ -345,7 +348,7 @@ function AppShell() {
       </main>
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg border-t border-stone-200 bg-white">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           <NavButton
             label="Cotizador"
             icon="🗂"
@@ -364,6 +367,12 @@ function AppShell() {
             badge={todayAppointments}
             active={view === 'agenda'}
             onClick={() => void runAfterViewFlush(() => setView('agenda'))}
+          />
+          <NavButton
+            label="Piedras"
+            icon="💎"
+            active={view === 'stones'}
+            onClick={() => void runAfterViewFlush(() => setView('stones'))}
           />
           <NavButton
             label="Más"

@@ -84,24 +84,30 @@ describe('escalera de migraciones', () => {
   }
 
   it('la versión actual coincide con la cantidad de migraciones', () => {
-    expect(db.DB_VERSION).toBe(2);
+    expect(db.DB_VERSION).toBe(3);
   });
 
-  it('una base nueva (v0) crea los cuatro almacenes', () => {
+  it('una base nueva (v0) crea los cinco almacenes', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 0);
-    expect(fake.created).toEqual(['settings', 'clients', 'quotes', 'appointments']);
+    expect(fake.created).toEqual(['settings', 'clients', 'quotes', 'appointments', 'stoneLots']);
   });
 
-  it('una base v1 solo agrega el almacén de citas', () => {
+  it('una base v1 agrega citas y lotes de piedras', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 1);
-    expect(fake.created).toEqual(['appointments']);
+    expect(fake.created).toEqual(['appointments', 'stoneLots']);
+  });
+
+  it('una base v2 solo agrega los lotes de piedras', () => {
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 2);
+    expect(fake.created).toEqual(['stoneLots']);
   });
 
   it('una base ya migrada no crea nada', () => {
     const fake = fakeMigratableDb();
-    db.applyDbMigrations(fake.db, 2);
+    db.applyDbMigrations(fake.db, 3);
     expect(fake.created).toEqual([]);
   });
 });
@@ -180,10 +186,10 @@ describe('persistencia de la agenda', () => {
 });
 
 describe('respaldo v3 con agenda', () => {
-  it('la exportación incluye las citas y declara la versión 3', async () => {
+  it('la exportación incluye las citas y declara la versión vigente', async () => {
     await storage.saveAppointment(cita());
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(3);
+    expect(backup.version).toBe(backupService.BACKUP_VERSION);
     expect(backup.appointments.map((a) => a.id)).toEqual(['a-1']);
   });
 
@@ -213,7 +219,8 @@ describe('respaldo v3 con agenda', () => {
       settings: sampleSettings(),
       clients: [sampleClient()],
       quotes: [sampleQuote()],
-      appointments: [cita({ id: 'a-import', status: 'cumplida' })]
+      appointments: [cita({ id: 'a-import', status: 'cumplida' })],
+      stoneLots: []
     };
 
     await backupService.importBackup(backup);
@@ -231,7 +238,8 @@ describe('respaldo v3 con agenda', () => {
       settings: null,
       clients: [],
       quotes: [],
-      appointments: [cita({ id: 'a-dup' }), cita({ id: 'a-dup' })]
+      appointments: [cita({ id: 'a-dup' }), cita({ id: 'a-dup' })],
+      stoneLots: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

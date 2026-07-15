@@ -1,9 +1,10 @@
 // Capa mínima sobre IndexedDB con promesas. Sin dependencias externas.
-// Almacena settings, clientes, cotizaciones y citas de forma local (funciona offline).
+// Almacena settings, clientes, cotizaciones, citas y lotes de piedras
+// de forma local (funciona offline).
 
 const DB_NAME = 'emerald-dealer-quote';
 
-export type StoreName = 'settings' | 'clients' | 'quotes' | 'appointments';
+export type StoreName = 'settings' | 'clients' | 'quotes' | 'appointments' | 'stoneLots';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
 
@@ -31,6 +32,10 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   // v2 — agenda de asesorías (Etapa 7 del Ecosistema).
   (db) => {
     createStoreIfMissing(db, 'appointments');
+  },
+  // v3 — lotes de piedras con sus ventas (Etapa 8 del Ecosistema).
+  (db) => {
+    createStoreIfMissing(db, 'stoneLots');
   }
 ];
 

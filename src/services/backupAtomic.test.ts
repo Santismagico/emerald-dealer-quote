@@ -60,7 +60,8 @@ function makeBackup(
         : options.settings,
     clients,
     quotes,
-    appointments: []
+    appointments: [],
+    stoneLots: []
   };
 }
 

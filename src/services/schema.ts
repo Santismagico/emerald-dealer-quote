@@ -16,7 +16,9 @@ import type {
   PieceType,
   StageStatus,
   Appointment,
-  AppointmentStatus
+  AppointmentStatus,
+  StoneLot,
+  StoneSale
 } from '../types';
 import { QUOTE_STATUSES, PIECE_TYPES, APPOINTMENT_STATUSES } from '../types';
 import { newId } from '../utils/id';
@@ -203,6 +205,43 @@ export function normalizeAppointment(raw: unknown): Appointment {
     status: oneOf<AppointmentStatus>(a.status, APPOINTMENT_STATUSES, 'programada'),
     createdAt: safeString(a.createdAt),
     updatedAt: safeString(a.updatedAt)
+  };
+}
+
+function normalizeStoneSale(raw: unknown): StoneSale {
+  const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(s.id, newId()),
+    date: safeString(s.date),
+    buyer: safeString(s.buyer),
+    carats: Math.max(0, safeNumber(s.carats)),
+    quantity: Math.max(0, safeNumber(s.quantity)),
+    valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    notes: safeString(s.notes)
+  };
+}
+
+/**
+ * Garantiza que un lote de piedras tenga la forma exacta del tipo actual.
+ * Cantidades negativas o no numéricas se llevan a 0 y las ventas embebidas se
+ * normalizan una por una: un dato corrupto nunca infla existencias ni dinero.
+ */
+export function normalizeStoneLot(raw: unknown): StoneLot {
+  const l = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(l.id, newId()),
+    name: safeString(l.name),
+    stoneType: safeString(l.stoneType),
+    description: safeString(l.description),
+    purchaseDate: safeString(l.purchaseDate),
+    supplier: safeString(l.supplier),
+    carats: Math.max(0, safeNumber(l.carats)),
+    quantity: Math.max(0, safeNumber(l.quantity)),
+    purchaseValueCop: Math.max(0, Math.round(safeNumber(l.purchaseValueCop))),
+    notes: safeString(l.notes),
+    sales: safeArray(l.sales).map(normalizeStoneSale),
+    createdAt: safeString(l.createdAt),
+    updatedAt: safeString(l.updatedAt)
   };
 }
 
