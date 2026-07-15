@@ -21,13 +21,14 @@ import { Button, StatusBadge, ConfirmDialog, EmptyState, TextInput } from './ui'
 export function HistoryView({
   onNew,
   onOpen,
-  onOpenInternal,
+  onOpenWorkshop,
   onEdit,
   onDuplicate
 }: {
   onNew: () => void;
   onOpen: (quote: Quote) => void;
-  onOpenInternal: (quote: Quote) => void;
+  /** Abre el trabajo del taller (producción y abonos) de una cotización aprobada. */
+  onOpenWorkshop: (quote: Quote) => void;
   onEdit: (quote: Quote) => void;
   onDuplicate: (quote: Quote) => void;
 }) {
@@ -128,11 +129,11 @@ export function HistoryView({
                 {quote.status === 'aprobada' && (
                   <button
                     type="button"
-                    onClick={() => onOpenInternal(quote)}
+                    onClick={() => onOpenWorkshop(quote)}
                     className="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-left"
                   >
                     <span className="text-sm font-medium text-amber-800">
-                      🛠 Producción: {quote.production.filter((s) => s.status === 'lista').length}/
+                      🛠 Taller: {quote.production.filter((s) => s.status === 'lista').length}/
                       {quote.production.length} etapas listas
                     </span>
                     <span className="text-amber-700">›</span>

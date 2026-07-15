@@ -4,11 +4,10 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { Quote, QuoteStatus, ProductionStage, ClientPayment } from '../types';
+import type { Quote, QuoteStatus } from '../types';
 import { QUOTE_STATUSES } from '../types';
 import { defaultProductionStages } from '../services/production';
-import { ProductionPanel } from './ProductionPanel';
-import { PaymentsPanel } from './PaymentsPanel';
+import { workshopJobFromQuote } from '../services/workshop';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import {
   buildClientPdfContent,
@@ -30,8 +29,7 @@ import {
   createQuoteAutosaveController,
   runAfterSuccessfulFlush,
   type QuoteAutosaveController,
-  type QuoteAutosaveStatus,
-  type QuoteSaveMode
+  type QuoteAutosaveStatus
 } from '../services/quoteAutosave';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
@@ -46,11 +44,13 @@ interface PreviewViewProps {
   onEdit: () => void;
   onSaved: (quote: Quote) => void;
   onClose: () => void;
+  /** Abre el trabajo del taller (producción y abonos) de esta cotización. */
+  onOpenWorkshop: () => void;
   initialTab?: 'cliente' | 'interno';
 }
 
 export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(function PreviewView(
-  { quote, onEdit, onSaved, onClose, initialTab = 'cliente' },
+  { quote, onEdit, onSaved, onClose, onOpenWorkshop, initialTab = 'cliente' },
   ref
 ) {
   const store = useStore();
@@ -150,6 +150,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
   }, [autosave]);
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
+  const workshopSummary = useMemo(() => workshopJobFromQuote(quote), [quote]);
   const effectiveStatus = getEffectiveQuoteStatus(quote, todayISO());
   const clientContent = useMemo(
     () => buildClientPdfContent(quote, calc, store.settings),
@@ -309,20 +310,6 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
 
   const flushPending = async () => {
     await autosave.flush();
-  };
-
-  const updateProduction = (
-    updater: (current: ProductionStage[]) => ProductionStage[],
-    mode: QuoteSaveMode
-  ) => {
-    autosave.update((current) => ({ ...current, production: updater(current.production) }), mode);
-  };
-
-  const updatePayments = (
-    updater: (current: ClientPayment[]) => ClientPayment[],
-    mode: QuoteSaveMode
-  ) => {
-    autosave.update((current) => ({ ...current, payments: updater(current.payments) }), mode);
   };
 
   const runAfterFlush = async (action: () => void) => {
@@ -505,25 +492,30 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           )}
           <p className="mt-4 text-xs text-stone-500">{store.settings.goldPriceNote}</p>
 
-          <PaymentsPanel
-            payments={quote.payments}
-            quoteTotal={calc.total}
-            onChange={updatePayments}
-            onCommit={flushPending}
-          />
-
-          {quote.status === 'aprobada' && (
-            <ProductionPanel
-              stages={quote.production}
-              quoteTotal={calc.total}
-              onChange={updateProduction}
-              onCommit={flushPending}
-            />
-          )}
-          {quote.status !== 'aprobada' && quote.production.length === 0 && (
+          {quote.status === 'aprobada' ? (
+            <div className="mt-4 border-t border-amber-200 pt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                🛠 Trabajo del taller
+              </p>
+              <div className="space-y-1 rounded-xl bg-white p-3 shadow-sm">
+                <SummaryRow
+                  label="Etapas listas"
+                  value={`${workshopSummary.stagesDone}/${workshopSummary.stagesTotal}`}
+                />
+                <SummaryRow label="Abonado por el cliente" value={formatCOP(workshopSummary.paid)} />
+                <SummaryRow label="Saldo pendiente" value={formatCOP(workshopSummary.balance)} bold />
+              </div>
+              <div className="mt-2">
+                <Button variant="secondary" full onClick={() => void runAfterFlush(onOpenWorkshop)}>
+                  🛠 Abrir en el Taller
+                </Button>
+              </div>
+            </div>
+          ) : (
             <p className="mt-4 rounded-xl bg-white/60 p-3 text-xs text-stone-500">
-              🛠 El seguimiento de producción del taller (etapas y pagos) aparece aquí cuando la cotización pasa a
-              estado <strong>aprobada</strong>.
+              🛠 Al pasar a estado <strong>aprobada</strong>, esta cotización se convierte en un trabajo
+              del taller: sus etapas de producción y los abonos del cliente se manejan en la pestaña{' '}
+              <strong>Taller</strong>.
             </p>
           )}
 

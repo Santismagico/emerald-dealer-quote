@@ -40,25 +40,29 @@ Cada pestaña se agrega cuando su etapa está lista; mientras tanto no aparece.
 
 ---
 
-## Etapa 6 — Taller como área propia (sin cambio de datos)
+## Etapa 6 — Taller como área propia (sin cambio de datos) — ✅ COMPLETADA 2026-07-12
 
 **Objetivo:** separar el trabajo del taller del flujo de cotización, manteniendo la
-lógica de producción y abonos ya probada.
+lógica de producción y abonos ya probada. Ejecutada íntegramente por Claude (Fable)
+por continuidad de la sesión; decisiones en D-021.
 
-- [ ] 6.1 (Claude) Nueva navegación inferior: Cotizador · Taller · Más
+- [x] 6.1 (Claude) Nueva navegación inferior: Cotizador · Taller · Más
       (Más agrupa Clientes y Ajustes). "Nueva" deja de ser pestaña: ya existe el
       botón dentro del historial.
-- [ ] 6.2 (Claude) Servicio puro `workshop.ts`: deriva la lista de trabajos desde
-      las cotizaciones aprobadas — progreso de etapas, costo de taller, total
-      abonado, saldo. Con tests.
-- [ ] 6.3 (Codex) Vista Taller: lista de trabajos con cliente, pieza, progreso
-      (x/y etapas), saldo pendiente; buscar y filtrar (en producción / listos).
-- [ ] 6.4 (Codex) Al abrir un trabajo: los paneles existentes de producción y
-      abonos (`ProductionPanel`, `PaymentsPanel`) presentados como pantalla de
-      trabajo, no como anexo de la cotización.
-- [ ] 6.5 El acceso directo "🛠 Producción" del historial ahora lleva al trabajo
-      dentro de Taller.
-- [ ] 6.6 (Claude) Auditoría, tests, build, commit.
+- [x] 6.2 (Claude) Servicio puro `workshop.ts`: deriva la lista de trabajos desde
+      las cotizaciones aprobadas — progreso de etapas, total abonado, saldo.
+      Con tests (`workshop.test.ts`).
+- [x] 6.3 (Claude) Vista Taller (`WorkshopView.tsx`): lista de trabajos con cliente,
+      pieza, progreso (x/y etapas + barra), saldo; búsqueda y filtros
+      Todos / En taller / Listos.
+- [x] 6.4 (Claude) Pantalla de trabajo (`WorkshopJobView.tsx`): paneles existentes de
+      producción y abonos con el mismo guardado diferido (`quoteAutosave`), resumen
+      de totales y enlace a la cotización. La vista interna de la cotización ahora
+      muestra resumen + botón "Abrir en el Taller" en lugar de los paneles.
+- [x] 6.5 El acceso directo "🛠 Taller" del historial abre el trabajo dentro de Taller.
+      Además, aprobar desde el historial también crea las etapas estándar.
+- [x] 6.6 (Claude) Auditoría, tests (309 en verde), build, verificación en navegador
+      (crear etapas, marcar lista, registrar abono, persistencia tras recarga), commit.
 
 **No hacer:** cambiar el esquema de `Quote`, ni la lógica de guardado diferido
 (D-014). Es una reorganización de interfaz.

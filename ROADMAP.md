@@ -40,9 +40,9 @@ navegación inferior: **Cotizador · Taller · Agenda · Piedras · Más**. Deta
 en [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md); decisiones en DECISIONS.md D-020.
 
 - [x] Cambio rápido de estado tocando la etiqueta en el historial (D-019).
-- [ ] **Etapa 6 — Taller como área propia:** pestaña Taller con los trabajos (cotizaciones
+- [x] **Etapa 6 — Taller como área propia:** pestaña Taller con los trabajos (cotizaciones
   aprobadas), su progreso de producción y sus abonos, reorganizados fuera del flujo de
-  cotización. Sin cambios de estructura de datos.
+  cotización. Sin cambios de estructura de datos. Completada 2026-07-12 (D-021).
 - [ ] **Etapa 7 — Agenda de asesorías:** registro interno de citas (Santiago las anota;
   el cliente sigue contactando por WhatsApp). Primera migración real de IndexedDB
   (v1→v2) y respaldo de cuatro almacenes.

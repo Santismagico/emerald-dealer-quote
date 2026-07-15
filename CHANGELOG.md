@@ -4,6 +4,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-12
 
+### Ecosistema: Taller como área propia (Etapa 6)
+
+- Nueva navegación inferior con tres pestañas: **Cotizador**, **Taller** y **Más** (Clientes y Ajustes). Crear una cotización sigue disponible con el botón del historial.
+- Nueva pestaña **Taller**: lista los trabajos (cotizaciones aprobadas) con su avance de etapas, barra de progreso y saldo pendiente; permite buscar y filtrar entre "En taller" y "Listos".
+- Nueva pantalla de trabajo: producción y abonos de cada pieza fuera del flujo de cotización, con el mismo guardado diferido, serializado y con reintento de siempre, y acceso directo a la cotización original.
+- La vista interna de la cotización ya no muestra los paneles de producción y abonos: presenta un resumen del trabajo (etapas listas, abonado, saldo) y el botón "Abrir en el Taller". Los abonos se registran en el Taller.
+- Cambiar el estado tocando la etiqueta en el historial: menú con borrador, pendiente, aprobada y rechazada, sin entrar a la cotización. "Vencida" sigue calculándose sola por fecha.
+- Aprobar una cotización desde cualquier lugar (historial o vista previa) crea las etapas estándar del taller si aún no existen.
+
 ### Consolidación Etapa 5.5
 
 - La salida al cliente queda bloqueada cuando el contenido final detecta información interna. Ya no existe una confirmación que permita generar o compartir el PDF cliente ni abrir WhatsApp bajo riesgo.

@@ -151,11 +151,25 @@ describe('cambio rápido de estado desde el historial', () => {
 
   it('cambia el estado y actualiza updatedAt sin tocar nada más', () => {
     const quote = sampleQuote({ status: 'pendiente', updatedAt: '2026-07-01T08:00:00.000Z' });
-    const changed = withQuoteStatus(quote, 'aprobada', NOW);
+    const changed = withQuoteStatus(quote, 'rechazada', NOW);
 
-    expect(changed.status).toBe('aprobada');
+    expect(changed.status).toBe('rechazada');
     expect(changed.updatedAt).toBe(NOW);
     expect({ ...changed, status: quote.status, updatedAt: quote.updatedAt }).toEqual(quote);
+  });
+
+  it('al aprobar sin etapas crea las etapas estándar del taller', () => {
+    const quote = sampleQuote({ status: 'pendiente', production: [] });
+    const changed = withQuoteStatus(quote, 'aprobada', NOW);
+
+    expect(changed.production.length).toBeGreaterThan(0);
+    expect(changed.production.every((stage) => stage.status === 'pendiente')).toBe(true);
+  });
+
+  it('al aprobar con etapas existentes las conserva intactas', () => {
+    const quote = sampleQuote({ status: 'pendiente' });
+    const changed = withQuoteStatus(quote, 'aprobada', NOW);
+    expect(changed.production).toBe(quote.production);
   });
 
   it('no modifica el objeto original', () => {

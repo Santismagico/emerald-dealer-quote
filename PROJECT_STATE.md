@@ -30,6 +30,7 @@ PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colomb
 - Compartir PDF cliente: **Etapa 5 completada y probada**. En dispositivos compatibles abre el selector nativo con un solo archivo PDF cliente; si no hay soporte real, descarga ese mismo archivo para adjuntarlo manualmente. WhatsApp con texto sigue siendo una acción separada.
 - Consistencia de Ajustes: la consolidación evita que el consecutivo, el recordatorio de respaldo o el precio del oro se pisen cuando coinciden dos acciones. No cambia el formato de datos ni agrega dependencias.
 - Cambio rápido de estado desde el historial: tocar la etiqueta de estado de una cotización abre un menú para asignar borrador, pendiente, aprobada o rechazada sin entrar a la cotización (D-019). Verificado en navegador: el cambio persiste tras recargar y activa el acceso de producción al aprobar.
+- **Etapa 6 completada (Ecosistema): Taller como área propia (D-021).** Navegación de tres pestañas (Cotizador · Taller · Más), lista de trabajos derivada de las aprobadas (lógica pura `workshop.ts` con tests), pantalla de trabajo con producción y abonos usando el mismo guardado diferido, resumen + "Abrir en el Taller" en la vista interna, y creación de etapas estándar al aprobar desde cualquier lugar. Verificado en navegador: etapas, abono y persistencia tras recarga.
 
 ## Estado de la consolidación
 
@@ -79,7 +80,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-El 2026-07-12 Santiago autorizó el **Ecosistema Emerald Dealer v1.0** (Cotizador · Taller · Agenda · Piedras · Más). El plan por etapas está en `docs/EXECUTION_PLAN.md` y las decisiones de negocio en DECISIONS.md D-020. El siguiente paso es la **Etapa 6 (Taller como área propia)**, empezando por la tarea 6.1 (nueva navegación, a cargo de Claude).
+El 2026-07-12 Santiago autorizó el **Ecosistema Emerald Dealer v1.0** (Cotizador · Taller · Agenda · Piedras · Más). El plan por etapas está en `docs/EXECUTION_PLAN.md` y las decisiones de negocio en DECISIONS.md D-020. La **Etapa 6 (Taller) está completada y verificada** (D-021). El siguiente paso es la **Etapa 7 (Agenda de asesorías)**, que empieza por la migración IndexedDB v1→v2 (tarea 7.1, a cargo de Claude) — es la primera migración real de estructura, así que debe hacerse con calma y con la protección habitual.
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
@@ -102,4 +103,5 @@ npm test && npm run build
 | 2026-07-12 | Etapa 5: compartir PDF cliente | Selector nativo cuando es compatible, descarga segura como respaldo, privacidad y doble toque protegidos; 283 tests y build en verde | 508555f |
 | 2026-07-12 | Etapa 5.5: consolidación Codex | Privacidad sin bypass, Ajustes simultáneos protegidos, documentación alineada; 294 tests y build en verde; candidata no publicada | `punto-seguro-codex-etapa5-2026-07-12` |
 | 2026-07-12 | Cambio rápido de estado (Fable) | Etiqueta de estado tocable en el historial con menú de estados asignables; 298 tests y build en verde; verificado en navegador | 2bfda23 |
-| 2026-07-12 | Plan Ecosistema v1.0 (Fable) | Etapas 6–9 escritas en docs/EXECUTION_PLAN.md; decisiones de negocio en D-020 | — |
+| 2026-07-12 | Plan Ecosistema v1.0 (Fable) | Etapas 6–9 escritas en docs/EXECUTION_PLAN.md; decisiones de negocio en D-020 | 489134d |
+| 2026-07-12 | Etapa 6: Taller como área propia (Fable) | Navegación Cotizador·Taller·Más, trabajos derivados con lógica pura, pantalla de trabajo con guardado diferido; 309 tests y build en verde; verificado en navegador | pendiente de commit |

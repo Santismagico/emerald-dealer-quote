@@ -1,6 +1,7 @@
 import type { Quote, QuoteStatus } from '../types';
 import { QUOTE_STATUSES } from '../types';
 import { isExpired } from '../utils/dates';
+import { defaultProductionStages } from './production';
 
 export type HistoryStatusFilter = QuoteStatus | 'todas';
 
@@ -16,9 +17,17 @@ export const SELECTABLE_QUOTE_STATUSES: QuoteStatus[] = [
   'rechazada'
 ];
 
-/** Copia de la cotización con el nuevo estado, sin tocar el objeto original. */
+/**
+ * Copia de la cotización con el nuevo estado, sin tocar el objeto original.
+ * Al aprobar arranca el trabajo del taller: si no hay etapas se crean las
+ * estándar, igual que al aprobar desde la vista previa.
+ */
 export function withQuoteStatus(quote: Quote, status: QuoteStatus, nowIso: string): Quote {
-  return { ...quote, status, updatedAt: nowIso };
+  const production =
+    status === 'aprobada' && quote.production.length === 0
+      ? defaultProductionStages()
+      : quote.production;
+  return { ...quote, status, production, updatedAt: nowIso };
 }
 
 /**

@@ -6,6 +6,8 @@ import { todayISO, addDays } from './utils/dates';
 import { HistoryView } from './components/HistoryView';
 import { QuoteFormView } from './components/QuoteFormView';
 import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
+import { WorkshopView } from './components/WorkshopView';
+import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { ClientsView } from './components/ClientsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
@@ -15,7 +17,15 @@ import {
   getBackupReminderState
 } from './services/backupReminder';
 
-type ViewName = 'history' | 'form' | 'preview' | 'clients' | 'settings';
+type ViewName =
+  | 'history'
+  | 'form'
+  | 'preview'
+  | 'workshop'
+  | 'workshopJob'
+  | 'more'
+  | 'clients'
+  | 'settings';
 
 const APP_URL = 'https://santismagico.github.io/emerald-dealer-quote/';
 
@@ -73,9 +83,12 @@ function AppShell() {
   const [view, setView] = useState<ViewName>('history');
   const [draft, setDraft] = useState<Quote | null>(null);
   const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
+  // Desde dónde se abrió la vista previa, para que "Volver" regrese al lugar correcto.
+  const [previewFrom, setPreviewFrom] = useState<'history' | 'workshop'>('history');
   const [reminderNow, setReminderNow] = useState(() => new Date());
   const [snoozingReminder, setSnoozingReminder] = useState(false);
   const previewRef = useRef<PreviewViewHandle>(null);
+  const workshopJobRef = useRef<WorkshopJobViewHandle>(null);
   const reminderAnchorRef = useRef(false);
   const snoozeRef = useRef(false);
 
@@ -188,20 +201,43 @@ function AppShell() {
     setView('form');
   };
 
-  const openPreview = (quote: Quote, tab: 'cliente' | 'interno' = 'cliente') => {
+  const openPreview = (
+    quote: Quote,
+    tab: 'cliente' | 'interno' = 'cliente',
+    from: 'history' | 'workshop' = 'history'
+  ) => {
     setDraft(quote);
     setPreviewTab(tab);
+    setPreviewFrom(from);
     setView('preview');
   };
 
-  const runAfterPreviewFlush = async (action: () => void) => {
-    if (view === 'preview') {
-      const saved = await runAfterSuccessfulFlush(
-        async () => {
-          await previewRef.current?.flushPending();
-        },
-        action
-      );
+  const openWorkshopJob = (quote: Quote) => {
+    setDraft(quote);
+    setView('workshopJob');
+  };
+
+  const closePreview = () => {
+    if (previewFrom === 'workshop' && draft?.status === 'aprobada') {
+      setView('workshopJob');
+      return;
+    }
+    setDraft(null);
+    setView(previewFrom === 'workshop' ? 'workshop' : 'history');
+  };
+
+  /** Las vistas con guardado diferido deben confirmar su escritura antes de navegar. */
+  const runAfterViewFlush = async (action: () => void) => {
+    const flush =
+      view === 'preview'
+        ? () => previewRef.current?.flushPending()
+        : view === 'workshopJob'
+          ? () => workshopJobRef.current?.flushPending()
+          : null;
+    if (flush) {
+      const saved = await runAfterSuccessfulFlush(async () => {
+        await flush();
+      }, action);
       if (!saved) {
         store.showToast('No se pudo guardar. Reintenta antes de salir.');
       }
@@ -238,7 +274,7 @@ function AppShell() {
           <HistoryView
             onNew={startNewQuote}
             onOpen={(q) => openPreview(q)}
-            onOpenInternal={(q) => openPreview(q, 'interno')}
+            onOpenWorkshop={openWorkshopJob}
             onEdit={editQuote}
             onDuplicate={duplicateQuote}
           />
@@ -248,6 +284,7 @@ function AppShell() {
             initial={draft}
             onPreview={(quote) => {
               setDraft(quote);
+              setPreviewFrom('history');
               setView('preview');
             }}
             onCancel={() => {
@@ -264,41 +301,60 @@ function AppShell() {
             quote={draft}
             onEdit={() => setView('form')}
             onSaved={(quote) => setDraft(quote)}
-            onClose={() => {
-              setDraft(null);
-              setView('history');
-            }}
+            onOpenWorkshop={() => setView('workshopJob')}
+            onClose={closePreview}
           />
         )}
-        {view === 'clients' && <ClientsView />}
-        {view === 'settings' && <SettingsView />}
+        {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
+        {view === 'workshopJob' && draft && (
+          <WorkshopJobView
+            ref={workshopJobRef}
+            key={draft.id}
+            quote={draft}
+            onSaved={(quote) => setDraft(quote)}
+            onBack={() => {
+              setDraft(null);
+              setView('workshop');
+            }}
+            onOpenQuote={(quote) => openPreview(quote, 'interno', 'workshop')}
+          />
+        )}
+        {view === 'more' && (
+          <MoreView onClients={() => setView('clients')} onSettings={() => setView('settings')} />
+        )}
+        {view === 'clients' && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <ClientsView />
+          </div>
+        )}
+        {view === 'settings' && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <SettingsView />
+          </div>
+        )}
       </main>
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg border-t border-stone-200 bg-white">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-3">
           <NavButton
-            label="Cotizaciones"
+            label="Cotizador"
             icon="🗂"
-            active={view === 'history' || view === 'preview'}
-            onClick={() => void runAfterPreviewFlush(() => setView('history'))}
+            active={view === 'history' || view === 'form' || view === 'preview'}
+            onClick={() => void runAfterViewFlush(() => setView('history'))}
           />
           <NavButton
-            label="Nueva"
-            icon="＋"
-            active={view === 'form'}
-            onClick={() => void runAfterPreviewFlush(startNewQuote)}
+            label="Taller"
+            icon="🛠"
+            active={view === 'workshop' || view === 'workshopJob'}
+            onClick={() => void runAfterViewFlush(() => setView('workshop'))}
           />
           <NavButton
-            label="Clientes"
-            icon="👤"
-            active={view === 'clients'}
-            onClick={() => void runAfterPreviewFlush(() => setView('clients'))}
-          />
-          <NavButton
-            label="Ajustes"
-            icon="⚙"
-            active={view === 'settings'}
-            onClick={() => void runAfterPreviewFlush(() => setView('settings'))}
+            label="Más"
+            icon="☰"
+            active={view === 'more' || view === 'clients' || view === 'settings'}
+            onClick={() => void runAfterViewFlush(() => setView('more'))}
           />
         </div>
       </nav>
@@ -381,6 +437,64 @@ function InAppBrowserBanner() {
         {copied ? 'Enlace copiado ✓' : 'Copiar enlace de la app'}
       </button>
     </div>
+  );
+}
+
+function MoreView({ onClients, onSettings }: { onClients: () => void; onSettings: () => void }) {
+  return (
+    <div className="space-y-3">
+      <MoreItem
+        icon="👤"
+        title="Clientes"
+        subtitle="Datos de contacto y notas de tus clientes"
+        onClick={onClients}
+      />
+      <MoreItem
+        icon="⚙"
+        title="Ajustes"
+        subtitle="Datos de la joyería, precio del oro y respaldos"
+        onClick={onSettings}
+      />
+    </div>
+  );
+}
+
+function MoreItem({
+  icon,
+  title,
+  subtitle,
+  onClick
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-16 w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-sm active:bg-stone-50"
+    >
+      <span className="text-2xl" aria-hidden>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold text-stone-900">{title}</span>
+        <span className="block truncate text-xs text-stone-500">{subtitle}</span>
+      </span>
+      <span className="text-stone-400" aria-hidden>
+        ›
+      </span>
+    </button>
+  );
+}
+
+function BackRow({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className="min-h-11 text-sm font-medium text-brand-800" onClick={onClick}>
+      {label}
+    </button>
   );
 }
 

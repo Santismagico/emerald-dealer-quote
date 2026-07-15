@@ -156,3 +156,15 @@ Decisiones de negocio tomadas por Santiago ese día:
 3. **Ejecución mixta.** Claude construye las partes delicadas (navegación, migraciones de IndexedDB, respaldo/restauración, motor del reporte, auditorías); Codex construye las vistas repetitivas siguiendo las órdenes del plan.
 
 El Taller (Etapa 6) es solo reorganización de interfaz: reutiliza la lógica de producción y abonos ya probada (D-014) sin cambiar el esquema de datos. Las Etapas 7 y 8 introducen las primeras migraciones reales de IndexedDB (v1→v2 y v2→v3) con escalera `oldVersion`, pagando la deuda anotada en ROADMAP, y amplían el respaldo atómico de 3 a 4 y 5 almacenes (extiende D-015).
+
+## D-021 · Taller como área propia (Etapa 6) · 2026-07-12 · Vigente
+
+La navegación inferior pasa de cuatro pestañas (Cotizaciones, Nueva, Clientes, Ajustes) a tres: **Cotizador**, **Taller** y **Más**. "Nueva" deja de ser pestaña porque el historial ya tiene el botón; Clientes y Ajustes viven dentro de Más con un enlace de regreso.
+
+Un **trabajo del taller** es una vista derivada de una cotización aprobada (`src/services/workshop.ts`, lógica pura con pruebas): avance de etapas, total abonado y saldo se calculan al mostrar y nunca se guardan como registros aparte. Un trabajo está "Listo" solo cuando tiene etapas y todas están listas; sin etapas siempre cuenta como "En taller".
+
+Los paneles de producción y abonos salen de la vista interna de la cotización y viven en la pantalla del trabajo, que usa el mismo `quoteAutosave` (guardado diferido de 650 ms, serializado, flush al navegar u ocultarse y reintento). La vista interna conserva un resumen y el botón "Abrir en el Taller". Consecuencia aceptada: los abonos solo se registran en trabajos aprobados; el anticipo inicial sigue siendo un campo de la cotización.
+
+Aprobar desde cualquier lugar crea las etapas estándar si no existen: `withQuoteStatus` (historial) replica lo que ya hacía la vista previa, para que ningún trabajo llegue al Taller sin sus etapas.
+
+No cambió el esquema de datos, no se agregaron dependencias y los tests de privacidad siguen intactos: ninguna información del taller entra en el contenido del PDF cliente, Web Share ni WhatsApp.
