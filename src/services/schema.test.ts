@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import {
+  normalizeAppointment,
   normalizeClient,
   normalizeQuote,
   normalizeSettings,
@@ -133,5 +134,44 @@ describe('normalizeSettings: migraciones y saneamiento', () => {
     expect(s.lastBackupExportedAt).toBe('');
     expect(s.backupReminderSnoozedUntil).toBe('');
     expect(s.backupReminderFirstDataAt).toBe('');
+  });
+});
+
+describe('normalizeAppointment', () => {
+  it('convierte basura en una cita válida con defaults seguros', () => {
+    const a = normalizeAppointment(null);
+    expect(a.id).toBeTruthy();
+    expect(a.clientId).toBeNull();
+    expect(a.status).toBe('programada');
+    expect(a.durationMinutes).toBe(60);
+    expect(a.time).toBe('');
+  });
+
+  it('conserva una cita bien formada tal cual', () => {
+    const valid = {
+      id: 'a-1',
+      clientId: 'c-1',
+      clientName: 'María Gómez',
+      date: '2026-07-20',
+      time: '10:30',
+      durationMinutes: 90,
+      reason: 'Asesoría',
+      notes: 'Traer referencias',
+      status: 'cumplida',
+      createdAt: '2026-07-14T09:00:00.000Z',
+      updatedAt: '2026-07-14T10:00:00.000Z'
+    };
+    expect(normalizeAppointment(valid)).toEqual(valid);
+  });
+
+  it('descarta horas mal formadas y corrige duraciones inválidas', () => {
+    expect(normalizeAppointment({ time: '9am' }).time).toBe('');
+    expect(normalizeAppointment({ time: '10:30' }).time).toBe('10:30');
+    expect(normalizeAppointment({ durationMinutes: 0 }).durationMinutes).toBe(60);
+    expect(normalizeAppointment({ durationMinutes: 45.4 }).durationMinutes).toBe(45);
+  });
+
+  it('un estado desconocido vuelve a programada', () => {
+    expect(normalizeAppointment({ status: 'confirmadísima' }).status).toBe('programada');
   });
 });

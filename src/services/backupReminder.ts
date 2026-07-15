@@ -1,4 +1,4 @@
-import type { Client, Quote, Settings } from '../types';
+import type { Appointment, Client, Quote, Settings } from '../types';
 
 export const BACKUP_REMINDER_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 export const BACKUP_REMINDER_SNOOZE_MS = 24 * 60 * 60 * 1000;
@@ -16,6 +16,8 @@ export interface BackupReminderInput {
   >;
   clients: ReadonlyArray<Pick<Client, 'createdAt'>>;
   quotes: ReadonlyArray<Pick<Quote, 'createdAt'>>;
+  /** Citas de la agenda; también son datos que merecen respaldo. Opcional por compatibilidad. */
+  appointments?: ReadonlyArray<Pick<Appointment, 'createdAt'>>;
   now: Date;
 }
 
@@ -29,10 +31,16 @@ function timestamp(value: unknown): number | null {
  * Decide el aviso sin leer el reloj ni modificar datos. Las fechas se comparan
  * como instantes absolutos para que un cambio de zona horaria no adelante el aviso.
  */
-export function getBackupReminderState({ settings, clients, quotes, now }: BackupReminderInput): BackupReminderState {
+export function getBackupReminderState({
+  settings,
+  clients,
+  quotes,
+  appointments = [],
+  now
+}: BackupReminderInput): BackupReminderState {
   const nowTime = now.getTime();
   if (!Number.isFinite(nowTime)) return { shouldShow: false, needsFirstDataAnchor: false };
-  if (clients.length === 0 && quotes.length === 0) {
+  if (clients.length === 0 && quotes.length === 0 && appointments.length === 0) {
     return { shouldShow: false, needsFirstDataAnchor: false };
   }
 
@@ -50,7 +58,7 @@ export function getBackupReminderState({ settings, clients, quotes, now }: Backu
     };
   }
 
-  const dataTimes = [...clients, ...quotes]
+  const dataTimes = [...clients, ...quotes, ...appointments]
     .map((item) => timestamp(item.createdAt))
     .filter((value): value is number => value !== null);
   const pastOrPresentDataTimes = dataTimes.filter((value) => value <= nowTime);

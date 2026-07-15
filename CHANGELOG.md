@@ -2,7 +2,16 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
-## [Unreleased] — 2026-07-12
+## [Unreleased] — 2026-07-14
+
+### Ecosistema: Agenda de asesorías (Etapa 7)
+
+- Nueva pestaña **Agenda**: registro interno de asesorías con fecha, hora opcional, duración, motivo, notas y vínculo opcional a un cliente registrado. El cliente sigue contactando por WhatsApp; nada se publica ni se sincroniza.
+- Aviso local de citas de hoy: banner "Hoy tienes N citas" y globito numérico en la pestaña, solo con las programadas del día. Sin notificaciones push ni permisos del sistema.
+- Filtros Próximas / Pasadas / Todas con conteos, búsqueda por nombre o motivo, y cambio de estado tocando la etiqueta (programada, cumplida, cancelada, no asistió).
+- Primera migración versionada de la base local (v1→v2) con escalera idempotente: los datos existentes se conservan intactos y la escalera queda lista para las próximas etapas.
+- Respaldo v3: incluye las citas y acepta respaldos v1/v2 antiguos (restauran con agenda vacía). La restauración atómica cubre los 4 almacenes con rollback completo.
+- El recordatorio semanal de respaldo ahora también considera las citas como datos que merecen protección.
 
 ### Ecosistema: Taller como área propia (Etapa 6)
 

@@ -69,27 +69,33 @@ por continuidad de la sesión; decisiones en D-021.
 
 ---
 
-## Etapa 7 — Agenda de asesorías (primera migración de datos)
+## Etapa 7 — Agenda de asesorías (primera migración de datos) — ✅ COMPLETADA 2026-07-14
 
 **Decisión de negocio:** agenda interna. El cliente contacta por WhatsApp;
-Santiago registra la cita. Nada se publica ni se sincroniza.
+Santiago registra la cita. Nada se publica ni se sincroniza. Ejecutada
+íntegramente por Claude (Fable); decisiones en D-022.
 
-- [ ] 7.1 (Claude) Migración IndexedDB v1→v2 con escalera `oldVersion`: nuevo
-      almacén `appointments`. Aquí se paga la deuda anotada en ROADMAP
-      (migraciones versionadas). Tests de migración.
-- [ ] 7.2 (Claude) Tipo `Appointment`: id, cliente (vínculo o nombre libre),
-      fecha, hora, duración, motivo, notas, estado
-      (`programada | cumplida | cancelada | noAsistio`). Normalización en
-      `schema.ts` (única fuente, D-010).
-- [ ] 7.3 (Claude) Respaldo JSON y restauración atómica pasan de 3 a 4 almacenes,
-      con rollback completo (extiende D-015). Un respaldo viejo (sin citas) debe
-      restaurar sin errores.
-- [ ] 7.4 (Codex) Vista Agenda: citas de hoy y próximas, crear/editar/cambiar
-      estado con un toque (mismo patrón del menú de estados del historial),
-      historial de citas por cliente.
-- [ ] 7.5 Aviso visual local de citas de hoy (sin notificaciones push, sin
-      permisos del sistema).
-- [ ] 7.6 (Claude) Auditoría, tests, build, commit.
+- [x] 7.1 (Claude) Migración IndexedDB v1→v2 con escalera `DB_MIGRATIONS` en
+      `db.ts` (idempotente, exportada para pruebas). Deuda de ROADMAP pagada.
+      Probada con una base v1 real en tests y con la migración en vivo del
+      navegador de desarrollo: cero datos perdidos.
+- [x] 7.2 (Claude) Tipo `Appointment` + `normalizeAppointment` en `schema.ts`:
+      hora HH:MM validada, duración estándar de 60 min, estado desconocido
+      vuelve a `programada`.
+- [x] 7.3 (Claude) Respaldo v3 con citas; se aceptan v1/v2/v3 y los viejos
+      restauran con agenda vacía. Restauración atómica de 4 almacenes con
+      rollback completo. El recordatorio semanal ahora también cuenta las citas
+      como datos que merecen respaldo.
+- [x] 7.4 (Claude) Vista Agenda (`AgendaView.tsx`): aviso de citas de hoy,
+      filtros Próximas/Pasadas/Todas con conteos, búsqueda por nombre o motivo,
+      formulario de crear/editar con guardado explícito, vínculo opcional a un
+      cliente registrado, y cambio de estado tocando la etiqueta (mismo patrón
+      del historial). Lógica pura en `agenda.ts` con tests.
+- [x] 7.5 Aviso visual local: banner "Hoy tienes N citas" + globito numérico en
+      la pestaña Agenda; solo cuenta las programadas de hoy y desaparece al
+      cumplirlas. Sin notificaciones ni permisos del sistema.
+- [x] 7.6 (Claude) Auditoría, 337 tests y build en verde, migración y flujo
+      completo verificados en navegador, commit.
 
 ---
 

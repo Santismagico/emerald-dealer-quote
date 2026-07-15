@@ -187,6 +187,33 @@ export interface Settings {
   settingsVersion: number;
 }
 
+export type AppointmentStatus = 'programada' | 'cumplida' | 'cancelada' | 'noAsistio';
+
+/**
+ * Cita de asesoría personalizada (SOLO uso interno).
+ * Santiago la registra a mano: la app nunca publica horarios ni permite
+ * reservas desde internet (decisión D-020).
+ */
+export interface Appointment {
+  id: string;
+  /** Cliente registrado vinculado, o null si es un interesado sin registrar. */
+  clientId: string | null;
+  /** Nombre de quien asiste (copiado del cliente o escrito libre). */
+  clientName: string;
+  /** Fecha de la cita (YYYY-MM-DD). */
+  date: string;
+  /** Hora local en formato HH:MM (24 horas). Vacío si aún no se define. */
+  time: string;
+  /** Duración estimada en minutos. */
+  durationMinutes: number;
+  /** Motivo o tema de la asesoría. */
+  reason: string;
+  notes: string;
+  status: AppointmentStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BackupFile {
   app: 'emerald-dealer-quote';
   /** Versión del formato de respaldo. Ver services/backup.ts. */
@@ -195,6 +222,8 @@ export interface BackupFile {
   settings: Settings | null;
   clients: Client[];
   quotes: Quote[];
+  /** Citas de asesoría. Los respaldos v1/v2 no las traen y se importan como lista vacía. */
+  appointments: Appointment[];
 }
 
 export const PIECE_TYPES: PieceType[] = [
@@ -214,4 +243,11 @@ export const QUOTE_STATUSES: QuoteStatus[] = [
   'aprobada',
   'rechazada',
   'vencida'
+];
+
+export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  'programada',
+  'cumplida',
+  'cancelada',
+  'noAsistio'
 ];

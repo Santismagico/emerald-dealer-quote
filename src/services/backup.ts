@@ -3,20 +3,30 @@
 // anterior, editado a mano o corrupto nunca puede dejar datos malformados en la
 // base local (hallazgo de la auditoría de seguridad 2026-07-09).
 
-import type { BackupFile, Client, Quote } from '../types';
+import type { Appointment, BackupFile, Client, Quote } from '../types';
 import { dbWriteTransaction } from './db';
-import { loadSettings, listClients, listQuotes, SETTINGS_KEY } from './storage';
-import { normalizeSettings, normalizeQuote, normalizeClient } from './schema';
+import { loadSettings, listClients, listQuotes, listAppointments, SETTINGS_KEY } from './storage';
+import {
+  normalizeSettings,
+  normalizeQuote,
+  normalizeClient,
+  normalizeAppointment
+} from './schema';
 
-/** Versión actual del formato de respaldo. Se aceptan al importar: 1 y 2. */
-export const BACKUP_VERSION = 2;
-const ACCEPTED_VERSIONS = [1, 2];
+/**
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1, 2 y 3.
+ * v3 agrega las citas de la agenda; los respaldos v1/v2 se importan con la
+ * agenda vacía y nunca fallan por no traerla.
+ */
+export const BACKUP_VERSION = 3;
+const ACCEPTED_VERSIONS = [1, 2, 3];
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [settings, clients, quotes] = await Promise.all([
+  const [settings, clients, quotes, appointments] = await Promise.all([
     loadSettings(),
     listClients(),
-    listQuotes()
+    listQuotes(),
+    listAppointments()
   ]);
   return {
     app: 'emerald-dealer-quote',
@@ -24,7 +34,8 @@ export async function exportBackup(): Promise<BackupFile> {
     exportedAt: new Date().toISOString(),
     settings,
     clients,
-    quotes
+    quotes,
+    appointments
   };
 }
 
@@ -96,6 +107,22 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     clientIds.add(id);
   }
+  // Las citas son opcionales (v1/v2 no las traen), pero si vienen deben ser válidas.
+  const rawAppointments = b.appointments ?? [];
+  if (!Array.isArray(rawAppointments)) {
+    throw new Error('El respaldo contiene una agenda inválida.');
+  }
+  const appointmentIds = new Set<string>();
+  for (const a of rawAppointments) {
+    const id = (a as Appointment)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene citas inválidas.');
+    }
+    if (appointmentIds.has(id)) {
+      throw new Error('El respaldo contiene citas duplicadas.');
+    }
+    appointmentIds.add(id);
+  }
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -103,7 +130,8 @@ function normalizeBackup(data: unknown): BackupFile {
     // Normalización total: tipos corruptos se corrigen, imágenes externas se descartan.
     settings: rawSettings === null ? null : normalizeSettings(rawSettings),
     clients: b.clients.map(normalizeClient),
-    quotes: b.quotes.map(normalizeQuote)
+    quotes: b.quotes.map(normalizeQuote),
+    appointments: rawAppointments.map(normalizeAppointment)
   };
 }
 
@@ -128,14 +156,16 @@ export async function importBackup(backup: BackupFile): Promise<void> {
   const normalized = normalizeBackup(backup);
 
   try {
-    await dbWriteTransaction(['settings', 'clients', 'quotes'], (getStore) => {
+    await dbWriteTransaction(['settings', 'clients', 'quotes', 'appointments'], (getStore) => {
       const settingsStore = getStore('settings');
       const clientsStore = getStore('clients');
       const quotesStore = getStore('quotes');
+      const appointmentsStore = getStore('appointments');
 
       settingsStore.clear();
       clientsStore.clear();
       quotesStore.clear();
+      appointmentsStore.clear();
 
       if (normalized.settings) {
         settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -145,6 +175,9 @@ export async function importBackup(backup: BackupFile): Promise<void> {
       }
       for (const quote of normalized.quotes) {
         quotesStore.put(quote);
+      }
+      for (const appointment of normalized.appointments) {
+        appointmentsStore.put(appointment);
       }
     });
   } catch {

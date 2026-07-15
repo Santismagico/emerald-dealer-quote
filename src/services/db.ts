@@ -1,12 +1,47 @@
 // Capa mínima sobre IndexedDB con promesas. Sin dependencias externas.
-// Almacena settings, clientes y cotizaciones de forma local (funciona offline).
+// Almacena settings, clientes, cotizaciones y citas de forma local (funciona offline).
 
 const DB_NAME = 'emerald-dealer-quote';
-const DB_VERSION = 1;
 
-export type StoreName = 'settings' | 'clients' | 'quotes';
+export type StoreName = 'settings' | 'clients' | 'quotes' | 'appointments';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
+
+type MigratableDb = Pick<IDBDatabase, 'createObjectStore' | 'objectStoreNames'>;
+
+function createStoreIfMissing(db: MigratableDb, name: StoreName): void {
+  // Guardia idempotente: si una base quedó a medio migrar, no falla al reintentar.
+  if (!db.objectStoreNames.contains(name)) {
+    db.createObjectStore(name, { keyPath: 'id' });
+  }
+}
+
+/**
+ * Escalera de migraciones: la posición N crea lo que estrena la versión N+1.
+ * NUNCA reordenar ni eliminar entradas; solo agregar al final y los datos de
+ * versiones anteriores se conservan intactos.
+ */
+const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
+  // v1 — almacenes originales del MVP.
+  (db) => {
+    createStoreIfMissing(db, 'settings');
+    createStoreIfMissing(db, 'clients');
+    createStoreIfMissing(db, 'quotes');
+  },
+  // v2 — agenda de asesorías (Etapa 7 del Ecosistema).
+  (db) => {
+    createStoreIfMissing(db, 'appointments');
+  }
+];
+
+export const DB_VERSION = DB_MIGRATIONS.length;
+
+/** Aplica en orden solo las migraciones que le faltan a la base abierta. */
+export function applyDbMigrations(db: MigratableDb, oldVersion: number): void {
+  for (let version = Math.max(0, oldVersion); version < DB_MIGRATIONS.length; version += 1) {
+    DB_MIGRATIONS[version](db);
+  }
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -14,17 +49,8 @@ function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('settings')) {
-        db.createObjectStore('settings', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('clients')) {
-        db.createObjectStore('clients', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('quotes')) {
-        db.createObjectStore('quotes', { keyPath: 'id' });
-      }
+    request.onupgradeneeded = (event) => {
+      applyDbMigrations(request.result, event.oldVersion);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error('No se pudo abrir la base de datos local.'));

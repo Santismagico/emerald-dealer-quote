@@ -59,7 +59,8 @@ function makeBackup(
         ? sampleSettings({ jewelryName: `Joyería ${prefix}`, quoteCounter: 40 + clientCount + quoteCount })
         : options.settings,
     clients,
-    quotes
+    quotes,
+    appointments: []
   };
 }
 

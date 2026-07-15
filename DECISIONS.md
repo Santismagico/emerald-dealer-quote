@@ -168,3 +168,13 @@ Los paneles de producción y abonos salen de la vista interna de la cotización 
 Aprobar desde cualquier lugar crea las etapas estándar si no existen: `withQuoteStatus` (historial) replica lo que ya hacía la vista previa, para que ningún trabajo llegue al Taller sin sus etapas.
 
 No cambió el esquema de datos, no se agregaron dependencias y los tests de privacidad siguen intactos: ninguna información del taller entra en el contenido del PDF cliente, Web Share ni WhatsApp.
+
+## D-022 · Agenda de asesorías y primera migración de IndexedDB · 2026-07-14 · Vigente
+
+La base local pasa de la versión 1 a la 2 mediante una **escalera de migraciones** (`DB_MIGRATIONS` en `src/services/db.ts`): la posición N crea lo que estrena la versión N+1, nunca se reordena ni se elimina una entrada, y cada paso es idempotente. `DB_VERSION` se deriva del largo de la escalera. La v2 solo agrega el almacén `appointments`; los datos existentes no se tocan. La escalera se probó contra una base v1 real (fake-indexeddb) y con la migración en vivo del navegador de desarrollo.
+
+Una **cita** guarda: cliente vinculado opcional o nombre libre, fecha, hora HH:MM (opcional), duración en minutos, motivo, notas y estado (`programada | cumplida | cancelada | noAsistio`). `normalizeAppointment` en `schema.ts` (única fuente, D-010) corrige horas mal formadas, duraciones inválidas y estados desconocidos. Las citas son SOLO internas (D-020): ninguna ruta las lleva al PDF cliente, Web Share ni WhatsApp.
+
+El **respaldo sube a la versión 3** e incluye las citas. Se aceptan v1, v2 y v3: los respaldos viejos restauran con la agenda vacía y nunca fallan por no traerla. La restauración atómica cubre ahora los 4 almacenes con el mismo rollback completo (extiende D-015). El recordatorio semanal de respaldo cuenta las citas como datos que lo ameritan.
+
+El formulario de citas usa **guardado explícito** (botón Guardar), no el guardado diferido de cotizaciones: una cita se edita en ráfagas cortas y el guardado por botón es más simple y suficiente; el diferido queda reservado para producción/abonos donde se teclea mucho (D-014). El aviso de citas de hoy es un banner y un globito numérico locales que solo cuentan las programadas del día; no hay notificaciones push ni permisos del sistema.

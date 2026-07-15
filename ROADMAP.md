@@ -43,9 +43,9 @@ en [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md); decisiones en DECISIONS.md 
 - [x] **Etapa 6 — Taller como área propia:** pestaña Taller con los trabajos (cotizaciones
   aprobadas), su progreso de producción y sus abonos, reorganizados fuera del flujo de
   cotización. Sin cambios de estructura de datos. Completada 2026-07-12 (D-021).
-- [ ] **Etapa 7 — Agenda de asesorías:** registro interno de citas (Santiago las anota;
+- [x] **Etapa 7 — Agenda de asesorías:** registro interno de citas (Santiago las anota;
   el cliente sigue contactando por WhatsApp). Primera migración real de IndexedDB
-  (v1→v2) y respaldo de cuatro almacenes.
+  (v1→v2) y respaldo v3 de cuatro almacenes. Completada 2026-07-14 (D-022).
 - [ ] **Etapa 8 — Piedras:** registro de compras y ventas de piedras con inventario
   derivado por motor puro. Migración v2→v3 y respaldo de cinco almacenes.
 - [ ] **Etapa 9 — Cierre del día:** PDF interno con todos los movimientos del día

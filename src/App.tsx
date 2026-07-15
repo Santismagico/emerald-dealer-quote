@@ -8,10 +8,12 @@ import { QuoteFormView } from './components/QuoteFormView';
 import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
 import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
+import { AgendaView } from './components/AgendaView';
 import { ClientsView } from './components/ClientsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
+import { todaysPendingAppointments } from './services/agenda';
 import {
   getBackupReminderSnoozedUntil,
   getBackupReminderState
@@ -23,6 +25,7 @@ type ViewName =
   | 'preview'
   | 'workshop'
   | 'workshopJob'
+  | 'agenda'
   | 'more'
   | 'clients'
   | 'settings';
@@ -96,8 +99,12 @@ function AppShell() {
     settings: store.settings,
     clients: store.clients,
     quotes: store.quotes,
+    appointments: store.appointments,
     now: reminderNow
   });
+
+  // Aviso visual local: cuántas citas programadas hay hoy (D-020, sin notificaciones).
+  const todayAppointments = todaysPendingAppointments(store.appointments, todayISO()).length;
 
   useEffect(() => {
     const refresh = () => setReminderNow(new Date());
@@ -306,6 +313,7 @@ function AppShell() {
           />
         )}
         {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
+        {view === 'agenda' && <AgendaView />}
         {view === 'workshopJob' && draft && (
           <WorkshopJobView
             ref={workshopJobRef}
@@ -337,7 +345,7 @@ function AppShell() {
       </main>
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg border-t border-stone-200 bg-white">
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-4">
           <NavButton
             label="Cotizador"
             icon="🗂"
@@ -349,6 +357,13 @@ function AppShell() {
             icon="🛠"
             active={view === 'workshop' || view === 'workshopJob'}
             onClick={() => void runAfterViewFlush(() => setView('workshop'))}
+          />
+          <NavButton
+            label="Agenda"
+            icon="📅"
+            badge={todayAppointments}
+            active={view === 'agenda'}
+            onClick={() => void runAfterViewFlush(() => setView('agenda'))}
           />
           <NavButton
             label="Más"
@@ -502,11 +517,14 @@ function NavButton({
   label,
   icon,
   active,
+  badge = 0,
   onClick
 }: {
   label: string;
   icon: string;
   active: boolean;
+  /** Número pequeño sobre el ícono (0 lo oculta). Aviso local, sin notificaciones. */
+  badge?: number;
   onClick: () => void;
 }) {
   return (
@@ -517,8 +535,13 @@ function NavButton({
         active ? 'text-brand-800' : 'text-stone-500'
       }`}
     >
-      <span className="text-lg leading-none" aria-hidden>
+      <span className="relative text-lg leading-none" aria-hidden>
         {icon}
+        {badge > 0 ? (
+          <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">
+            {badge > 9 ? '9+' : badge}
+          </span>
+        ) : null}
       </span>
       {label}
     </button>

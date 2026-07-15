@@ -2,8 +2,9 @@
 // sincronizado con IndexedDB a través de services/storage.
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import type { Settings, Client, Quote } from './types';
+import type { Settings, Client, Quote, Appointment } from './types';
 import * as storage from './services/storage';
+import { sortAgenda } from './services/agenda';
 import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
 import { downloadBackupFile } from './services/backup';
 import {
@@ -16,6 +17,7 @@ interface AppStore {
   settings: Settings;
   clients: Client[];
   quotes: Quote[];
+  appointments: Appointment[];
   toast: string | null;
   backupExporting: boolean;
   showToast: (message: string) => void;
@@ -27,6 +29,8 @@ interface AppStore {
   removeClient: (id: string) => Promise<void>;
   upsertQuote: (quote: Quote) => Promise<void>;
   removeQuote: (id: string) => Promise<void>;
+  upsertAppointment: (appointment: Appointment) => Promise<void>;
+  removeAppointment: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   reloadAll: () => Promise<void>;
   /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
@@ -40,18 +44,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(storage.defaultSettings());
   const [clients, setClients] = useState<Client[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q] = await Promise.all([
+    const [s, c, q, a] = await Promise.all([
       storage.loadSettings(),
       storage.listClients(),
-      storage.listQuotes()
+      storage.listQuotes(),
+      storage.listAppointments()
     ]);
     setSettings(s);
     setClients(c);
     setQuotes(q);
+    setAppointments(a);
   }, []);
 
   const refreshGoldPrice = useCallback(async () => {
@@ -139,6 +146,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await storage.deleteQuote(id);
   }, []);
 
+  const upsertAppointment = useCallback(async (appointment: Appointment) => {
+    // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
+    // y la escritura local se confirma detrás.
+    setAppointments((prev) => sortAgenda([appointment, ...prev.filter((a) => a.id !== appointment.id)]));
+    await storage.saveAppointment(appointment);
+  }, []);
+
+  const removeAppointment = useCallback(async (id: string) => {
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+    await storage.deleteAppointment(id);
+  }, []);
+
   const nextQuoteNumber = useCallback(async () => {
     const number = await storage.nextQuoteNumber();
     setSettings(await storage.loadSettings());
@@ -152,6 +171,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         settings,
         clients,
         quotes,
+        appointments,
         toast,
         backupExporting,
         showToast,
@@ -163,6 +183,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         removeClient,
         upsertQuote,
         removeQuote,
+        upsertAppointment,
+        removeAppointment,
         nextQuoteNumber,
         reloadAll,
         refreshGoldPrice

@@ -14,9 +14,11 @@ import type {
   ClientPayment,
   QuoteStatus,
   PieceType,
-  StageStatus
+  StageStatus,
+  Appointment,
+  AppointmentStatus
 } from '../types';
-import { QUOTE_STATUSES, PIECE_TYPES } from '../types';
+import { QUOTE_STATUSES, PIECE_TYPES, APPOINTMENT_STATUSES } from '../types';
 import { newId } from '../utils/id';
 
 /** Versión del esquema de settings. Súbela al agregar una migración. */
@@ -177,6 +179,30 @@ export function normalizeClient(raw: unknown): Client {
     document: safeString(c.document),
     notes: safeString(c.notes),
     createdAt: safeString(c.createdAt)
+  };
+}
+
+/**
+ * Garantiza que una cita de asesoría tenga la forma exacta del tipo actual.
+ * Una hora que no sea HH:MM se descarta (queda "sin hora definida") y una
+ * duración inválida vuelve al estándar de 60 minutos.
+ */
+export function normalizeAppointment(raw: unknown): Appointment {
+  const a = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const time = safeString(a.time);
+  const duration = safeNumber(a.durationMinutes, 60);
+  return {
+    id: safeString(a.id, newId()),
+    clientId: typeof a.clientId === 'string' ? a.clientId : null,
+    clientName: safeString(a.clientName),
+    date: safeString(a.date),
+    time: /^\d{2}:\d{2}$/.test(time) ? time : '',
+    durationMinutes: duration > 0 ? Math.round(duration) : 60,
+    reason: safeString(a.reason),
+    notes: safeString(a.notes),
+    status: oneOf<AppointmentStatus>(a.status, APPOINTMENT_STATUSES, 'programada'),
+    createdAt: safeString(a.createdAt),
+    updatedAt: safeString(a.updatedAt)
   };
 }
 
