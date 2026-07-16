@@ -134,8 +134,10 @@ export interface Quote {
   discountValue: number;
   taxEnabled: boolean;
   taxPercent: number;
-  /** Anticipo en COP. */
+  /** Anticipo ya pagado por el cliente, en COP. */
   deposit: number;
+  /** Fecha real del anticipo (YYYY-MM-DD). Vacía en registros antiguos sin fecha conocida. */
+  depositDate: string;
   /** Observaciones internas: nunca aparecen en el PDF del cliente. */
   internalNotes: string;
   /** Observaciones visibles para el cliente. */

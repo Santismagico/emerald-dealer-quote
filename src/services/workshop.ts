@@ -5,8 +5,9 @@
 import type { Quote } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { productionSummary } from './production';
-import { paymentsTotal } from './payments';
+import { clientPaidTotal } from './payments';
 import { quoteMatchesHistorySearch } from './quoteStatus';
+import { isValidISODate } from '../utils/dates';
 
 export type WorkshopFilter = 'todos' | 'enTaller' | 'listos' | 'entregados';
 
@@ -14,9 +15,9 @@ export interface WorkshopJob {
   quote: Quote;
   /** Total cotizado al cliente (COP entero). */
   total: number;
-  /** Total abonado por el cliente. */
+  /** Total pagado por el cliente: anticipo + abonos posteriores. */
   paid: number;
-  /** Saldo que el cliente aún debe (total − abonos). */
+  /** Saldo que el cliente aún debe (total − anticipo − abonos posteriores). */
   balance: number;
   stagesTotal: number;
   stagesDone: number;
@@ -26,9 +27,14 @@ export interface WorkshopJob {
   delivered: boolean;
 }
 
+/** Una entrega solo existe si tiene una fecha real en formato YYYY-MM-DD. */
+export function isQuoteDelivered(quote: Pick<Quote, 'deliveredAt'>): boolean {
+  return isValidISODate(quote.deliveredAt);
+}
+
 export function workshopJobFromQuote(quote: Quote): WorkshopJob {
   const total = calculateQuote(quoteToCalcInput(quote)).total;
-  const paid = paymentsTotal(quote.payments ?? []);
+  const paid = clientPaidTotal(quote.deposit, quote.payments ?? []);
   const summary = productionSummary(quote.production ?? []);
   return {
     quote,
@@ -38,7 +44,7 @@ export function workshopJobFromQuote(quote: Quote): WorkshopJob {
     stagesTotal: summary.stagesTotal,
     stagesDone: summary.stagesDone,
     ready: summary.stagesTotal > 0 && summary.stagesDone === summary.stagesTotal,
-    delivered: quote.deliveredAt.trim().length > 0
+    delivered: isQuoteDelivered(quote)
   };
 }
 
@@ -47,6 +53,9 @@ export function workshopJobFromQuote(quote: Quote): WorkshopJob {
  * `deliveredDate` es YYYY-MM-DD; con '' se deshace la entrega.
  */
 export function withQuoteDelivery(quote: Quote, deliveredDate: string, nowIso: string): Quote {
+  if (deliveredDate !== '' && !isValidISODate(deliveredDate)) {
+    throw new Error('La fecha de entrega debe ser una fecha real con formato YYYY-MM-DD.');
+  }
   return { ...quote, deliveredAt: deliveredDate, updatedAt: nowIso };
 }
 

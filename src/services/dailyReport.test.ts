@@ -9,7 +9,8 @@ import {
   buildMonthlyReport,
   buildMonthlyReportPdfContent,
   formatMonthCO,
-  listMonthlySummaries
+  listMonthlySummaries,
+  previousMonthlySummaries
 } from './dailyReport';
 
 const DAY = '2026-07-15';
@@ -98,6 +99,40 @@ describe('cierre del día: qué entra en el reporte', () => {
     // La etapa sin pagar no cuenta aunque tenga fecha.
     expect(report.workshopPayments.length).toBe(1);
     expect(report.workshopPayments[0].stageName).toBe('Fundición');
+  });
+
+  it('el anticipo entra como pago recibido en su fecha real', () => {
+    const quote = sampleQuote({
+      date: '2026-07-01',
+      deposit: 2000000,
+      depositDate: DAY,
+      payments: [],
+      production: []
+    });
+    const report = buildDailyReport(DAY, [quote], []);
+
+    expect(report.payments).toHaveLength(1);
+    expect(report.payments[0]).toMatchObject({ kind: 'anticipo', amount: 2000000 });
+    expect(report.totals.paymentsReceived).toBe(2000000);
+    expect(report.totals.cashIn).toBe(2000000);
+  });
+
+  it('un anticipo antiguo sin fecha reduce la deuda actual pero no inventa una entrada de caja', () => {
+    const quote = sampleQuote({
+      status: 'aprobada',
+      date: '2026-07-01',
+      deposit: 2000000,
+      depositDate: '',
+      payments: [],
+      production: []
+    });
+    const report = buildDailyReport(DAY, [quote], []);
+    const total = calculateQuote(quoteToCalcInput(quote)).total;
+
+    expect(report.payments).toEqual([]);
+    expect(report.totals.cashIn).toBe(0);
+    expect(report.totals.clientsOwe).toBe(total - 2000000);
+    expect(report.isEmpty).toBe(true);
   });
 
   it('las cotizaciones creadas usan la fecha de emisión y las aprobadas usan approvedAt', () => {
@@ -261,7 +296,7 @@ describe('caja honesta con crédito (C5)', () => {
     });
     const report = buildDailyReport(DAY, [aprobada], []);
     const total = calculateQuote(quoteToCalcInput(aprobada)).total;
-    expect(report.totals.clientsOwe).toBe(total - 1000000);
+    expect(report.totals.clientsOwe).toBe(total - 3000000);
   });
 
   it('el PDF separa joyería de piedras y marca las compras a crédito', () => {
@@ -273,7 +308,7 @@ describe('caja honesta con crédito (C5)', () => {
     });
     const content = buildDailyReportPdfContent(buildDailyReport(DAY, [quote], lots), sampleSettings());
     const titles = content.sections.map((s) => s.title);
-    expect(titles).toContain('Joyería · Abonos recibidos');
+    expect(titles).toContain('Joyería · Pagos recibidos');
     expect(titles).toContain('Piedras · Compras');
     const text = contentToPlainText(content);
     expect(text).toContain('A CRÉDITO (no salió de caja)');
@@ -310,6 +345,34 @@ describe('cierre del mes (C6)', () => {
     expect(summaries[1].net).toBe(-6000000);
   });
 
+  it('solo compara con meses realmente anteriores al seleccionado', () => {
+    const summaries = [
+      { month: '2026-08', cashIn: 8, cashOut: 0, net: 8 },
+      { month: '2026-07', cashIn: 7, cashOut: 0, net: 7 },
+      { month: '2026-06', cashIn: 6, cashOut: 0, net: 6 },
+      { month: '2026-05', cashIn: 5, cashOut: 0, net: 5 }
+    ];
+
+    expect(previousMonthlySummaries('2026-07', summaries).map((s) => s.month)).toEqual([
+      '2026-06',
+      '2026-05'
+    ]);
+  });
+
+  it('la fecha de un anticipo crea actividad en su mes, sin moverlo al mes de la cotización', () => {
+    const quote = sampleQuote({
+      date: '2026-05-10',
+      deposit: 500000,
+      depositDate: '2026-07-12',
+      payments: [],
+      production: []
+    });
+    const summaries = listMonthlySummaries([quote], []);
+    const july = summaries.find((summary) => summary.month === '2026-07');
+
+    expect(july?.cashIn).toBe(500000);
+  });
+
   it('formatea el mes en español', () => {
     expect(formatMonthCO('2026-07').toLowerCase()).toContain('julio de 2026');
   });
@@ -324,5 +387,17 @@ describe('cierre del mes (C6)', () => {
     expect(text).toContain('Comparación con meses anteriores');
     expect(text.toLowerCase()).toContain('junio de 2026');
     expect(text).toContain('MOVIMIENTO NETO DEL MES');
+  });
+
+  it('el PDF nunca presenta un mes futuro como si fuera anterior', () => {
+    const report = buildMonthlyReport('2026-07', [], julio);
+    const summaries = [
+      { month: '2026-08', cashIn: 1, cashOut: 0, net: 1 },
+      ...listMonthlySummaries([], julio)
+    ];
+    const text = contentToPlainText(buildMonthlyReportPdfContent(report, summaries, sampleSettings()));
+
+    expect(text.toLowerCase()).not.toContain('agosto de 2026');
+    expect(text.toLowerCase()).toContain('junio de 2026');
   });
 });

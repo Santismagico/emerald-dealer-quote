@@ -68,6 +68,7 @@ export function sampleQuote(overrides: Partial<Quote> = {}): Quote {
     taxEnabled: false,
     taxPercent: 19,
     deposit: 2000000,
+    depositDate: '',
     internalNotes: 'Costo real de la piedra fue menor, revisar proveedor.',
     clientNotes: 'Incluye estuche de lujo.',
     images: [],

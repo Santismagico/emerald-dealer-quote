@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { defaultProductionStages, productionSummary, emptyStage, DEFAULT_STAGE_NAMES } from './production';
+import { defaultProductionStages, productionSummary, emptyStage } from './production';
 
 describe('etapas de producción', () => {
-  it('crea las 6 etapas estándar en orden, todas pendientes y sin costos', () => {
+  it('crea las 5 etapas estándar en el orden acordado y sin Impresión', () => {
     const stages = defaultProductionStages();
-    expect(stages.map((s) => s.name)).toEqual([...DEFAULT_STAGE_NAMES]);
+    const names = stages.map((s) => s.name);
+    expect(names).toEqual(['Diseño', 'Fundición', 'Terminado y engaste', 'Material', 'Varios']);
+    expect(names).not.toContain('Impresión');
     expect(stages.every((s) => s.status === 'pendiente')).toBe(true);
     expect(stages.every((s) => s.cost === 0 && !s.paid)).toBe(true);
     // ids únicos

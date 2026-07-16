@@ -462,8 +462,8 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
             <SummaryRow label="Descuento" value={`- ${formatCOP(calc.discountAmount)}`} />
             <SummaryRow label="Impuesto" value={formatCOP(calc.taxAmount)} />
             <SummaryRow label="Total" value={formatCOP(calc.total)} bold />
-            <SummaryRow label="Anticipo" value={formatCOP(calc.deposit)} />
-            <SummaryRow label="Saldo" value={formatCOP(calc.balance)} />
+            <SummaryRow label="Anticipo pagado" value={formatCOP(calc.deposit)} />
+            <SummaryRow label="Saldo después del anticipo" value={formatCOP(calc.balance)} />
           </div>
           {quote.stones.length > 0 && (
             <div className="mt-4">
@@ -494,7 +494,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
                   label="Etapas listas"
                   value={`${workshopSummary.stagesDone}/${workshopSummary.stagesTotal}`}
                 />
-                <SummaryRow label="Abonado por el cliente" value={formatCOP(workshopSummary.paid)} />
+                <SummaryRow label="Total pagado por el cliente" value={formatCOP(workshopSummary.paid)} />
                 <SummaryRow label="Saldo pendiente" value={formatCOP(workshopSummary.balance)} bold />
               </div>
               <div className="mt-2">

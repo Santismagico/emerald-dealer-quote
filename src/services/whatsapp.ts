@@ -20,7 +20,7 @@ export function buildWhatsAppMessage(quote: Quote, calc: CalcResult, settings: S
   lines.push(`Le compartimos la cotización ${quote.number}: ${piece} en ${quote.material}.`);
   lines.push(`Valor total: ${formatCOP(calc.total)}.`);
   if (calc.deposit > 0) {
-    lines.push(`Anticipo: ${formatCOP(calc.deposit)} — Saldo: ${formatCOP(calc.balance)}.`);
+    lines.push(`Anticipo pagado: ${formatCOP(calc.deposit)} — Saldo: ${formatCOP(calc.balance)}.`);
   }
   if (quote.validUntil) {
     lines.push(`Válida hasta el ${formatDateCO(quote.validUntil)}.`);

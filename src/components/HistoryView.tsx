@@ -16,6 +16,7 @@ import {
   SELECTABLE_QUOTE_STATUSES,
   withQuoteStatus
 } from '../services/quoteStatus';
+import { isQuoteDelivered } from '../services/workshop';
 import { Button, StatusBadge, ConfirmDialog, EmptyState, TextInput } from './ui';
 
 export function HistoryView({
@@ -134,7 +135,7 @@ export function HistoryView({
                   >
                     <span className="text-sm font-medium text-amber-800">
                       🛠 Taller:{' '}
-                      {quote.deliveredAt
+                      {isQuoteDelivered(quote)
                         ? 'entregada ✓'
                         : `${quote.production.filter((s) => s.status === 'lista').length}/${quote.production.length} etapas listas`}
                     </span>

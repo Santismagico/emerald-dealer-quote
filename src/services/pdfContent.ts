@@ -5,8 +5,8 @@
 import type { Quote, Settings, Stone } from '../types';
 import type { CalcResult } from '../calc/engine';
 import { formatCOP } from '../utils/money';
-import { formatDateCO } from '../utils/dates';
-import { paymentsTotal } from './payments';
+import { formatDateCO, isValidISODate } from '../utils/dates';
+import { clientPaidTotal } from './payments';
 
 export interface PdfSection {
   title: string;
@@ -169,7 +169,7 @@ export function buildClientPdfContent(quote: Quote, calc: CalcResult, settings: 
   if (calc.discountAmount > 0) totals.push(['Descuento aplicado', `- ${formatCOP(calc.discountAmount)}`]);
   if (calc.taxAmount > 0) totals.push(['Impuesto', formatCOP(calc.taxAmount)]);
   if (calc.deposit > 0) {
-    totals.push(['Anticipo', formatCOP(calc.deposit)]);
+    totals.push(['Anticipo pagado', formatCOP(calc.deposit)]);
     totals.push(['Saldo pendiente', formatCOP(calc.balance)]);
   }
 
@@ -226,17 +226,26 @@ export function buildInternalPdfContent(quote: Quote, calc: CalcResult, settings
     ['Subtotal comercial', formatCOP(calc.subtotal)],
     ['Descuento', `- ${formatCOP(calc.discountAmount)}`],
     ['Impuesto', formatCOP(calc.taxAmount)],
-    ['Anticipo', formatCOP(calc.deposit)],
-    ['Saldo', formatCOP(calc.balance)]
+    ['Anticipo pagado', formatCOP(calc.deposit)],
+    ['Saldo después del anticipo', formatCOP(calc.balance)]
   ];
   sections.push({ title: 'Estructura de costos (confidencial)', rows: costRows });
 
   const payments = quote.payments ?? [];
-  if (payments.length > 0) {
-    const totalPaid = paymentsTotal(payments);
+  if (calc.deposit > 0 || payments.length > 0) {
+    const totalPaid = clientPaidTotal(calc.deposit, payments);
+    const depositLine =
+      calc.deposit > 0
+        ? `• Anticipo pagado: ${formatCOP(calc.deposit)}${
+            isValidISODate(quote.depositDate)
+              ? ` el ${formatDateCO(quote.depositDate)}`
+              : ' — fecha no registrada'
+          }`
+        : '';
     sections.push({
-      title: 'Abonos recibidos (interno)',
+      title: 'Pagos recibidos (interno)',
       paragraphs: [
+        ...(depositLine ? [depositLine] : []),
         ...payments.map((p) => {
           let line = `• ${formatCOP(p.amount)} el ${formatDateCO(p.date)}`;
           if (p.receivedBy) line += ` — recibió ${p.receivedBy}`;
@@ -244,7 +253,7 @@ export function buildInternalPdfContent(quote: Quote, calc: CalcResult, settings
           if (p.notes.trim()) line += ` — ${p.notes.trim()}`;
           return line;
         }),
-        `Total abonado: ${formatCOP(totalPaid)} — Saldo real: ${formatCOP(calc.total - totalPaid)}`
+        `Total pagado: ${formatCOP(totalPaid)} — Saldo real pendiente: ${formatCOP(calc.total - totalPaid)}`
       ]
     });
   }

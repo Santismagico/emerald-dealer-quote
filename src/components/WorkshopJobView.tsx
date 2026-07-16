@@ -195,7 +195,7 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
           </div>
           <div className="mt-3 space-y-1 border-t border-stone-100 pt-3">
             <SummaryRow label="Total cotizado" value={formatCOP(calc.total)} />
-            <SummaryRow label="Abonado por el cliente" value={formatCOP(job.paid)} />
+            <SummaryRow label="Total pagado por el cliente" value={formatCOP(job.paid)} />
             <SummaryRow
               label="Saldo pendiente"
               value={formatCOP(job.balance)}
@@ -235,6 +235,8 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
           </p>
 
           <PaymentsPanel
+            deposit={quote.deposit}
+            depositDate={quote.depositDate}
             payments={quote.payments}
             quoteTotal={calc.total}
             onChange={updatePayments}

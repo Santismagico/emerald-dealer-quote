@@ -5,18 +5,22 @@
 import { useState } from 'react';
 import type { ClientPayment } from '../types';
 import { runAfterSuccessfulFlush, type QuoteSaveMode } from '../services/quoteAutosave';
-import { emptyPayment, paymentsTotal } from '../services/payments';
+import { clientPaidTotal, emptyPayment, paymentsTotal } from '../services/payments';
 import { formatCOP } from '../utils/money';
-import { formatDateCO } from '../utils/dates';
+import { formatDateCO, isValidISODate } from '../utils/dates';
 import { patchById } from '../utils/collections';
 import { Button, Field, TextInput, MoneyInput, ConfirmDialog, SummaryRow } from './ui';
 
 export function PaymentsPanel({
+  deposit,
+  depositDate,
   payments,
   quoteTotal,
   onChange,
   onCommit
 }: {
+  deposit: number;
+  depositDate: string;
   payments: ClientPayment[];
   quoteTotal: number;
   onChange: (updater: (current: ClientPayment[]) => ClientPayment[], mode: QuoteSaveMode) => void;
@@ -25,7 +29,8 @@ export function PaymentsPanel({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [toRemove, setToRemove] = useState<ClientPayment | null>(null);
 
-  const totalPaid = paymentsTotal(payments);
+  const laterPayments = paymentsTotal(payments);
+  const totalPaid = clientPaidTotal(deposit, payments);
   const realBalance = quoteTotal - totalPaid;
   const commitInBackground = () => void onCommit().catch(() => {});
 
@@ -44,12 +49,26 @@ export function PaymentsPanel({
   return (
     <div className="mt-4 border-t border-amber-200 pt-4">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
-        💰 Abonos recibidos del cliente
+        💰 Pagos recibidos del cliente
       </p>
+
+      {deposit > 0 && (
+        <div className="mb-2 rounded-xl bg-white p-3 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-stone-800">Anticipo pagado</span>
+            <span className="font-medium text-stone-800">{formatCOP(deposit)}</span>
+          </div>
+          <p className="text-xs text-stone-500">
+            {isValidISODate(depositDate)
+              ? `Recibido el ${formatDateCO(depositDate)}`
+              : 'Fecha no registrada en este dato antiguo'}
+          </p>
+        </div>
+      )}
 
       {payments.length === 0 && (
         <p className="rounded-xl bg-white/60 p-3 text-xs text-stone-500">
-          Aún no has registrado abonos. Registra cada pago que reciba la joyería: cuánto, cuándo y quién lo recibió.
+          Aún no has registrado abonos posteriores. Registra cada nuevo pago que reciba la joyería: cuánto, cuándo y quién lo recibió.
         </p>
       )}
 
@@ -136,7 +155,8 @@ export function PaymentsPanel({
       </div>
 
       <div className="mt-3 space-y-1 rounded-xl bg-white p-3 shadow-sm">
-        <SummaryRow label="Total abonado" value={formatCOP(totalPaid)} />
+        <SummaryRow label="Abonos posteriores" value={formatCOP(laterPayments)} />
+        <SummaryRow label="Total pagado" value={formatCOP(totalPaid)} />
         <SummaryRow
           label="Saldo real pendiente"
           value={formatCOP(realBalance)}

@@ -61,13 +61,15 @@ describe('normalizeQuote: datos corruptos o de versiones viejas', () => {
     expect(normalizeQuote(quote)).toEqual(quote);
   });
 
-  it('cotizaciones de versiones viejas sin production/payments reciben arreglos vacíos', () => {
+  it('cotizaciones de versiones viejas reciben campos nuevos con valores seguros', () => {
     const old = sampleQuote() as unknown as Record<string, unknown>;
     delete old.production;
     delete old.payments;
+    delete old.depositDate;
     const q = normalizeQuote(old);
     expect(q.production).toEqual([]);
     expect(q.payments).toEqual([]);
+    expect(q.depositDate).toBe('');
   });
 
   it('tipos corruptos se corrigen en vez de romper la app', () => {

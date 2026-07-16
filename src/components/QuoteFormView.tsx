@@ -11,7 +11,8 @@ import { formatCOP } from '../utils/money';
 import { fileToCompressedDataUrl } from '../utils/images';
 import { patchById } from '../utils/collections';
 import { getEffectiveQuoteStatus } from '../services/quoteStatus';
-import { todayISO } from '../utils/dates';
+import { keepsLegacyUndatedDeposit } from '../services/payments';
+import { isValidISODate, todayISO } from '../utils/dates';
 import {
   Button,
   Field,
@@ -60,6 +61,12 @@ export function QuoteFormView({
 
   const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
   const effectiveStatus = getEffectiveQuoteStatus(quote, todayISO());
+  const keepsUndatedDeposit = keepsLegacyUndatedDeposit(
+    quote.deposit,
+    quote.depositDate,
+    initial.deposit,
+    initial.depositDate
+  );
 
   const patch = (partial: Partial<Quote>) => setQuote((q) => ({ ...q, ...partial }));
 
@@ -74,6 +81,9 @@ export function QuoteFormView({
 
   const goPreview = () => {
     const validation = validateCalcInput(quoteToCalcInput(quote));
+    if (quote.deposit > 0 && !isValidISODate(quote.depositDate) && !keepsUndatedDeposit) {
+      validation.push('Indica la fecha real en que el cliente pagó el anticipo.');
+    }
     if (quote.weightGrams === 0 && quote.stones.length === 0 && quote.laborCost === 0) {
       validation.push('La cotización está vacía: agrega peso, piedras o mano de obra.');
     }
@@ -312,9 +322,33 @@ export function QuoteFormView({
               </Field>
             )}
 
-            <Field label="Anticipo (opcional)">
-              <MoneyInput value={quote.deposit} onValue={(deposit) => patch({ deposit })} />
+            <Field label="Anticipo pagado (opcional)" hint="Úsalo solo si el cliente ya entregó este dinero.">
+              <MoneyInput
+                value={quote.deposit}
+                onValue={(deposit) =>
+                  patch({
+                    deposit,
+                    depositDate: deposit > 0 ? quote.depositDate : ''
+                  })
+                }
+              />
             </Field>
+            {quote.deposit > 0 && (
+              <Field
+                label="Fecha del anticipo"
+                hint={
+                  keepsUndatedDeposit
+                    ? 'Este dato antiguo no tiene fecha. Puedes conservarlo así mientras no cambies el monto.'
+                    : undefined
+                }
+              >
+                <TextInput
+                  type="date"
+                  value={quote.depositDate}
+                  onChange={(depositDate) => patch({ depositDate })}
+                />
+              </Field>
+            )}
           </SectionCard>
 
           <SectionCard title="Observaciones e imágenes">

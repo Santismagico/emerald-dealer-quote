@@ -306,6 +306,7 @@ export function normalizeQuote(raw: unknown): Quote {
     taxEnabled: q.taxEnabled === true,
     taxPercent: safeNumber(q.taxPercent),
     deposit: safeNumber(q.deposit),
+    depositDate: safeString(q.depositDate),
     internalNotes: safeString(q.internalNotes),
     clientNotes: safeString(q.clientNotes),
     images: safeArray(q.images).map(safeImageDataUrl).filter(Boolean),

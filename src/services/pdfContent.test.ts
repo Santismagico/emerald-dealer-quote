@@ -343,10 +343,12 @@ describe('documento interno', () => {
     expect(text).toContain('24K');
   });
 
-  it('incluye los abonos con quién los recibió y el saldo real', () => {
-    expect(text).toContain('Abonos recibidos (interno)');
+  it('incluye el anticipo pagado, los abonos posteriores y el saldo real', () => {
+    expect(text).toContain('Pagos recibidos (interno)');
+    expect(text).toContain('Anticipo pagado');
+    expect(text).toContain('fecha no registrada');
     expect(text).toContain('1.000.000 el 5 de julio de 2026 — recibió Laura (Transferencia)');
-    expect(text).toContain('Total abonado');
+    expect(text).toContain('Total pagado');
     expect(text).toContain('Saldo real');
   });
 

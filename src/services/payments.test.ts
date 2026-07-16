@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { emptyPayment, paymentsTotal } from './payments';
+import {
+  clientPaidTotal,
+  emptyPayment,
+  keepsLegacyUndatedDeposit,
+  paymentsTotal
+} from './payments';
 
 describe('abonos del cliente', () => {
   it('suma el total abonado como entero', () => {
@@ -22,6 +27,31 @@ describe('abonos del cliente', () => {
 
   it('lista vacía suma cero', () => {
     expect(paymentsTotal([])).toBe(0);
+  });
+
+  it('el anticipo pagado se suma a los abonos posteriores', () => {
+    expect(
+      clientPaidTotal(2000000, [
+        { ...emptyPayment(), amount: 500000 },
+        { ...emptyPayment(), amount: 250000 }
+      ])
+    ).toBe(2750000);
+  });
+
+  it('un anticipo inválido o negativo nunca resta dinero pagado', () => {
+    expect(clientPaidTotal(-100000, [{ ...emptyPayment(), amount: 300000 }])).toBe(300000);
+    expect(clientPaidTotal(Number.NaN, [])).toBe(0);
+  });
+
+  it('permite conservar un anticipo antiguo sin fecha si el monto no cambia', () => {
+    expect(keepsLegacyUndatedDeposit(2000000, '', 2000000, '')).toBe(true);
+    expect(keepsLegacyUndatedDeposit(2000000, 'fecha-inválida', 2000000, '')).toBe(true);
+  });
+
+  it('un anticipo nuevo o modificado sí necesita una fecha real', () => {
+    expect(keepsLegacyUndatedDeposit(500000, '', 0, '')).toBe(false);
+    expect(keepsLegacyUndatedDeposit(2500000, '', 2000000, '')).toBe(false);
+    expect(keepsLegacyUndatedDeposit(2000000, '', 2000000, '2026-07-01')).toBe(false);
   });
 
   it('un abono nuevo nace con la fecha de hoy y monto cero', () => {

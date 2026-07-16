@@ -10,7 +10,7 @@ import type { Quote, StoneLot, Settings } from '../types';
 import type { PdfContent, PdfSection } from './pdfContent';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { lotDisplayName, summarizeStoneLot } from './stones';
-import { paymentsTotal } from './payments';
+import { clientPaidTotal } from './payments';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
 
@@ -41,6 +41,7 @@ export interface DailySupplierPayment {
 }
 
 export interface DailyPayment {
+  kind: 'anticipo' | 'abono';
   quoteNumber: string;
   clientName: string;
   amount: number;
@@ -65,7 +66,7 @@ export interface DailyQuoteLine {
 }
 
 export interface BusinessTotals {
-  /** COP recibido en abonos de clientes (Joyería, entra). */
+  /** COP recibido en anticipos y abonos de clientes (Joyería, entra). */
   paymentsReceived: number;
   /** COP pagado al taller (Joyería, sale). */
   workshopPaid: number;
@@ -187,13 +188,25 @@ function buildBusinessReport(
   const quotesApproved: DailyQuoteLine[] = [];
   let clientsOwe = 0;
   for (const quote of quotes) {
-    const total = calculateQuote(quoteToCalcInput(quote)).total;
+    const calc = calculateQuote(quoteToCalcInput(quote));
+    const total = calc.total;
     if (quote.status === 'aprobada') {
-      clientsOwe += Math.max(0, total - paymentsTotal(quote.payments ?? []));
+      clientsOwe += Math.max(0, total - clientPaidTotal(calc.deposit, quote.payments ?? []));
+    }
+    if (calc.deposit > 0 && matchDate(quote.depositDate)) {
+      payments.push({
+        kind: 'anticipo',
+        quoteNumber: quote.number,
+        clientName: clientNameOf(quote),
+        amount: calc.deposit,
+        receivedBy: '',
+        method: ''
+      });
     }
     for (const payment of quote.payments ?? []) {
       if (matchDate(payment.date)) {
         payments.push({
+          kind: 'abono',
           quoteNumber: quote.number,
           clientName: clientNameOf(quote),
           amount: payment.amount,
@@ -333,6 +346,7 @@ export function listMonthlySummaries(
   for (const quote of quotes) {
     addDate(quote.date);
     addInstant(quote.approvedAt);
+    if (quote.deposit > 0) addDate(quote.depositDate);
     for (const payment of quote.payments ?? []) addDate(payment.date);
     for (const stage of quote.production ?? []) {
       if (stage.paid) addDate(stage.paidAt);
@@ -355,6 +369,18 @@ export function formatMonthCO(month: string): string {
   });
 }
 
+/** Solo meses realmente anteriores al seleccionado, del más reciente al más antiguo. */
+export function previousMonthlySummaries(
+  selectedMonth: string,
+  summaries: readonly MonthlySummary[],
+  limit = 6
+): MonthlySummary[] {
+  return [...summaries]
+    .filter((summary) => summary.month < selectedMonth)
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .slice(0, Math.max(0, limit));
+}
+
 function formatCarats(carats: number): string {
   return `${carats.toLocaleString('es-CO', { maximumFractionDigits: 3 })} ct`;
 }
@@ -365,11 +391,12 @@ function businessSections(report: BusinessReport): PdfSection[] {
 
   if (report.payments.length > 0) {
     sections.push({
-      title: 'Joyería · Abonos recibidos',
+      title: 'Joyería · Pagos recibidos',
       paragraphs: report.payments.map((p) => {
+        const kind = p.kind === 'anticipo' ? 'Anticipo pagado' : 'Abono';
         const who = p.receivedBy ? ` — recibió ${p.receivedBy}` : '';
         const how = p.method ? ` (${p.method})` : '';
-        return `• ${formatCOP(p.amount)} de ${p.clientName} (${p.quoteNumber || 'sin número'})${who}${how}`;
+        return `• ${kind}: ${formatCOP(p.amount)} de ${p.clientName} (${p.quoteNumber || 'sin número'})${who}${how}`;
       })
     });
   }
@@ -440,7 +467,7 @@ function businessSections(report: BusinessReport): PdfSection[] {
 /** Renglones de dinero del PDF, agrupados por negocio (C5). */
 function businessTotalsRows(totals: BusinessTotals): Array<[string, string]> {
   const rows: Array<[string, string]> = [
-    ['Joyería · entró por abonos', formatCOP(totals.paymentsReceived)],
+    ['Joyería · entró por pagos de clientes', formatCOP(totals.paymentsReceived)],
     ['Joyería · salió al taller', `- ${formatCOP(totals.workshopPaid)}`],
     ['Piedras · entró por ventas', formatCOP(totals.stonesSold)],
     ['Piedras · salió en compras de contado', `- ${formatCOP(totals.stonesPurchasedCash)}`],
@@ -461,7 +488,7 @@ function businessTotalsRows(totals: BusinessTotals): Array<[string, string]> {
 function emptySection(label: string): PdfSection {
   return {
     title: 'Sin movimientos',
-    paragraphs: [`${label} no registró compras, ventas, abonos, pagos ni cotizaciones.`]
+    paragraphs: [`${label} no registró compras, ventas, pagos de clientes, otros pagos ni cotizaciones.`]
   };
 }
 
@@ -499,7 +526,7 @@ export function buildMonthlyReportPdfContent(
       title: 'Actividad del mes',
       paragraphs: [
         `Cotizaciones creadas: ${report.quotesCreated.length} · aprobadas: ${report.quotesApproved.length}`,
-        `Abonos recibidos: ${report.payments.length} · pagos del taller: ${report.workshopPayments.length}`,
+        `Pagos de clientes: ${report.payments.length} · pagos del taller: ${report.workshopPayments.length}`,
         `Lotes comprados: ${report.stonePurchases.length} · ventas de piedras: ${report.stoneSales.length} · pagos a proveedores: ${report.supplierPayments.length}`
       ]
     },
@@ -507,7 +534,7 @@ export function buildMonthlyReportPdfContent(
   ];
   if (report.isEmpty) sections.push(emptySection('Este mes'));
 
-  const others = previous.filter((s) => s.month !== report.month).slice(0, 6);
+  const others = previousMonthlySummaries(report.month, previous);
   if (others.length > 0) {
     sections.push({
       title: 'Comparación con meses anteriores',

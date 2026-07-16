@@ -45,8 +45,8 @@ describe('trabajos del taller derivados de cotizaciones', () => {
     const total = calculateQuote(quoteToCalcInput(quote)).total;
 
     expect(job.total).toBe(total);
-    expect(job.paid).toBe(1000000);
-    expect(job.balance).toBe(total - 1000000);
+    expect(job.paid).toBe(3000000);
+    expect(job.balance).toBe(total - 3000000);
   });
 
   it('cuenta el avance de etapas sin modificar la cotización', () => {
@@ -142,6 +142,21 @@ describe('entrega de la joya (lista ≠ entregada)', () => {
     expect(entregada.delivered).toBe(true);
   });
 
+  it('una fecha inválida no convierte el trabajo en entregado', () => {
+    const fechaImposible = workshopJobFromQuote(
+      sampleQuote({
+        id: 'q-fecha-invalida',
+        status: 'aprobada',
+        deliveredAt: '2026-02-30',
+        production: [stage({ id: 'st-1', status: 'lista', completedAt: '2026-07-10' })]
+      })
+    );
+
+    expect(fechaImposible.delivered).toBe(false);
+    expect(filterWorkshopJobs([fechaImposible], '', 'listos')).toEqual([fechaImposible]);
+    expect(filterWorkshopJobs([fechaImposible], '', 'entregados')).toEqual([]);
+  });
+
   it('entregado manda: el filtro Listos excluye las entregadas', () => {
     expect(filterWorkshopJobs(jobs, '', 'listos').map((j) => j.quote.id)).toEqual(['q-lista']);
     expect(filterWorkshopJobs(jobs, '', 'entregados').map((j) => j.quote.id)).toEqual(['q-entregada']);
@@ -160,5 +175,14 @@ describe('entrega de la joya (lista ≠ entregada)', () => {
     const deshecha = withQuoteDelivery(entregadaHoy, '', NOW);
     expect(deshecha.deliveredAt).toBe('');
     expect(workshopJobFromQuote(deshecha).delivered).toBe(false);
+  });
+
+  it('withQuoteDelivery rechaza fechas inválidas sin modificar la cotización', () => {
+    const quote = sampleQuote({ status: 'aprobada', deliveredAt: '' });
+    const original = structuredClone(quote);
+
+    expect(() => withQuoteDelivery(quote, '2026-02-30', NOW)).toThrow(/fecha real/);
+    expect(() => withQuoteDelivery(quote, '16\/07\/2026', NOW)).toThrow(/YYYY-MM-DD/);
+    expect(quote).toEqual(original);
   });
 });

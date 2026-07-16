@@ -12,6 +12,7 @@ import {
   buildMonthlyReportPdfContent,
   formatMonthCO,
   listMonthlySummaries,
+  previousMonthlySummaries,
   type BusinessReport
 } from '../services/dailyReport';
 import { downloadDailyReportPdf } from '../services/pdf';
@@ -114,7 +115,7 @@ export function DailyCloseView() {
       {report.isEmpty ? (
         <EmptyState
           title="Sin movimientos"
-          message={`${periodLabel} no registró compras, ventas, abonos, pagos ni cotizaciones.`}
+          message={`${periodLabel} no registró compras, ventas, pagos de clientes, otros pagos ni cotizaciones.`}
         />
       ) : (
         <>
@@ -137,27 +138,8 @@ export function DailyCloseView() {
             )}
           </SectionCard>
 
-          {(report.totals.supplierDebt > 0 || report.totals.clientsOwe > 0) && (
-            <SectionCard title="Deudas a la fecha">
-              {report.totals.supplierDebt > 0 && (
-                <SummaryRow
-                  label="Debes a proveedores"
-                  value={formatCOP(report.totals.supplierDebt)}
-                  valueClass="text-red-600"
-                />
-              )}
-              {report.totals.clientsOwe > 0 && (
-                <SummaryRow
-                  label="Clientes te deben"
-                  value={formatCOP(report.totals.clientsOwe)}
-                  valueClass="text-brand-800"
-                />
-              )}
-            </SectionCard>
-          )}
-
           <SectionCard title="💍 Joyería (cotizador y taller)">
-            <SummaryRow label="Entró por abonos" value={formatCOP(report.totals.paymentsReceived)} />
+            <SummaryRow label="Entró por pagos de clientes" value={formatCOP(report.totals.paymentsReceived)} />
             <SummaryRow label="Salió al taller" value={`- ${formatCOP(report.totals.workshopPaid)}`} />
             <SummaryRow
               label="Cotizaciones"
@@ -166,12 +148,12 @@ export function DailyCloseView() {
           </SectionCard>
 
           {report.payments.length > 0 && (
-            <SectionCard title={`Abonos recibidos (${report.payments.length})`}>
+            <SectionCard title={`Pagos de clientes (${report.payments.length})`}>
               {report.payments.map((p, i) => (
                 <ReportLine
                   key={i}
                   main={p.clientName}
-                  detail={p.quoteNumber || 'sin número'}
+                  detail={`${p.kind === 'anticipo' ? 'Anticipo pagado' : 'Abono'} · ${p.quoteNumber || 'sin número'}`}
                   value={formatCOP(p.amount)}
                 />
               ))}
@@ -270,11 +252,28 @@ export function DailyCloseView() {
         </>
       )}
 
-      {mode === 'mes' && summaries.filter((s) => s.month !== month).length > 0 && (
+      {(report.totals.supplierDebt > 0 || report.totals.clientsOwe > 0) && (
+        <SectionCard title="Deudas a la fecha">
+          {report.totals.supplierDebt > 0 && (
+            <SummaryRow
+              label="Debes a proveedores"
+              value={formatCOP(report.totals.supplierDebt)}
+              valueClass="text-red-600"
+            />
+          )}
+          {report.totals.clientsOwe > 0 && (
+            <SummaryRow
+              label="Clientes te deben"
+              value={formatCOP(report.totals.clientsOwe)}
+              valueClass="text-brand-800"
+            />
+          )}
+        </SectionCard>
+      )}
+
+      {mode === 'mes' && previousMonthlySummaries(month, summaries).length > 0 && (
         <SectionCard title="Meses anteriores" subtitle="Para comparar cómo vas.">
-          {summaries
-            .filter((s) => s.month !== month)
-            .slice(0, 6)
+          {previousMonthlySummaries(month, summaries)
             .map((s) => (
               <ReportLine
                 key={s.month}
