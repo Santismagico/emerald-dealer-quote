@@ -198,6 +198,8 @@ describe('normalizeStoneLot', () => {
       carats: 5,
       quantity: 4,
       purchaseValueCop: 6000000,
+      onCredit: false,
+      supplierPayments: [],
       notes: '',
       sales: [
         { id: 'v-1', date: '2026-07-15', buyer: 'Cliente', carats: 1, quantity: 1, valueCop: 2000000, notes: '' }

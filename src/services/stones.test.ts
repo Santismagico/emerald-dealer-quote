@@ -4,6 +4,7 @@ import {
   countStoneLots,
   emptyStoneLot,
   emptyStoneSale,
+  emptySupplierPayment,
   filterStoneLots,
   isStoneLotValid,
   lotDisplayName,
@@ -13,8 +14,11 @@ import {
   stonesInventory,
   summarizeStoneLot,
   validateStoneSale,
+  validateSupplierPayment,
   withLotSale,
-  withoutLotSale
+  withoutLotSale,
+  withSupplierPayment,
+  withoutSupplierPayment
 } from './stones';
 
 function venta(overrides: Partial<StoneSale> = {}): StoneSale {
@@ -42,6 +46,8 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,
+    onCredit: false,
+    supplierPayments: [],
     notes: '',
     sales: [],
     createdAt: '2026-07-10T09:00:00.000Z',
@@ -234,5 +240,76 @@ describe('lote y venta en blanco', () => {
     const v = emptyStoneSale('2026-07-15');
     expect(v.date).toBe('2026-07-15');
     expect(v.quantity).toBe(1);
+  });
+});
+
+describe('compras a credito y pagos al proveedor (C4)', () => {
+  const NOW = '2026-07-16T10:00:00.000Z';
+  const pago = (o = {}) => ({ id: 'p-1', date: '2026-07-16', amount: 2000000, notes: '', ...o });
+  const credito = (o = {}) =>
+    lote({ id: 'l-credito', onCredit: true, purchaseValueCop: 6000000, ...o });
+
+  it('un lote de contado nunca tiene deuda', () => {
+    const s = summarizeStoneLot(lote({ onCredit: false }));
+    expect(s.supplierDebt).toBe(0);
+    expect(s.creditSettled).toBe(false);
+  });
+
+  it('la deuda es costo menos pagos y se salda al completar', () => {
+    const conPago = credito({ supplierPayments: [pago()] });
+    const s = summarizeStoneLot(conPago);
+    expect(s.paidToSupplier).toBe(2000000);
+    expect(s.supplierDebt).toBe(4000000);
+    expect(s.creditSettled).toBe(false);
+
+    const saldado = credito({ supplierPayments: [pago(), pago({ id: 'p-2', amount: 4000000 })] });
+    const s2 = summarizeStoneLot(saldado);
+    expect(s2.supplierDebt).toBe(0);
+    expect(s2.creditSettled).toBe(true);
+  });
+
+  it('rechaza pagar mas de lo que se debe, sin fecha valida o sin monto', () => {
+    const l = credito({ supplierPayments: [pago()] });
+    expect(validateSupplierPayment(l, pago({ id: 'p-2', amount: 5000000 }))).toMatch(/Solo debes/);
+    expect(validateSupplierPayment(l, pago({ id: 'p-2', date: 'ayer' }))).toMatch(/fecha/);
+    expect(validateSupplierPayment(l, pago({ id: 'p-2', amount: 0 }))).toMatch(/monto/);
+    expect(validateSupplierPayment(l, pago({ id: 'p-2', amount: 4000000 }))).toBeNull();
+  });
+
+  it('al editar un pago no se cuenta a si mismo', () => {
+    const l = credito({ supplierPayments: [pago({ amount: 6000000 })] });
+    expect(validateSupplierPayment(l, pago({ amount: 6000000 }), 'p-1')).toBeNull();
+  });
+
+  it('agrega, reemplaza y elimina pagos sin tocar el original', () => {
+    const original = credito();
+    const copia = structuredClone(original);
+
+    const conPago = withSupplierPayment(original, pago(), NOW);
+    expect(conPago.supplierPayments.length).toBe(1);
+    expect(conPago.updatedAt).toBe(NOW);
+    expect(original).toEqual(copia);
+
+    const editado = withSupplierPayment(conPago, pago({ amount: 999 }), NOW);
+    expect(editado.supplierPayments[0].amount).toBe(999);
+
+    const sinPago = withoutSupplierPayment(editado, 'p-1', NOW);
+    expect(sinPago.supplierPayments).toEqual([]);
+  });
+
+  it('el flujo suma las deudas de todos los lotes a credito', () => {
+    const flow = stonesFlow([
+      credito({ id: 'l-1', supplierPayments: [pago()] }),
+      credito({ id: 'l-2', purchaseValueCop: 1000000 }),
+      lote({ id: 'l-contado' })
+    ]);
+    expect(flow.totalDebt).toBe(4000000 + 1000000);
+  });
+
+  it('el pago en blanco nace hoy y sin monto', () => {
+    const p = emptySupplierPayment('2026-07-16');
+    expect(p.date).toBe('2026-07-16');
+    expect(p.amount).toBe(0);
+    expect(p.id).not.toBe(emptySupplierPayment('2026-07-16').id);
   });
 });

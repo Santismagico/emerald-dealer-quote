@@ -241,6 +241,20 @@ export interface Supplier {
 }
 
 /**
+ * Pago hecho AL PROVEEDOR por un lote comprado a crédito (corrección C4).
+ * Vive dentro de su lote: la deuda siempre es costo − pagos, nunca un
+ * contador guardado a mano.
+ */
+export interface SupplierPayment {
+  id: string;
+  /** Fecha del pago (YYYY-MM-DD). */
+  date: string;
+  /** Monto pagado en COP entero. */
+  amount: number;
+  notes: string;
+}
+
+/**
  * Venta parcial o total de un lote de piedras (SOLO uso interno).
  * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
  * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
@@ -287,6 +301,10 @@ export interface StoneLot {
   quantity: number;
   /** Costo total de la compra en COP entero. */
   purchaseValueCop: number;
+  /** true si la compra fue a crédito: se debe al proveedor hasta saldar (C4). */
+  onCredit: boolean;
+  /** Pagos hechos al proveedor de este lote (aplican cuando es a crédito). */
+  supplierPayments: SupplierPayment[];
   notes: string;
   /** Ventas del lote, en el orden en que se registraron. */
   sales: StoneSale[];

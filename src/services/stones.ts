@@ -4,7 +4,7 @@
 // ventas; nunca existe un contador guardado a mano. Todo es interno (COP
 // entero): ninguna piedra ni precio entra en canales de cliente.
 
-import type { StoneLot, StoneSale } from '../types';
+import type { StoneLot, StoneSale, SupplierPayment } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 
@@ -28,6 +28,12 @@ export interface StoneLotSummary {
   exhausted: boolean;
   /** Vendido − costo del lote. Es parcial mientras queden existencias. */
   result: number;
+  /** COP ya pagado al proveedor de este lote. */
+  paidToSupplier: number;
+  /** Lo que aún se le debe al proveedor (0 si no fue a crédito o ya se saldó). */
+  supplierDebt: number;
+  /** true cuando fue a crédito y ya no se debe nada. */
+  creditSettled: boolean;
 }
 
 export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
@@ -42,6 +48,13 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   soldCarats = round3(soldCarats);
   const remainingCarats = round3(lot.carats - soldCarats);
   const remainingQuantity = lot.quantity - soldQuantity;
+
+  let paidToSupplier = 0;
+  for (const payment of lot.supplierPayments) {
+    paidToSupplier += payment.amount;
+  }
+  const supplierDebt = lot.onCredit ? Math.max(0, lot.purchaseValueCop - paidToSupplier) : 0;
+
   return {
     lot,
     soldCarats,
@@ -50,8 +63,58 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     remainingCarats,
     remainingQuantity,
     exhausted: remainingCarats <= 0 && remainingQuantity <= 0,
-    result: soldValue - lot.purchaseValueCop
+    result: soldValue - lot.purchaseValueCop,
+    paidToSupplier,
+    supplierDebt,
+    creditSettled: lot.onCredit && supplierDebt <= 0
   };
+}
+
+/**
+ * Revisa un pago al proveedor ANTES de guardarlo. Devuelve el motivo del
+ * rechazo en lenguaje humano, o null si es válido. `excludePaymentId`
+ * permite editar un pago sin que se cuente a sí mismo.
+ */
+export function validateSupplierPayment(
+  lot: StoneLot,
+  payment: SupplierPayment,
+  excludePaymentId?: string
+): string | null {
+  if (!isValidISODate(payment.date)) return 'El pago necesita una fecha válida.';
+  if (payment.amount <= 0) return 'Indica el monto pagado al proveedor.';
+
+  const others = lot.supplierPayments.filter((p) => p.id !== excludePaymentId);
+  const summary = summarizeStoneLot({ ...lot, supplierPayments: others });
+  if (payment.amount > summary.supplierDebt) {
+    return `Solo debes ${summary.supplierDebt.toLocaleString('es-CO')} de este lote.`;
+  }
+  return null;
+}
+
+/** Copia del lote con un pago al proveedor agregado o reemplazado. */
+export function withSupplierPayment(lot: StoneLot, payment: SupplierPayment, nowIso: string): StoneLot {
+  const exists = lot.supplierPayments.some((p) => p.id === payment.id);
+  return {
+    ...lot,
+    supplierPayments: exists
+      ? lot.supplierPayments.map((p) => (p.id === payment.id ? payment : p))
+      : [...lot.supplierPayments, payment],
+    updatedAt: nowIso
+  };
+}
+
+/** Copia del lote sin el pago indicado. */
+export function withoutSupplierPayment(lot: StoneLot, paymentId: string, nowIso: string): StoneLot {
+  return {
+    ...lot,
+    supplierPayments: lot.supplierPayments.filter((p) => p.id !== paymentId),
+    updatedAt: nowIso
+  };
+}
+
+/** Pago al proveedor en blanco para el formulario. */
+export function emptySupplierPayment(today: string): SupplierPayment {
+  return { id: newId(), date: today, amount: 0, notes: '' };
 }
 
 /** Existencias por tipo de piedra, sumando lo que queda en cada lote. */
@@ -94,12 +157,14 @@ export function stonesInventory(lots: readonly StoneLot[]): StoneInventoryEntry[
 
 /** Flujo de dinero del negocio de piedras (decisión: existencias + flujo). */
 export interface StonesFlow {
-  /** COP invertido comprando lotes. */
+  /** COP invertido comprando lotes (contado + crédito). */
   totalSpent: number;
   /** COP recibido por todas las ventas. */
   totalEarned: number;
   /** Ventas − compras. Negativo es normal si hay lotes sin vender todavía. */
   balance: number;
+  /** COP que aún se les debe a los proveedores por lotes a crédito (C4). */
+  totalDebt: number;
   lotCount: number;
   saleCount: number;
 }
@@ -107,15 +172,24 @@ export interface StonesFlow {
 export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   let totalSpent = 0;
   let totalEarned = 0;
+  let totalDebt = 0;
   let saleCount = 0;
   for (const lot of lots) {
     totalSpent += lot.purchaseValueCop;
+    totalDebt += summarizeStoneLot(lot).supplierDebt;
     for (const sale of lot.sales) {
       totalEarned += sale.valueCop;
       saleCount += 1;
     }
   }
-  return { totalSpent, totalEarned, balance: totalEarned - totalSpent, lotCount: lots.length, saleCount };
+  return {
+    totalSpent,
+    totalEarned,
+    balance: totalEarned - totalSpent,
+    totalDebt,
+    lotCount: lots.length,
+    saleCount
+  };
 }
 
 /** Nombre visible del lote; si no tiene, se arma con la piedra. */
@@ -233,6 +307,8 @@ export function emptyStoneLot(today: string, nowIso: string): StoneLot {
     carats: 0,
     quantity: 1,
     purchaseValueCop: 0,
+    onCredit: false,
+    supplierPayments: [],
     notes: '',
     sales: [],
     createdAt: nowIso,

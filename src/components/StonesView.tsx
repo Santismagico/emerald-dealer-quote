@@ -5,11 +5,12 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import type { StoneLot, StoneSale } from '../types';
+import type { StoneLot, StoneSale, SupplierPayment } from '../types';
 import {
   countStoneLots,
   emptyStoneLot,
   emptyStoneSale,
+  emptySupplierPayment,
   filterStoneLots,
   isStoneLotValid,
   lotDisplayName,
@@ -17,8 +18,11 @@ import {
   stonesInventory,
   summarizeStoneLot,
   validateStoneSale,
+  validateSupplierPayment,
   withLotSale,
   withoutLotSale,
+  withSupplierPayment,
+  withoutSupplierPayment,
   type LotFilter
 } from '../services/stones';
 import { formatCOP } from '../utils/money';
@@ -34,7 +38,8 @@ import {
   Select,
   SummaryRow,
   TextArea,
-  TextInput
+  TextInput,
+  Toggle
 } from './ui';
 
 const FILTERS: Array<{ value: LotFilter; label: string }> = [
@@ -77,6 +82,14 @@ export function StonesView() {
             valueClass={flow.balance < 0 ? 'text-red-600' : 'text-brand-800'}
           />
         </div>
+        {flow.totalDebt > 0 && (
+          <SummaryRow
+            label="Debes a proveedores (crédito)"
+            value={formatCOP(flow.totalDebt)}
+            bold
+            valueClass="text-red-600"
+          />
+        )}
         <p className="text-[11px] text-stone-400">
           Un flujo negativo es normal mientras tengas lotes comprados sin vender.
         </p>
@@ -192,6 +205,14 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
           <span>Sin ventas aún</span>
         )}
       </div>
+      {lot.onCredit && summary.supplierDebt > 0 && (
+        <p className="mt-1 text-xs font-medium text-red-600">
+          Crédito: debes {formatCOP(summary.supplierDebt)} al proveedor
+        </p>
+      )}
+      {lot.onCredit && summary.creditSettled && (
+        <p className="mt-1 text-xs font-medium text-brand-700">Crédito saldado ✓</p>
+      )}
     </button>
   );
 }
@@ -200,9 +221,11 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
 function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   const store = useStore();
   const [saleForm, setSaleForm] = useState<StoneSale | null>(null);
+  const [paymentForm, setPaymentForm] = useState<SupplierPayment | null>(null);
   const [editingLot, setEditingLot] = useState(false);
   const [confirmDeleteLot, setConfirmDeleteLot] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<StoneSale | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<SupplierPayment | null>(null);
   const [busy, setBusy] = useState(false);
 
   const lot = store.stoneLots.find((l) => l.id === lotId);
@@ -219,6 +242,16 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         lot={lot}
         initial={saleForm}
         onClose={() => setSaleForm(null)}
+      />
+    );
+  }
+  if (paymentForm !== null) {
+    return (
+      <SupplierPaymentForm
+        key={paymentForm.id}
+        lot={lot}
+        initial={paymentForm}
+        onClose={() => setPaymentForm(null)}
       />
     );
   }
@@ -271,6 +304,73 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
 
         {lot.description ? <p className="mt-2 text-sm text-stone-600">{lot.description}</p> : null}
         {lot.notes ? <p className="mt-1 text-xs text-stone-500">{lot.notes}</p> : null}
+
+        {lot.onCredit && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                💳 Crédito con el proveedor
+              </p>
+              {summary.creditSettled ? (
+                <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-800">
+                  Saldado ✓
+                </span>
+              ) : (
+                <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                  Debes {formatCOP(summary.supplierDebt)}
+                </span>
+              )}
+            </div>
+            <div className="mt-2 space-y-1">
+              <SummaryRow label="Costo del lote" value={formatCOP(lot.purchaseValueCop)} />
+              <SummaryRow label="Pagado al proveedor" value={formatCOP(summary.paidToSupplier)} />
+              <SummaryRow
+                label="Pendiente"
+                value={formatCOP(summary.supplierDebt)}
+                bold
+                valueClass={summary.supplierDebt > 0 ? 'text-red-600' : 'text-brand-800'}
+              />
+            </div>
+            {lot.supplierPayments.length > 0 && (
+              <ul className="mt-2 space-y-1.5">
+                {lot.supplierPayments.map((payment) => (
+                  <li key={payment.id} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => setPaymentForm(payment)}
+                    >
+                      <p className="text-sm font-medium text-stone-800">{formatCOP(payment.amount)}</p>
+                      <p className="text-xs text-stone-500">
+                        {formatDateCO(payment.date)}
+                        {payment.notes ? ` · ${payment.notes}` : ''}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Eliminar pago"
+                      className="min-h-10 min-w-10 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                      onClick={() => setPaymentToDelete(payment)}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!summary.creditSettled && (
+              <div className="mt-2">
+                <Button
+                  variant="secondary"
+                  full
+                  onClick={() => setPaymentForm(emptySupplierPayment(todayISO()))}
+                >
+                  ＋ Registrar pago al proveedor
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-stone-500">
           Ventas del lote ({lot.sales.length})
@@ -357,6 +457,33 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               onClose();
             } catch {
               store.showToast('No se pudo eliminar el lote. Intenta de nuevo.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+
+        <ConfirmDialog
+          open={paymentToDelete !== null}
+          title="Eliminar pago al proveedor"
+          message={`¿Eliminar el pago de ${formatCOP(paymentToDelete?.amount ?? 0)} del ${
+            formatDateCO(paymentToDelete?.date ?? '') || 'sin fecha'
+          }? La deuda del lote vuelve a subir.`}
+          confirmLabel="Eliminar"
+          danger
+          busy={busy}
+          onCancel={() => setPaymentToDelete(null)}
+          onConfirm={async () => {
+            if (!paymentToDelete) return;
+            setBusy(true);
+            try {
+              await store.upsertStoneLot(
+                withoutSupplierPayment(lot, paymentToDelete.id, new Date().toISOString())
+              );
+              store.showToast('Pago eliminado');
+              setPaymentToDelete(null);
+            } catch {
+              store.showToast('No se pudo eliminar el pago. Intenta de nuevo.');
             } finally {
               setBusy(false);
             }
@@ -476,6 +603,11 @@ function LotForm({
           <Field label="Costo total del lote">
             <MoneyInput value={form.purchaseValueCop} onValue={(purchaseValueCop) => patch({ purchaseValueCop })} />
           </Field>
+          <Toggle
+            checked={form.onCredit}
+            onChange={(onCredit) => patch({ onCredit })}
+            label="Compra a crédito (quedo debiendo)"
+          />
           {store.suppliers.length > 0 && (
             <Field label="Proveedor registrado (opcional)">
               <Select
@@ -500,6 +632,84 @@ function LotForm({
           </Field>
           <Field label="Notas internas">
             <TextArea value={form.notes} onChange={(notes) => patch({ notes })} rows={2} />
+          </Field>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <div className="flex-1">
+            <Button variant="ghost" full disabled={busy} onClick={onClose}>
+              Cancelar
+            </Button>
+          </div>
+          <div className="flex-1">
+            <Button full disabled={busy} onClick={() => void save()}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Formulario de registrar/editar un pago al proveedor, con validación de la deuda. */
+function SupplierPaymentForm({
+  lot,
+  initial,
+  onClose
+}: {
+  lot: StoneLot;
+  initial: SupplierPayment;
+  onClose: () => void;
+}) {
+  const store = useStore();
+  const [form, setForm] = useState<SupplierPayment>(initial);
+  const [busy, setBusy] = useState(false);
+  const isNew = !lot.supplierPayments.some((p) => p.id === initial.id);
+
+  const others = lot.supplierPayments.filter((p) => p.id !== initial.id);
+  const pending = summarizeStoneLot({ ...lot, supplierPayments: others }).supplierDebt;
+
+  const save = async () => {
+    const error = validateSupplierPayment(lot, form, isNew ? undefined : initial.id);
+    if (error) {
+      store.showToast(error);
+      return;
+    }
+    setBusy(true);
+    try {
+      await store.upsertStoneLot(withSupplierPayment(lot, form, new Date().toISOString()));
+      store.showToast(isNew ? 'Pago registrado' : 'Pago actualizado');
+      onClose();
+    } catch {
+      store.showToast('No se pudo guardar el pago. Intenta de nuevo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+        <h3 className="text-base font-semibold text-stone-900">
+          {isNew ? 'Pago al proveedor' : 'Editar pago'}
+        </h3>
+        <p className="mt-1 text-sm text-stone-600">
+          {lotDisplayName(lot)}
+          {lot.supplier ? ` · ${lot.supplier}` : ''} · pendiente {formatCOP(pending)}
+        </p>
+        <div className="mt-4 space-y-3">
+          <Field label="Monto pagado">
+            <MoneyInput value={form.amount} onValue={(amount) => setForm({ ...form, amount })} />
+          </Field>
+          <Field label="Fecha del pago">
+            <TextInput type="date" value={form.date} onChange={(date) => setForm({ ...form, date })} />
+          </Field>
+          <Field label="Notas">
+            <TextInput
+              value={form.notes}
+              onChange={(notes) => setForm({ ...form, notes })}
+              placeholder="Efectivo, transferencia…"
+            />
           </Field>
         </div>
         <div className="mt-5 flex gap-3">

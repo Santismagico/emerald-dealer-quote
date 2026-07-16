@@ -19,7 +19,8 @@ import type {
   AppointmentStatus,
   StoneLot,
   StoneSale,
-  Supplier
+  Supplier,
+  SupplierPayment
 } from '../types';
 import { QUOTE_STATUSES, PIECE_TYPES, APPOINTMENT_STATUSES } from '../types';
 import { newId } from '../utils/id';
@@ -221,6 +222,16 @@ export function normalizeAppointment(raw: unknown): Appointment {
   };
 }
 
+function normalizeSupplierPayment(raw: unknown): SupplierPayment {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(p.id, newId()),
+    date: safeString(p.date),
+    amount: Math.max(0, Math.round(safeNumber(p.amount))),
+    notes: safeString(p.notes)
+  };
+}
+
 function normalizeStoneSale(raw: unknown): StoneSale {
   const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   return {
@@ -252,6 +263,8 @@ export function normalizeStoneLot(raw: unknown): StoneLot {
     carats: Math.max(0, safeNumber(l.carats)),
     quantity: Math.max(0, safeNumber(l.quantity)),
     purchaseValueCop: Math.max(0, Math.round(safeNumber(l.purchaseValueCop))),
+    onCredit: l.onCredit === true,
+    supplierPayments: safeArray(l.supplierPayments).map(normalizeSupplierPayment),
     notes: safeString(l.notes),
     sales: safeArray(l.sales).map(normalizeStoneSale),
     createdAt: safeString(l.createdAt),

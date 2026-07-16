@@ -19,6 +19,8 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,
+    onCredit: false,
+    supplierPayments: [],
     notes: '',
     sales: [],
     createdAt: '2026-07-15T09:00:00.000Z',
