@@ -39,6 +39,7 @@ export function sampleQuote(overrides: Partial<Quote> = {}): Quote {
     validUntil: '2026-07-22',
     status: 'borrador',
     approvedAt: '',
+    deliveredAt: '',
     pieceType: 'anillo',
     pieceDescription: 'Anillo de compromiso con esmeralda central',
     material: 'Oro',

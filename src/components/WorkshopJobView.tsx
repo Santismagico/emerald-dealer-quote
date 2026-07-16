@@ -8,7 +8,8 @@ import type { Quote, ProductionStage, ClientPayment } from '../types';
 import { ProductionPanel } from './ProductionPanel';
 import { PaymentsPanel } from './PaymentsPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
-import { workshopJobFromQuote } from '../services/workshop';
+import { workshopJobFromQuote, withQuoteDelivery } from '../services/workshop';
+import { jobChip } from './WorkshopView';
 import {
   createQuoteAutosaveController,
   runAfterSuccessfulFlush,
@@ -17,8 +18,8 @@ import {
   type QuoteSaveMode
 } from '../services/quoteAutosave';
 import { formatCOP } from '../utils/money';
-import { formatDateCO } from '../utils/dates';
-import { SummaryRow } from './ui';
+import { formatDateCO, todayISO } from '../utils/dates';
+import { Button, ConfirmDialog, SummaryRow } from './ui';
 
 export interface WorkshopJobViewHandle {
   flushPending: () => Promise<void>;
@@ -84,9 +85,25 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
 
     const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
     const job = useMemo(() => workshopJobFromQuote(quote), [quote]);
+    const [confirmDelivery, setConfirmDelivery] = useState<'entregar' | 'deshacer' | null>(null);
 
     const flushPending = async () => {
       await autosave.flush();
+    };
+
+    /** Marca o deshace la entrega con el mismo guardado seguro del resto del trabajo. */
+    const setDelivery = async (deliveredDate: string) => {
+      try {
+        autosave.update((current) =>
+          withQuoteDelivery(current, deliveredDate, new Date().toISOString())
+        );
+        await autosave.flush();
+        store.showToast(deliveredDate ? 'Joya marcada como entregada' : 'Entrega deshecha');
+      } catch {
+        store.showToast('No se pudo guardar. Puedes reintentar.');
+      } finally {
+        setConfirmDelivery(null);
+      }
     };
 
     const runAfterFlush = async (action: () => void) => {
@@ -120,12 +137,8 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
           >
             ← Taller
           </button>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              job.ready ? 'bg-brand-100 text-brand-800' : 'bg-amber-100 text-amber-800'
-            }`}
-          >
-            {job.ready ? 'Listo ✓' : 'En taller'}
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${jobChip(job).className}`}>
+            {jobChip(job).label}
           </span>
         </div>
 
@@ -190,6 +203,30 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
               valueClass={job.balance < 0 ? 'text-red-600' : undefined}
             />
           </div>
+          <div className="mt-3 border-t border-stone-100 pt-3">
+            {job.delivered ? (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-stone-700">
+                  ✔ Entregada el <strong>{formatDateCO(quote.deliveredAt)}</strong>
+                </p>
+                <button
+                  type="button"
+                  className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-medium text-stone-500 active:bg-stone-100"
+                  onClick={() => setConfirmDelivery('deshacer')}
+                >
+                  Deshacer
+                </button>
+              </div>
+            ) : (
+              <Button
+                variant={job.ready ? 'primary' : 'secondary'}
+                full
+                onClick={() => setConfirmDelivery('entregar')}
+              >
+                ✔ Marcar como entregada
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
@@ -211,6 +248,29 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
             onCommit={flushPending}
           />
         </div>
+
+        <ConfirmDialog
+          open={confirmDelivery === 'entregar'}
+          title="Entregar la joya"
+          message={`¿Confirmas que la joya se entregó al cliente hoy?${
+            !job.ready
+              ? ` Ojo: aún hay etapas sin terminar (${job.stagesDone}/${job.stagesTotal} listas).`
+              : ''
+          }${job.balance > 0 ? ` El cliente aún debe ${formatCOP(job.balance)}.` : ''}`}
+          confirmLabel="Sí, se entregó"
+          onCancel={() => setConfirmDelivery(null)}
+          onConfirm={() => void setDelivery(todayISO())}
+        />
+
+        <ConfirmDialog
+          open={confirmDelivery === 'deshacer'}
+          title="Deshacer entrega"
+          message="¿Quitar la marca de entrega? El trabajo vuelve a aparecer como listo o en taller."
+          confirmLabel="Deshacer"
+          danger
+          onCancel={() => setConfirmDelivery(null)}
+          onConfirm={() => void setDelivery('')}
+        />
       </div>
     );
   }

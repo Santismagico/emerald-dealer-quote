@@ -12,13 +12,25 @@ import {
   type WorkshopJob
 } from '../services/workshop';
 import { formatCOP } from '../utils/money';
+import { formatDateCO } from '../utils/dates';
 import { EmptyState, TextInput } from './ui';
 
 const FILTERS: Array<{ value: WorkshopFilter; label: string }> = [
   { value: 'todos', label: 'Todos' },
   { value: 'enTaller', label: 'En taller' },
-  { value: 'listos', label: 'Listos' }
+  { value: 'listos', label: 'Listos' },
+  { value: 'entregados', label: 'Entregados' }
 ];
+
+/** Etiqueta de estado del trabajo: entregado manda sobre listo. */
+export function jobChip(job: { delivered: boolean; ready: boolean }): {
+  label: string;
+  className: string;
+} {
+  if (job.delivered) return { label: 'Entregada ✓', className: 'bg-stone-200 text-stone-600' };
+  if (job.ready) return { label: 'Listo ✓', className: 'bg-brand-100 text-brand-800' };
+  return { label: 'En taller', className: 'bg-amber-100 text-amber-800' };
+}
 
 export function WorkshopView({ onOpenJob }: { onOpenJob: (quote: Quote) => void }) {
   const store = useStore();
@@ -75,6 +87,7 @@ export function WorkshopView({ onOpenJob }: { onOpenJob: (quote: Quote) => void 
 function JobCard({ job, onOpen }: { job: WorkshopJob; onOpen: () => void }) {
   const { quote } = job;
   const progressPercent = job.stagesTotal > 0 ? Math.round((job.stagesDone / job.stagesTotal) * 100) : 0;
+  const chip = jobChip(job);
 
   return (
     <button type="button" className="block w-full rounded-2xl bg-white p-4 text-left shadow-sm" onClick={onOpen}>
@@ -86,21 +99,19 @@ function JobCard({ job, onOpen }: { job: WorkshopJob; onOpen: () => void }) {
             {quote.pieceDescription ? ` · ${quote.pieceDescription}` : ''}
           </p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            job.ready ? 'bg-brand-100 text-brand-800' : 'bg-amber-100 text-amber-800'
-          }`}
-        >
-          {job.ready ? 'Listo ✓' : 'En taller'}
+        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${chip.className}`}>
+          {chip.label}
         </span>
       </div>
 
       <div className="mt-3">
         <div className="flex items-center justify-between text-xs text-stone-500">
           <span>
-            {job.stagesTotal > 0
-              ? `${job.stagesDone}/${job.stagesTotal} etapas listas`
-              : 'Sin etapas creadas todavía'}
+            {job.delivered
+              ? `Entregada el ${formatDateCO(quote.deliveredAt)}`
+              : job.stagesTotal > 0
+                ? `${job.stagesDone}/${job.stagesTotal} etapas listas`
+                : 'Sin etapas creadas todavía'}
           </span>
           <span>
             Saldo: <span className={`font-semibold ${job.balance > 0 ? 'text-stone-800' : 'text-brand-800'}`}>
@@ -110,8 +121,10 @@ function JobCard({ job, onOpen }: { job: WorkshopJob; onOpen: () => void }) {
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200">
           <div
-            className={`h-full rounded-full ${job.ready ? 'bg-brand-600' : 'bg-amber-500'}`}
-            style={{ width: `${progressPercent}%` }}
+            className={`h-full rounded-full ${
+              job.delivered ? 'bg-stone-400' : job.ready ? 'bg-brand-600' : 'bg-amber-500'
+            }`}
+            style={{ width: `${job.delivered ? 100 : progressPercent}%` }}
           />
         </div>
       </div>

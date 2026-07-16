@@ -8,7 +8,7 @@ import { productionSummary } from './production';
 import { paymentsTotal } from './payments';
 import { quoteMatchesHistorySearch } from './quoteStatus';
 
-export type WorkshopFilter = 'todos' | 'enTaller' | 'listos';
+export type WorkshopFilter = 'todos' | 'enTaller' | 'listos' | 'entregados';
 
 export interface WorkshopJob {
   quote: Quote;
@@ -22,6 +22,8 @@ export interface WorkshopJob {
   stagesDone: number;
   /** true cuando hay etapas y todas están listas. */
   ready: boolean;
+  /** true cuando la joya ya se ENTREGÓ al cliente (independiente de "lista"). */
+  delivered: boolean;
 }
 
 export function workshopJobFromQuote(quote: Quote): WorkshopJob {
@@ -35,13 +37,28 @@ export function workshopJobFromQuote(quote: Quote): WorkshopJob {
     balance: total - paid,
     stagesTotal: summary.stagesTotal,
     stagesDone: summary.stagesDone,
-    ready: summary.stagesTotal > 0 && summary.stagesDone === summary.stagesTotal
+    ready: summary.stagesTotal > 0 && summary.stagesDone === summary.stagesTotal,
+    delivered: quote.deliveredAt.trim().length > 0
   };
+}
+
+/**
+ * Copia de la cotización marcada como entregada (o no), sin tocar el original.
+ * `deliveredDate` es YYYY-MM-DD; con '' se deshace la entrega.
+ */
+export function withQuoteDelivery(quote: Quote, deliveredDate: string, nowIso: string): Quote {
+  return { ...quote, deliveredAt: deliveredDate, updatedAt: nowIso };
 }
 
 /** Los trabajos del taller son las cotizaciones aprobadas, en el orden recibido. */
 export function workshopJobsFromQuotes(quotes: readonly Quote[]): WorkshopJob[] {
   return quotes.filter((quote) => quote.status === 'aprobada').map(workshopJobFromQuote);
+}
+
+/** Categoría única de un trabajo: entregado manda sobre listo y en taller. */
+function jobCategory(job: WorkshopJob): Exclude<WorkshopFilter, 'todos'> {
+  if (job.delivered) return 'entregados';
+  return job.ready ? 'listos' : 'enTaller';
 }
 
 export function filterWorkshopJobs(
@@ -51,9 +68,7 @@ export function filterWorkshopJobs(
 ): WorkshopJob[] {
   return jobs.filter((job) => {
     if (!quoteMatchesHistorySearch(job.quote, search)) return false;
-    if (filter === 'enTaller') return !job.ready;
-    if (filter === 'listos') return job.ready;
-    return true;
+    return filter === 'todos' || jobCategory(job) === filter;
   });
 }
 
@@ -61,11 +76,16 @@ export function countWorkshopJobs(
   jobs: readonly WorkshopJob[],
   search: string
 ): Record<WorkshopFilter, number> {
-  const counts: Record<WorkshopFilter, number> = { todos: 0, enTaller: 0, listos: 0 };
+  const counts: Record<WorkshopFilter, number> = {
+    todos: 0,
+    enTaller: 0,
+    listos: 0,
+    entregados: 0
+  };
   for (const job of jobs) {
     if (!quoteMatchesHistorySearch(job.quote, search)) continue;
     counts.todos += 1;
-    counts[job.ready ? 'listos' : 'enTaller'] += 1;
+    counts[jobCategory(job)] += 1;
   }
   return counts;
 }

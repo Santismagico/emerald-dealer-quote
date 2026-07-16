@@ -113,6 +113,12 @@ export interface Quote {
    * del día; no afecta el cálculo ni el vencimiento.
    */
   approvedAt: string;
+  /**
+   * Fecha (YYYY-MM-DD) en que la joya se ENTREGÓ al cliente. Vacío si aún no.
+   * Una pieza puede estar lista (todas las etapas) sin haberse entregado:
+   * son dos cosas distintas (corrección C2 de Santiago, 2026-07-16).
+   */
+  deliveredAt: string;
   pieceType: PieceType;
   pieceDescription: string;
   material: string;

@@ -5,6 +5,7 @@ import type { ProductionStage } from '../types';
 import {
   countWorkshopJobs,
   filterWorkshopJobs,
+  withQuoteDelivery,
   workshopJobFromQuote,
   workshopJobsFromQuotes
 } from './workshop';
@@ -110,7 +111,54 @@ describe('búsqueda, filtro y conteos del taller', () => {
   });
 
   it('los conteos respetan la búsqueda', () => {
-    expect(countWorkshopJobs(jobs, '')).toEqual({ todos: 2, enTaller: 1, listos: 1 });
-    expect(countWorkshopJobs(jobs, 'Beatriz')).toEqual({ todos: 1, enTaller: 0, listos: 1 });
+    expect(countWorkshopJobs(jobs, '')).toEqual({ todos: 2, enTaller: 1, listos: 1, entregados: 0 });
+    expect(countWorkshopJobs(jobs, 'Beatriz')).toEqual({ todos: 1, enTaller: 0, listos: 1, entregados: 0 });
+  });
+});
+
+describe('entrega de la joya (lista ≠ entregada)', () => {
+  const NOW = '2026-07-16T10:00:00.000Z';
+  const listaNoEntregada = workshopJobFromQuote(
+    sampleQuote({
+      id: 'q-lista',
+      status: 'aprobada',
+      production: [stage({ id: 'st-1', status: 'lista', completedAt: '2026-07-10' })]
+    })
+  );
+  const entregada = workshopJobFromQuote(
+    sampleQuote({
+      id: 'q-entregada',
+      status: 'aprobada',
+      deliveredAt: '2026-07-15',
+      production: [stage({ id: 'st-1', status: 'lista', completedAt: '2026-07-10' })]
+    })
+  );
+  const enTaller = workshopJobFromQuote(sampleQuote({ id: 'q-taller', status: 'aprobada' }));
+  const jobs = [listaNoEntregada, entregada, enTaller];
+
+  it('una joya lista NO cuenta como entregada hasta que se marque', () => {
+    expect(listaNoEntregada.ready).toBe(true);
+    expect(listaNoEntregada.delivered).toBe(false);
+    expect(entregada.delivered).toBe(true);
+  });
+
+  it('entregado manda: el filtro Listos excluye las entregadas', () => {
+    expect(filterWorkshopJobs(jobs, '', 'listos').map((j) => j.quote.id)).toEqual(['q-lista']);
+    expect(filterWorkshopJobs(jobs, '', 'entregados').map((j) => j.quote.id)).toEqual(['q-entregada']);
+    expect(countWorkshopJobs(jobs, '')).toEqual({ todos: 3, enTaller: 1, listos: 1, entregados: 1 });
+  });
+
+  it('withQuoteDelivery marca la entrega sin tocar el original y con deshacer', () => {
+    const quote = sampleQuote({ status: 'aprobada', deliveredAt: '' });
+    const original = structuredClone(quote);
+
+    const entregadaHoy = withQuoteDelivery(quote, '2026-07-16', NOW);
+    expect(entregadaHoy.deliveredAt).toBe('2026-07-16');
+    expect(entregadaHoy.updatedAt).toBe(NOW);
+    expect(quote).toEqual(original);
+
+    const deshecha = withQuoteDelivery(entregadaHoy, '', NOW);
+    expect(deshecha.deliveredAt).toBe('');
+    expect(workshopJobFromQuote(deshecha).delivered).toBe(false);
   });
 });

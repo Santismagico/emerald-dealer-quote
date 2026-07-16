@@ -62,6 +62,7 @@ function emptyQuote(defaults: {
     validUntil: addDays(todayISO(), defaults.validityDays),
     status: 'borrador',
     approvedAt: '',
+    deliveredAt: '',
     pieceType: 'anillo',
     pieceDescription: '',
     material: 'Oro',
@@ -199,8 +200,9 @@ function AppShell() {
       id: newId(),
       number: await store.nextQuoteNumber(),
       status: 'borrador',
-      // La copia es una pieza nueva: aprobación, avance de taller y abonos no se heredan.
+      // La copia es una pieza nueva: aprobación, entrega, taller y abonos no se heredan.
       approvedAt: '',
+      deliveredAt: '',
       date: todayISO(),
       validUntil: addDays(todayISO(), store.settings.defaultValidityDays),
       production: [],

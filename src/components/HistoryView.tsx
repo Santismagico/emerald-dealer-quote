@@ -133,8 +133,10 @@ export function HistoryView({
                     className="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-left"
                   >
                     <span className="text-sm font-medium text-amber-800">
-                      🛠 Taller: {quote.production.filter((s) => s.status === 'lista').length}/
-                      {quote.production.length} etapas listas
+                      🛠 Taller:{' '}
+                      {quote.deliveredAt
+                        ? 'entregada ✓'
+                        : `${quote.production.filter((s) => s.status === 'lista').length}/${quote.production.length} etapas listas`}
                     </span>
                     <span className="text-amber-700">›</span>
                   </button>
