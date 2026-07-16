@@ -1,4 +1,4 @@
-// Etapa 7: primera migración real de IndexedDB (v1→v2) y persistencia de la
+﻿// Etapa 7: primera migración real de IndexedDB (v1→v2) y persistencia de la
 // agenda. Se prueba con una base v1 auténtica creada a mano: al abrir la app
 // nueva debe aparecer el almacén de citas SIN perder un solo dato anterior.
 
@@ -84,30 +84,43 @@ describe('escalera de migraciones', () => {
   }
 
   it('la versión actual coincide con la cantidad de migraciones', () => {
-    expect(db.DB_VERSION).toBe(3);
+    expect(db.DB_VERSION).toBe(4);
   });
 
-  it('una base nueva (v0) crea los cinco almacenes', () => {
+  it('una base nueva (v0) crea los seis almacenes', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 0);
-    expect(fake.created).toEqual(['settings', 'clients', 'quotes', 'appointments', 'stoneLots']);
+    expect(fake.created).toEqual([
+      'settings',
+      'clients',
+      'quotes',
+      'appointments',
+      'stoneLots',
+      'suppliers'
+    ]);
   });
 
-  it('una base v1 agrega citas y lotes de piedras', () => {
+  it('una base v1 agrega citas, lotes y proveedores', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 1);
-    expect(fake.created).toEqual(['appointments', 'stoneLots']);
+    expect(fake.created).toEqual(['appointments', 'stoneLots', 'suppliers']);
   });
 
-  it('una base v2 solo agrega los lotes de piedras', () => {
+  it('una base v2 agrega lotes y proveedores', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 2);
-    expect(fake.created).toEqual(['stoneLots']);
+    expect(fake.created).toEqual(['stoneLots', 'suppliers']);
+  });
+
+  it('una base v3 solo agrega los proveedores', () => {
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 3);
+    expect(fake.created).toEqual(['suppliers']);
   });
 
   it('una base ya migrada no crea nada', () => {
     const fake = fakeMigratableDb();
-    db.applyDbMigrations(fake.db, 3);
+    db.applyDbMigrations(fake.db, 4);
     expect(fake.created).toEqual([]);
   });
 });
@@ -220,7 +233,8 @@ describe('respaldo v3 con agenda', () => {
       clients: [sampleClient()],
       quotes: [sampleQuote()],
       appointments: [cita({ id: 'a-import', status: 'cumplida' })],
-      stoneLots: []
+      stoneLots: [],
+      suppliers: []
     };
 
     await backupService.importBackup(backup);
@@ -239,7 +253,8 @@ describe('respaldo v3 con agenda', () => {
       clients: [],
       quotes: [],
       appointments: [cita({ id: 'a-dup' }), cita({ id: 'a-dup' })],
-      stoneLots: []
+      stoneLots: [],
+      suppliers: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

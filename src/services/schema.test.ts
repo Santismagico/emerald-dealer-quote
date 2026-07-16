@@ -194,6 +194,7 @@ describe('normalizeStoneLot', () => {
       description: 'Calidad alta',
       purchaseDate: '2026-07-15',
       supplier: 'Proveedor Muzo',
+      supplierId: null,
       carats: 5,
       quantity: 4,
       purchaseValueCop: 6000000,

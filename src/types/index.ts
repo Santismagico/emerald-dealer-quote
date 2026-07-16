@@ -227,6 +227,20 @@ export interface Appointment {
 }
 
 /**
+ * Proveedor de piedras o servicios (SOLO uso interno; corrección C3, 2026-07-16).
+ * Funciona como los clientes: se registra una vez y se vincula a los lotes
+ * para no reescribir el nombre y para seguir las deudas por proveedor.
+ */
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  notes: string;
+  createdAt: string;
+}
+
+/**
  * Venta parcial o total de un lote de piedras (SOLO uso interno).
  * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
  * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
@@ -263,8 +277,10 @@ export interface StoneLot {
   description: string;
   /** Fecha de la compra (YYYY-MM-DD). */
   purchaseDate: string;
-  /** A quién se le compró (texto libre). */
+  /** A quién se le compró (nombre visible; copiado del proveedor o escrito libre). */
   supplier: string;
+  /** Proveedor registrado vinculado, o null si fue texto libre (C3). */
+  supplierId: string | null;
   /** Quilates comprados. */
   carats: number;
   /** Número de piedras compradas. */
@@ -290,6 +306,8 @@ export interface BackupFile {
   appointments: Appointment[];
   /** Lotes de piedras con sus ventas. Los respaldos v1/v2/v3 no los traen y se importan vacíos. */
   stoneLots: StoneLot[];
+  /** Proveedores. Los respaldos v1–v4 no los traen y se importan vacíos. */
+  suppliers: Supplier[];
 }
 
 export const PIECE_TYPES: PieceType[] = [

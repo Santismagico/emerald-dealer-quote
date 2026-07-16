@@ -4,7 +4,13 @@
 
 const DB_NAME = 'emerald-dealer-quote';
 
-export type StoreName = 'settings' | 'clients' | 'quotes' | 'appointments' | 'stoneLots';
+export type StoreName =
+  | 'settings'
+  | 'clients'
+  | 'quotes'
+  | 'appointments'
+  | 'stoneLots'
+  | 'suppliers';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
 
@@ -36,6 +42,10 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   // v3 — lotes de piedras con sus ventas (Etapa 8 del Ecosistema).
   (db) => {
     createStoreIfMissing(db, 'stoneLots');
+  },
+  // v4 — proveedores (corrección C3, 2026-07-16).
+  (db) => {
+    createStoreIfMissing(db, 'suppliers');
   }
 ];
 

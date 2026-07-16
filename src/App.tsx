@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store';
 import type { Quote } from './types';
 import { newId } from './utils/id';
@@ -12,6 +12,7 @@ import { AgendaView } from './components/AgendaView';
 import { StonesView } from './components/StonesView';
 import { DailyCloseView } from './components/DailyCloseView';
 import { ClientsView } from './components/ClientsView';
+import { SuppliersView } from './components/SuppliersView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
@@ -32,6 +33,7 @@ type ViewName =
   | 'more'
   | 'dailyClose'
   | 'clients'
+  | 'suppliers'
   | 'settings';
 
 const APP_URL = 'https://santismagico.github.io/emerald-dealer-quote/';
@@ -340,6 +342,7 @@ function AppShell() {
           <MoreView
             onDailyClose={() => setView('dailyClose')}
             onClients={() => setView('clients')}
+            onSuppliers={() => setView('suppliers')}
             onSettings={() => setView('settings')}
           />
         )}
@@ -353,6 +356,12 @@ function AppShell() {
           <div className="space-y-4">
             <BackRow label="← Más" onClick={() => setView('more')} />
             <ClientsView />
+          </div>
+        )}
+        {view === 'suppliers' && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <SuppliersView />
           </div>
         )}
         {view === 'settings' && (
@@ -393,7 +402,13 @@ function AppShell() {
           <NavButton
             label="Más"
             icon="☰"
-            active={view === 'more' || view === 'clients' || view === 'settings'}
+            active={
+              view === 'more' ||
+              view === 'dailyClose' ||
+              view === 'clients' ||
+              view === 'suppliers' ||
+              view === 'settings'
+            }
             onClick={() => void runAfterViewFlush(() => setView('more'))}
           />
         </div>
@@ -483,10 +498,12 @@ function InAppBrowserBanner() {
 function MoreView({
   onDailyClose,
   onClients,
+  onSuppliers,
   onSettings
 }: {
   onDailyClose: () => void;
   onClients: () => void;
+  onSuppliers: () => void;
   onSettings: () => void;
 }) {
   return (
@@ -502,6 +519,12 @@ function MoreView({
         title="Clientes"
         subtitle="Datos de contacto y notas de tus clientes"
         onClick={onClients}
+      />
+      <MoreItem
+        icon="🤝"
+        title="Proveedores"
+        subtitle="A quiénes les compras piedras y servicios"
+        onClick={onSuppliers}
       />
       <MoreItem
         icon="⚙"

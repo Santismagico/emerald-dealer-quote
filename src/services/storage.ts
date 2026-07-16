@@ -2,7 +2,7 @@
 // Todo dato leído pasa por services/schema.ts (normalización + migraciones):
 // las vistas siempre reciben la forma actual del tipo, venga de la versión que venga.
 
-import type { Settings, Client, Quote, Appointment, StoneLot } from '../types';
+import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate } from './db';
 import {
@@ -11,7 +11,8 @@ import {
   normalizeQuote,
   normalizeClient,
   normalizeAppointment,
-  normalizeStoneLot
+  normalizeStoneLot,
+  normalizeSupplier
 } from './schema';
 import { compareAppointments } from './agenda';
 import { compareStoneLots } from './stones';
@@ -170,6 +171,22 @@ export async function saveStoneLot(lot: StoneLot): Promise<void> {
 
 export async function deleteStoneLot(id: string): Promise<void> {
   await dbDelete('stoneLots', id);
+}
+
+export async function listSuppliers(): Promise<Supplier[]> {
+  const suppliers = await dbGetAll<unknown>('suppliers');
+  return suppliers.map(normalizeSupplier).sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    return byName || a.id.localeCompare(b.id, 'es');
+  });
+}
+
+export async function saveSupplier(supplier: Supplier): Promise<void> {
+  await dbPut('suppliers', normalizeSupplier(supplier));
+}
+
+export async function deleteSupplier(id: string): Promise<void> {
+  await dbDelete('suppliers', id);
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */

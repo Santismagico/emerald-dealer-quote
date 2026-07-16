@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
 import type { StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
@@ -15,6 +15,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     description: '',
     purchaseDate: DAY,
     supplier: 'Proveedor Muzo',
+    supplierId: null,
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,

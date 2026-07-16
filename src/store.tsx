@@ -2,7 +2,7 @@
 // sincronizado con IndexedDB a través de services/storage.
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import type { Settings, Client, Quote, Appointment, StoneLot } from './types';
+import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from './types';
 import * as storage from './services/storage';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
@@ -20,6 +20,7 @@ interface AppStore {
   quotes: Quote[];
   appointments: Appointment[];
   stoneLots: StoneLot[];
+  suppliers: Supplier[];
   toast: string | null;
   backupExporting: boolean;
   showToast: (message: string) => void;
@@ -35,6 +36,8 @@ interface AppStore {
   removeAppointment: (id: string) => Promise<void>;
   upsertStoneLot: (lot: StoneLot) => Promise<void>;
   removeStoneLot: (id: string) => Promise<void>;
+  upsertSupplier: (supplier: Supplier) => Promise<void>;
+  removeSupplier: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   reloadAll: () => Promise<void>;
   /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
@@ -50,22 +53,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q, a, sm] = await Promise.all([
+    const [s, c, q, a, sm, sp] = await Promise.all([
       storage.loadSettings(),
       storage.listClients(),
       storage.listQuotes(),
       storage.listAppointments(),
-      storage.listStoneLots()
+      storage.listStoneLots(),
+      storage.listSuppliers()
     ]);
     setSettings(s);
     setClients(c);
     setQuotes(q);
     setAppointments(a);
     setStoneLots(sm);
+    setSuppliers(sp);
   }, []);
 
   const refreshGoldPrice = useCallback(async () => {
@@ -177,6 +183,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await storage.deleteStoneLot(id);
   }, []);
 
+  const upsertSupplier = useCallback(async (supplier: Supplier) => {
+    await storage.saveSupplier(supplier);
+    setSuppliers(await storage.listSuppliers());
+  }, []);
+
+  const removeSupplier = useCallback(async (id: string) => {
+    await storage.deleteSupplier(id);
+    setSuppliers(await storage.listSuppliers());
+  }, []);
+
   const nextQuoteNumber = useCallback(async () => {
     const number = await storage.nextQuoteNumber();
     setSettings(await storage.loadSettings());
@@ -192,6 +208,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         quotes,
         appointments,
         stoneLots,
+        suppliers,
         toast,
         backupExporting,
         showToast,
@@ -207,6 +224,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         removeAppointment,
         upsertStoneLot,
         removeStoneLot,
+        upsertSupplier,
+        removeSupplier,
         nextQuoteNumber,
         reloadAll,
         refreshGoldPrice

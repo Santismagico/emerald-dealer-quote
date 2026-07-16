@@ -3,7 +3,7 @@
 // anterior, editado a mano o corrupto nunca puede dejar datos malformados en la
 // base local (hallazgo de la auditoría de seguridad 2026-07-09).
 
-import type { Appointment, BackupFile, Client, Quote, StoneLot } from '../types';
+import type { Appointment, BackupFile, Client, Quote, StoneLot, Supplier } from '../types';
 import { dbWriteTransaction } from './db';
 import {
   loadSettings,
@@ -11,6 +11,7 @@ import {
   listQuotes,
   listAppointments,
   listStoneLots,
+  listSuppliers,
   SETTINGS_KEY
 } from './storage';
 import {
@@ -18,24 +19,27 @@ import {
   normalizeQuote,
   normalizeClient,
   normalizeAppointment,
-  normalizeStoneLot
+  normalizeStoneLot,
+  normalizeSupplier
 } from './schema';
 
 /**
- * Versión actual del formato de respaldo. Se aceptan al importar: 1, 2, 3 y 4.
- * v3 agregó las citas; v4 agrega los lotes de piedras. Los respaldos más
- * viejos se importan con las listas nuevas vacías y nunca fallan por no traerlas.
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 5.
+ * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores. Los
+ * respaldos más viejos se importan con las listas nuevas vacías y nunca
+ * fallan por no traerlas.
  */
-export const BACKUP_VERSION = 4;
-const ACCEPTED_VERSIONS = [1, 2, 3, 4];
+export const BACKUP_VERSION = 5;
+const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5];
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [settings, clients, quotes, appointments, stoneLots] = await Promise.all([
+  const [settings, clients, quotes, appointments, stoneLots, suppliers] = await Promise.all([
     loadSettings(),
     listClients(),
     listQuotes(),
     listAppointments(),
-    listStoneLots()
+    listStoneLots(),
+    listSuppliers()
   ]);
   return {
     app: 'emerald-dealer-quote',
@@ -45,7 +49,8 @@ export async function exportBackup(): Promise<BackupFile> {
     clients,
     quotes,
     appointments,
-    stoneLots
+    stoneLots,
+    suppliers
   };
 }
 
@@ -149,6 +154,22 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     stoneLotIds.add(id);
   }
+  // Los proveedores son opcionales (v1–v4 no los traen).
+  const rawSuppliers = b.suppliers ?? [];
+  if (!Array.isArray(rawSuppliers)) {
+    throw new Error('El respaldo contiene proveedores inválidos.');
+  }
+  const supplierIds = new Set<string>();
+  for (const s of rawSuppliers) {
+    const id = (s as Supplier)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene proveedores inválidos.');
+    }
+    if (supplierIds.has(id)) {
+      throw new Error('El respaldo contiene proveedores duplicados.');
+    }
+    supplierIds.add(id);
+  }
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -158,7 +179,8 @@ function normalizeBackup(data: unknown): BackupFile {
     clients: b.clients.map(normalizeClient),
     quotes: b.quotes.map(normalizeQuote),
     appointments: rawAppointments.map(normalizeAppointment),
-    stoneLots: rawStoneLots.map(normalizeStoneLot)
+    stoneLots: rawStoneLots.map(normalizeStoneLot),
+    suppliers: rawSuppliers.map(normalizeSupplier)
   };
 }
 
@@ -184,19 +206,21 @@ export async function importBackup(backup: BackupFile): Promise<void> {
 
   try {
     await dbWriteTransaction(
-      ['settings', 'clients', 'quotes', 'appointments', 'stoneLots'],
+      ['settings', 'clients', 'quotes', 'appointments', 'stoneLots', 'suppliers'],
       (getStore) => {
         const settingsStore = getStore('settings');
         const clientsStore = getStore('clients');
         const quotesStore = getStore('quotes');
         const appointmentsStore = getStore('appointments');
         const stoneLotsStore = getStore('stoneLots');
+        const suppliersStore = getStore('suppliers');
 
         settingsStore.clear();
         clientsStore.clear();
         quotesStore.clear();
         appointmentsStore.clear();
         stoneLotsStore.clear();
+        suppliersStore.clear();
 
         if (normalized.settings) {
           settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -212,6 +236,9 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         }
         for (const lot of normalized.stoneLots) {
           stoneLotsStore.put(lot);
+        }
+        for (const supplier of normalized.suppliers) {
+          suppliersStore.put(supplier);
         }
       }
     );

@@ -229,6 +229,7 @@ export function emptyStoneLot(today: string, nowIso: string): StoneLot {
     description: '',
     purchaseDate: today,
     supplier: '',
+    supplierId: null,
     carats: 0,
     quantity: 1,
     purchaseValueCop: 0,

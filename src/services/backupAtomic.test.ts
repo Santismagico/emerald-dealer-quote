@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   IDBDatabase as FakeIDBDatabase,
   IDBFactory as FakeIDBFactory,
@@ -61,7 +61,8 @@ function makeBackup(
     clients,
     quotes,
     appointments: [],
-    stoneLots: []
+    stoneLots: [],
+    suppliers: []
   };
 }
 

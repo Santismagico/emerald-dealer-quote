@@ -31,6 +31,7 @@ import {
   Field,
   MoneyInput,
   SectionCard,
+  Select,
   SummaryRow,
   TextArea,
   TextInput
@@ -407,6 +408,15 @@ function LotForm({
 
   const patch = (partial: Partial<StoneLot>) => setForm((current) => ({ ...current, ...partial }));
 
+  const selectSupplier = (supplierId: string) => {
+    if (!supplierId) {
+      patch({ supplierId: null });
+      return;
+    }
+    const supplier = store.suppliers.find((s) => s.id === supplierId);
+    patch({ supplierId, supplier: supplier ? supplier.name : form.supplier });
+  };
+
   const save = async () => {
     if (!isStoneLotValid(form)) {
       store.showToast('El lote necesita fecha de compra y tipo de piedra.');
@@ -466,6 +476,18 @@ function LotForm({
           <Field label="Costo total del lote">
             <MoneyInput value={form.purchaseValueCop} onValue={(purchaseValueCop) => patch({ purchaseValueCop })} />
           </Field>
+          {store.suppliers.length > 0 && (
+            <Field label="Proveedor registrado (opcional)">
+              <Select
+                value={form.supplierId ?? ''}
+                onChange={selectSupplier}
+                options={[
+                  { value: '', label: '— Sin vincular —' },
+                  ...store.suppliers.map((s) => ({ value: s.id, label: s.name }))
+                ]}
+              />
+            </Field>
+          )}
           <Field label="A quién le compraste">
             <TextInput
               value={form.supplier}

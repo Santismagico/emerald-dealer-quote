@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import type { StoneLot, StoneSale } from '../types';
 import {
   countStoneLots,
@@ -38,6 +38,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     description: 'Talla esmeralda, calidad alta',
     purchaseDate: '2026-07-10',
     supplier: 'Proveedor Muzo',
+    supplierId: null,
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,

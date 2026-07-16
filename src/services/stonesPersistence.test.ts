@@ -1,4 +1,4 @@
-// Etapa 8: migración IndexedDB v2→v3 (almacén de lotes de piedras) y respaldo
+﻿// Etapa 8: migración IndexedDB v2→v3 (almacén de lotes de piedras) y respaldo
 // v4. Se prueba contra una base v2 auténtica (la que dejó la Etapa 7): al abrir
 // la app nueva debe aparecer el almacén de lotes SIN perder un solo dato.
 
@@ -50,6 +50,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     description: '',
     purchaseDate: '2026-07-15',
     supplier: 'Proveedor Muzo',
+    supplierId: null,
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,
@@ -176,7 +177,7 @@ describe('respaldo v4 con lotes de piedras', () => {
   it('la exportación incluye los lotes y declara la versión 4', async () => {
     await storage.saveStoneLot(lote());
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(4);
+    expect(backup.version).toBe(backupService.BACKUP_VERSION);
     expect(backup.stoneLots.map((l) => l.id)).toEqual(['l-1']);
     expect(backup.stoneLots[0].sales.length).toBe(1);
   });
@@ -209,7 +210,8 @@ describe('respaldo v4 con lotes de piedras', () => {
       clients: [sampleClient()],
       quotes: [sampleQuote()],
       appointments: [],
-      stoneLots: [lote({ id: 'l-import' })]
+      stoneLots: [lote({ id: 'l-import' })],
+      suppliers: []
     };
 
     await backupService.importBackup(backup);
@@ -228,7 +230,8 @@ describe('respaldo v4 con lotes de piedras', () => {
       clients: [],
       quotes: [],
       appointments: [],
-      stoneLots: [lote({ id: 'l-dup' }), lote({ id: 'l-dup' })]
+      stoneLots: [lote({ id: 'l-dup' }), lote({ id: 'l-dup' })],
+      suppliers: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 
