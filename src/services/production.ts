@@ -5,14 +5,18 @@ import type { ProductionStage } from '../types';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
 
-/** Etapas estándar del proceso de joyería, en orden de fabricación. */
+/**
+ * Etapas estándar del proceso de joyería, en orden de fabricación.
+ * Nombres definidos por Santiago (corrección C1, 2026-07-16). Solo aplican a
+ * trabajos que se aprueben desde ahora; las piezas ya aprobadas conservan
+ * sus etapas tal cual (y siempre pueden renombrarse a mano).
+ */
 export const DEFAULT_STAGE_NAMES = [
   'Diseño',
-  'Impresión (cera/3D)',
   'Fundición',
-  'Armado y engaste',
-  'Pulido',
-  'Entrega'
+  'Terminado y engaste',
+  'Material',
+  'Varios'
 ] as const;
 
 export function emptyStage(name: string): ProductionStage {
