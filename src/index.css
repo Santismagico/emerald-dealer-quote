@@ -30,6 +30,24 @@ button {
   font-size: 16px;
 }
 
+/*
+ * iOS centra el texto de los campos de fecha/hora y los hace ver "corridos"
+ * frente a los demás campos (corrección C5). Se alinean a la izquierda como
+ * el resto y se les fija la misma altura que los otros inputs.
+ */
+input[type='date'],
+input[type='time'],
+input[type='month'] {
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+  display: flex;
+  align-items: center;
+}
+input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 /* Respeto de las safe areas de iPhone (notch y barra inferior). */
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);

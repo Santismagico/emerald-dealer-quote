@@ -3,7 +3,14 @@ import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
 import type { StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { contentToPlainText } from './pdfContent';
-import { buildDailyReport, buildDailyReportPdfContent } from './dailyReport';
+import {
+  buildDailyReport,
+  buildDailyReportPdfContent,
+  buildMonthlyReport,
+  buildMonthlyReportPdfContent,
+  formatMonthCO,
+  listMonthlySummaries
+} from './dailyReport';
 
 const DAY = '2026-07-15';
 
@@ -204,5 +211,118 @@ describe('PDF del cierre del día', () => {
       buildDailyReportPdfContent(buildDailyReport(DAY, [], []), sampleSettings())
     );
     expect(text).toContain('Sin movimientos');
+  });
+});
+
+describe('caja honesta con crédito (C5)', () => {
+  it('una compra a crédito no sale de caja; los pagos al proveedor sí', () => {
+    const lots = [
+      lote({ id: 'l-contado', purchaseValueCop: 1000000 }),
+      lote({
+        id: 'l-credito',
+        onCredit: true,
+        purchaseValueCop: 4000000,
+        supplierPayments: [
+          { id: 'sp-hoy', date: DAY, amount: 1500000, notes: '' },
+          { id: 'sp-otro-dia', date: '2026-07-10', amount: 500000, notes: '' }
+        ]
+      })
+    ];
+    const report = buildDailyReport(DAY, [], lots);
+
+    expect(report.totals.stonesPurchasedCash).toBe(1000000);
+    expect(report.totals.stonesPurchasedCredit).toBe(4000000);
+    expect(report.totals.supplierPaymentsPaid).toBe(1500000);
+    expect(report.totals.cashOut).toBe(1000000 + 1500000);
+    expect(report.supplierPayments.length).toBe(1);
+    expect(report.totals.supplierDebt).toBe(4000000 - 2000000);
+  });
+
+  it('un día solo con pago a proveedor no es un día vacío', () => {
+    const lots = [
+      lote({
+        id: 'l-credito',
+        purchaseDate: '2026-07-01',
+        onCredit: true,
+        supplierPayments: [{ id: 'sp-1', date: DAY, amount: 1000000, notes: '' }]
+      })
+    ];
+    const report = buildDailyReport(DAY, [], lots);
+    expect(report.isEmpty).toBe(false);
+    expect(report.totals.cashOut).toBe(1000000);
+  });
+
+  it('calcula lo que los clientes deben en piezas aprobadas', () => {
+    const aprobada = sampleQuote({
+      status: 'aprobada',
+      date: '2026-07-01',
+      production: [],
+      payments: [{ id: 'p-1', amount: 1000000, date: '2026-07-01', receivedBy: '', method: '', notes: '' }]
+    });
+    const report = buildDailyReport(DAY, [aprobada], []);
+    const total = calculateQuote(quoteToCalcInput(aprobada)).total;
+    expect(report.totals.clientsOwe).toBe(total - 1000000);
+  });
+
+  it('el PDF separa joyería de piedras y marca las compras a crédito', () => {
+    const lots = [lote({ id: 'l-cr', onCredit: true })];
+    const quote = sampleQuote({
+      date: '2026-07-01',
+      production: [],
+      payments: [{ id: 'p-1', amount: 500000, date: DAY, receivedBy: '', method: '', notes: '' }]
+    });
+    const content = buildDailyReportPdfContent(buildDailyReport(DAY, [quote], lots), sampleSettings());
+    const titles = content.sections.map((s) => s.title);
+    expect(titles).toContain('Joyería · Abonos recibidos');
+    expect(titles).toContain('Piedras · Compras');
+    const text = contentToPlainText(content);
+    expect(text).toContain('A CRÉDITO (no salió de caja)');
+    expect(text).toContain('Debes a proveedores (a la fecha)');
+  });
+});
+
+describe('cierre del mes (C6)', () => {
+  const julio = [
+    lote({ id: 'l-1', purchaseDate: '2026-07-02', purchaseValueCop: 1000000 }),
+    lote({
+      id: 'l-2',
+      purchaseDate: '2026-06-20',
+      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, valueCop: 3000000, notes: '' }]
+    })
+  ];
+
+  it('agrupa todo el mes y respeta los límites', () => {
+    const report = buildMonthlyReport('2026-07', [], julio);
+    expect(report.stonePurchases.map((p) => p.lotName)).toEqual(['Muzo 12']);
+    expect(report.stoneSales.length).toBe(1);
+    expect(report.totals.cashIn).toBe(3000000);
+    expect(report.totals.cashOut).toBe(1000000);
+
+    const junio = buildMonthlyReport('2026-06', [], julio);
+    expect(junio.stonePurchases.length).toBe(1);
+    expect(junio.stoneSales.length).toBe(0);
+  });
+
+  it('lista los meses con actividad del más reciente al más antiguo', () => {
+    const summaries = listMonthlySummaries([], julio);
+    expect(summaries.map((s) => s.month)).toEqual(['2026-07', '2026-06']);
+    expect(summaries[0].net).toBe(3000000 - 1000000);
+    expect(summaries[1].net).toBe(-6000000);
+  });
+
+  it('formatea el mes en español', () => {
+    expect(formatMonthCO('2026-07').toLowerCase()).toContain('julio de 2026');
+  });
+
+  it('el PDF del mes compara con los meses anteriores', () => {
+    const report = buildMonthlyReport('2026-07', [], julio);
+    const summaries = listMonthlySummaries([], julio);
+    const content = buildMonthlyReportPdfContent(report, summaries, sampleSettings());
+    const text = contentToPlainText(content);
+    expect(text).toContain('CIERRE DEL MES');
+    expect(text).toContain('Actividad del mes');
+    expect(text).toContain('Comparación con meses anteriores');
+    expect(text.toLowerCase()).toContain('junio de 2026');
+    expect(text).toContain('MOVIMIENTO NETO DEL MES');
   });
 });
