@@ -83,7 +83,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**El plan Ecosistema v1.0 está COMPLETO** (Etapas 6–9: Taller D-021, Agenda D-022, Piedras D-023, Cierre del día D-024) como **candidata no publicada** en la rama de trabajo, con 384 pruebas y build en verde. Los siguientes pasos posibles requieren decisión de Santiago: (a) probar la candidata completa en un iPhone y un Android reales (la prueba física registrada cubrió solo hasta la Etapa 5.5 en iPhone), y (b) autorizar la publicación a `main`. Trabajo técnico opcional pendiente de ROADMAP: plantillas de piezas frecuentes (requiere autorización), logo/ícono, mover el proyecto fuera de OneDrive.
+**El Ecosistema v1.0 está PUBLICADO** (2026-07-16, Codex llevó `main` a `ae57b95`; despliegue en verde y sitio en vivo verificado por Fable: 5 pestañas, base v3, sin errores de consola). Santiago anunció una tanda de **correcciones de funcionamiento y estéticas**: el método completo para aplicarlas (protección, clasificación, mapa del código, verificación, publicación y trabajo simultáneo Claude+Codex) está en `docs/HOJA_DE_RUTA_CORRECCIONES.md` — cualquier agente debe seguir ese documento al recibir la lista. Pendientes de ROADMAP sin cambios: prueba física Android, plantillas (requiere autorización), logo/ícono, salir de OneDrive.
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
@@ -110,4 +110,6 @@ npm test && npm run build
 | 2026-07-12 | Etapa 6: Taller como área propia (Fable) | Navegación Cotizador·Taller·Más, trabajos derivados con lógica pura, pantalla de trabajo con guardado diferido; 309 tests y build en verde; verificado en navegador | cded994 |
 | 2026-07-14 | Etapa 7: Agenda de asesorías (Fable) | Migración IndexedDB v1→v2, respaldo v3 de 4 almacenes, pestaña Agenda con aviso de hoy; 337 tests y build en verde; migración y flujo verificados en navegador | cc33c5a |
 | 2026-07-15 | Etapa 8: Piedras por lotes (Fable) | Lotes rastreables con ventas embebidas y validación de existencias, migración v2→v3, respaldo v4 de 5 almacenes; 372 tests y build en verde; flujo verificado en navegador | 784071e |
-| 2026-07-15 | Etapa 9: Cierre del día (Fable) | Motor puro dailyReport.ts, PDF interno solo descarga, approvedAt en withQuoteStatus, vista en Más; 384 tests y build en verde; reporte y PDF verificados en navegador; **plan v1.0 completo** | pendiente de commit |
+| 2026-07-15 | Etapa 9: Cierre del día (Fable) | Motor puro dailyReport.ts, PDF interno solo descarga, approvedAt en withQuoteStatus, vista en Más; 384 tests y build en verde; reporte y PDF verificados en navegador; **plan v1.0 completo** | ae57b95 |
+| 2026-07-16 | Publicación v1.0 (Codex) + auditoría (Fable) | Codex llevó main a ae57b95 (deploy en verde); Fable verificó el sitio en vivo: 5 pestañas, Piedras y Cierre del día funcionando, base v3, consola limpia | ae57b95 en main |
+| 2026-07-16 | Hoja de ruta de correcciones (Fable) | docs/HOJA_DE_RUTA_CORRECCIONES.md: método completo para aplicar las correcciones de Santiago (protección, mapa del código, verificación, publicación, trabajo simultáneo) | pendiente de commit |
