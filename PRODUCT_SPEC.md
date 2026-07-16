@@ -1,5 +1,11 @@
 # PRODUCT_SPEC — Emerald Dealer Quote
 
+> **Alcance vigente:** este documento describe el MVP, que es hoy el área Cotizador. D-020
+> (2026-07-12) amplió el producto al Ecosistema Emerald Dealer v1.0: Cotizador, Taller, Agenda
+> y Piedras, más la pestaña "Más" (Clientes, Ajustes, Cierre del día). Las áreas nuevas se
+> especifican en `DECISIONS.md` (D-020 a D-024) y `docs/EXECUTION_PLAN.md`; lo que sigue abajo
+> no las cubre. Las reglas de privacidad y del motor de cálculo rigen para todo el ecosistema.
+
 ## Problema
 
 Una joyería necesita cotizar piezas de joyería de forma rápida, profesional y confiable: ingresar cliente, material, peso, piedras, mano de obra, costos, margen, descuentos e impuestos; generar un PDF presentable para el cliente y conservar historial. La información sensible (costos, margen, fórmula del oro) debe quedar solo en la vista interna; cualquier salida al cliente que la contenga debe bloquearse hasta corregirla.
@@ -61,6 +67,8 @@ Todos los valores se redondean a **pesos enteros**. Negativos se rechazan en val
 ## Fuera de alcance del MVP (a propósito)
 
 - Cuentas de usuario, backend, base de datos remota.
-- Inventario de piedras o catálogo fijo.
+- Inventario ligado al cotizador: usar una piedra en una joya nunca descuenta existencias
+  automáticamente, y no hay catálogo fijo de piedras para elegir al cotizar. El registro de
+  piedras por lotes que sí existe (D-023) es un área aparte y no toca la cotización.
 - Promesas de certificación (solo si el usuario la escribe como costo/nota).
 - Facturación electrónica DIAN.
