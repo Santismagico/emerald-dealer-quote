@@ -18,6 +18,7 @@ import {
   stonesInventory,
   summarizeStoneLot,
   validateStoneSale,
+  validateStoneLotPurchaseUpdate,
   validateSupplierPayment,
   withLotSale,
   withoutLotSale,
@@ -50,6 +51,15 @@ const FILTERS: Array<{ value: LotFilter; label: string }> = [
 
 function formatCarats(carats: number): string {
   return `${carats.toLocaleString('es-CO', { maximumFractionDigits: 3 })} ct`;
+}
+
+export function stoneLotDeletionWarning(lot: StoneLot): string {
+  const summary = summarizeStoneLot(lot);
+  return `¿Eliminar el lote "${lotDisplayName(lot)}"? Se borrará la compra y todo su historial: ${
+    lot.sales.length
+  } venta(s), ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
+    summary.supplierDebt
+  )}. Esta acción no se puede deshacer.`;
 }
 
 export function StonesView() {
@@ -441,9 +451,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         <ConfirmDialog
           open={confirmDeleteLot}
           title="Eliminar lote"
-          message={`¿Eliminar el lote "${lotDisplayName(lot)}"${
-            lot.sales.length > 0 ? ` y sus ${lot.sales.length} venta(s) registradas` : ''
-          }? Esta acción no se puede deshacer.`}
+          message={stoneLotDeletionWarning(lot)}
           confirmLabel="Eliminar"
           danger
           busy={busy}
@@ -556,6 +564,11 @@ function LotForm({
       );
       return;
     }
+    const purchaseError = validateStoneLotPurchaseUpdate(isNew ? null : initial, form);
+    if (purchaseError) {
+      store.showToast(purchaseError);
+      return;
+    }
     setBusy(true);
     try {
       await store.upsertStoneLot({ ...form, updatedAt: new Date().toISOString() });
@@ -623,7 +636,7 @@ function LotForm({
           <Field label="A quién le compraste">
             <TextInput
               value={form.supplier}
-              onChange={(supplier) => patch({ supplier })}
+              onChange={(supplier) => patch({ supplier, supplierId: null })}
               placeholder="Nombre del proveedor"
             />
           </Field>

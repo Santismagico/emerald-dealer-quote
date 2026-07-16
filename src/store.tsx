@@ -185,12 +185,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const upsertSupplier = useCallback(async (supplier: Supplier) => {
     await storage.saveSupplier(supplier);
-    setSuppliers(await storage.listSuppliers());
+    const [nextSuppliers, nextStoneLots] = await Promise.all([
+      storage.listSuppliers(),
+      storage.listStoneLots()
+    ]);
+    setSuppliers(nextSuppliers);
+    setStoneLots(nextStoneLots);
   }, []);
 
   const removeSupplier = useCallback(async (id: string) => {
     await storage.deleteSupplier(id);
-    setSuppliers(await storage.listSuppliers());
+    const [nextSuppliers, nextStoneLots] = await Promise.all([
+      storage.listSuppliers(),
+      storage.listStoneLots()
+    ]);
+    setSuppliers(nextSuppliers);
+    setStoneLots(nextStoneLots);
   }, []);
 
   const nextQuoteNumber = useCallback(async () => {

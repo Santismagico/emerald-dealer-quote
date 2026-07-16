@@ -22,6 +22,9 @@ import {
 
 type BackupRestoreResult = 'success' | 'restore-failed' | 'reload-failed';
 
+export const BACKUP_RESTORE_WARNING =
+  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas y pagos a proveedores) y proveedores actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
+
 /** Orden comprobable del flujo: restaurar, sincronizar, recargar y recién entonces avisar éxito. */
 export async function runBackupRestoreFlow(actions: {
   restore: () => Promise<void>;
@@ -371,7 +374,7 @@ export function SettingsView() {
       <ConfirmDialog
         open={importPending !== null}
         title="Restaurar respaldo"
-        message="Esto REEMPLAZARÁ todos los clientes, cotizaciones y ajustes actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?"
+        message={BACKUP_RESTORE_WARNING}
         confirmLabel={importBusy ? 'Restaurando…' : 'Reemplazar todo'}
         danger
         busy={importBusy}

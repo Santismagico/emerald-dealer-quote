@@ -132,7 +132,7 @@ export function SuppliersView() {
       <ConfirmDialog
         open={toDelete !== null}
         title="Eliminar proveedor"
-        message={`¿Eliminar a ${toDelete?.name}? Los lotes ya registrados conservan su nombre.`}
+        message={`¿Eliminar a ${toDelete?.name} de la lista? Los lotes vinculados conservarán su nombre, ventas, pagos y deuda; solo se quitará el vínculo con este proveedor.`}
         confirmLabel="Eliminar"
         danger
         onCancel={() => setToDelete(null)}

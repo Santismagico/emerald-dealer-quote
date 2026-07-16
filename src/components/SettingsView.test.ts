@@ -1,7 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runBackupRestoreFlow } from './SettingsView';
+import { BACKUP_RESTORE_WARNING, runBackupRestoreFlow } from './SettingsView';
 
 describe('flujo visible de restauración', () => {
+  it('advierte todos los grupos de datos que serán reemplazados', () => {
+    for (const expected of [
+      'ajustes',
+      'clientes',
+      'cotizaciones',
+      'abonos',
+      'taller',
+      'agenda',
+      'lotes de piedras',
+      'ventas',
+      'pagos',
+      'proveedores'
+    ]) {
+      expect(BACKUP_RESTORE_WARNING).toContain(expected);
+    }
+  });
+
   it('un aborto no recarga la aplicación ni muestra éxito', async () => {
     const afterCommit = vi.fn();
     const reloadAll = vi.fn(async () => {});

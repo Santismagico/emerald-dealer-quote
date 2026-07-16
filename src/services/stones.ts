@@ -80,6 +80,7 @@ export function validateSupplierPayment(
   payment: SupplierPayment,
   excludePaymentId?: string
 ): string | null {
+  if (!lot.onCredit) return 'Los pagos al proveedor solo se registran en compras a crédito.';
   if (!isValidISODate(payment.date)) return 'El pago necesita una fecha válida.';
   if (payment.amount <= 0) return 'Indica el monto pagado al proveedor.';
 
@@ -88,6 +89,76 @@ export function validateSupplierPayment(
   if (payment.amount > summary.supplierDebt) {
     return `Solo debes ${summary.supplierDebt.toLocaleString('es-CO')} de este lote.`;
   }
+  return null;
+}
+
+/**
+ * Protege el historial de una compra cuando se edita el lote. Los pagos ya
+ * registrados nunca se borran ni pueden quedar por encima del costo, ligados
+ * a otro proveedor o dentro de una compra marcada como contado.
+ */
+export function validateStoneLotPurchaseUpdate(
+  previous: StoneLot | null,
+  next: StoneLot
+): string | null {
+  if (previous) {
+    const paymentsChanged =
+      previous.supplierPayments.length !== next.supplierPayments.length ||
+      previous.supplierPayments.some((payment, index) => {
+        const candidate = next.supplierPayments[index];
+        return (
+          !candidate ||
+          payment.id !== candidate.id ||
+          payment.date !== candidate.date ||
+          payment.amount !== candidate.amount ||
+          payment.notes !== candidate.notes
+        );
+      });
+    if (paymentsChanged) {
+      return 'Los pagos existentes no se pueden borrar ni cambiar desde la edición de la compra.';
+    }
+
+    const salesChanged =
+      previous.sales.length !== next.sales.length ||
+      previous.sales.some((sale, index) => {
+        const candidate = next.sales[index];
+        return (
+          !candidate ||
+          sale.id !== candidate.id ||
+          sale.date !== candidate.date ||
+          sale.buyer !== candidate.buyer ||
+          sale.carats !== candidate.carats ||
+          sale.quantity !== candidate.quantity ||
+          sale.valueCop !== candidate.valueCop ||
+          sale.notes !== candidate.notes
+        );
+      });
+    if (salesChanged) {
+      return 'Las ventas existentes no se pueden borrar ni cambiar desde la edición de la compra.';
+    }
+  }
+
+  const paidToSupplier = next.supplierPayments.reduce((total, payment) => total + payment.amount, 0);
+
+  if (next.purchaseValueCop < paidToSupplier) {
+    return `El costo del lote no puede ser menor que los ${paidToSupplier.toLocaleString(
+      'es-CO'
+    )} ya pagados al proveedor.`;
+  }
+
+  if (!next.onCredit && next.supplierPayments.length > 0) {
+    return 'No puedes cambiar esta compra a contado porque ya tiene pagos al proveedor.';
+  }
+
+  if (previous && previous.supplierPayments.length > 0) {
+    const supplierChanged =
+      previous.supplierId !== next.supplierId ||
+      previous.supplier.trim() !== next.supplier.trim();
+    if (supplierChanged) {
+      return 'No puedes cambiar el proveedor porque este lote ya tiene pagos registrados.';
+    }
+  }
+
   return null;
 }
 

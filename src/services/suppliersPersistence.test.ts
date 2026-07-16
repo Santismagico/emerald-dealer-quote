@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
-import type { BackupFile, Supplier } from '../types';
+import type { BackupFile, StoneLot, Supplier } from '../types';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
 
 let storage: typeof import('./storage');
@@ -31,6 +31,40 @@ function proveedor(overrides: Partial<Supplier> = {}): Supplier {
     city: 'Bogotá',
     notes: '',
     createdAt: '2026-07-16T09:00:00.000Z',
+    ...overrides
+  };
+}
+
+function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
+  return {
+    id: 'lot-sup-1',
+    name: 'Lote con historial',
+    stoneType: 'Esmeralda',
+    description: '',
+    purchaseDate: '2026-07-16',
+    supplier: 'Proveedor Muzo',
+    supplierId: 'sup-1',
+    carats: 2,
+    quantity: 2,
+    purchaseValueCop: 4000000,
+    onCredit: true,
+    supplierPayments: [
+      { id: 'pay-1', date: '2026-07-16', amount: 1000000, notes: 'Transferencia' }
+    ],
+    notes: '',
+    sales: [
+      {
+        id: 'sale-1',
+        date: '2026-07-16',
+        buyer: 'Cliente interno',
+        carats: 0.5,
+        quantity: 1,
+        valueCop: 1500000,
+        notes: ''
+      }
+    ],
+    createdAt: '2026-07-16T09:00:00.000Z',
+    updatedAt: '2026-07-16T09:00:00.000Z',
     ...overrides
   };
 }
@@ -83,6 +117,36 @@ describe('migración real v3 → v4', () => {
 
     await storage.deleteSupplier('sup-a');
     expect((await storage.listSuppliers()).map((s) => s.id)).toEqual(['sup-b']);
+  });
+
+  it('renombrar un proveedor actualiza sus lotes sin tocar ventas ni pagos', async () => {
+    await storage.saveSupplier(proveedor());
+    await storage.saveStoneLot(loteVinculado());
+
+    await storage.saveSupplier(proveedor({ name: 'Proveedor Chivor' }));
+
+    const [lot] = await storage.listStoneLots();
+    expect(lot.supplierId).toBe('sup-1');
+    expect(lot.supplier).toBe('Proveedor Chivor');
+    expect(lot.sales.map((sale) => sale.id)).toEqual(['sale-1']);
+    expect(lot.supplierPayments.map((payment) => payment.id)).toEqual(['pay-1']);
+  });
+
+  it('eliminar un proveedor conserva el nombre y todo el historial del lote', async () => {
+    await storage.saveSupplier(proveedor());
+    await storage.saveStoneLot(loteVinculado());
+
+    await storage.deleteSupplier('sup-1');
+
+    const [lot] = await storage.listStoneLots();
+    expect(await storage.listSuppliers()).toEqual([]);
+    expect(lot.supplierId).toBeNull();
+    expect(lot.supplier).toBe('Proveedor Muzo');
+    expect(lot.sales).toHaveLength(1);
+    expect(lot.sales[0].valueCop).toBe(1500000);
+    expect(lot.supplierPayments).toHaveLength(1);
+    expect(lot.supplierPayments[0].amount).toBe(1000000);
+    expect(lot.onCredit).toBe(true);
   });
 
   it('normaliza al leer un proveedor corrupto', async () => {

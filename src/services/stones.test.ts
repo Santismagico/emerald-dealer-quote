@@ -13,6 +13,7 @@ import {
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
+  validateStoneLotPurchaseUpdate,
   validateStoneSale,
   validateSupplierPayment,
   withLotSale,
@@ -274,6 +275,53 @@ describe('compras a credito y pagos al proveedor (C4)', () => {
     expect(validateSupplierPayment(l, pago({ id: 'p-2', date: 'ayer' }))).toMatch(/fecha/);
     expect(validateSupplierPayment(l, pago({ id: 'p-2', amount: 0 }))).toMatch(/monto/);
     expect(validateSupplierPayment(l, pago({ id: 'p-2', amount: 4000000 }))).toBeNull();
+  });
+
+  it('rechaza registrar pagos en una compra de contado', () => {
+    expect(validateSupplierPayment(lote({ onCredit: false }), pago())).toMatch(/crédito/);
+  });
+
+  it('no permite bajar el costo por debajo de lo que ya se pagó', () => {
+    const original = credito({ supplierPayments: [pago({ amount: 3000000 })] });
+    const editado = { ...original, purchaseValueCop: 2999999 };
+    expect(validateStoneLotPurchaseUpdate(original, editado)).toMatch(/menor/);
+  });
+
+  it('no permite pasar a contado una compra que ya tiene pagos', () => {
+    const original = credito({ supplierPayments: [pago()] });
+    const editado = { ...original, onCredit: false };
+    expect(validateStoneLotPurchaseUpdate(original, editado)).toMatch(/contado/);
+  });
+
+  it('no permite cambiar el proveedor de un lote que ya tiene pagos', () => {
+    const original = credito({
+      supplier: 'Proveedor Muzo',
+      supplierId: 'sup-1',
+      supplierPayments: [pago()]
+    });
+    const editado = { ...original, supplier: 'Otro proveedor', supplierId: 'sup-2' };
+    expect(validateStoneLotPurchaseUpdate(original, editado)).toMatch(/proveedor/);
+  });
+
+  it('no permite borrar pagos desde la edición de la compra', () => {
+    const original = credito({ supplierPayments: [pago()] });
+    const editado = { ...original, supplierPayments: [] };
+    expect(validateStoneLotPurchaseUpdate(original, editado)).toMatch(/no se pueden borrar/);
+  });
+
+  it('no permite borrar ventas desde la edición de la compra', () => {
+    const original = lote({ sales: [venta({ id: 'v-protegida', carats: 0.5, quantity: 1 })] });
+    const editado = { ...original, sales: [] };
+    expect(validateStoneLotPurchaseUpdate(original, editado)).toMatch(/no se pueden borrar/);
+  });
+
+  it('permite editar otros datos sin alterar el proveedor ni los pagos', () => {
+    const original = credito({
+      supplier: 'Proveedor Muzo',
+      supplierId: 'sup-1',
+      supplierPayments: [pago()]
+    });
+    expect(validateStoneLotPurchaseUpdate(original, { ...original, notes: 'Revisado' })).toBeNull();
   });
 
   it('al editar un pago no se cuenta a si mismo', () => {

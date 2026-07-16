@@ -4,7 +4,7 @@
 
 import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
-import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate } from './db';
+import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate, dbWriteTransaction } from './db';
 import {
   defaultSettings,
   normalizeSettings,
@@ -182,11 +182,42 @@ export async function listSuppliers(): Promise<Supplier[]> {
 }
 
 export async function saveSupplier(supplier: Supplier): Promise<void> {
-  await dbPut('suppliers', normalizeSupplier(supplier));
+  const normalizedSupplier = normalizeSupplier(supplier);
+  const updatedAt = new Date().toISOString();
+
+  await dbWriteTransaction(['suppliers', 'stoneLots'], (getStore) => {
+    getStore('suppliers').put(normalizedSupplier);
+
+    const stoneLots = getStore('stoneLots');
+    const request = stoneLots.getAll();
+    request.onsuccess = () => {
+      for (const stored of request.result as unknown[]) {
+        const lot = normalizeStoneLot(stored);
+        if (lot.supplierId === normalizedSupplier.id && lot.supplier !== normalizedSupplier.name) {
+          stoneLots.put({ ...lot, supplier: normalizedSupplier.name, updatedAt });
+        }
+      }
+    };
+  });
 }
 
 export async function deleteSupplier(id: string): Promise<void> {
-  await dbDelete('suppliers', id);
+  const updatedAt = new Date().toISOString();
+
+  await dbWriteTransaction(['suppliers', 'stoneLots'], (getStore) => {
+    getStore('suppliers').delete(id);
+
+    const stoneLots = getStore('stoneLots');
+    const request = stoneLots.getAll();
+    request.onsuccess = () => {
+      for (const stored of request.result as unknown[]) {
+        const lot = normalizeStoneLot(stored);
+        if (lot.supplierId === id) {
+          stoneLots.put({ ...lot, supplierId: null, updatedAt });
+        }
+      }
+    };
+  });
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */
