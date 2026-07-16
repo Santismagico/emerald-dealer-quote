@@ -203,4 +203,11 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 
 | # | Tipo (F/E) | Corrección (en palabras de Santiago) | Pantalla/archivo | Estado | Commit |
 |---|---|---|---|---|---|
-| — | — | _Esperando la lista de Santiago_ | — | — | — |
+| C1 | F | Etapas del taller: Diseño, Fundición, Terminado y engaste, Material, Varios (sin Impresión) | production.ts | verificada | 0791c20 |
+| C2 | F | Apartado extra cuando la joya ya se entregó (lista ≠ entregada) | workshop.ts, WorkshopView/JobView | verificada | 03e4d17 |
+| C3 | F | Crear e ingresar proveedores como los clientes | SuppliersView, db v4, respaldo v5 | verificada | 8107989 |
+| C4 | F | Piedras a crédito: cuándo compré, cuánto pagué, cuánto falta | stones.ts, StonesView | verificada | 94da638 |
+| C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada | 05d301d |
+| C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación de meses | dailyReport.ts, DailyCloseView | verificada | 05d301d |
+
+_Pendiente: la tanda de correcciones ESTÉTICAS que Santiago anunció para después de las de fondo._
