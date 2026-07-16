@@ -49,8 +49,10 @@ en [docs/EXECUTION_PLAN.md](docs/EXECUTION_PLAN.md); decisiones en DECISIONS.md 
 - [x] **Etapa 8 — Piedras:** lotes rastreables (cada compra es un lote, cada venta se
   descuenta de su lote) con existencias y flujo derivados por motor puro. Migración
   v2→v3 y respaldo v4 de cinco almacenes. Completada 2026-07-15 (D-023).
-- [ ] **Etapa 9 — Cierre del día:** PDF interno con todos los movimientos del día
-  (piedras, abonos, cotizaciones creadas/aprobadas, pagos del taller).
+- [x] **Etapa 9 — Cierre del día:** PDF interno con todos los movimientos del día
+  (piedras, abonos, cotizaciones creadas/aprobadas, pagos del taller) y el neto de
+  caja. Completada 2026-07-15 (D-024). **Plan v1.0 completo como candidata no
+  publicada.**
 
 ## Fase futura — Preparación SaaS
 

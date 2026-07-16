@@ -10,6 +10,7 @@ import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { AgendaView } from './components/AgendaView';
 import { StonesView } from './components/StonesView';
+import { DailyCloseView } from './components/DailyCloseView';
 import { ClientsView } from './components/ClientsView';
 import { SettingsView } from './components/SettingsView';
 import { Toast } from './components/ui';
@@ -29,6 +30,7 @@ type ViewName =
   | 'agenda'
   | 'stones'
   | 'more'
+  | 'dailyClose'
   | 'clients'
   | 'settings';
 
@@ -59,6 +61,7 @@ function emptyQuote(defaults: {
     date: todayISO(),
     validUntil: addDays(todayISO(), defaults.validityDays),
     status: 'borrador',
+    approvedAt: '',
     pieceType: 'anillo',
     pieceDescription: '',
     material: 'Oro',
@@ -196,9 +199,10 @@ function AppShell() {
       id: newId(),
       number: await store.nextQuoteNumber(),
       status: 'borrador',
+      // La copia es una pieza nueva: aprobación, avance de taller y abonos no se heredan.
+      approvedAt: '',
       date: todayISO(),
       validUntil: addDays(todayISO(), store.settings.defaultValidityDays),
-      // La copia es una pieza nueva: el avance de taller y los abonos no se heredan.
       production: [],
       payments: [],
       createdAt: now,
@@ -331,7 +335,17 @@ function AppShell() {
           />
         )}
         {view === 'more' && (
-          <MoreView onClients={() => setView('clients')} onSettings={() => setView('settings')} />
+          <MoreView
+            onDailyClose={() => setView('dailyClose')}
+            onClients={() => setView('clients')}
+            onSettings={() => setView('settings')}
+          />
+        )}
+        {view === 'dailyClose' && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <DailyCloseView />
+          </div>
         )}
         {view === 'clients' && (
           <div className="space-y-4">
@@ -464,9 +478,23 @@ function InAppBrowserBanner() {
   );
 }
 
-function MoreView({ onClients, onSettings }: { onClients: () => void; onSettings: () => void }) {
+function MoreView({
+  onDailyClose,
+  onClients,
+  onSettings
+}: {
+  onDailyClose: () => void;
+  onClients: () => void;
+  onSettings: () => void;
+}) {
   return (
     <div className="space-y-3">
+      <MoreItem
+        icon="📊"
+        title="Cierre del día"
+        subtitle="PDF interno con todos los movimientos del negocio"
+        onClick={onDailyClose}
+      />
       <MoreItem
         icon="👤"
         title="Clientes"

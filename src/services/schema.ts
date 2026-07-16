@@ -263,6 +263,7 @@ export function normalizeQuote(raw: unknown): Quote {
     date: safeString(q.date),
     validUntil: safeString(q.validUntil),
     status: oneOf<QuoteStatus>(q.status, QUOTE_STATUSES, 'borrador'),
+    approvedAt: safeString(q.approvedAt),
     pieceType: oneOf<PieceType>(q.pieceType, PIECE_TYPES, 'otro'),
     pieceDescription: safeString(q.pieceDescription),
     material: safeString(q.material, 'Oro'),

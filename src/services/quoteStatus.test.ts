@@ -172,6 +172,27 @@ describe('cambio rápido de estado desde el historial', () => {
     expect(changed.production).toBe(quote.production);
   });
 
+  it('al ENTRAR a aprobada registra approvedAt para el cierre del día', () => {
+    const quote = sampleQuote({ status: 'pendiente', approvedAt: '' });
+    expect(withQuoteStatus(quote, 'aprobada', NOW).approvedAt).toBe(NOW);
+  });
+
+  it('guardar de nuevo una aprobada no mueve su approvedAt original', () => {
+    const original = '2026-07-01T09:00:00.000Z';
+    const quote = sampleQuote({ status: 'aprobada', approvedAt: original });
+    expect(withQuoteStatus(quote, 'aprobada', NOW).approvedAt).toBe(original);
+  });
+
+  it('salir de aprobada conserva el registro histórico y reaprobar lo renueva', () => {
+    const original = '2026-07-01T09:00:00.000Z';
+    const aprobada = sampleQuote({ status: 'aprobada', approvedAt: original });
+    const rechazada = withQuoteStatus(aprobada, 'rechazada', NOW);
+    expect(rechazada.approvedAt).toBe(original);
+
+    const LATER = '2026-07-20T08:00:00.000Z';
+    expect(withQuoteStatus(rechazada, 'aprobada', LATER).approvedAt).toBe(LATER);
+  });
+
   it('no modifica el objeto original', () => {
     const quote = sampleQuote({ status: 'pendiente', updatedAt: '2026-07-01T08:00:00.000Z' });
     const original = structuredClone(quote);

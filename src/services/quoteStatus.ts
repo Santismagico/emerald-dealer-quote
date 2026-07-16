@@ -19,15 +19,24 @@ export const SELECTABLE_QUOTE_STATUSES: QuoteStatus[] = [
 
 /**
  * Copia de la cotización con el nuevo estado, sin tocar el objeto original.
- * Al aprobar arranca el trabajo del taller: si no hay etapas se crean las
- * estándar, igual que al aprobar desde la vista previa.
+ * Es la ÚNICA lógica de cambio de estado (historial y vista previa):
+ * al ENTRAR a aprobada se crean las etapas estándar del taller si faltan y
+ * se registra approvedAt para el Cierre del día. Salir de aprobada conserva
+ * el registro histórico.
  */
 export function withQuoteStatus(quote: Quote, status: QuoteStatus, nowIso: string): Quote {
+  const approving = status === 'aprobada' && quote.status !== 'aprobada';
   const production =
     status === 'aprobada' && quote.production.length === 0
       ? defaultProductionStages()
       : quote.production;
-  return { ...quote, status, production, updatedAt: nowIso };
+  return {
+    ...quote,
+    status,
+    production,
+    approvedAt: approving ? nowIso : quote.approvedAt,
+    updatedAt: nowIso
+  };
 }
 
 /**

@@ -6,7 +6,6 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useStore } from '../store';
 import type { Quote, QuoteStatus } from '../types';
 import { QUOTE_STATUSES } from '../types';
-import { defaultProductionStages } from '../services/production';
 import { workshopJobFromQuote } from '../services/workshop';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import {
@@ -24,7 +23,7 @@ import {
   type PdfShareController
 } from '../services/pdfShare';
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
-import { getEffectiveQuoteStatus } from '../services/quoteStatus';
+import { getEffectiveQuoteStatus, withQuoteStatus } from '../services/quoteStatus';
 import {
   createQuoteAutosaveController,
   runAfterSuccessfulFlush,
@@ -291,15 +290,8 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
 
   const changeStatus = async (status: QuoteStatus) => {
     try {
-      autosave.update((current) => ({
-        ...current,
-        status,
-        // Al aprobar arranca el trabajo del taller: se crea el seguimiento estándar.
-        production:
-          status === 'aprobada' && current.production.length === 0
-            ? defaultProductionStages()
-            : current.production
-      }));
+      // Misma lógica del historial (D-019/D-024): etapas estándar y approvedAt al aprobar.
+      autosave.update((current) => withQuoteStatus(current, status, new Date().toISOString()));
       await ensureQuoteNumber();
       await autosave.flush();
       store.showToast(`Estado: ${status}`);

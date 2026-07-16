@@ -107,6 +107,12 @@ export interface Quote {
   /** Fecha de vencimiento (ISO). */
   validUntil: string;
   status: QuoteStatus;
+  /**
+   * Última vez que la cotización ENTRÓ al estado aprobada (ISO). Vacío si
+   * nunca, o si se aprobó antes de existir este campo. Alimenta el Cierre
+   * del día; no afecta el cálculo ni el vencimiento.
+   */
+  approvedAt: string;
   pieceType: PieceType;
   pieceDescription: string;
   material: string;

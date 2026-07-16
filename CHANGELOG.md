@@ -4,6 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-15
 
+### Ecosistema: Cierre del día (Etapa 9 — plan v1.0 completado)
+
+- Nuevo **Cierre del día** en la pestaña Más: vista previa y PDF interno con todo el negocio de un día — piedras compradas y vendidas, abonos recibidos, pagos del taller, cotizaciones creadas y aprobadas, y el movimiento neto de dinero (entradas − salidas).
+- El documento es SOLO interno: encabezado "DOCUMENTO INTERNO — NO ENTREGAR AL CLIENTE" y únicamente descarga directa (sin Compartir ni WhatsApp). Un día sin movimientos lo dice expresamente.
+- Las cotizaciones ahora registran cuándo fueron aprobadas (`approvedAt`), sellado al cambiar el estado desde el historial o la vista previa con una única lógica compartida. Las aprobaciones anteriores a este cambio no se inventan: los cierres solo fechan lo que se sabe con certeza.
+
 ### Ecosistema: Piedras por lotes rastreables (Etapa 8)
 
 - Nueva pestaña **Piedras**: cada compra crea un lote identificado (ej: "Muzo 12") con tipo de piedra, quilates, cantidad, costo y proveedor; cada venta se registra dentro de su lote y descuenta existencias.

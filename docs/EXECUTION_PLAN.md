@@ -131,18 +131,35 @@ de joyas, y la pestaña muestra **existencias + flujo de dinero**. Ejecutada
 
 ---
 
-## Etapa 9 — Cierre del día (PDF interno)
+## Etapa 9 — Cierre del día (PDF interno) — ✅ COMPLETADA 2026-07-15
 
-**Decisión de negocio:** el reporte incluye todo el negocio del día.
+**Decisión de negocio:** el reporte incluye todo el negocio del día. Ejecutada
+íntegramente por Claude (Fable); decisiones en D-024.
 
-- [ ] 9.1 (Claude) Motor puro `dailyReport.ts` con tests: dado un día, reúne
+- [x] 9.1 (Claude) Motor puro `dailyReport.ts` con tests: dado un día, reúne
       compras/ventas de piedras, abonos recibidos, cotizaciones creadas y
-      aprobadas, y pagos del taller, con totales en COP enteros.
-- [ ] 9.2 (Claude) PDF interno "Cierre del día" con encabezado
-      DOCUMENTO INTERNO; solo descarga directa: sin Web Share y sin WhatsApp.
-- [ ] 9.3 (Codex) Botón "Cierre del día" en la pestaña Más, con vista previa de
-      los totales antes de generar el PDF.
-- [ ] 9.4 (Claude) Auditoría, tests, build, commit.
+      aprobadas, y pagos del taller, con totales en COP enteros y el movimiento
+      neto. Para fechar aprobaciones se agregó `Quote.approvedAt`, sellado por
+      `withQuoteStatus` (única lógica de cambio de estado, compartida por
+      historial y vista previa).
+- [x] 9.2 (Claude) PDF interno "Cierre del día" con encabezado
+      DOCUMENTO INTERNO, reutilizando el renderizador existente; solo descarga
+      directa: sin Web Share y sin WhatsApp. Un día vacío lo dice expresamente.
+- [x] 9.3 (Claude) Más → "Cierre del día" (`DailyCloseView.tsx`): selector de
+      día (hoy por defecto) y vista previa completa de dinero y movimientos
+      antes de generar el PDF.
+- [x] 9.4 (Claude) Auditoría, 384 tests y build en verde, verificación en
+      navegador, commit.
+
+---
+
+## Plan v1.0 completado
+
+Las Etapas 6, 7, 8 y 9 están terminadas: el ecosistema completo
+(Cotizador · Taller · Agenda · Piedras · Más con Cierre del día) existe como
+candidata NO publicada en la rama de trabajo. Antes de publicar a `main` sigue
+pendiente la prueba física en Android (PHYSICAL_TEST_REPORT.md) y la orden
+expresa de Santiago.
 
 ---
 

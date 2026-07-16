@@ -82,7 +82,10 @@ async function renderHeader(state: RenderState, content: PdfContent, logoDataUrl
   doc.text(content.docTitle, PAGE_W - MARGIN, state.y + 6, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`N.º ${content.quoteNumber}`, PAGE_W - MARGIN, state.y + 12, { align: 'right' });
+  // El Cierre del día no tiene número: la línea se omite si viene vacía.
+  if (content.quoteNumber) {
+    doc.text(`N.º ${content.quoteNumber}`, PAGE_W - MARGIN, state.y + 12, { align: 'right' });
+  }
   doc.setFontSize(9);
   doc.setTextColor(...GRAY);
   doc.text(content.dateLine, PAGE_W - MARGIN, state.y + 17, { align: 'right' });
@@ -285,4 +288,13 @@ export async function downloadInternalPdf(quote: Quote, calc: CalcResult, settin
   const content = buildInternalPdfContent(quote, calc, settings);
   const doc = await renderPdf(content, quote.images, '');
   doc.save(`Interno-${quote.number}.pdf`);
+}
+
+/**
+ * Genera y descarga el PDF interno del Cierre del día. SOLO descarga directa:
+ * este documento nunca pasa por Web Share ni WhatsApp (D-020/D-024).
+ */
+export async function downloadDailyReportPdf(content: PdfContent, day: string): Promise<void> {
+  const doc = await renderPdf(content, [], '');
+  doc.save(`Cierre-del-dia-${safeFilePart(day) || 'sin-fecha'}.pdf`);
 }
