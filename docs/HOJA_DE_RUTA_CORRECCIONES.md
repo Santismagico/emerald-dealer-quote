@@ -213,8 +213,10 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada y reforzada | 05d301d + deeab61 |
 | C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación solo con meses anteriores | dailyReport.ts, DailyCloseView | verificada y reforzada | 05d301d + deeab61 |
 | C7 | F | El anticipo significa dinero ya pagado: suma a lo recibido y reduce la deuda; los anticipos nuevos o modificados llevan fecha real | QuoteForm, PaymentsPanel, dailyReport | verificada | deeab61 |
+| C8 | F | Confusión entre anticipo y abonos: al aprobar registro lo abonado, y después poder decir que el cliente ya pagó completo, con "joya pagada" junto a "joya entregada" | payments.ts, workshop.ts, WorkshopJobView, PaymentsPanel, WorkshopView | verificada, no publicada | 5d67440 |
 | E1 | E | Cambiar toda la aplicación de una estética plana a una identidad lujosa en verde esmeralda oscuro, dorado champaña y marfil | App, componentes compartidos y todas las pantallas | verificada, no publicada | 55771e0 |
 | E2 | E | Reemplazar el ícono genérico de instalación por una esmeralda facetada dentro de un rombo dorado | íconos PWA, generador, manifiesto y pantalla de inicio | verificada, no publicada | 55771e0 |
+| E3 | E | Editar la estética de Codex — Santiago describirá con sus palabras qué no le gusta | por definir | pendiente: esperando a Santiago | — |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._
