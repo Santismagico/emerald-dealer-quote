@@ -2,7 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
-## [Unreleased] — 2026-07-15
+## [Unreleased] — 2026-07-16
+
+### Estabilización de correcciones de fondo
+
+- El **anticipo** ahora se trata de forma coherente como dinero ya pagado: suma al total recibido, reduce la deuda y, cuando es nuevo o cambia, exige una fecha real para entrar al cierre correspondiente. Los anticipos antiguos sin fecha conservan su efecto sobre la deuda sin inventarles una fecha histórica.
+- Eliminar un proveedor ya no borra su identidad de los lotes anteriores. También se protegen las ventas, los pagos al proveedor y las deudas ya registradas frente a ediciones incompatibles o eliminaciones accidentales.
+- La entrega de una joya requiere una fecha real y las cinco etapas estándar del Taller quedaron verificadas literalmente. Historial y Taller comparten la misma regla de entrega.
+- El cierre mensual compara únicamente con meses anteriores y mantiene visibles las deudas aunque el periodo no tenga otros movimientos.
+- Verificación final: **432 pruebas aprobadas en 24 archivos**, build sin errores y recorrido real en ancho móvil, sin avisos ni errores en pantalla.
 
 ### Ecosistema: Cierre del día (Etapa 9 — plan v1.0 completado)
 

@@ -1,25 +1,26 @@
 # PROJECT_STATE — Emerald Dealer Quote
 
-_Actualizado: 2026-07-12 por Codex durante la consolidación de la Etapa 5.5. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-16 por Codex después de estabilizar las correcciones de fondo C1–C7. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
 ## Qué aplicación es
 
 PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colombia). Cotiza piezas (oro + piedras + mano de obra), genera PDF para el cliente (sin datos internos) y PDF interno (con costos y margen), comparte por WhatsApp, lleva historial, seguimiento de producción del taller y abonos del cliente. Todo local (IndexedDB), sin backend.
 
 - **Stack:** React 19 + TypeScript + Vite 8 + Tailwind 4 + jsPDF + vite-plugin-pwa + Vitest. Sin router ni gestor de estado externo.
-- **Versión:** 0.5.0 + cambios no publicados de las Etapas 1, 2, 3, 4A, 4B y 5 en la rama Fable. No se cambió la versión ni se publicó.
+- **Versión:** 0.5.0. El Ecosistema v1.0 está publicado desde `ae57b95`; la estabilización funcional posterior sigue únicamente en la rama de trabajo.
 - **Producción:** https://santismagico.github.io/emerald-dealer-quote/ — el despliegue solo se inicia por un push a `main` o por ejecución manual de `.github/workflows/deploy.yml`. Un push de la rama de trabajo o de una etiqueta no lo activa.
 - **Repositorio:** https://github.com/Santismagico/emerald-dealer-quote (público — nunca subir datos reales ni secretos).
 
 ## Estado de Git y respaldos
 
-- Rama de trabajo autorizada: `fable/regeneracion-emerald-dealer-quote-v1`. Allí están las Etapas 1, 2, 3, 4A, 4B y 5; respaldar esa rama en GitHub no publica la aplicación.
-- Punto de restauración: tag `punto-seguro-2026-07-09` (commit c3140c4), subido a GitHub.
+- Rama de trabajo autorizada: `fable/regeneracion-emerald-dealer-quote-v1`. Allí están el Ecosistema v1.0 y las correcciones de fondo estabilizadas; respaldar esa rama en GitHub no publica la aplicación.
+- Punto de restauración de esta tanda: tag `punto-seguro-estabilizacion-fondo-2026-07-16`, subido a GitHub antes de las correcciones de Codex.
 - `main` contiene lo publicado; la rama de trabajo va adelante. **No hacer push a `main` sin autorización de Santiago** (dispara despliegue público).
 - Cómo restaurar si algo sale mal: `git restore .` para descartar cambios sin commit; `git reset --hard punto-seguro-2026-07-09` para volver al punto seguro (solo si es imprescindible y avisando).
 
 ## Qué está funcionando
 
+- Estabilización posterior a C1–C6: **432 pruebas en verde, distribuidas en 24 archivos**, build sin errores y recorrido móvil real completado. El anticipo ya cuenta como dinero pagado; los proveedores eliminados conservan su nombre en lotes anteriores; pagos, ventas y deudas quedan protegidos; la entrega exige una fecha real; y los cierres diario/mensual mantienen una caja coherente. Cambios en `2b1b220` y `deeab61`, todavía no publicados.
 - Verificación integral de la Etapa 5.5: **294 pruebas en verde**, distribuidas en 16 archivos, y build de producción sin errores.
 - Todos los módulos del MVP + producción del taller + abonos (ver `PRODUCT_SPEC.md` raíz, tabla de módulos).
 - Protección de información interna antes de PDF cliente, Web Share y WhatsApp: el contenido final de cada canal se analiza y, si hay un hallazgo, la salida queda bloqueada hasta corregirlo. No existe una confirmación para saltar la protección.
@@ -83,7 +84,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**El Ecosistema v1.0 está PUBLICADO** (`main` = `ae57b95`). Las **correcciones de fondo C1–C6 de Santiago están completadas y verificadas** en la rama de trabajo (D-025, registro en `docs/HOJA_DE_RUTA_CORRECCIONES.md`): etapas del taller renombradas, estado Entregada, Proveedores (migración v4, respaldo v5), piedras a crédito con pagos al proveedor, cierre separado Joyería/Piedras con caja honesta, y cierre mensual con deudas y comparación de meses. 410 tests y build en verde. **NO publicadas**: esperan la orden de Santiago (y él anunció una tanda de correcciones ESTÉTICAS por dictar). Pendientes de ROADMAP sin cambios: prueba física Android, plantillas, logo/ícono, salir de OneDrive.
+**El Ecosistema v1.0 está PUBLICADO** (`main` = `ae57b95`). Las **correcciones de fondo C1–C7 están completadas, estabilizadas y verificadas** en la rama de trabajo: 432 pruebas, build y recorrido móvil en verde. **NO están publicadas.** El siguiente paso es que Santiago dicte las correcciones ESTÉTICAS, pantalla por pantalla. Antes de autorizar la publicación final se debe revisar manualmente cualquier cotización antigua donde el mismo dinero pudiera estar registrado a la vez como anticipo y como abono; no se hará una deduplicación automática que pueda borrar un pago real. Pendientes de ROADMAP sin cambios: prueba física Android, plantillas, logo/ícono, salir de OneDrive.
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
@@ -114,3 +115,4 @@ npm test && npm run build
 | 2026-07-16 | Publicación v1.0 (Codex) + auditoría (Fable) | Codex llevó main a ae57b95 (deploy en verde); Fable verificó el sitio en vivo: 5 pestañas, Piedras y Cierre del día funcionando, base v3, consola limpia | ae57b95 en main |
 | 2026-07-16 | Hoja de ruta de correcciones (Fable) | docs/HOJA_DE_RUTA_CORRECCIONES.md: método completo para aplicar las correcciones de Santiago (protección, mapa del código, verificación, publicación, trabajo simultáneo) | 02ada13 |
 | 2026-07-16 | Correcciones de fondo C1–C6 (Fable) | Etapas del taller, estado Entregada, Proveedores (db v4, respaldo v5), crédito con proveedores, cierre por negocio con caja honesta, cierre mensual con deudas y comparación; 410 tests y build en verde; verificadas en navegador (D-025) | 05d301d |
+| 2026-07-16 | Estabilización de correcciones de fondo (Codex) | Anticipo tratado como pago real, historial de proveedores conservado, lotes/pagos protegidos, fecha real de entrega y cierres corregidos; 432 pruebas, build y recorrido móvil en verde; no publicado (D-026) | 2b1b220 + deeab61 |

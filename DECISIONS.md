@@ -211,3 +211,17 @@ Tanda dictada por Santiago y ejecutada según `docs/HOJA_DE_RUTA_CORRECCIONES.md
 6. **C6 — Cierre del mes:** mismo motor con filtro mensual (`buildMonthlyReport`), selector de mes, actividad, deudas a la fecha (debo a proveedores / clientes me deben, fotos actuales) y comparación con hasta 6 meses anteriores en pantalla y PDF interno ("CIERRE DEL MES"). Los meses disponibles se derivan de los datos; nada se guarda precalculado.
 
 Todo derivado, sin dependencias nuevas, respaldo compatible hacia atrás y tests de privacidad intactos. 410 pruebas en verde. NO publicado: requiere la orden de Santiago.
+
+## D-026 · Anticipos pagados e integridad histórica después de C1–C6 · 2026-07-16 · Vigente
+
+Decisiones confirmadas por Santiago y reglas de estabilización aplicadas antes de continuar con la estética:
+
+1. **Un anticipo significa dinero que el cliente ya pagó.** Por tanto, el total recibido es anticipo + abonos posteriores, y la deuda del cliente baja por ambos conceptos.
+2. Todo anticipo nuevo o cuyo valor se modifique exige una **fecha real** para ubicar esa entrada en el cierre diario y mensual. Los anticipos antiguos sin fecha siguen reduciendo la deuda actual, pero no se les inventa una fecha ni se colocan en un cierre histórico.
+3. **Borrar un proveedor de la lista no borra su historia.** Los lotes anteriores conservan el nombre visible del proveedor, junto con sus compras, ventas, pagos y deuda. Renombrar un proveedor actualiza el nombre de los lotes todavía vinculados.
+4. La app no permite que una edición borre silenciosamente pagos o ventas ya registrados. También bloquea cambios incompatibles, como convertir a contado una compra con pagos al proveedor o reducir el costo por debajo de lo ya pagado.
+5. Los cierres mensuales solo comparan el mes elegido con meses realmente anteriores; nunca con meses futuros. Las deudas visibles se conservan aunque el periodo no tenga otros movimientos.
+
+**Revisión manual antes de publicar:** en versiones anteriores el anticipo reducía el precio en la cotización, pero no formaba parte del panel de pagos del Taller. Por eso podría existir alguna cotización antigua donde Santiago haya registrado el mismo dinero también como un abono manual. La app no deduplica esos casos automáticamente, porque no puede saber con certeza si son el mismo pago o dos pagos reales.
+
+No se agregaron dependencias ni se cambió la base local. La compatibilidad se resuelve al normalizar cotizaciones antiguas y preservar sus datos conocidos.

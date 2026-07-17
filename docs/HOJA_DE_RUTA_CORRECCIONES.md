@@ -9,8 +9,9 @@ si el agente que empieza no es el que termina._
 
 - **El Ecosistema v1.0 está PUBLICADO** en https://santismagico.github.io/emerald-dealer-quote/
   desde el commit `ae57b95` (main). La rama de trabajo `fable/regeneracion-emerald-dealer-quote-v1`
-  va un commit de docs adelante (`d2c6b1f`).
-- 384 pruebas y build en verde. Puntos seguros: tags `punto-seguro-etapa6…9-*`.
+  contiene además la estabilización funcional de Codex (`2b1b220` y `deeab61`), todavía no publicada.
+- 432 pruebas en 24 archivos y build en verde. Punto seguro de esta tanda:
+  `punto-seguro-estabilizacion-fondo-2026-07-16`.
 - **CUIDADO NUEVO:** ahora hay usuarios potenciales usando la app publicada con datos
   reales en su teléfono. Un push a `main` actualiza la app en vivo. La PWA se actualiza
   sola al reabrir; los datos locales (IndexedDB) NUNCA se tocan al actualizar, salvo
@@ -96,7 +97,7 @@ y confírmala con Santiago si el enunciado original era ambiguo.
 
 Al terminar todas las correcciones de la tanda:
 
-1. `npm test && npm run build` — verde total (hoy: 384 tests, 22 archivos; solo puede crecer).
+1. `npm test && npm run build` — verde total (hoy: 432 tests, 24 archivos; solo puede crecer).
 2. Recorrido de humo en navegador por las 5 áreas: crear cotización → aprobar →
    ver trabajo en Taller → registrar cita en Agenda → abrir Piedras → Más → Cierre del día.
 3. Prueba de privacidad rápida: en una cotización escribe "precio por gramo" en las
@@ -203,11 +204,16 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 
 | # | Tipo (F/E) | Corrección (en palabras de Santiago) | Pantalla/archivo | Estado | Commit |
 |---|---|---|---|---|---|
-| C1 | F | Etapas del taller: Diseño, Fundición, Terminado y engaste, Material, Varios (sin Impresión) | production.ts | verificada | 0791c20 |
-| C2 | F | Apartado extra cuando la joya ya se entregó (lista ≠ entregada) | workshop.ts, WorkshopView/JobView | verificada | 03e4d17 |
-| C3 | F | Crear e ingresar proveedores como los clientes | SuppliersView, db v4, respaldo v5 | verificada | 8107989 |
-| C4 | F | Piedras a crédito: cuándo compré, cuánto pagué, cuánto falta | stones.ts, StonesView | verificada | 94da638 |
-| C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada | 05d301d |
-| C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación de meses | dailyReport.ts, DailyCloseView | verificada | 05d301d |
+| C1 | F | Etapas del taller: Diseño, Fundición, Terminado y engaste, Material, Varios (sin Impresión) | production.ts | verificada y reforzada | 0791c20 + deeab61 |
+| C2 | F | Apartado extra cuando la joya ya se entregó (lista ≠ entregada), siempre con fecha real | workshop.ts, WorkshopView/JobView | verificada y reforzada | 03e4d17 + deeab61 |
+| C3 | F | Crear e ingresar proveedores como los clientes; al borrar o renombrar uno, conservar su nombre en lotes anteriores | SuppliersView, store, db v4, respaldo v5 | verificada y reforzada | 8107989 + 2b1b220 |
+| C4 | F | Piedras a crédito: cuándo compré, cuánto pagué, cuánto falta; proteger pagos y ventas ya registrados | stones.ts, StonesView | verificada y reforzada | 94da638 + 2b1b220 |
+| C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada y reforzada | 05d301d + deeab61 |
+| C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación solo con meses anteriores | dailyReport.ts, DailyCloseView | verificada y reforzada | 05d301d + deeab61 |
+| C7 | F | El anticipo significa dinero ya pagado: suma a lo recibido y reduce la deuda; los anticipos nuevos o modificados llevan fecha real | QuoteForm, PaymentsPanel, dailyReport | verificada | deeab61 |
 
 _Pendiente: la tanda de correcciones ESTÉTICAS que Santiago anunció para después de las de fondo._
+
+_Antes de publicar: revisar manualmente cotizaciones antiguas que tengan anticipo y también un
+abono posterior por el mismo valor. La app no intenta adivinar ni borrar automáticamente un posible
+registro duplicado._
