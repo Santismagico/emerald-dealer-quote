@@ -119,3 +119,27 @@ Este informe es acumulativo. Registra lo revisado, lo corregido y las pruebas qu
 - Barrido por contenido de `src/test/fixtures.ts`, todos los tests, `docs/`, Markdown y código fuente.
 - Barrido de nombres de archivo.
 - Suite completa después de reemplazar fixtures para demostrar que no cambió el comportamiento.
+
+## S5 — Borradores legales
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Media | Faltaban los tres borradores que deben existir antes de abrir la beta en la nube. | `docs/legal/` | S5 (este commit) |
+
+### Decisiones tomadas
+
+- Los documentos se redactaron en español claro y empiezan con “BORRADOR — pendiente de revisión profesional”.
+- Los datos formales desconocidos no se inventaron: aparecen como campos `[COMPLETAR: ...]`.
+- Se distingue expresamente la modalidad local actual de la futura modalidad en Supabase.
+- El plan futuro conserva el precio decidido de $50.000 COP al mes y la suspensión por falta de pago se plantea como solo lectura, nunca como borrado inmediato.
+- Los textos no se muestran todavía dentro de la aplicación.
+
+### Entregables
+
+- `docs/legal/politica-privacidad.md`
+- `docs/legal/terminos-servicio.md`
+- `docs/legal/aviso-tratamiento-datos.md`
+
+Estos borradores requieren revisión del contador y de un profesional jurídico colombiano antes de utilizarse con usuarios.
