@@ -169,3 +169,33 @@ expresa de Santiago.
 - Reserva de citas en línea por los clientes (necesitaría el plan SaaS congelado).
 - Publicación a `main`: sigue pendiente la prueba física en Android
   (ver `PHYSICAL_TEST_REPORT.md`) y la orden expresa de Santiago.
+
+---
+
+## FASE 1 pre-SaaS — Auditoría y endurecimiento (ordenada el 2026-07-17, D-031/D-032)
+
+Método: docs/HOJA_DE_RUTA_CORRECCIONES.md (protección, verificación, commit por etapa).
+Cada etapa termina con npm test && npm run build en verde y actualización de PROJECT_STATE.
+
+- [x] S0. Renombre a "Emerald Dealer" + npm audit inicial (0 vulnerabilidades) — c528d74+
+- [ ] S1. Auditoría de dinero: revisar redondeos COP, sobrepagos y cierres diario/mensual
+      contra el motor puro; ampliar tests de casos límite donde falten.
+- [ ] S2. Auditoría de datos: escalera de migraciones v1→v4 contra bases reales de cada
+      versión; importación de respaldos v1–v5 con datos límite (grandes/corruptos/truncados);
+      carreras del guardado diferido (navegación, cierre, visibilidad).
+- [ ] S3. Ciberseguridad: revisión de CSP (hashes y connect-src tras v2), entradas de
+      usuario hacia PDF/WhatsApp, tamaños de imágenes data-URL, manejo de archivos de
+      respaldo maliciosos; actualizar SECURITY_CHECKLIST.md con hallazgos y estado.
+- [ ] S4. Repositorio público: barrido de datos reales en fixtures, capturas y docs
+      (la lista del piloto y datos de joyerías reales JAMÁS entran al repo).
+- [ ] S5. Borradores legales (Ley 1581/2012): política de privacidad, aviso de
+      tratamiento de datos y términos de servicio de Emerald Dealer, en lenguaje claro,
+      para revisión de Santiago y su contador. Guardarlos en docs/legal/.
+- [ ] S6. Salida de OneDrive: clonar el repo a una ruta fuera de OneDrive
+      (p. ej. C:\Dev\emerald-dealer), verificar tests/build allí, actualizar CLAUDE.md
+      y PROJECT_STATE con la nueva ruta canónica. Hacerlo al INICIO de una sesión.
+- [ ] S7. Cierre de fase: informe de hallazgos, versión 1.0.0 en package.json
+      (visible en Ajustes) y publicación con orden de Santiago.
+
+En paralelo (Santiago, sin código): registro del comercio en Wompi con RUT y cuenta
+Bancolombia; consulta al contador sobre facturación electrónica DIAN para suscripciones.

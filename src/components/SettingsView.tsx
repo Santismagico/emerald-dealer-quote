@@ -354,7 +354,7 @@ export function SettingsView() {
         {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
       </SectionCard>
 
-      <SectionCard title="Instalar la app" subtitle="Emerald Dealer Quote funciona sin internet una vez instalada.">
+      <SectionCard title="Instalar la app" subtitle="Emerald Dealer funciona sin internet una vez instalada.">
         <p className="text-sm text-stone-600">
           <strong>iPhone:</strong> abre esta página en Safari → botón Compartir → “Añadir a pantalla de inicio”.
         </p>
@@ -369,7 +369,7 @@ export function SettingsView() {
         </Button>
       </div>
 
-      <p className="pb-2 text-center text-xs text-stone-400">Emerald Dealer Quote v{__APP_VERSION__}</p>
+      <p className="pb-2 text-center text-xs text-stone-400">Emerald Dealer v{__APP_VERSION__}</p>
 
       <ConfirmDialog
         open={importPending !== null}

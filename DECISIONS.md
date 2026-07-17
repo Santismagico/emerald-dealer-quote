@@ -362,3 +362,17 @@ El documento autoriza solo la PLANIFICACIÓN: cada fase requiere la orden expres
 Santiago antes de ejecutarse. El modo 100% local y gratuito se conserva como plan base.
 Las cinco decisiones de negocio pendientes (nombre, precio, pasarela, enlace público,
 lista del piloto) quedan listadas en el plan y no bloquean la Fase 1.
+
+## D-032 · Decisiones comerciales del SaaS · 2026-07-17 · Vigente
+
+Santiago resolvió las cinco decisiones de negocio listadas en D-031: (1) el producto se
+llama **Emerald Dealer** — renombrado ya en manifest, título, pantalla de emergencia y
+Ajustes; (2) el Plan Nube costará **$50.000 COP/mes**; (3) la pasarela será **Wompi**
+por ser la de Bancolombia, su banco (abono directo, COP, recurrencia; Mercado Pago como
+respaldo); (4) el enlace público vive SOLO durante el piloto — al cerrarlo la app exige
+cuenta (muro de login al final de la Fase 2) y no habrá plan gratuito público; (5) el
+piloto formal lo componen **siete joyerías** cuya lista es privada de Santiago y no se
+registra en este repositorio público (regla de datos reales). Con su "procede con lo
+demás" quedó ordenada la **Fase 1** (auditoría y endurecimiento pre-SaaS). Primera
+pasada ya ejecutada: `npm audit` con 0 vulnerabilidades, 452 pruebas y build en verde
+tras el renombre.

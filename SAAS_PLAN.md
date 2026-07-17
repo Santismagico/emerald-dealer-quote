@@ -175,13 +175,19 @@ Los tiempos técnicos son cortos; lo que marca el calendario son los trámites
 (pasarela, legal) y las decisiones de negocio. Por eso los trámites arrancan en la
 Fase 1, en paralelo con el código.
 
-## Decisiones que solo Santiago puede tomar (no bloquean la Fase 1)
+## Decisiones de negocio TOMADAS por Santiago (2026-07-17 · D-032)
 
-1. Nombre comercial definitivo del producto.
-2. Precio del Plan Nube (COP/mes) y si habrá descuento anual.
-3. Pasarela de pago (Wompi / Mercado Pago / PayU / Bold) — según su banco.
-4. ¿El enlace gratuito actual sigue público para siempre como plan Local?
-5. Quiénes entran al piloto formal (2–5 colegas).
+1. **Nombre comercial:** **Emerald Dealer** (ya aplicado en manifest, título y Ajustes).
+2. **Precio del Plan Nube:** **$50.000 COP/mes** (descuento anual: por definir en Fase 3).
+3. **Pasarela:** **Wompi** — es la pasarela de Bancolombia (su banco): abono directo a
+   su cuenta, cobros en COP, pagos recurrentes, Nequi/PSE/tarjetas. Alternativa de
+   respaldo si el registro se traba: Mercado Pago.
+4. **Enlace público:** se mantiene SOLO mientras dure el piloto. Al cerrarlo, nadie
+   debe poder usar la app sin cuenta: la Fase 2 termina con un **muro de inicio de
+   sesión** y el plan "Local gratis público" queda descartado (el modo local
+   sobrevive únicamente como respaldo técnico offline de usuarios con cuenta).
+5. **Piloto:** siete joyerías confirmadas (la lista es privada de Santiago y no se
+   escribe en este repositorio público).
 
 ## Reglas que esta hoja de ruta NO cambia
 

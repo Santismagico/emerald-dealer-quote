@@ -59,8 +59,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
-        name: 'Emerald Dealer Quote',
-        short_name: 'ED Quote',
+        name: 'Emerald Dealer',
+        short_name: 'Emerald Dealer',
         description: 'Cotizaciones profesionales de joyeria',
         lang: 'es',
         theme_color: '#0a4d38',
