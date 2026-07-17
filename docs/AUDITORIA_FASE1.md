@@ -2,6 +2,14 @@
 
 Este informe es acumulativo. Registra lo revisado, lo corregido y las pruebas que permiten repetir la verificación antes de la auditoría final de Fable.
 
+## Resumen ejecutivo
+
+- Hallazgos: **2 altos, 7 medios y 5 bajos**.
+- Todos los hallazgos altos quedaron corregidos y cuentan con verificación reproducible.
+- La suite creció de 452 a **467 pruebas** y de 24 a **26 archivos**.
+- La versión candidata es **1.0.0** y vive únicamente en `codex/correcciones-finales-fable`.
+- `main` y la aplicación pública no se modificaron durante la Fase 1.
+
 ## S1 — Auditoría de dinero
 
 ### Hallazgos
@@ -166,3 +174,33 @@ Estos borradores requieren revisión del contador y de un profesional jurídico 
 
 - La memoria de Fable continúa anclada a la ruta anterior hasta que Fable la reubique en su primera sesión sobre `C:\Dev\emerald-dealer`.
 - `CARPETA_ANTIGUA.txt` se deja solo en la copia de OneDrive y no se versiona.
+
+## S7 — Cierre de fase
+
+### Resultado final
+
+| Comprobación | Resultado |
+|---|---|
+| Pruebas automatizadas | 467 aprobadas en 26 archivos |
+| Compilación de producción | Aprobada |
+| Assets PWA | Aprobados |
+| Hash CSP contra `dist/index.html` final | Aprobado |
+| Dependencias conocidas vulnerables | 0 según `npm audit --audit-level=low` |
+| Versión candidata | 1.0.0 |
+| Rama | `codex/correcciones-finales-fable` |
+| Publicación a `main` | No realizada; requiere orden expresa de Santiago |
+
+### Recorrido de humo
+
+Se abrió la compilación final en el navegador local y se verificaron Cotizador, Taller, Agenda, Piedras, Más y Cierre del día. Todas las áreas cargaron sus controles y estados vacíos esperados. La consola no registró errores.
+
+### Prueba rápida de privacidad
+
+En una cotización ficticia se escribió `precio por gramo` en “Observaciones para el cliente” y se intentó generar “PDF cliente”. La aplicación mostró **Salida bloqueada** e informó que el archivo no se generó ni se compartió. El dato interno no salió.
+
+### Entrega para Fable y Santiago
+
+- Todos los hallazgos altos están corregidos.
+- `CHANGELOG.md`, `PROJECT_STATE.md` y este informe reflejan el cierre.
+- Fable debe auditar la rama y los borradores legales deben pasar por revisión profesional.
+- La única acción que queda fuera de esta ejecución es publicar a usuarios: Santiago decide expresamente si `main` avanza.

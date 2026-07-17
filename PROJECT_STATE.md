@@ -2,18 +2,22 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-16 por Codex después de completar D-030 (instalación, temas, pantallas estrechas, pagos y documentación). Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-17 por Codex al cerrar la Fase 1 pre-SaaS. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
 ## Qué aplicación es
 
 PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colombia). Cotiza piezas (oro + piedras + mano de obra), genera PDF para el cliente (sin datos internos) y PDF interno (con costos y margen), comparte por WhatsApp, lleva historial, seguimiento de producción del taller y abonos del cliente. Todo local (IndexedDB), sin backend.
 
 - **Stack:** React 19 + TypeScript + Vite 8 + Tailwind 4 + jsPDF + vite-plugin-pwa + Vitest. Sin router ni gestor de estado externo.
-- **Versión:** 0.5.0. El Ecosistema v1.0 está publicado desde `ae57b95`; la identidad vigente y sus correcciones finales siguen únicamente en ramas de trabajo.
+- **Versión candidata:** 1.0.0 en `codex/correcciones-finales-fable`. La versión pública no cambia hasta que Santiago autorice avanzar `main`.
 - **Producción:** https://santismagico.github.io/emerald-dealer-quote/ — el despliegue solo se inicia por un push a `main` o por ejecución manual de `.github/workflows/deploy.yml`. Un push de la rama de trabajo o de una etiqueta no lo activa.
 - **Repositorio:** https://github.com/Santismagico/emerald-dealer-quote (público — nunca subir datos reales ni secretos).
 
 ## Estado de Git y respaldos
+
+- **Fase 1 completada en la rama segura:** S1–S6 tienen un commit independiente; S7 reúne la versión 1.0.0, el informe final y las verificaciones. Informe: `docs/AUDITORIA_FASE1.md`.
+- **Verificación actual:** 467 pruebas en 26 archivos, build de producción, PWA y hash CSP final en verde; `npm audit` con 0 vulnerabilidades.
+- **Siguiente decisión:** Fable audita la rama. Publicar a `main` únicamente con orden expresa de Santiago.
 
 - Base de Fable conservada: `fable/regeneracion-emerald-dealer-quote-v1` hasta `fb564ca`. Correcciones de Codex: `codex/correcciones-finales-fable`. Ninguna de esas ramas publica la aplicación por sí sola.
 - Punto de restauración de esta tanda: tag `punto-seguro-estabilizacion-fondo-2026-07-16`, subido a GitHub antes de las correcciones de Codex.

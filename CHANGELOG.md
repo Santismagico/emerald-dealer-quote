@@ -2,6 +2,17 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [1.0.0] — 2026-07-17
+
+### Fase 1 pre-SaaS
+
+- Auditoría completa de dinero, migraciones, respaldos, guardado rápido, cierres, piedras y taller. Los importes corruptos ya no contaminan resultados y los respaldos con abonos inválidos se rechazan sin escrituras parciales.
+- Seguridad reforzada: hash CSP calculado sobre el archivo final, límite de 1.5 MB por imagen, respaldos de máximo 25 MB, PDF y WhatsApp probados con entradas hostiles y cero vulnerabilidades conocidas en dependencias.
+- Repositorio público saneado con datos inequívocamente ficticios y nuevos filtros para respaldos y capturas locales.
+- Tres borradores legales preparados para revisión profesional antes de la nube.
+- Proyecto migrado fuera de OneDrive a `C:\Dev\emerald-dealer`.
+- Cierre técnico: 467 pruebas en 26 archivos, compilación de producción y verificación CSP en verde. La publicación a `main` queda pendiente de orden expresa de Santiago.
+
 ## [Unreleased] — 2026-07-16
 
 ### Identidad "el mesón del joyero" e instalación
