@@ -93,9 +93,12 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 **Camino SaaS descongelado (D-031, 2026-07-17):** `SAAS_PLAN.md` es ahora la hoja de
 ruta canónica hacia el producto cobrable — fases 0–4, auditoría integral, requisitos
 legales y calendario (auditoría fin de julio; beta nube ago–sep; cobro octubre 2026).
-El siguiente trabajo técnico es la **Fase 1 (auditoría y endurecimiento pre-SaaS)**,
-que requiere la orden de Santiago; la Fase 0 (piloto formal con colegas) puede
-arrancar ya sin código nuevo.
+La **Fase 1 está ORDENADA y planificada al detalle**: Codex la ejecuta siguiendo
+`docs/FASE1_ORDEN_DE_TRABAJO_CODEX.md` (etapas S1–S7 con archivos, casos límite y
+pruebas exactas; S0 completada), trabajando en la rama
+`codex/correcciones-finales-fable` sin tocar `main`. Fable audita el informe
+`docs/AUDITORIA_FASE1.md` al cierre. El piloto formal (Fase 0) ya tiene siete
+joyerías confirmadas (lista privada de Santiago).
 
 Pendientes después de publicar (no técnicos):
 

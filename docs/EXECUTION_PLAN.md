@@ -174,8 +174,13 @@ expresa de Santiago.
 
 ## FASE 1 pre-SaaS — Auditoría y endurecimiento (ordenada el 2026-07-17, D-031/D-032)
 
-Método: docs/HOJA_DE_RUTA_CORRECCIONES.md (protección, verificación, commit por etapa).
-Cada etapa termina con npm test && npm run build en verde y actualización de PROJECT_STATE.
+**La orden de trabajo DETALLADA para Codex está en
+`docs/FASE1_ORDEN_DE_TRABAJO_CODEX.md`** (archivos exactos, casos límite,
+pruebas requeridas y reglas de operación). Esta lista es solo el tablero de
+avance. Método general: docs/HOJA_DE_RUTA_CORRECCIONES.md. Cada etapa termina
+con npm test && npm run build en verde, commit + push de la rama
+`codex/correcciones-finales-fable` (NUNCA main sin orden) y su sección en
+docs/AUDITORIA_FASE1.md.
 
 - [x] S0. Renombre a "Emerald Dealer" + npm audit inicial (0 vulnerabilidades) — c528d74+
 - [ ] S1. Auditoría de dinero: revisar redondeos COP, sobrepagos y cierres diario/mensual
