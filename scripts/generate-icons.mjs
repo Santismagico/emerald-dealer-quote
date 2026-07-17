@@ -7,7 +7,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const sourcePath = join(root, 'assets', 'branding', 'app-icon-source.png');
+const standardSourcePath = join(root, 'assets', 'branding', 'app-icon-source.png');
+const maskableSourcePath = join(root, 'assets', 'branding', 'app-icon-maskable-source.png');
 const outDir = join(root, 'public');
 mkdirSync(outDir, { recursive: true });
 
@@ -168,15 +169,16 @@ function resizeSquare(source, size) {
   return encodePng(size, size, rgba);
 }
 
-const source = decodePng(sourcePath);
+const standardSource = decodePng(standardSourcePath);
+const maskableSource = decodePng(maskableSourcePath);
 const targets = [
-  ['pwa-192.png', 192],
-  ['pwa-512.png', 512],
-  ['pwa-maskable-512.png', 512],
-  ['apple-touch-icon.png', 180]
+  ['pwa-192.png', 192, standardSource],
+  ['pwa-512.png', 512, standardSource],
+  ['pwa-maskable-512.png', 512, maskableSource],
+  ['apple-touch-icon.png', 180, maskableSource]
 ];
 
-for (const [name, size] of targets) {
+for (const [name, size, source] of targets) {
   writeFileSync(join(outDir, name), resizeSquare(source, size));
   console.log(`✔ public/${name} (${size}x${size})`);
 }

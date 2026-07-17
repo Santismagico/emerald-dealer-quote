@@ -3,6 +3,7 @@ import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
 import type { StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { contentToPlainText } from './pdfContent';
+import { appendSettlementPayment } from './payments';
 import {
   buildDailyReport,
   buildDailyReportPdfContent,
@@ -203,6 +204,37 @@ describe('cierre del día: totales y día vacío', () => {
     expect(totals.cashIn).toBe(2500000 + 1000000);
     expect(totals.cashOut).toBe(6000000 + 400000);
     expect(totals.net).toBe(3500000 - 6400000);
+  });
+
+  it('un pago del saldo entra una sola vez al cierre diario y mensual aunque se reintente', () => {
+    const quote = sampleQuote({
+      status: 'aprobada',
+      date: '2026-07-01',
+      deposit: 0,
+      payments: [],
+      production: []
+    });
+    const total = calculateQuote(quoteToCalcInput(quote)).total;
+    const candidate = {
+      id: 'pago-saldo-unico',
+      amount: 0,
+      date: DAY,
+      receivedBy: '',
+      method: '',
+      notes: 'Pago del saldo pendiente'
+    };
+
+    const first = appendSettlementPayment(total, quote.deposit, quote.payments, candidate);
+    const retried = appendSettlementPayment(total, quote.deposit, first.payments, candidate);
+    const settledQuote = { ...quote, payments: retried.payments };
+    const daily = buildDailyReport(DAY, [settledQuote], []);
+    const monthly = buildMonthlyReport('2026-07', [settledQuote], []);
+
+    expect(retried.payments).toHaveLength(1);
+    expect(daily.payments.filter((payment) => payment.amount === total)).toHaveLength(1);
+    expect(daily.totals.paymentsReceived).toBe(total);
+    expect(monthly.payments.filter((payment) => payment.amount === total)).toHaveLength(1);
+    expect(monthly.totals.paymentsReceived).toBe(total);
   });
 
   it('un día sin nada queda marcado como vacío', () => {

@@ -5,7 +5,7 @@
 import type { Quote } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { productionSummary } from './production';
-import { clientPaidTotal, isQuotePaidInFull } from './payments';
+import { clientBalanceSummary } from './payments';
 import { quoteMatchesHistorySearch } from './quoteStatus';
 import { isValidISODate } from '../utils/dates';
 
@@ -17,8 +17,12 @@ export interface WorkshopJob {
   total: number;
   /** Total pagado por el cliente: anticipo + abonos posteriores. */
   paid: number;
-  /** Saldo que el cliente aún debe (total − anticipo − abonos posteriores). */
+  /** Saldo que el cliente aún debe. Nunca es negativo. */
   balance: number;
+  /** Dinero recibido por encima del total cotizado. */
+  overpayment: number;
+  /** false cuando el total calculado es $0 y no se puede ofrecer saldar. */
+  hasValidTotal: boolean;
   stagesTotal: number;
   stagesDone: number;
   /** true cuando hay etapas y todas están listas. */
@@ -36,18 +40,20 @@ export function isQuoteDelivered(quote: Pick<Quote, 'deliveredAt'>): boolean {
 
 export function workshopJobFromQuote(quote: Quote): WorkshopJob {
   const total = calculateQuote(quoteToCalcInput(quote)).total;
-  const paid = clientPaidTotal(quote.deposit, quote.payments ?? []);
+  const balance = clientBalanceSummary(total, quote.deposit, quote.payments ?? []);
   const summary = productionSummary(quote.production ?? []);
   return {
     quote,
     total,
-    paid,
-    balance: total - paid,
+    paid: balance.paid,
+    balance: balance.pending,
+    overpayment: balance.overpayment,
+    hasValidTotal: balance.status !== 'sinTotal',
     stagesTotal: summary.stagesTotal,
     stagesDone: summary.stagesDone,
     ready: summary.stagesTotal > 0 && summary.stagesDone === summary.stagesTotal,
     delivered: isQuoteDelivered(quote),
-    paidInFull: isQuotePaidInFull(total, quote.deposit, quote.payments ?? [])
+    paidInFull: balance.status === 'pagada' || balance.status === 'sobrepago'
   };
 }
 

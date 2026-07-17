@@ -8,9 +8,10 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run && node scripts/verify-pwa-assets.mjs",
     "test:watch": "vitest",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-app-icon-source.mjs && node scripts/generate-icons.mjs && node scripts/verify-pwa-assets.mjs",
+    "test:assets": "node scripts/verify-pwa-assets.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

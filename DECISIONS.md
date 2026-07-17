@@ -226,7 +226,7 @@ Decisiones confirmadas por Santiago y reglas de estabilización aplicadas antes 
 
 No se agregaron dependencias ni se cambió la base local. La compatibilidad se resuelve al normalizar cotizaciones antiguas y preservar sus datos conocidos.
 
-## D-027 · Identidad visual lujosa e ícono instalable propio · 2026-07-16 · Vigente
+## D-027 · Identidad visual lujosa e ícono instalable propio · 2026-07-16 · Reemplazada por D-029
 
 Santiago decidió reemplazar la estética plana por una identidad completa de lujo: fondo
 esmeralda profundo (`#031b15`), superficies verdes con profundidad, dorado champaña,
@@ -277,3 +277,68 @@ Decisiones de negocio tomadas por Santiago:
 aviso rojo "los abonos superan el total" se conserva. No cambia la base local, ni el PDF, ni
 las reglas de privacidad, ni se agregan dependencias. 445 pruebas en verde. Extiende D-026
 (el anticipo es dinero pagado) y no altera D-014 (guardado diferido) ni D-024 (cierre).
+
+## D-029 · Identidad "el mesón del joyero" e ícono "La gema viva" · 2026-07-16 · Vigente
+
+Santiago rechazó la identidad D-027 con una crítica precisa: "en su esfuerzo por parecer
+elegante, se ve de mal gusto" y demasiado genérica de IA (fondo oscuro + dorado en todo +
+serif en cada título). Pidió algo sofisticado y placentero al estilo Notion, no plano.
+Aprobó el concepto nuevo tras verlo en un tablero visual con ambos temas, y eligió el
+ícono "La gema viva" (opción A de tres) pidiendo expresamente volumen en la piedra.
+
+La nueva identidad:
+
+1. **Papel cálido, no caja fuerte.** Fondo marfil `#f4f1ea` con tinta verde-gris `#22302a`;
+   superficies blancas con sombras suaves de dos capas (profundidad real, no brillos).
+2. **Un solo acento esmeralda** (`#0b7f57`): botones primarios, filtros activos, píldora
+   de navegación y enlaces. El dorado queda reducido a **un hilo de latón** bajo la
+   cabecera. Rojo/ámbar/verde conservan sus significados de negocio.
+3. **Serif de sello solo en la marca** (Iowan/Palatino del sistema): el nombre de la
+   joyería en la cabecera. El resto de la interfaz es sans del sistema. Sin fuentes
+   descargadas: todo funciona sin internet.
+4. **Tema nocturno automático** vía `prefers-color-scheme`: mismo sistema de fichas
+   (`:root` + variante oscura en `src/index.css`); la capa `.atelier` traduce las
+   utilidades de las vistas a fichas, así ambos temas fluyen por un solo mapeo.
+   El documento del cliente conserva papel claro en ambos temas.
+5. **Ícono "La gema viva":** talla esmeralda facetada con luz desde arriba a la
+   izquierda, destello, chispa y sombra, sobre tile esmeralda profundo.
+   `scripts/generate-app-icon-source.mjs` la dibuja en Node puro (sin dependencias) y
+   `npm run icons` produce las versiones instalables; la piedra cabe en la zona segura
+   de los íconos adaptables de Android.
+
+Reemplaza a D-027. No cambia cálculos, datos, PDF ni reglas de privacidad; cero
+dependencias nuevas. Fable la cerró con 445 pruebas y build en verde; las cinco áreas
+se revisaron en navegador a 390 px. No publicado: requiere la orden de Santiago y la
+prueba física reinstalando la PWA.
+
+## D-030 · Endurecimiento final de instalación, temas y pagos · 2026-07-16 · Vigente
+
+Codex corrigió los hallazgos de la auditoría posterior a D-028 y D-029 sin cambiar la
+arquitectura, la base local ni los documentos del cliente:
+
+1. **Íconos instalables reales por plataforma.** Android recibe un archivo `maskable`
+   diferente, totalmente opaco y con la gema dentro de su zona segura; Apple recibe una
+   versión opaca. `npm run icons` genera primero las piezas maestras, después los tamaños
+   publicados y finalmente verifica dimensiones, opacidad, diferencia entre variantes,
+   zona segura y manifiesto.
+2. **Tema oscuro y arranque coherentes.** El botón ámbar del aviso de navegador conserva
+   contraste en modo nocturno. La pantalla inicial usa el fondo del tema antes de que
+   cargue React y el manifiesto usa un fondo esmeralda de marca, evitando el destello
+   marfil en teléfonos oscuros.
+3. **Teléfonos estrechos.** Solo `input`, `select` y `textarea` conservan el mínimo de
+   16 px que evita el zoom de iPhone. Los botones recuperan sus tamaños previstos, sin
+   perder áreas táctiles de al menos 44 px; navegación y pasos del formulario caben sin
+   desbordamiento a 320 y 390 px.
+4. **Pagos sin ambigüedad.** El estado derivado distingue pendiente, pagada exacta,
+   sobrepago y cotización sin total. Un exceso se muestra de forma visible y nunca queda
+   escondido bajo una etiqueta verde. Un total de $0 no ofrece una acción imposible.
+   Registrar el saldo queda protegido contra doble toque y reintentos, y las pruebas
+   confirman una sola entrada en los cierres diario y mensual.
+5. **Documentación alineada.** D-027 queda histórica y reemplazada; estado, hoja de ruta
+   y novedades describen la identidad vigente y los controles realmente comprobados.
+
+Resultado de la candidata completa: 452 pruebas en 24 archivos, verificación específica
+de assets PWA, TypeScript y build en verde, recorrido local sin desbordamiento ni errores
+visibles a 320 y 390 px. No se agregaron dependencias, no cambió IndexedDB y las pruebas
+de privacidad del PDF cliente, Web Share y WhatsApp permanecen en verde. La candidata no
+está publicada; falta reinstalarla en un teléfono real para comprobar el ícono del sistema.

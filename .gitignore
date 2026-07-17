@@ -13,3 +13,6 @@ Thumbs.db
 
 # Mapa de conocimiento Graphify (generado, se reconstruye con /graphify)
 graphify-out/
+
+# Configuración local de Fable/Claude (permisos de esta máquina; nunca publicar)
+.claude/settings.local.json

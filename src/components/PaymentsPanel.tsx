@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import type { ClientPayment } from '../types';
 import { runAfterSuccessfulFlush, type QuoteSaveMode } from '../services/quoteAutosave';
-import { clientPaidTotal, emptyPayment, isQuotePaidInFull, paymentsTotal } from '../services/payments';
+import { clientBalanceSummary, emptyPayment, paymentsTotal } from '../services/payments';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate } from '../utils/dates';
 import { patchById } from '../utils/collections';
@@ -30,9 +30,7 @@ export function PaymentsPanel({
   const [toRemove, setToRemove] = useState<ClientPayment | null>(null);
 
   const laterPayments = paymentsTotal(payments);
-  const totalPaid = clientPaidTotal(deposit, payments);
-  const realBalance = quoteTotal - totalPaid;
-  const paidInFull = isQuotePaidInFull(quoteTotal, deposit, payments);
+  const balance = clientBalanceSummary(quoteTotal, deposit, payments);
   const commitInBackground = () => void onCommit().catch(() => {});
 
   const patchPayment = (id: string, partial: Partial<ClientPayment>) =>
@@ -164,15 +162,36 @@ export function PaymentsPanel({
 
       <div className="mt-3 space-y-1 rounded-xl bg-white p-3 shadow-sm">
         <SummaryRow label={deposit > 0 ? 'Abonos posteriores' : 'Abonos'} value={formatCOP(laterPayments)} />
-        <SummaryRow label="Total pagado" value={formatCOP(totalPaid)} />
-        <SummaryRow
-          label="Saldo real pendiente"
-          value={paidInFull ? 'Pagada ✓' : formatCOP(realBalance)}
-          bold
-          valueClass={paidInFull ? 'text-brand-800' : undefined}
-        />
-        {realBalance < 0 && (
-          <p className="text-[11px] text-red-600">Los abonos superan el total cotizado: revisa los montos.</p>
+        <SummaryRow label="Total pagado" value={formatCOP(balance.paid)} />
+        {balance.status === 'sinTotal' ? (
+          <>
+            <SummaryRow label="Estado del pago" value="Sin total cotizado" bold valueClass="text-amber-700" />
+            <p className="text-[11px] text-amber-700">
+              No se puede calcular un saldo hasta que la cotización tenga un total mayor a $0.
+            </p>
+          </>
+        ) : (
+          <>
+            <SummaryRow
+              label="Saldo real pendiente"
+              value={balance.status === 'pagada' ? 'Pagada ✓' : formatCOP(balance.pending)}
+              bold
+              valueClass={balance.status === 'pagada' ? 'text-brand-800' : undefined}
+            />
+            {balance.status === 'sobrepago' && (
+              <>
+                <SummaryRow
+                  label="Pago en exceso"
+                  value={formatCOP(balance.overpayment)}
+                  bold
+                  valueClass="text-red-700"
+                />
+                <p className="text-[11px] text-red-700">
+                  Se recibió este valor por encima del total cotizado. Revisa el anticipo y los abonos.
+                </p>
+              </>
+            )}
+          </>
         )}
       </div>
 

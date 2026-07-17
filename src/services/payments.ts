@@ -6,6 +6,26 @@ import { newId } from '../utils/id';
 import { isValidISODate, todayISO } from '../utils/dates';
 import { toSafeCOP } from '../utils/money';
 
+export type ClientBalanceStatus = 'sinTotal' | 'pendiente' | 'pagada' | 'sobrepago';
+
+export interface ClientBalanceSummary {
+  /** Total cotizado normalizado como COP entero. */
+  quoteTotal: number;
+  /** Anticipo + abonos posteriores, normalizados como COP enteros. */
+  paid: number;
+  /** Lo que todavía falta. Nunca es negativo. */
+  pending: number;
+  /** Dinero recibido por encima del total. Nunca queda oculto dentro de "Pagada". */
+  overpayment: number;
+  status: ClientBalanceStatus;
+}
+
+export interface SettlementPaymentResult {
+  payments: ClientPayment[];
+  /** El único abono añadido por esta operación; null cuando no había un saldo válido. */
+  addedPayment: ClientPayment | null;
+}
+
 export function emptyPayment(): ClientPayment {
   return {
     id: newId(),
@@ -27,13 +47,49 @@ export function clientPaidTotal(deposit: number, payments: ClientPayment[]): num
   return toSafeCOP(deposit) + paymentsTotal(payments);
 }
 
+/**
+ * Estado completo y puro del dinero recibido. Distingue un pago exacto de un
+ * sobrepago y evita tratar una cotización de $0 como si ya estuviera pagada.
+ */
+export function clientBalanceSummary(
+  quoteTotal: number,
+  deposit: number,
+  payments: ClientPayment[]
+): ClientBalanceSummary {
+  const total = toSafeCOP(quoteTotal);
+  const paid = clientPaidTotal(deposit, payments);
+
+  if (total <= 0) {
+    return { quoteTotal: 0, paid, pending: 0, overpayment: 0, status: 'sinTotal' };
+  }
+  if (paid < total) {
+    return {
+      quoteTotal: total,
+      paid,
+      pending: total - paid,
+      overpayment: 0,
+      status: 'pendiente'
+    };
+  }
+  if (paid > total) {
+    return {
+      quoteTotal: total,
+      paid,
+      pending: 0,
+      overpayment: paid - total,
+      status: 'sobrepago'
+    };
+  }
+  return { quoteTotal: total, paid, pending: 0, overpayment: 0, status: 'pagada' };
+}
+
 /** Lo que el cliente todavía debe. Nunca negativo: pagar de más no es saldo a favor. */
 export function clientPendingBalance(
   quoteTotal: number,
   deposit: number,
   payments: ClientPayment[]
 ): number {
-  return Math.max(0, toSafeCOP(quoteTotal) - clientPaidTotal(deposit, payments));
+  return clientBalanceSummary(quoteTotal, deposit, payments).pending;
 }
 
 /**
@@ -46,8 +102,36 @@ export function isQuotePaidInFull(
   deposit: number,
   payments: ClientPayment[]
 ): boolean {
-  const total = toSafeCOP(quoteTotal);
-  return total > 0 && clientPaidTotal(deposit, payments) >= total;
+  const status = clientBalanceSummary(quoteTotal, deposit, payments).status;
+  return status === 'pagada' || status === 'sobrepago';
+}
+
+/**
+ * Añade una sola vez un abono que cubre el saldo actual. Es idempotente:
+ * repetirla sobre el resultado anterior devuelve la misma lista, y repetir el
+ * mismo intento sobre datos antiguos tampoco duplica un id ya registrado.
+ */
+export function appendSettlementPayment(
+  quoteTotal: number,
+  deposit: number,
+  payments: ClientPayment[],
+  candidate: ClientPayment
+): SettlementPaymentResult {
+  if (payments.some((payment) => payment.id === candidate.id)) {
+    return { payments, addedPayment: null };
+  }
+
+  const { pending, status } = clientBalanceSummary(quoteTotal, deposit, payments);
+  if (status !== 'pendiente' || pending <= 0) {
+    return { payments, addedPayment: null };
+  }
+
+  const addedPayment = {
+    ...candidate,
+    amount: pending,
+    notes: candidate.notes.trim() || 'Pago del saldo pendiente'
+  };
+  return { payments: [...payments, addedPayment], addedPayment };
 }
 
 /**
@@ -59,9 +143,7 @@ export function settlementPayment(
   deposit: number,
   payments: ClientPayment[]
 ): ClientPayment | null {
-  const pending = clientPendingBalance(quoteTotal, deposit, payments);
-  if (pending <= 0) return null;
-  return { ...emptyPayment(), amount: pending, notes: 'Pago del saldo pendiente' };
+  return appendSettlementPayment(quoteTotal, deposit, payments, emptyPayment()).addedPayment;
 }
 
 /**

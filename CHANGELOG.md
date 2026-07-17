@@ -4,13 +4,20 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-16
 
-### Identidad visual de lujo
+### Identidad "el mesón del joyero" e instalación
 
-- Renovación completa con fondo esmeralda profundo, dorado champaña, marfil, títulos elegantes, tarjetas con mayor profundidad y campos claros de lectura fácil.
-- Encabezado, navegación inferior, menús, formularios, filtros, ventanas, avisos y estados vacíos ahora comparten el mismo sistema visual; los emojis decorativos fueron reemplazados por íconos lineales consistentes.
-- Nuevo ícono instalable: una esmeralda facetada dentro de un rombo dorado, con archivos específicos para iPhone, Android y recorte adaptable. El generador queda sincronizado con la pieza maestra.
-- Se conservaron los colores funcionales de peligro, pendiente y éxito, la apariencia clara del documento del cliente y la separación entre la marca de la app y el logo particular de la joyería.
-- Revisión visual móvil en anchos de 320 y 390 px, controles táctiles de al menos 44 px, **432 pruebas aprobadas en 24 archivos** y build de producción sin errores. Candidata no publicada.
+- La identidad rechazada de fondo oscuro y dorado fue reemplazada por papel cálido, superficies blancas con profundidad suave, tinta verde-gris, un único acento esmeralda y una línea mínima de latón. La serif queda reservada para la marca; la interfaz usa tipografía del sistema.
+- El ícono vigente es **"La gema viva"**, una talla esmeralda con volumen, luz, destello y sombra. Android recibe una variante adaptable opaca y distinta; Apple recibe una versión opaca propia.
+- La generación de íconos quedó completa y comprobable: pieza maestra normal + pieza maestra adaptable → tamaños publicados → verificación automática de dimensiones, opacidad, zona segura y manifiesto.
+- El botón ámbar mantiene contraste en modo oscuro, el arranque evita el destello marfil y la navegación/formulario caben sin desbordamiento a 320 y 390 px. Los campos conservan 16 px y las áreas táctiles al menos 44 px.
+- La apariencia clara del documento del cliente y la separación entre la marca de la app y el logo particular de la joyería permanecen intactas. Candidata no publicada.
+
+### Pagos del cliente reforzados
+
+- El Taller distingue pago exacto, saldo pendiente, sobrepago y cotización sin total. Un exceso se muestra claramente y nunca queda escondido bajo solo “Pagada”.
+- Una cotización con total $0 muestra información y no ofrece un botón o diálogo imposible.
+- “El cliente ya pagó todo” queda protegido contra doble toque y reintentos; el abono del saldo entra una sola vez a los cierres diario y mensual. “Pagada” y “Entregada” siguen siendo estados independientes.
+- Verificación final de la candidata: **452 pruebas aprobadas en 24 archivos**, comprobación PWA, TypeScript y build de producción sin errores.
 
 ### Estabilización de correcciones de fondo
 
@@ -109,6 +116,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 - Antes de iniciar la consolidación, la Etapa 5 cerró con 283 pruebas automáticas en verde distribuidas en 16 archivos y con el build completado sin errores.
 - La consolidación de la Etapa 5.5 cerró con **294 pruebas aprobadas en 16 archivos** y con el build de producción completado sin errores.
+- La candidata D-030 cerró con **452 pruebas aprobadas en 24 archivos**, verificación específica de íconos PWA y build de producción completado sin errores.
 
 ## [0.5.0] — 2026-07-09
 

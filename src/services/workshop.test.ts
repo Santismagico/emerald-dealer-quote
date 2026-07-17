@@ -47,6 +47,8 @@ describe('trabajos del taller derivados de cotizaciones', () => {
     expect(job.total).toBe(total);
     expect(job.paid).toBe(3000000);
     expect(job.balance).toBe(total - 3000000);
+    expect(job.overpayment).toBe(0);
+    expect(job.hasValidTotal).toBe(true);
     expect(job.paidInFull).toBe(false);
   });
 
@@ -76,6 +78,39 @@ describe('trabajos del taller derivados de cotizaciones', () => {
     });
     expect(entregadaSinPagar.paidInFull).toBe(false);
     expect(entregadaSinPagar.delivered).toBe(true);
+  });
+
+  it('expone el sobrepago por separado y deja el saldo pendiente en cero', () => {
+    const quote = sampleQuote({ status: 'aprobada' });
+    const total = calculateQuote(quoteToCalcInput(quote)).total;
+    const job = workshopJobFromQuote({ ...quote, deposit: total + 250000, payments: [] });
+
+    expect(job.paidInFull).toBe(true);
+    expect(job.balance).toBe(0);
+    expect(job.overpayment).toBe(250000);
+  });
+
+  it('un total cero queda como estado informativo y no como pagada', () => {
+    const quote = sampleQuote({
+      status: 'aprobada',
+      deposit: 0,
+      payments: [],
+      materialPricePerGram: 0,
+      weightGrams: 0,
+      stones: [],
+      laborCost: 0,
+      extraCosts: [],
+      marginPercent: 0,
+      discountValue: 0,
+      taxEnabled: false,
+      taxPercent: 0
+    });
+    const job = workshopJobFromQuote(quote);
+
+    expect(job.total).toBe(0);
+    expect(job.hasValidTotal).toBe(false);
+    expect(job.paidInFull).toBe(false);
+    expect(job.balance).toBe(0);
   });
 
   it('cuenta el avance de etapas sin modificar la cotización', () => {

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  appendSettlementPayment,
+  clientBalanceSummary,
   clientPaidTotal,
   clientPendingBalance,
   emptyPayment,
@@ -76,6 +78,20 @@ describe('joya pagada como estado derivado del dinero (D-028)', () => {
 
   it('pagar de más deja el saldo en cero, nunca en negativo', () => {
     expect(clientPendingBalance(total, 6000000, [])).toBe(0);
+    expect(clientBalanceSummary(total, 6000000, [])).toEqual({
+      quoteTotal: total,
+      paid: 6000000,
+      pending: 0,
+      overpayment: 1000000,
+      status: 'sobrepago'
+    });
+  });
+
+  it('distingue un pago exacto de un sobrepago', () => {
+    expect(clientBalanceSummary(total, total, []).status).toBe('pagada');
+    expect(clientBalanceSummary(total, total, []).overpayment).toBe(0);
+    expect(clientBalanceSummary(total, total + 1, []).status).toBe('sobrepago');
+    expect(clientBalanceSummary(total, total + 1, []).overpayment).toBe(1);
   });
 
   it('no está pagada mientras falte dinero', () => {
@@ -102,6 +118,13 @@ describe('joya pagada como estado derivado del dinero (D-028)', () => {
 
   it('una cotización sin total no se marca pagada sola', () => {
     expect(isQuotePaidInFull(0, 0, [])).toBe(false);
+    expect(clientBalanceSummary(0, 0, [])).toEqual({
+      quoteTotal: 0,
+      paid: 0,
+      pending: 0,
+      overpayment: 0,
+      status: 'sinTotal'
+    });
   });
 });
 
@@ -127,5 +150,35 @@ describe('registrar el pago del saldo (D-028)', () => {
   it('no crea un abono de cero si ya está pagada', () => {
     expect(settlementPayment(total, total, [])).toBeNull();
     expect(settlementPayment(total, 6000000, [])).toBeNull();
+  });
+
+  it('no crea una acción falsa para una cotización con total cero', () => {
+    expect(settlementPayment(0, 0, [])).toBeNull();
+  });
+
+  it('es idempotente ante doble toque o reintento del mismo pago', () => {
+    const candidate = {
+      ...emptyPayment(),
+      id: 'saldo-unico',
+      date: '2026-07-16',
+      notes: 'Pago del saldo pendiente'
+    };
+
+    const first = appendSettlementPayment(total, 1000000, [], candidate);
+    const repeated = appendSettlementPayment(total, 1000000, first.payments, candidate);
+
+    expect(first.addedPayment?.amount).toBe(4000000);
+    expect(first.payments).toHaveLength(1);
+    expect(repeated.addedPayment).toBeNull();
+    expect(repeated.payments).toBe(first.payments);
+  });
+
+  it('el mismo id tampoco se duplica aunque el reintento llegue con datos antiguos', () => {
+    const candidate = { ...emptyPayment(), id: 'saldo-unico' };
+    const alreadyStored = [{ ...candidate, amount: 1000000 }];
+    const repeated = appendSettlementPayment(total, 0, alreadyStored, candidate);
+
+    expect(repeated.addedPayment).toBeNull();
+    expect(repeated.payments).toBe(alreadyStored);
   });
 });

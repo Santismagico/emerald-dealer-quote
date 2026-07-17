@@ -47,6 +47,8 @@
   --amber: #a8701a;
   --amber-tint: #f6ecd8;
   --amber-line: #ecd9b4;
+  --amber-action: #ead5a9;
+  --amber-action-ink: #5c3a0d;
   --brick: #b1443a;
   --brick-tint: #f5e5e2;
   --brick-line: #e7c7c2;
@@ -80,6 +82,8 @@
     --amber: #d69c4c;
     --amber-tint: #2a2213;
     --amber-line: #4a3a1d;
+    --amber-action: #8a5a20;
+    --amber-action-ink: #fff6e5;
     --brick: #e08379;
     --brick-tint: #2c1a18;
     --brick-line: #4a2b28;
@@ -160,6 +164,11 @@ button {
   background: var(--veil);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+.luxury-nav button {
+  min-width: 0;
+  padding-inline: 0.125rem;
 }
 
 .nav-icon-frame {
@@ -273,6 +282,9 @@ button {
 .atelier .bg-amber-100 {
   background-color: var(--amber-tint);
 }
+.atelier .bg-amber-200 {
+  background-color: var(--amber-action);
+}
 .atelier .text-amber-700,
 .atelier .text-amber-800,
 .atelier .text-amber-900,
@@ -281,6 +293,9 @@ button {
 }
 .atelier .border-amber-200 {
   border-color: var(--amber-line);
+}
+.atelier .bg-amber-200.text-amber-900 {
+  color: var(--amber-action-ink);
 }
 .atelier .bg-amber-500 {
   background-color: var(--amber);
@@ -402,8 +417,7 @@ button {
 /* Los inputs deben tener al menos 16px para evitar el zoom automático de iOS. */
 input,
 select,
-textarea,
-button {
+textarea {
   font-size: 16px;
 }
 
@@ -457,13 +471,31 @@ html::-webkit-scrollbar-track {
   background: var(--paper);
 }
 
-@media (max-width: 350px) {
-  .luxury-header [aria-hidden='true'] {
-    display: none;
+@media (max-width: 360px) {
+  .luxury-header > div {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .atelier.app-shell > main {
+    padding-inline: 0.75rem;
+  }
+
+  .atelier .grid > * {
+    min-width: 0;
   }
 
   .luxury-nav button {
     font-size: 10px;
     letter-spacing: 0;
+  }
+
+  .nav-icon-frame {
+    width: 2.2rem;
+  }
+
+  .quote-step {
+    min-width: 0;
+    padding-inline: 0.125rem;
   }
 }

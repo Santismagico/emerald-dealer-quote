@@ -119,7 +119,7 @@ export function QuoteFormView({
             key={label}
             type="button"
             onClick={() => setStep(i)}
-            className={`min-h-11 flex-1 rounded-full border px-1 py-2 text-[11px] font-semibold ${
+            className={`quote-step min-h-11 min-w-0 flex-1 rounded-full border px-1 py-2 text-[11px] font-semibold ${
               i === step
                 ? 'border-brand-600 bg-brand-600 text-white'
                 : i < step

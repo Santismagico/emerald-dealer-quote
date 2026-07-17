@@ -8,12 +8,13 @@ si el agente que empieza no es el que termina._
 ## Contexto en una mirada
 
 - **El Ecosistema v1.0 está PUBLICADO** en https://santismagico.github.io/emerald-dealer-quote/
-  desde el commit `ae57b95` (main). La rama de trabajo `fable/regeneracion-emerald-dealer-quote-v1`
-  contiene además la estabilización funcional de Codex (`2b1b220` y `deeab61`), todavía no publicada.
-- 432 pruebas en 24 archivos y build en verde. Punto seguro de esta tanda:
-  `punto-seguro-estabilizacion-fondo-2026-07-16`.
-- La renovación estética de lujo y el nuevo ícono instalable quedaron verificados en
-  `55771e0`, únicamente en la rama de trabajo. Todavía no están publicados.
+  desde el commit `ae57b95` (`main`). La identidad vigente de Fable quedó respaldada en
+  `fable/regeneracion-emerald-dealer-quote-v1` hasta `fb564ca`; las correcciones finales
+  viven separadas en `codex/correcciones-finales-fable`. Ninguna de estas dos tandas está publicada.
+- Candidata actual: 452 pruebas en 24 archivos, verificación PWA y build en verde. El
+  punto seguro es la rama de Fable en `fb564ca`; la rama de Codex conserva ese estado como base.
+- La estética oscura/dorada de `55771e0` fue rechazada por Santiago. La identidad vigente
+  es D-029, "el mesón del joyero", con el ícono "La gema viva" y el endurecimiento D-030.
 - **CUIDADO NUEVO:** ahora hay usuarios potenciales usando la app publicada con datos
   reales en su teléfono. Un push a `main` actualiza la app en vivo. La PWA se actualiza
   sola al reabrir; los datos locales (IndexedDB) NUNCA se tocan al actualizar, salvo
@@ -213,10 +214,12 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada y reforzada | 05d301d + deeab61 |
 | C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación solo con meses anteriores | dailyReport.ts, DailyCloseView | verificada y reforzada | 05d301d + deeab61 |
 | C7 | F | El anticipo significa dinero ya pagado: suma a lo recibido y reduce la deuda; los anticipos nuevos o modificados llevan fecha real | QuoteForm, PaymentsPanel, dailyReport | verificada | deeab61 |
-| C8 | F | Confusión entre anticipo y abonos: al aprobar registro lo abonado, y después poder decir que el cliente ya pagó completo, con "joya pagada" junto a "joya entregada" | payments.ts, workshop.ts, WorkshopJobView, PaymentsPanel, WorkshopView | verificada, no publicada | 5d67440 |
-| E1 | E | Cambiar toda la aplicación de una estética plana a una identidad lujosa en verde esmeralda oscuro, dorado champaña y marfil | App, componentes compartidos y todas las pantallas | verificada, no publicada | 55771e0 |
-| E2 | E | Reemplazar el ícono genérico de instalación por una esmeralda facetada dentro de un rombo dorado | íconos PWA, generador, manifiesto y pantalla de inicio | verificada, no publicada | 55771e0 |
-| E3 | E | Editar la estética de Codex — Santiago describirá con sus palabras qué no le gusta | por definir | pendiente: esperando a Santiago | — |
+| C8 | F | Confusión entre anticipo y abonos: registrar el saldo real y mostrar "Pagada" sin mezclarlo con "Entregada" | payments.ts, workshop.ts, WorkshopJobView, PaymentsPanel, WorkshopView | verificada y reforzada, no publicada | 5d67440 + D-030 |
+| C9 | F | Hacer visible cualquier sobrepago, retirar la acción falsa cuando el total es $0 y evitar duplicados por doble toque/reintento | payments.ts, workshop.ts, Taller y cierres | verificada, no publicada | `codex/correcciones-finales-fable` |
+| E1 | E | Primera estética oscura/dorada de Codex | App, componentes e íconos | rechazada por Santiago; reemplazada, no publicar | 55771e0 |
+| E2 | E | Primer ícono de esmeralda dentro de rombo dorado | íconos PWA y manifiesto | rechazado con E1; reemplazado, no publicar | 55771e0 |
+| E3 | E | Nueva identidad "el mesón del joyero" e ícono "La gema viva" con volumen | App, componentes, temas e íconos | verificada, no publicada | 4f3df5f + fb564ca |
+| E4 | E | Corregir recorte adaptable, arranque oscuro, contraste nocturno y pantallas de 320–360 px | generadores PWA, manifiesto, estilos y formulario | verificada, no publicada | `codex/correcciones-finales-fable` |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._

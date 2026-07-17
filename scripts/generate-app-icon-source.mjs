@@ -13,8 +13,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outPath = join(root, 'assets', 'branding', 'app-icon-source.png');
-mkdirSync(dirname(outPath), { recursive: true });
+const standardOutPath = join(root, 'assets', 'branding', 'app-icon-source.png');
+const maskableOutPath = join(root, 'assets', 'branding', 'app-icon-maskable-source.png');
+mkdirSync(dirname(standardOutPath), { recursive: true });
 
 const SIZE = 1024;
 const UNITS = 150; // el dibujo se define en un lienzo de 150×150
@@ -23,8 +24,11 @@ const SS = 3; // muestras por eje (antialiasing 3×3)
 // ---------- geometría (coordenadas del lienzo 150×150) ----------
 
 const TILE_RADIUS = 34;
-const GEM_CENTER = { x: 75, y: 76 };
-const GEM_SCALE = 1.2;
+const STANDARD_ICON = { gemCenter: { x: 75, y: 76 }, gemScale: 1.2, roundedTile: true };
+// Android puede recortar el icono con circulos, cuadrados redondeados u otras
+// formas. Esta version deja la gema dentro del circulo seguro central del 80 %
+// y pinta el lienzo completo, sin esquinas transparentes al instalarla.
+const MASKABLE_ICON = { gemCenter: { x: 75, y: 75 }, gemScale: 0.9, roundedTile: false };
 
 // Octágonos de la talla esmeralda (coordenadas propias de la gema).
 const OUTER = [[-26, -38], [26, -38], [44, -20], [44, 20], [26, 38], [-26, 38], [-44, 20], [-44, -20]];
@@ -113,15 +117,19 @@ function insideRoundedTile(x, y) {
 }
 
 // Color de UNA muestra (x, y en coordenadas 150×150). Devuelve [r,g,b,a 0..1].
-function sample(x, y) {
-  if (!insideRoundedTile(x, y)) return [0, 0, 0, 0];
+function sample(x, y, icon) {
+  if (icon.roundedTile && !insideRoundedTile(x, y)) return [0, 0, 0, 0];
 
   // Fondo radial.
   const dBg = Math.hypot(x - BG_CENTER.x, y - BG_CENTER.y) / BG_RADIUS;
   let [r, g, b] = gradientAt(BG_STOPS, Math.min(1, dBg));
 
   // Sombra elíptica bajo la piedra.
-  const sd = ((x - 75) / 40) ** 2 + ((y - 118) / 8.5) ** 2;
+  const relativeScale = icon.gemScale / STANDARD_ICON.gemScale;
+  const shadowY = icon.gemCenter.y + 42 * relativeScale;
+  const sd =
+    ((x - icon.gemCenter.x) / (40 * relativeScale)) ** 2 +
+    ((y - shadowY) / (8.5 * relativeScale)) ** 2;
   if (sd <= 1) {
     const a = 0.3;
     r *= 1 - a;
@@ -130,8 +138,8 @@ function sample(x, y) {
   }
 
   // Coordenadas de la gema.
-  const gx = (x - GEM_CENTER.x) / GEM_SCALE;
-  const gy = (y - GEM_CENTER.y) / GEM_SCALE;
+  const gx = (x - icon.gemCenter.x) / icon.gemScale;
+  const gy = (y - icon.gemCenter.y) / icon.gemScale;
 
   if (gx >= -46 && gx <= 46 && gy >= -40 && gy <= 40) {
     if (pointInPolygon(TABLE, gx, gy)) {
@@ -186,34 +194,37 @@ function sample(x, y) {
 
 // ---------- render con supermuestreo ----------
 
-const rgba = Buffer.alloc(SIZE * SIZE * 4);
 const unitsPerPixel = UNITS / SIZE;
 
-for (let py = 0; py < SIZE; py++) {
-  for (let px = 0; px < SIZE; px++) {
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    let a = 0;
-    for (let sy = 0; sy < SS; sy++) {
-      for (let sx = 0; sx < SS; sx++) {
-        const x = (px + (sx + 0.5) / SS) * unitsPerPixel;
-        const y = (py + (sy + 0.5) / SS) * unitsPerPixel;
-        const [cr, cg, cb, ca] = sample(x, y);
-        r += cr * ca;
-        g += cg * ca;
-        b += cb * ca;
-        a += ca;
+function render(icon) {
+  const rgba = Buffer.alloc(SIZE * SIZE * 4);
+  for (let py = 0; py < SIZE; py++) {
+    for (let px = 0; px < SIZE; px++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const x = (px + (sx + 0.5) / SS) * unitsPerPixel;
+          const y = (py + (sy + 0.5) / SS) * unitsPerPixel;
+          const [cr, cg, cb, ca] = sample(x, y, icon);
+          r += cr * ca;
+          g += cg * ca;
+          b += cb * ca;
+          a += ca;
+        }
       }
+      const n = SS * SS;
+      const idx = (py * SIZE + px) * 4;
+      const alpha = a / n;
+      rgba[idx] = alpha > 0 ? Math.round(r / a) : 0;
+      rgba[idx + 1] = alpha > 0 ? Math.round(g / a) : 0;
+      rgba[idx + 2] = alpha > 0 ? Math.round(b / a) : 0;
+      rgba[idx + 3] = Math.round(alpha * 255);
     }
-    const n = SS * SS;
-    const idx = (py * SIZE + px) * 4;
-    const alpha = a / n;
-    rgba[idx] = alpha > 0 ? Math.round(r / a) : 0;
-    rgba[idx + 1] = alpha > 0 ? Math.round(g / a) : 0;
-    rgba[idx + 2] = alpha > 0 ? Math.round(b / a) : 0;
-    rgba[idx + 3] = Math.round(alpha * 255);
   }
+  return rgba;
 }
 
 // ---------- codificación PNG (idéntica a generate-icons.mjs) ----------
@@ -249,13 +260,23 @@ ihdr.writeUInt32BE(SIZE, 0);
 ihdr.writeUInt32BE(SIZE, 4);
 ihdr[8] = 8;
 ihdr[9] = 6;
-const raw = Buffer.alloc(SIZE * (SIZE * 4 + 1));
-for (let y = 0; y < SIZE; y++) {
-  raw[y * (SIZE * 4 + 1)] = 0;
-  rgba.copy(raw, y * (SIZE * 4 + 1) + 1, y * SIZE * 4, (y + 1) * SIZE * 4);
+function writePng(outPath, rgba) {
+  const raw = Buffer.alloc(SIZE * (SIZE * 4 + 1));
+  for (let y = 0; y < SIZE; y++) {
+    raw[y * (SIZE * 4 + 1)] = 0;
+    rgba.copy(raw, y * (SIZE * 4 + 1) + 1, y * SIZE * 4, (y + 1) * SIZE * 4);
+  }
+  writeFileSync(
+    outPath,
+    Buffer.concat([
+      signature,
+      chunk('IHDR', ihdr),
+      chunk('IDAT', deflateSync(raw, { level: 9 })),
+      chunk('IEND', Buffer.alloc(0))
+    ])
+  );
+  console.log(`OK ${outPath} (${SIZE}x${SIZE})`);
 }
-writeFileSync(
-  outPath,
-  Buffer.concat([signature, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))])
-);
-console.log(`✔ ${outPath} (${SIZE}x${SIZE})`);
+
+writePng(standardOutPath, render(STANDARD_ICON));
+writePng(maskableOutPath, render(MASKABLE_ICON));

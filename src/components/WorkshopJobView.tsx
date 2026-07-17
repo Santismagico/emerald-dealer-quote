@@ -9,7 +9,7 @@ import { ProductionPanel } from './ProductionPanel';
 import { PaymentsPanel } from './PaymentsPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { workshopJobFromQuote, withQuoteDelivery } from '../services/workshop';
-import { settlementPayment } from '../services/payments';
+import { appendSettlementPayment, emptyPayment } from '../services/payments';
 import { jobChip } from './WorkshopView';
 import {
   createQuoteAutosaveController,
@@ -88,6 +88,8 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
     const job = useMemo(() => workshopJobFromQuote(quote), [quote]);
     const [confirmDelivery, setConfirmDelivery] = useState<'entregar' | 'deshacer' | null>(null);
     const [confirmPaid, setConfirmPaid] = useState(false);
+    const [settlingBalance, setSettlingBalance] = useState(false);
+    const settlingBalanceRef = useRef(false);
 
     const flushPending = async () => {
       await autosave.flush();
@@ -114,23 +116,41 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
      * en el cierre del día, en vez de desaparecer.
      */
     const settleBalance = async () => {
-      const latest = autosave.getLatest();
-      const payment = settlementPayment(
-        calculateQuote(quoteToCalcInput(latest)).total,
-        latest.deposit,
-        latest.payments
-      );
-      if (payment === null) {
-        setConfirmPaid(false);
-        return;
-      }
+      if (settlingBalanceRef.current) return;
+      settlingBalanceRef.current = true;
+      setSettlingBalance(true);
+
       try {
-        updatePayments((current) => [...current, payment], 'immediate');
-        await autosave.flush();
+        const latest = autosave.getLatest();
+        const candidate = emptyPayment();
+        const preview = appendSettlementPayment(
+          calculateQuote(quoteToCalcInput(latest)).total,
+          latest.deposit,
+          latest.payments,
+          candidate
+        );
+        if (preview.addedPayment === null) return;
+
+        let added = false;
+        const result = autosave.update((current) => {
+          const settlement = appendSettlementPayment(
+            calculateQuote(quoteToCalcInput(current)).total,
+            current.deposit,
+            current.payments,
+            candidate
+          );
+          added = settlement.addedPayment !== null;
+          return added ? { ...current, payments: settlement.payments } : current;
+        }, 'immediate');
+        if (!added) return;
+
+        await (result.savePromise ?? autosave.flush());
         store.showToast('Joya marcada como pagada');
       } catch {
         store.showToast('No se pudo guardar. Puedes reintentar.');
       } finally {
+        settlingBalanceRef.current = false;
+        setSettlingBalance(false);
         setConfirmPaid(false);
       }
     };
@@ -225,20 +245,40 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
           <div className="mt-3 space-y-1 border-t border-stone-100 pt-3">
             <SummaryRow label="Total cotizado" value={formatCOP(calc.total)} />
             <SummaryRow label="Total pagado por el cliente" value={formatCOP(job.paid)} />
-            <SummaryRow
-              label="Saldo pendiente"
-              value={job.paidInFull ? 'Pagada ✓' : formatCOP(job.balance)}
-              bold
-              valueClass={job.paidInFull ? 'text-brand-800' : undefined}
-            />
+            {job.hasValidTotal ? (
+              <SummaryRow
+                label="Saldo pendiente"
+                value={job.paidInFull && job.overpayment === 0 ? 'Pagada ✓' : formatCOP(job.balance)}
+                bold
+                valueClass={job.paidInFull && job.overpayment === 0 ? 'text-brand-800' : undefined}
+              />
+            ) : (
+              <SummaryRow label="Estado del pago" value="Sin total cotizado" bold valueClass="text-amber-700" />
+            )}
+            {job.overpayment > 0 && (
+              <SummaryRow
+                label="Pago en exceso"
+                value={formatCOP(job.overpayment)}
+                bold
+                valueClass="text-red-700"
+              />
+            )}
           </div>
           <div className="mt-3 space-y-2 border-t border-stone-100 pt-3">
-            {job.paidInFull ? (
+            {!job.hasValidTotal ? (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <strong>Sin total cotizado.</strong> Corrige la cotización antes de registrar el pago del saldo.
+              </p>
+            ) : job.overpayment > 0 ? (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
+                <strong>Pago en exceso de {formatCOP(job.overpayment)}.</strong> Revisa el anticipo y los abonos; no se agregará otro pago.
+              </p>
+            ) : job.paidInFull ? (
               <p className="rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-900">
                 ✓ <strong>Pagada.</strong> El cliente no debe nada.
               </p>
             ) : (
-              <Button variant="secondary" full onClick={() => setConfirmPaid(true)}>
+              <Button variant="secondary" full disabled={settlingBalance} onClick={() => setConfirmPaid(true)}>
                 El cliente ya pagó todo
               </Button>
             )}
@@ -291,11 +331,14 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
         </div>
 
         <ConfirmDialog
-          open={confirmPaid}
+          open={confirmPaid && job.hasValidTotal && job.balance > 0}
           title="El cliente ya pagó todo"
           message={`Se registrará un pago de ${formatCOP(job.balance)} con la fecha de hoy y la joya quedará marcada como pagada. Ese dinero entra al cierre del día. Si el pago fue otro día o quieres anotar el medio de pago, edítalo después en la lista de pagos.`}
-          confirmLabel="Sí, pagó todo"
-          onCancel={() => setConfirmPaid(false)}
+          confirmLabel={settlingBalance ? 'Guardando…' : 'Sí, pagó todo'}
+          busy={settlingBalance}
+          onCancel={() => {
+            if (!settlingBalance) setConfirmPaid(false);
+          }}
           onConfirm={() => void settleBalance()}
         />
 

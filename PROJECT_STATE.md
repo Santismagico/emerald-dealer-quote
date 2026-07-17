@@ -1,28 +1,28 @@
 # PROJECT_STATE — Emerald Dealer Quote
 
-_Actualizado: 2026-07-16 por Codex después de estabilizar C1–C7 y completar la renovación estética. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-16 por Codex después de completar D-030 (instalación, temas, pantallas estrechas, pagos y documentación). Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
 ## Qué aplicación es
 
 PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colombia). Cotiza piezas (oro + piedras + mano de obra), genera PDF para el cliente (sin datos internos) y PDF interno (con costos y margen), comparte por WhatsApp, lleva historial, seguimiento de producción del taller y abonos del cliente. Todo local (IndexedDB), sin backend.
 
 - **Stack:** React 19 + TypeScript + Vite 8 + Tailwind 4 + jsPDF + vite-plugin-pwa + Vitest. Sin router ni gestor de estado externo.
-- **Versión:** 0.5.0. El Ecosistema v1.0 está publicado desde `ae57b95`; la estabilización funcional y la nueva identidad visual siguen únicamente en la rama de trabajo.
+- **Versión:** 0.5.0. El Ecosistema v1.0 está publicado desde `ae57b95`; la identidad vigente y sus correcciones finales siguen únicamente en ramas de trabajo.
 - **Producción:** https://santismagico.github.io/emerald-dealer-quote/ — el despliegue solo se inicia por un push a `main` o por ejecución manual de `.github/workflows/deploy.yml`. Un push de la rama de trabajo o de una etiqueta no lo activa.
 - **Repositorio:** https://github.com/Santismagico/emerald-dealer-quote (público — nunca subir datos reales ni secretos).
 
 ## Estado de Git y respaldos
 
-- Rama de trabajo autorizada: `fable/regeneracion-emerald-dealer-quote-v1`. Allí están el Ecosistema v1.0 y las correcciones de fondo estabilizadas; respaldar esa rama en GitHub no publica la aplicación.
+- Base de Fable conservada: `fable/regeneracion-emerald-dealer-quote-v1` hasta `fb564ca`. Correcciones de Codex: `codex/correcciones-finales-fable`. Ninguna de esas ramas publica la aplicación por sí sola.
 - Punto de restauración de esta tanda: tag `punto-seguro-estabilizacion-fondo-2026-07-16`, subido a GitHub antes de las correcciones de Codex.
 - `main` contiene lo publicado; la rama de trabajo va adelante. **No hacer push a `main` sin autorización de Santiago** (dispara despliegue público).
-- Cómo restaurar si algo sale mal: `git restore .` para descartar cambios sin commit; `git reset --hard punto-seguro-2026-07-09` para volver al punto seguro (solo si es imprescindible y avisando).
+- Cómo restaurar si algo sale mal: conservar esta rama como evidencia y volver a la base `fable/regeneracion-emerald-dealer-quote-v1`; si una corrección ya fue guardada, deshacerla con un commit de reversión. No reescribir la historia pública.
 
 ## Qué está funcionando
 
 - Estabilización posterior a C1–C6: **432 pruebas en verde, distribuidas en 24 archivos**, build sin errores y recorrido móvil real completado. El anticipo ya cuenta como dinero pagado; los proveedores eliminados conservan su nombre en lotes anteriores; pagos, ventas y deudas quedan protegidos; la entrega exige una fecha real; y los cierres diario/mensual mantienen una caja coherente. Cambios en `2b1b220` y `deeab61`, todavía no publicados.
-- **Joya pagada y pago del saldo en un toque (D-028):** la etiqueta "Pagada ✓" sale sola cuando lo recibido (anticipo + abonos) cubre el total, el botón "El cliente ya pagó todo" registra el saldo como un pago de hoy que entra al cierre, y el panel del Taller muestra el anticipo como "1er pago" advirtiendo que ya está contado. Pagada y entregada son independientes. 445 pruebas y build en verde; flujo, persistencia y cierre verificados en navegador. Cambio `5d67440`, todavía no publicado.
-- **Renovación estética (D-027) — INCOMPLETA, verificado el 2026-07-16:** fondo esmeralda profundo, dorado champaña, marfil, títulos elegantes, tarjetas con profundidad, campos claros, navegación con íconos lineales y controles táctiles de al menos 44 px. **Pero el interior del Taller quedó sin renovar:** `WorkshopJobView`, `PaymentsPanel` y `ProductionPanel` no usan ni dorado ni marfil y conservan la paleta plana anterior (blanco/`stone`/`amber`), a diferencia de Piedras, Agenda y Cierre. Pendiente E3 en la hoja de ruta. El ícono instalable ahora es una esmeralda facetada dentro de un rombo dorado y tiene versiones para iPhone y Android adaptable. Verificada en anchos móviles de 320 y 390 px, con 432 pruebas y build en verde. Cambio `55771e0`, todavía no publicado.
+- **Joya pagada y pago del saldo reforzados (D-028 + D-030):** "Pagada ✓" sigue siendo automática y separada de "Entregada". El Taller distingue pago exacto, saldo, sobrepago y cotización sin total; un exceso se muestra claramente, un total $0 no ofrece una acción falsa y el pago del saldo queda protegido contra doble toque/reintentos. Las pruebas confirman una sola entrada en los cierres diario y mensual.
+- **Identidad vigente (D-029 + D-030):** "el mesón del joyero" usa papel cálido, superficies claras con profundidad suave, tinta verde-gris, un único acento esmeralda y serif solo en la marca; incluye tema nocturno automático y conserva claro el documento del cliente. El ícono vigente es "La gema viva". Android recibe una variante adaptable opaca y segura; Apple una versión opaca. Arranque oscuro, contraste ámbar y anchos de 320/390 px quedaron corregidos. Candidata completa: **452 pruebas en 24 archivos**, verificación PWA, TypeScript, build y recorrido local sin desbordamiento ni errores visibles; todavía no publicada.
 - Verificación integral de la Etapa 5.5: **294 pruebas en verde**, distribuidas en 16 archivos, y build de producción sin errores.
 - Todos los módulos del MVP + producción del taller + abonos (ver `PRODUCT_SPEC.md` raíz, tabla de módulos).
 - Protección de información interna antes de PDF cliente, Web Share y WhatsApp: el contenido final de cada canal se analiza y, si hay un hallazgo, la salida queda bloqueada hasta corregirlo. No existe una confirmación para saltar la protección.
@@ -64,7 +64,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 - Web Share entrega solo el PDF cliente al selector nativo; no elige WhatsApp, usa descarga si no hay soporte y trata `AbortError` como cancelación (D-017).
 - El consecutivo, el recordatorio y el precio del oro actualizan Ajustes sin pisarse entre acciones simultáneas (D-018).
 - Dinero en COP enteros; motor de cálculo puro; privacidad del cliente protegida por tests.
-- La identidad visual usa esmeralda oscuro, dorado champaña y marfil; mantiene los estados rojo/ámbar/verde y conserva claro el documento del cliente (D-027).
+- La identidad vigente es "el mesón del joyero" con "La gema viva"; D-027 quedó reemplazada. El endurecimiento de instalación, temas, pantallas estrechas y pagos está registrado en D-030.
 - Plan SaaS (Supabase) escrito en `SAAS_PLAN.md` pero **congelado** hasta orden de Santiago.
 
 ## Qué NO debe modificarse
@@ -88,9 +88,9 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**Esperando a Santiago:** describirá con sus palabras qué no le gusta de la estética de Codex (E3 en la hoja de ruta). Ya hay un hallazgo confirmado para esa tanda: el interior del Taller (pagos y producción) se quedó con la paleta plana anterior.
+**La candidata D-030 está corregida y verificada localmente, pero NO publicada.** El Ecosistema v1.0 público sigue en `main` = `ae57b95`; no sustituirlo sin autorización expresa de Santiago.
 
-**El Ecosistema v1.0 está PUBLICADO** (`main` = `ae57b95`). Las **correcciones de fondo C1–C8 y la renovación estética están completadas y verificadas** en la rama de trabajo: 445 pruebas, build y recorrido móvil en verde. **NO están publicadas.** El siguiente paso es revisar la nueva apariencia en un teléfono real, reinstalar la PWA para confirmar el ícono y pedir a Santiago autorización expresa antes de llevar esta candidata a `main`. Antes de publicar también se debe revisar manualmente cualquier cotización antigua donde el mismo dinero pudiera estar registrado a la vez como anticipo y como abono; no se hará una deduplicación automática que pueda borrar un pago real. Pendientes de ROADMAP sin cambios: plantillas y salir de OneDrive.
+Siguiente secuencia: 1) guardar esta candidata en un commit local; 2) revisarla con Santiago; 3) reinstalarla en un teléfono real para confirmar el ícono del sistema, arranque, modo oscuro y navegación; 4) revisar manualmente cotizaciones antiguas que puedan tener el mismo dinero como anticipo y abono; 5) confirmar si el enlace seguirá siendo público o requiere protección privada; 6) solo entonces, y con autorización expresa, llevar la candidata a `main` y verificar el despliegue visible.
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
@@ -124,3 +124,5 @@ npm test && npm run build
 | 2026-07-16 | Estabilización de correcciones de fondo (Codex) | Anticipo tratado como pago real, historial de proveedores conservado, lotes/pagos protegidos, fecha real de entrega y cierres corregidos; 432 pruebas, build y recorrido móvil en verde; no publicado (D-026) | 2b1b220 + deeab61 |
 | 2026-07-16 | Renovación estética de lujo (Codex) | Identidad esmeralda oscuro/dorado/marfil, componentes y pantallas renovados, íconos lineales, nuevo ícono instalable y controles táctiles; 432 pruebas, build y revisión móvil en verde; no publicado (D-027). Auditoría posterior: el interior del Taller quedó sin renovar (E3) | 55771e0 |
 | 2026-07-16 | C8: joya pagada y pago del saldo (Fable) | Estado "Pagada" derivado del dinero, botón que registra el saldo como pago de hoy, anticipo marcado como 1er pago ya contado; 445 pruebas y build en verde; flujo, persistencia y cierre verificados en navegador; no publicado (D-028) | 5d67440 |
+| 2026-07-16 | Nueva identidad "el mesón del joyero" (Fable) | Papel cálido, acento esmeralda, tema claro/oscuro e ícono "La gema viva"; reemplaza la estética D-027; no publicado (D-029) | 4f3df5f + fb564ca |
+| 2026-07-16 | Endurecimiento final (Codex) | Ícono adaptable/Apple, arranque y contraste nocturno, pantallas estrechas, sobrepagos/total cero/idempotencia y documentación; 452 pruebas, verificación PWA, build y revisión 320/390 px en verde; no publicado (D-030) | `codex/correcciones-finales-fable` |
