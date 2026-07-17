@@ -405,6 +405,34 @@ describe('cierre del mes (C6)', () => {
     expect(july?.cashIn).toBe(500000);
   });
 
+  it('un mes sin movimientos conserva visibles las deudas vivas', () => {
+    const oldCredit = lote({
+      purchaseDate: '2026-05-10',
+      purchaseValueCop: 6000000,
+      onCredit: true,
+      supplierPayments: [
+        { id: 'p-old', date: '2026-06-01', amount: 1000000, notes: '' }
+      ]
+    });
+    const oldApproved = sampleQuote({
+      date: '2026-05-10',
+      approvedAt: '2026-05-11T10:00:00.000Z',
+      status: 'aprobada',
+      deposit: 0,
+      depositDate: '',
+      payments: [],
+      production: []
+    });
+
+    const report = buildMonthlyReport('2026-07', [oldApproved], [oldCredit]);
+    expect(report.stonePurchases).toHaveLength(0);
+    expect(report.stoneSales).toHaveLength(0);
+    expect(report.payments).toHaveLength(0);
+    expect(report.isEmpty).toBe(true);
+    expect(report.totals.supplierDebt).toBe(5000000);
+    expect(report.totals.clientsOwe).toBeGreaterThan(0);
+  });
+
   it('formatea el mes en español', () => {
     expect(formatMonthCO('2026-07').toLowerCase()).toContain('julio de 2026');
   });

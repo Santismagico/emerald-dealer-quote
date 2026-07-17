@@ -7,6 +7,7 @@
 import type { StoneLot, StoneSale, SupplierPayment } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
+import { toSafeCOP } from '../utils/money';
 
 export type LotFilter = 'existencias' | 'agotados' | 'todos';
 
@@ -43,7 +44,7 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   for (const sale of lot.sales) {
     soldCarats += sale.carats;
     soldQuantity += sale.quantity;
-    soldValue += sale.valueCop;
+    soldValue += toSafeCOP(sale.valueCop);
   }
   soldCarats = round3(soldCarats);
   const remainingCarats = round3(lot.carats - soldCarats);
@@ -51,9 +52,10 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
 
   let paidToSupplier = 0;
   for (const payment of lot.supplierPayments) {
-    paidToSupplier += payment.amount;
+    paidToSupplier += toSafeCOP(payment.amount);
   }
-  const supplierDebt = lot.onCredit ? Math.max(0, lot.purchaseValueCop - paidToSupplier) : 0;
+  const purchaseValue = toSafeCOP(lot.purchaseValueCop);
+  const supplierDebt = lot.onCredit ? Math.max(0, purchaseValue - paidToSupplier) : 0;
 
   return {
     lot,
@@ -63,7 +65,7 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     remainingCarats,
     remainingQuantity,
     exhausted: remainingCarats <= 0 && remainingQuantity <= 0,
-    result: soldValue - lot.purchaseValueCop,
+    result: soldValue - purchaseValue,
     paidToSupplier,
     supplierDebt,
     creditSettled: lot.onCredit && supplierDebt <= 0
@@ -82,11 +84,12 @@ export function validateSupplierPayment(
 ): string | null {
   if (!lot.onCredit) return 'Los pagos al proveedor solo se registran en compras a crédito.';
   if (!isValidISODate(payment.date)) return 'El pago necesita una fecha válida.';
-  if (payment.amount <= 0) return 'Indica el monto pagado al proveedor.';
+  const amount = toSafeCOP(payment.amount);
+  if (amount <= 0) return 'Indica el monto pagado al proveedor.';
 
   const others = lot.supplierPayments.filter((p) => p.id !== excludePaymentId);
   const summary = summarizeStoneLot({ ...lot, supplierPayments: others });
-  if (payment.amount > summary.supplierDebt) {
+  if (amount > summary.supplierDebt) {
     return `Solo debes ${summary.supplierDebt.toLocaleString('es-CO')} de este lote.`;
   }
   return null;
@@ -138,9 +141,12 @@ export function validateStoneLotPurchaseUpdate(
     }
   }
 
-  const paidToSupplier = next.supplierPayments.reduce((total, payment) => total + payment.amount, 0);
+  const paidToSupplier = next.supplierPayments.reduce(
+    (total, payment) => total + toSafeCOP(payment.amount),
+    0
+  );
 
-  if (next.purchaseValueCop < paidToSupplier) {
+  if (toSafeCOP(next.purchaseValueCop) < paidToSupplier) {
     return `El costo del lote no puede ser menor que los ${paidToSupplier.toLocaleString(
       'es-CO'
     )} ya pagados al proveedor.`;
@@ -246,10 +252,10 @@ export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   let totalDebt = 0;
   let saleCount = 0;
   for (const lot of lots) {
-    totalSpent += lot.purchaseValueCop;
+    totalSpent += toSafeCOP(lot.purchaseValueCop);
     totalDebt += summarizeStoneLot(lot).supplierDebt;
     for (const sale of lot.sales) {
-      totalEarned += sale.valueCop;
+      totalEarned += toSafeCOP(sale.valueCop);
       saleCount += 1;
     }
   }
@@ -332,7 +338,7 @@ export function validateStoneSale(
   if (sale.quantity <= 0 && sale.carats <= 0) {
     return 'Indica cuántas piedras o cuántos quilates se vendieron.';
   }
-  if (sale.valueCop <= 0) return 'Indica el valor recibido por la venta.';
+  if (toSafeCOP(sale.valueCop) <= 0) return 'Indica el valor recibido por la venta.';
 
   const others = lot.sales.filter((s) => s.id !== excludeSaleId);
   const summary = summarizeStoneLot({ ...lot, sales: others });

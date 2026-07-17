@@ -102,6 +102,36 @@ describe('resumen de un lote', () => {
     expect(s.remainingCarats).toBe(0);
     expect(s.exhausted).toBe(true);
   });
+
+  it('normaliza a COP enteros los costos, ventas y pagos aun con entradas hostiles', () => {
+    const s = summarizeStoneLot(
+      lote({
+        purchaseValueCop: 500000.4,
+        onCredit: true,
+        sales: [
+          venta({ id: 'decimal', valueCop: 100000.6 }),
+          venta({ id: 'nan', valueCop: Number.NaN }),
+          venta({ id: 'negativo', valueCop: -1 }),
+          venta({ id: 'infinito', valueCop: Number.POSITIVE_INFINITY }),
+          venta({ id: 'grande', valueCop: 1e12 })
+        ],
+        supplierPayments: [
+          { id: 'p-1', date: '2026-07-15', amount: 100000.6, notes: '' },
+          { id: 'p-2', date: '2026-07-15', amount: Number.NaN, notes: '' },
+          { id: 'p-3', date: '2026-07-15', amount: -1, notes: '' },
+          { id: 'p-4', date: '2026-07-15', amount: Number.POSITIVE_INFINITY, notes: '' }
+        ]
+      })
+    );
+
+    expect(s.soldValue).toBe(1000000100001);
+    expect(s.paidToSupplier).toBe(100001);
+    expect(s.supplierDebt).toBe(399999);
+    expect(s.result).toBe(999999600001);
+    for (const value of [s.soldValue, s.paidToSupplier, s.supplierDebt, s.result]) {
+      expect(Number.isInteger(value)).toBe(true);
+    }
+  });
 });
 
 describe('existencias y flujo', () => {

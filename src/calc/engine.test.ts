@@ -85,6 +85,13 @@ describe('margen interno', () => {
     expect(r.marginAmount).toBe(300000);
     expect(r.subtotal).toBe(1300000);
   });
+
+  it('admite margen cero y margen alto de 300% sin perder enteros', () => {
+    expect(calculateQuote(baseInput({ laborCost: 100000, marginPercent: 0 })).total).toBe(100000);
+    const alto = calculateQuote(baseInput({ laborCost: 100000, marginPercent: 300 }));
+    expect(alto.marginAmount).toBe(300000);
+    expect(alto.total).toBe(400000);
+  });
 });
 
 describe('descuentos', () => {
@@ -106,6 +113,20 @@ describe('descuentos', () => {
     const r = calculateQuote(baseInput({ laborCost: 100000, discountType: 'valor', discountValue: 999999999 }));
     expect(r.discountAmount).toBe(100000);
     expect(r.total).toBe(0);
+  });
+
+  it('un descuento de 100% deja base e impuesto en cero', () => {
+    const r = calculateQuote(
+      baseInput({
+        laborCost: 100000,
+        discountType: 'porcentaje',
+        discountValue: 100,
+        taxEnabled: true,
+        taxPercent: 19
+      })
+    );
+    expect(r.total).toBe(0);
+    expect(r.taxAmount).toBe(0);
   });
 });
 
@@ -180,6 +201,55 @@ describe('total, anticipo y saldo', () => {
     );
     for (const value of Object.values(r)) {
       expect(Number.isInteger(value)).toBe(true);
+    }
+  });
+
+  it('normaliza basura, negativos, decimales e importes grandes sin producir dinero inválido', () => {
+    const cases = [500000.4, Number.NaN, -1, Number.POSITIVE_INFINITY, 1e12];
+    for (const value of cases) {
+      const r = calculateQuote(
+        baseInput({
+          materialPricePerGram: value,
+          weightGrams: 1,
+          laborCost: value,
+          deposit: value
+        })
+      );
+      for (const money of Object.values(r)) {
+        expect(Number.isFinite(money)).toBe(true);
+        expect(Number.isInteger(money)).toBe(true);
+        expect(money).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('mantiene coherentes diez cotizaciones con pesos y quilates decimales', () => {
+    for (let i = 1; i <= 10; i += 1) {
+      const r = calculateQuote(
+        baseInput({
+          weightGrams: i + 0.137,
+          materialPricePerGram: 421337,
+          stones: [
+            stone({
+              priceMode: 'porQuilate',
+              carats: i / 7,
+              unitPrice: 1333333,
+              quantity: 1
+            })
+          ],
+          laborCost: 250000.4,
+          marginPercent: 27.5,
+          discountType: 'porcentaje',
+          discountValue: 3.25,
+          taxEnabled: true,
+          taxPercent: 19
+        })
+      );
+      expect(Number.isInteger(r.total)).toBe(true);
+      expect(r.baseCost).toBe(
+        r.materialSubtotal + r.stonesSubtotal + r.laborSubtotal + r.extrasSubtotal
+      );
+      expect(r.total).toBe(r.subtotal - r.discountAmount + r.taxAmount);
     }
   });
 });

@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { formatCOP, parseMoney, parseDecimal, formatThousands } from './money';
+import { formatCOP, parseMoney, parseDecimal, formatThousands, toSafeCOP } from './money';
+
+describe('toSafeCOP', () => {
+  it('convierte cualquier entrada monetaria a entero no negativo', () => {
+    expect(toSafeCOP(500000.4)).toBe(500000);
+    expect(toSafeCOP(Number.NaN)).toBe(0);
+    expect(toSafeCOP(-1)).toBe(0);
+    expect(toSafeCOP(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(toSafeCOP(1e12)).toBe(1e12);
+  });
+});
 
 describe('formatCOP', () => {
   it('formatea COP sin decimales', () => {
