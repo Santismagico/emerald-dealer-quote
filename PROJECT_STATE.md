@@ -90,6 +90,13 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 **PUBLICADO (2026-07-17, por orden expresa de Santiago):** `main` = `d251ad3` con toda la candidata: correcciones de fondo C1–C9, identidad "el mesón del joyero" con día/noche (D-029), ícono "La gema viva", y las correcciones finales D-030. Despliegue de GitHub Pages en verde (37 s) y sitio en vivo verificado: los meta theme-color nuevos se sirven y el `pwa-512.png` publicado es idéntico byte a byte al local. Las ramas `main` y `codex/correcciones-finales-fable` apuntan al mismo commit.
 
+**Camino SaaS descongelado (D-031, 2026-07-17):** `SAAS_PLAN.md` es ahora la hoja de
+ruta canónica hacia el producto cobrable — fases 0–4, auditoría integral, requisitos
+legales y calendario (auditoría fin de julio; beta nube ago–sep; cobro octubre 2026).
+El siguiente trabajo técnico es la **Fase 1 (auditoría y endurecimiento pre-SaaS)**,
+que requiere la orden de Santiago; la Fase 0 (piloto formal con colegas) puede
+arrancar ya sin código nuevo.
+
 Pendientes después de publicar (no técnicos):
 
 1. **Reinstalar la PWA en el teléfono de Santiago** para ver el ícono nuevo (los teléfonos que ya la tenían pueden conservar el anterior por caché hasta reinstalar) y confirmar arranque, modo oscuro y navegación (`PHYSICAL_TEST_REPORT.md`).

@@ -342,3 +342,23 @@ de assets PWA, TypeScript y build en verde, recorrido local sin desbordamiento n
 visibles a 320 y 390 px. No se agregaron dependencias, no cambió IndexedDB y las pruebas
 de privacidad del PDF cliente, Web Share y WhatsApp permanecen en verde. La candidata no
 está publicada; falta reinstalarla en un teléfono real para comprobar el ícono del sistema.
+
+## D-031 · Hoja de ruta SaaS actualizada y descongelada para planificación · 2026-07-17 · Vigente
+
+Con la v2 publicada y aprobada por Santiago y sus colegas, Santiago ordenó retomar el
+plan SaaS congelado (2026-07-08) y convertirlo en hoja de ruta ejecutable hacia un
+producto cobrable y sostenible. `SAAS_PLAN.md` quedó reescrito con: el punto de partida
+real (6 almacenes, respaldo v5, 452 pruebas), cinco fases (0 piloto formal con colegas
+— puede empezar ya con la app publicada; 1 auditoría integral + ciberseguridad +
+preparación legal Ley 1581/2012 + salida de OneDrive; 2 nube con Supabase y RLS con el
+esquema actualizado al Ecosistema; 3 suscripciones con pasarela colombiana
+Wompi/MercadoPago/PayU/Bold; 4 lanzamiento comercial), pruebas críticas de aislamiento
+entre organizaciones, y un calendario honesto: auditoría fin de julio, beta en la nube
+fin de agosto–mediados de septiembre, primeros clientes pagando en octubre 2026 — con
+la advertencia de que los trámites (pasarela, legal) marcan el calendario más que el
+código, por lo que arrancan en la Fase 1.
+
+El documento autoriza solo la PLANIFICACIÓN: cada fase requiere la orden expresa de
+Santiago antes de ejecutarse. El modo 100% local y gratuito se conserva como plan base.
+Las cinco decisiones de negocio pendientes (nombre, precio, pasarela, enlace público,
+lista del piloto) quedan listadas en el plan y no bloquean la Fase 1.
