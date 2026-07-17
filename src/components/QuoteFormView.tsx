@@ -1,7 +1,7 @@
 // Formulario de cotización en 4 pasos, pensado para celular.
 // Paso 1: cliente y fechas · Paso 2: pieza y material · Paso 3: piedras · Paso 4: costos.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { Quote, Stone, Client } from '../types';
 import { PIECE_TYPES } from '../types';
@@ -92,6 +92,10 @@ export function QuoteFormView({
       onPreview({ ...quote, updatedAt: new Date().toISOString() });
     }
   };
+
+  // En la PWA instalada de Android, un input file con display:none dentro de un
+  // label puede no abrir el selector; el clic programático desde un botón sí.
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const addImages = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -386,19 +390,29 @@ export function QuoteFormView({
                   </div>
                 ))}
                 {quote.images.length < MAX_IMAGES && (
-                  <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-stone-300 text-2xl text-stone-400">
-                    ＋
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Agregar imagen de referencia"
+                      className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-stone-300 text-2xl text-stone-400"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      ＋
+                    </button>
                     <input
+                      ref={imageInputRef}
                       type="file"
                       accept="image/*"
                       multiple
-                      className="hidden"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      className="sr-only"
                       onChange={(e) => {
                         void addImages(e.target.files);
                         e.target.value = '';
                       }}
                     />
-                  </label>
+                  </>
                 )}
               </div>
               {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}

@@ -59,6 +59,9 @@ export function SettingsView() {
   const importBusyRef = useRef(false);
   const [goldBusy, setGoldBusy] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  // En la PWA instalada de Android, un input file con display:none dentro de un
+  // label puede no abrir el selector; el clic programático desde un botón sí.
+  const logoInputRef = useRef<HTMLInputElement>(null);
   // Valor del oro que tenía el formulario al abrirse: permite saber si el
   // usuario lo editó a mano o si debe conservarse el auto-actualizado.
   const initialGoldRef = useRef({
@@ -182,25 +185,34 @@ export function SettingsView() {
                 —
               </div>
             )}
-            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-2 text-sm font-medium text-brand-800">
+            <button
+              type="button"
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-2 text-sm font-medium text-brand-800"
+              onClick={() => logoInputRef.current?.click()}
+            >
               {form.logoDataUrl ? 'Cambiar logo' : 'Subir logo'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    try {
-                      patch({ logoDataUrl: await fileToCompressedDataUrl(file) });
-                    } catch {
-                      store.showToast('No se pudo cargar el logo.');
-                    }
+            </button>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  try {
+                    patch({ logoDataUrl: await fileToCompressedDataUrl(file) });
+                  } catch (error) {
+                    store.showToast(
+                      error instanceof Error ? error.message : 'No se pudo cargar el logo.'
+                    );
                   }
-                  e.target.value = '';
-                }}
-              />
-            </label>
+                }
+                e.target.value = '';
+              }}
+            />
             {form.logoDataUrl ? (
               <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-red-600" onClick={() => patch({ logoDataUrl: '' })}>
                 Quitar
@@ -345,7 +357,9 @@ export function SettingsView() {
           ref={importInputRef}
           type="file"
           accept="application/json,.json"
-          className="hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
           onChange={(e) => {
             void handleImportFile(e.target.files?.[0] ?? null);
             e.target.value = '';
