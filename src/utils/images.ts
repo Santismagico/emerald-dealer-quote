@@ -3,11 +3,20 @@
 
 const MAX_DIMENSION = 1000;
 const JPEG_QUALITY = 0.72;
+
+/**
+ * Guardia de memoria ANTES de procesar: las fotos de un teléfono pesan 3–8 MB
+ * y son válidas (la app las comprime igual); solo se rechaza un archivo
+ * absurdamente grande que podría agotar la memoria del navegador (D-034).
+ */
+export const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
+
+/** Límite de lo que se GUARDA: el resultado ya comprimido (D-034). */
 export const MAX_IMAGE_FILE_BYTES = 1_500_000;
 
 export function assertImageFileSize(file: Pick<File, 'size'>): void {
-  if (file.size > MAX_IMAGE_FILE_BYTES) {
-    throw new Error('La imagen es muy pesada. Elige una de máximo 1.5 MB.');
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error('La imagen es muy pesada. Elige un archivo de máximo 25 MB.');
   }
 }
 
@@ -28,7 +37,11 @@ export async function fileToCompressedDataUrl(file: File): Promise<string> {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
-    return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+    const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+    if (dataUrl.length > MAX_IMAGE_FILE_BYTES) {
+      throw new Error('La imagen no se pudo reducir lo suficiente. Prueba con otra.');
+    }
+    return dataUrl;
   } finally {
     URL.revokeObjectURL(objectUrl);
   }

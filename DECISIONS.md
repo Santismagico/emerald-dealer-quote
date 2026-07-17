@@ -389,3 +389,31 @@ y la compresión existente; no se agregan dependencias.
 Los respaldos JSON se limitan a **25 MB** antes de intentar interpretarlos. Un archivo
 mayor se rechaza con mensaje claro y sin abrir ninguna escritura. El límite permite con
 holgura los datos normales del piloto y reduce el riesgo de bloqueo por archivos hostiles.
+
+## D-034 · El límite de imágenes se mide en lo que se guarda, no en la foto original · 2026-07-17 · Vigente (ajusta D-033)
+
+La prueba en el Android de Santiago demostró que el límite D-033 de 1.5 MB aplicado al
+archivo ORIGINAL rechazaba prácticamente todas las fotos de un teléfono (pesan 3–8 MB),
+dejando inutilizable la carga del logo y de las imágenes de referencia. Corrección:
+el guardia previo al procesamiento sube a **25 MB** (protección de memoria contra
+archivos absurdos, mismo techo que los respaldos) y el límite de **1.5 MB pasa al
+resultado YA COMPRIMIDO** (1000 px, JPEG 0.72 — lo que realmente entra a IndexedDB,
+al respaldo y al PDF), con mensaje claro si no se logra reducir. Además, el botón
+"Guardar ajustes" vuelve al flujo normal en el teléfono (dejaba de moverse y se
+superponía al contenido al deslizar, mismo defecto que Santiago ya había rechazado en
+el cotizador) y conserva la posición flotante solo en computador, igual que las
+acciones del formulario. Sin dependencias nuevas.
+
+## D-034 · El límite de imágenes se mide en lo que se guarda, no en la foto original · 2026-07-17 · Vigente (ajusta D-033)
+
+La prueba en el Android de Santiago demostró que el límite D-033 de 1.5 MB aplicado al
+archivo ORIGINAL rechazaba prácticamente todas las fotos de un teléfono (pesan 3–8 MB),
+dejando inutilizable la carga del logo y de las imágenes de referencia. Corrección:
+el guardia previo al procesamiento sube a **25 MB** (protección de memoria contra
+archivos absurdos, mismo techo que los respaldos) y el límite de **1.5 MB pasa al
+resultado YA COMPRIMIDO** (1000 px, JPEG 0.72 — lo que realmente entra a IndexedDB,
+al respaldo y al PDF), con mensaje claro si no se logra reducir. Además, el botón
+"Guardar ajustes" vuelve al flujo normal en el teléfono (dejaba de moverse y se
+superponía al contenido al deslizar, mismo defecto que Santiago ya había rechazado en
+el cotizador) y conserva la posición flotante solo en computador, igual que las
+acciones del formulario. Sin dependencias nuevas.
