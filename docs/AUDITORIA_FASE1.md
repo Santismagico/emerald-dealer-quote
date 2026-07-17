@@ -204,3 +204,29 @@ En una cotización ficticia se escribió `precio por gramo` en “Observaciones 
 - `CHANGELOG.md`, `PROJECT_STATE.md` y este informe reflejan el cierre.
 - Fable debe auditar la rama y los borradores legales deben pasar por revisión profesional.
 - La única acción que queda fuera de esta ejecución es publicar a usuarios: Santiago decide expresamente si `main` avanza.
+
+---
+
+## Auditoría de cierre (Fable, 2026-07-17) — APROBADA
+
+Verificación independiente de la rama `codex/correcciones-finales-fable` (tip `6d349b5`),
+sin tomar ninguna afirmación del informe por cierta:
+
+| Comprobación independiente | Resultado |
+|---|---|
+| 467 pruebas en 26 archivos ejecutadas por Fable | ✔ verdes |
+| Build de producción + assets PWA + hash CSP (`verify-csp-hash.mjs`) | ✔ verdes |
+| `origin/main` intacta en `0dd7500` | ✔ |
+| Un commit por etapa (S1–S6 + cierre), sin push a main | ✔ |
+| Dependencias nuevas | ✔ cero (solo versión 1.0.0 y script `test:csp`) |
+| `engine.ts`, `db.ts` (escalera), `goldPrice.ts` sin tocar | ✔ |
+| Tests de privacidad: solo sustitución de nombres ficticios (S4); aserciones intactas | ✔ |
+| Hallazgo alto S1 (NaN en piedras): todo importe pasa por `toSafeCOP` | ✔ correcto |
+| Hallazgo alto S3 (hash CSP): calculado en `writeBundle` sobre los bytes finales de `dist/index.html`, con verificador reproducible | ✔ correcto y de fondo |
+| Límites D-033 (imagen 1.5 MB, respaldo 25 MB): `if` simples con mensaje claro | ✔ |
+| Barrido independiente de los nombres PRIVADOS del piloto (lista que Codex no tiene) | ✔ cero apariciones |
+| Borradores legales presentes y marcados "BORRADOR" | ✔ |
+
+**Veredicto: la candidata 1.0.0 queda APROBADA por auditoría.** Lista para publicar
+cuando Santiago lo ordene. Quedan fuera del código: revisión de los borradores legales
+por el contador/abogado y el registro del comercio en Wompi.
