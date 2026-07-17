@@ -141,12 +141,6 @@ button {
   touch-action: pan-y;
 }
 
-.quote-form-actions {
-  position: sticky;
-  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
-  z-index: 30;
-}
-
 .luxury-header {
   position: sticky;
   border-bottom: 1px solid var(--line);
@@ -553,7 +547,9 @@ html::-webkit-scrollbar-track {
   }
 
   .quote-form-actions {
+    position: sticky;
     bottom: 1rem;
+    z-index: 30;
   }
 }
 
