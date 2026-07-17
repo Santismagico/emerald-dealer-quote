@@ -60,3 +60,39 @@ Este informe es acumulativo. Registra lo revisado, lo corregido y las pruebas qu
 - Respaldos v1 a v5, listas ausentes convertidas en vacías y restauración atómica.
 - JSON truncado, versión no soportada, colecciones inválidas, identificadores vacíos o duplicados y rollback total.
 - `flush()` durante escritura, error con borrador conservado y reintento exitoso.
+
+## S3 — Ciberseguridad de la aplicación
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Media | Las imágenes se comprimían, pero no había límite previo al procesamiento; una foto original enorme podía agotar la memoria del teléfono. | `src/utils/images.ts`, `src/components/QuoteFormView.tsx` | S3 (este commit) |
+| Media | El archivo de respaldo no tenía un límite de tamaño antes de `JSON.parse`. | `src/services/backup.ts` | S3 (este commit) |
+| Alta | El hash CSP se calculaba antes de la representación final del HTML. La verificación del archivo construido demostró que podía no coincidir con el script que el navegador ejecuta y bloquear la pantalla de emergencia. | `vite.config.ts` | S3 (este commit) |
+| Baja | La lista de seguridad decía respaldo v2 aunque el formato vigente ya era v5. | `SECURITY_CHECKLIST.md` | S3 (este commit) |
+
+### Decisiones tomadas
+
+- D-033 fija 1.5 MB por imagen original, mantiene cuatro imágenes por cotización y no agrega librerías.
+- D-033 fija 25 MB como máximo del respaldo antes de interpretarlo. El rechazo ocurre antes de cualquier escritura.
+- La política CSP se genera durante cada build. Tras demostrar el fallo previo, el hash ahora se calcula desde los bytes finales de `dist/index.html`; no está fijado manualmente. `connect-src` contiene únicamente el origen propio y las dos APIs HTTPS del oro. `script-src` no usa `unsafe-inline` ni `unsafe-eval`. `scripts/verify-csp-hash.mjs` impide cerrar la auditoría si vuelve a desalinearse.
+- El precio del oro no cambió: ambas fuentes usan HTTPS, existe timeout de 12 segundos, límites de sanidad y la interfaz conserva el último precio guardado ante fallos.
+
+### Pruebas agregadas
+
+- Límite exacto y exceso de un byte para imágenes de referencia.
+- Respaldo mayor a 25 MB rechazado antes de leer JSON.
+- PDF real con más de 10.000 caracteres, saltos masivos, controles, emoji y texto árabe.
+- WhatsApp con `&`, `#`, comillas y saltos, teléfono reducido a dígitos y texto codificado.
+- Verificación reproducible del hash CSP contra el HTML final construido.
+
+### Dependencias de producción
+
+| Dependencia | Justificación |
+|---|---|
+| `react` | Construye la interfaz móvil y sus estados. |
+| `react-dom` | Presenta la interfaz React dentro del navegador. |
+| `jspdf` | Genera localmente los PDF de cliente e internos sin enviar datos a un servidor. |
+
+`package-lock.json` está versionado. `npm audit --audit-level=low` del 2026-07-17 informó 0 vulnerabilidades.

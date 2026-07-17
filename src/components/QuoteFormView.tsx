@@ -105,8 +105,10 @@ export function QuoteFormView({
       const selected = Array.from(files).slice(0, remaining);
       const dataUrls = await Promise.all(selected.map(fileToCompressedDataUrl));
       patch({ images: [...quote.images, ...dataUrls] });
-    } catch {
-      setImageError('No se pudo procesar una de las imágenes.');
+    } catch (error) {
+      setImageError(
+        error instanceof Error ? error.message : 'No se pudo procesar una de las imágenes.'
+      );
     }
   };
 

@@ -31,6 +31,7 @@ import {
  */
 export const BACKUP_VERSION = 5;
 const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5];
+export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
 
 export async function exportBackup(): Promise<BackupFile> {
   const [settings, clients, quotes, appointments, stoneLots, suppliers] = await Promise.all([
@@ -200,6 +201,9 @@ function normalizeBackup(data: unknown): BackupFile {
 
 /** Valida, normaliza y parsea un respaldo. Lanza Error con mensaje humano si no es válido. */
 export function parseBackup(json: string): BackupFile {
+  if (new TextEncoder().encode(json).byteLength > MAX_BACKUP_FILE_BYTES) {
+    throw new Error('El respaldo es demasiado grande. El tamaño máximo permitido es 25 MB.');
+  }
   let data: unknown;
   try {
     data = JSON.parse(json);

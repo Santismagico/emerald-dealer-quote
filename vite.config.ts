@@ -1,5 +1,7 @@
 /// <reference types="vitest/config" />
 import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -12,18 +14,16 @@ import { VitePWA } from 'vite-plugin-pwa';
  * Únicos destinos de red permitidos: las dos APIs del precio del oro.
  */
 function cspPlugin(): PluginOption {
+  const hashPlaceholder = '__INLINE_SCRIPT_HASHES__';
   return {
     name: 'inject-csp',
     apply: 'build',
     transformIndexHtml: {
       order: 'post',
       handler(html: string) {
-        const inlineHashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
-          (m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`
-        );
         const csp = [
           "default-src 'self'",
-          `script-src 'self' ${inlineHashes.join(' ')}`.trim(),
+          `script-src 'self' ${hashPlaceholder}`,
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob:",
           "connect-src 'self' https://api.gold-api.com https://open.er-api.com",
@@ -38,6 +38,14 @@ function cspPlugin(): PluginOption {
           `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`
         );
       }
+    },
+    writeBundle(options) {
+      const htmlPath = resolve(options.dir ?? 'dist', 'index.html');
+      const html = readFileSync(htmlPath, 'utf8');
+      const inlineHashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+        (match) => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`
+      );
+      writeFileSync(htmlPath, html.replace(hashPlaceholder, inlineHashes.join(' ')), 'utf8');
     }
   };
 }

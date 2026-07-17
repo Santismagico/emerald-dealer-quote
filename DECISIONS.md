@@ -376,3 +376,16 @@ registra en este repositorio público (regla de datos reales). Con su "procede c
 demás" quedó ordenada la **Fase 1** (auditoría y endurecimiento pre-SaaS). Primera
 pasada ya ejecutada: `npm audit` con 0 vulnerabilidades, 452 pruebas y build en verde
 tras el renombre.
+
+## D-033 · Límites preventivos para imágenes y respaldos · 2026-07-17 · Vigente
+
+Durante S3 de la auditoría Fase 1 se confirmó que las imágenes de referencia se guardan
+en IndexedDB, viajan dentro del respaldo y pueden entrar al PDF. Para evitar que una
+foto original excesiva agote la memoria del teléfono antes de ser comprimida, cada
+archivo elegido queda limitado a **1.5 MB**, con el mensaje claro “La imagen es muy
+pesada. Elige una de máximo 1.5 MB.” Se conservan el máximo existente de cuatro imágenes
+y la compresión existente; no se agregan dependencias.
+
+Los respaldos JSON se limitan a **25 MB** antes de intentar interpretarlos. Un archivo
+mayor se rechaza con mensaje claro y sin abrir ninguna escritura. El límite permite con
+holgura los datos normales del piloto y reduce el riesgo de bloqueo por archivos hostiles.

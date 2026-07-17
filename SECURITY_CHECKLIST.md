@@ -1,17 +1,19 @@
 # SECURITY_CHECKLIST — Emerald Dealer Quote
 
-## Estado actual (MVP local, sin backend)
+## Estado actual verificado el 2026-07-17 (MVP local, sin backend)
 
 - [x] **Sin secretos en el repositorio**: no hay tokens, claves ni credenciales. `.env` está en `.gitignore` por si en el futuro se necesita.
 - [x] **Separación cliente/interno**: PDF cliente, Web Share y WhatsApp bloquean la salida si detectan margen, utilidad, costos, precio por gramo, pureza o notas internas. No existe una confirmación para saltar la protección. Cubierto por `pdfContent.test.ts`, `pdfShare.test.ts` y `whatsapp.test.ts`.
 - [x] **Datos locales**: todo vive en IndexedDB del dispositivo y no se envía a servidores propios. El enlace de WhatsApp entrega el texto a `wa.me`; Web Share entrega el PDF cliente únicamente a la aplicación que el usuario elija en el selector nativo.
 - [x] **Confirmaciones destructivas**: eliminar cotización/cliente e importar respaldo piden confirmación explícita; la importación advierte que reemplaza todo.
-- [x] **Validación de respaldos**: el JSON importado se valida (app, versión, estructura) antes de tocar los datos.
-- [x] **Formato de respaldo vigente**: se exporta v2 y se aceptan v1/v2, siempre con normalización antes de guardar.
-- [x] **Sin dependencias innecesarias**: 3 dependencias de runtime (react, react-dom, jspdf).
+- [x] **Validación de respaldos**: el JSON importado se valida (app, versión, estructura y abonos) antes de tocar los datos; máximo 25 MB y restauración atómica.
+- [x] **Formato de respaldo vigente**: se exporta v5 y se aceptan v1–v5, siempre con normalización antes de guardar.
+- [x] **Sin dependencias innecesarias**: 3 dependencias de runtime (React, React DOM y jsPDF). `npm audit` del 2026-07-17: 0 vulnerabilidades.
 - [x] **Normalización total al importar** (v0.5.0): un respaldo corrupto, editado o de versión anterior se corrige antes de persistirse; nunca puede dejar la app inservible (`services/schema.ts`).
 - [x] **Imágenes solo internas** (v0.5.0): las imágenes deben ser data URLs generadas por la app; URLs externas en respaldos se descartan (impide balizas de rastreo).
+- [x] **Límite de imágenes** (D-033): máximo cuatro por cotización y 1.5 MB por archivo original, con mensaje claro antes de procesar.
 - [x] **Content-Security-Policy en producción** (v0.5.0): conexiones permitidas al propio origen y a las dos APIs del precio del oro; mitiga XSS y dependencias comprometidas. Ver plugin en `vite.config.ts`.
+- [x] **Entradas hostiles a PDF y WhatsApp**: texto largo, controles, emoji y árabe generan PDF; WhatsApp limpia el teléfono y codifica símbolos, comillas y saltos. La privacidad se revisa antes de abrir.
 - [x] **Límites de sanidad del precio del oro** (v0.5.0): valores absurdos de las APIs se rechazan; se conserva el último precio bueno.
 - [x] **Auditoría multi-ángulo ejecutada el 2026-07-09** (8 ángulos + verificación). Resultados y decisiones en DECISIONS.md D-010.
 

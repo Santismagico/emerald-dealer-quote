@@ -3,8 +3,16 @@
 
 const MAX_DIMENSION = 1000;
 const JPEG_QUALITY = 0.72;
+export const MAX_IMAGE_FILE_BYTES = 1_500_000;
+
+export function assertImageFileSize(file: Pick<File, 'size'>): void {
+  if (file.size > MAX_IMAGE_FILE_BYTES) {
+    throw new Error('La imagen es muy pesada. Elige una de máximo 1.5 MB.');
+  }
+}
 
 export async function fileToCompressedDataUrl(file: File): Promise<string> {
+  assertImageFileSize(file);
   const objectUrl = URL.createObjectURL(file);
   try {
     const img = await loadImage(objectUrl);

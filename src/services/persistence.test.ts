@@ -18,7 +18,13 @@ import {
   saveEditableSettings,
   saveFetchedGoldPrice
 } from './storage';
-import { exportBackup, serializeBackup, parseBackup, importBackup } from './backup';
+import {
+  exportBackup,
+  serializeBackup,
+  parseBackup,
+  importBackup,
+  MAX_BACKUP_FILE_BYTES
+} from './backup';
 import { sampleQuote, sampleClient } from '../test/fixtures';
 import { getEffectiveQuoteStatus } from './quoteStatus';
 import { dbGet, dbPut } from './db';
@@ -325,6 +331,12 @@ describe('respaldo (exportar/importar)', () => {
     expect(() =>
       parseBackup('{"app":"emerald-dealer-quote","version":1,"clients":[],"quotes":[{"id":1}]}')
     ).toThrow('inválidas');
+  });
+
+  it('rechaza respaldos mayores a 25 MB antes de intentar leer el JSON', () => {
+    expect(() => parseBackup('x'.repeat(MAX_BACKUP_FILE_BYTES + 1))).toThrow(
+      'demasiado grande'
+    );
   });
 
   it('la importación reemplaza los datos anteriores', async () => {

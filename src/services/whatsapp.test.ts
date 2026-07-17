@@ -107,4 +107,12 @@ describe('enlace de WhatsApp', () => {
   it('funciona sin teléfono', () => {
     expect(whatsAppLink('hola')).toBe(`https://wa.me/?text=${encodeURIComponent('hola')}`);
   });
+
+  it('codifica símbolos, comillas y saltos sin alterar el teléfono saneado', () => {
+    const message = 'Texto & detalle #1 "especial"\nsegunda línea';
+    const link = whatsAppLink(message, '+57 (300) 123-4567');
+    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent(message)}`);
+    expect(link).not.toContain('& detalle');
+    expect(link).not.toContain('#1');
+  });
 });
