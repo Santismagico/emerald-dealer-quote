@@ -546,7 +546,8 @@ html::-webkit-scrollbar-track {
     margin-top: 0;
   }
 
-  .quote-form-actions {
+  .quote-form-actions,
+  .settings-actions {
     position: sticky;
     bottom: 1rem;
     z-index: 30;
