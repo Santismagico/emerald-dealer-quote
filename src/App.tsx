@@ -177,14 +177,14 @@ function AppShell() {
 
   if (!store.ready) {
     return (
-      <div className="lux-theme app-shell flex min-h-dvh items-center justify-center">
+      <div className="atelier app-shell flex min-h-dvh items-center justify-center">
         <div className="text-center">
           <img
             src={`${import.meta.env.BASE_URL}pwa-192.png`}
             alt=""
             className="brand-icon mx-auto h-14 w-14"
           />
-          <p className="mt-4 text-sm tracking-[0.16em] text-gold-300">CARGANDO…</p>
+          <p className="mt-4 text-sm tracking-[0.16em] text-stone-500">CARGANDO…</p>
         </div>
       </div>
     );
@@ -279,8 +279,8 @@ function AppShell() {
   };
 
   return (
-    <div className="lux-theme app-shell mx-auto flex min-h-dvh max-w-lg flex-col">
-      <header className="luxury-header safe-top sticky top-0 z-40 text-ivory-100">
+    <div className="atelier app-shell mx-auto flex min-h-dvh max-w-lg flex-col">
+      <header className="luxury-header safe-top top-0 z-40">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <img
@@ -289,15 +289,14 @@ function AppShell() {
               className="brand-icon h-11 w-11 shrink-0"
             />
             <div className="min-w-0">
-              <h1 className="luxury-title truncate text-xl font-semibold leading-tight tracking-[0.025em] text-ivory-100">
+              <h1 className="font-display truncate text-xl font-semibold leading-tight tracking-[0.01em] text-stone-900">
                 {store.settings.jewelryName}
               </h1>
-              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.22em] text-gold-300/80">
+              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-stone-500">
                 Cotizaciones de joyería
               </p>
             </div>
           </div>
-          <div className="h-px w-8 shrink-0 bg-gradient-to-r from-transparent to-gold-400/80" aria-hidden />
         </div>
       </header>
 
@@ -456,7 +455,7 @@ function BackupReminderBanner({
     <section className="luxury-card mb-4 rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="luxury-title text-base font-semibold text-gold-300">Respaldo recomendado</h2>
+          <h2 className="text-base font-semibold text-stone-900">Respaldo recomendado</h2>
           <p className="mt-1 text-sm text-stone-500">
             Protege tu información. Han pasado varios días desde el último respaldo.
           </p>
@@ -465,7 +464,7 @@ function BackupReminderBanner({
           type="button"
           aria-label="Cerrar y recordar mañana"
           disabled={busy}
-          className="min-h-11 min-w-11 rounded-lg text-xl text-gold-300 disabled:text-stone-500"
+          className="min-h-11 min-w-11 rounded-lg text-xl text-stone-400 disabled:text-stone-300"
           onClick={onSnooze}
         >
           ×
@@ -474,7 +473,7 @@ function BackupReminderBanner({
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          className="min-h-12 rounded-xl border border-gold-300/70 bg-gold-400 px-4 font-semibold text-brand-950 shadow-lg disabled:border-stone-500 disabled:bg-stone-700 disabled:text-stone-400"
+          className="min-h-12 rounded-xl bg-brand-600 px-4 font-semibold text-white shadow-sm active:bg-brand-700 disabled:bg-stone-300 disabled:text-stone-500"
           disabled={busy}
           onClick={onExport}
         >
@@ -482,7 +481,7 @@ function BackupReminderBanner({
         </button>
         <button
           type="button"
-          className="min-h-12 rounded-xl border border-gold-400/70 bg-transparent px-4 font-semibold text-gold-300 disabled:border-stone-500 disabled:text-stone-500"
+          className="min-h-12 rounded-xl border border-stone-300 bg-white px-4 font-semibold text-stone-700 active:bg-stone-100 disabled:text-stone-400"
           disabled={busy}
           onClick={onSnooze}
         >
@@ -678,14 +677,14 @@ function MoreItem({
       onClick={onClick}
       className="luxury-card flex min-h-[4.75rem] w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99]"
     >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-gold-400/35 bg-gold-400/10 text-gold-300" aria-hidden>
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-800" aria-hidden>
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="luxury-title block text-lg font-semibold text-ivory-100">{title}</span>
+        <span className="block text-base font-semibold text-stone-900">{title}</span>
         <span className="block truncate text-xs text-stone-500">{subtitle}</span>
       </span>
-      <span className="text-gold-400/70" aria-hidden>
+      <span className="text-stone-400" aria-hidden>
         ›
       </span>
     </button>
@@ -694,7 +693,7 @@ function MoreItem({
 
 function BackRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" className="min-h-11 rounded-lg px-1 text-sm font-semibold text-gold-300" onClick={onClick}>
+    <button type="button" className="min-h-11 rounded-lg px-1 text-sm font-semibold text-brand-800" onClick={onClick}>
       {label}
     </button>
   );
@@ -719,7 +718,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold tracking-[0.02em] transition-colors ${
-        active ? 'nav-item-active text-gold-300' : 'text-stone-500'
+        active ? 'nav-item-active' : 'text-stone-500'
       }`}
     >
       <span className="nav-icon-frame relative leading-none" aria-hidden>

@@ -21,11 +21,11 @@ export function Button({
 }) {
   const styles: Record<string, string> = {
     primary:
-      'border border-gold-300/70 bg-gold-400 text-brand-950 shadow-[0_10px_24px_rgba(0,0,0,0.24)] active:bg-gold-500 disabled:border-stone-500 disabled:bg-stone-600 disabled:text-stone-300',
+      'bg-brand-600 text-white shadow-sm active:bg-brand-700 disabled:bg-stone-300 disabled:text-stone-500 disabled:shadow-none',
     secondary:
-      'border border-gold-400/70 bg-transparent text-gold-300 active:bg-brand-800/70 disabled:border-stone-500 disabled:text-stone-500',
-    danger: 'border border-red-700/70 bg-red-950/25 text-red-200 active:bg-red-900/45',
-    ghost: 'bg-transparent text-ivory-200 active:bg-brand-800/55'
+      'border border-stone-300 bg-white text-stone-800 active:bg-stone-100 disabled:border-stone-200 disabled:text-stone-400',
+    danger: 'border border-red-200 bg-red-50 text-red-700 active:bg-red-100',
+    ghost: 'bg-transparent text-stone-600 active:bg-stone-100'
   };
   return (
     <button
@@ -42,7 +42,7 @@ export function Button({
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ivory-200">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-stone-700">{label}</span>
       {children}
       {hint ? <span className="mt-1 block text-xs text-stone-500">{hint}</span> : null}
     </label>
@@ -204,12 +204,12 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       onClick={() => onChange(!checked)}
       className="luxury-card-soft flex min-h-12 w-full items-center justify-between rounded-xl px-3"
     >
-      <span className="text-sm font-medium text-ivory-200">{label}</span>
+      <span className="text-sm font-medium text-stone-700">{label}</span>
       <span
-        className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${checked ? 'border-gold-300/70 bg-gold-400' : 'border-stone-500 bg-stone-700'}`}
+        className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${checked ? 'border-brand-700 bg-brand-600' : 'border-stone-300 bg-stone-200'}`}
       >
         <span
-          className={`absolute top-0.5 h-6 w-6 rounded-full bg-ivory-100 shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
+          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
         />
       </span>
     </button>
@@ -219,7 +219,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 export function SectionCard({ title, children, subtitle }: { title?: string; subtitle?: string; children: ReactNode }) {
   return (
     <section className="luxury-card rounded-2xl p-4">
-      {title ? <h2 className="luxury-title mb-1 text-lg font-semibold text-gold-300">{title}</h2> : null}
+      {title ? <h2 className="mb-1 text-[15px] font-semibold text-stone-900">{title}</h2> : null}
       {subtitle ? <p className="mb-3 text-xs text-stone-500">{subtitle}</p> : null}
       <div className="space-y-3">{children}</div>
     </section>
@@ -227,15 +227,17 @@ export function SectionCard({ title, children, subtitle }: { title?: string; sub
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    borrador: 'bg-stone-200 text-stone-700',
-    pendiente: 'bg-amber-100 text-amber-800',
-    aprobada: 'bg-emerald-100 text-emerald-800',
-    rechazada: 'bg-red-100 text-red-700',
-    vencida: 'bg-stone-300 text-stone-600'
+  const colors: Record<string, { chip: string; dot: string }> = {
+    borrador: { chip: 'bg-stone-200 text-stone-700', dot: 'bg-stone-400' },
+    pendiente: { chip: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500' },
+    aprobada: { chip: 'bg-emerald-100 text-emerald-800', dot: 'bg-brand-600' },
+    rechazada: { chip: 'bg-red-100 text-red-700', dot: 'bg-red-600' },
+    vencida: { chip: 'bg-stone-300 text-stone-600', dot: 'bg-stone-500' }
   };
+  const { chip, dot } = colors[status] ?? colors.borrador;
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors[status] ?? colors.borrador}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${chip}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden />
       {status}
     </span>
   );
@@ -267,7 +269,7 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] backdrop-blur-sm sm:items-center">
       <div className="luxury-card w-full max-w-sm rounded-2xl p-5 shadow-xl">
-        <h3 className="luxury-title text-lg font-semibold text-gold-300">{title}</h3>
+        <h3 className="text-lg font-semibold text-stone-900">{title}</h3>
         <p className="mt-2 text-sm text-stone-600">{message}</p>
         <div className="mt-5 flex gap-3">
           {cancelLabel !== null ? (
@@ -290,7 +292,7 @@ export function ConfirmDialog({
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
   return (
-    <div className="luxury-card-soft rounded-2xl border border-dashed border-gold-400/35 p-8 text-center">
+    <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-8 text-center">
       <p className="font-medium text-stone-700">{title}</p>
       <p className="mt-1 text-sm text-stone-500">{message}</p>
     </div>
@@ -321,7 +323,7 @@ export function Toast({ message }: { message: string | null }) {
   if (!message) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4">
-      <div className="rounded-full border border-gold-300/60 bg-gold-400 px-5 py-2.5 text-sm font-semibold text-brand-950 shadow-lg">
+      <div className="rounded-full bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white shadow-lg">
         {message}
       </div>
     </div>

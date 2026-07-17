@@ -73,8 +73,8 @@ export function HistoryView({
               onClick={() => setStatusFilter(s)}
               className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm capitalize ${
                 statusFilter === s
-                  ? 'border border-gold-300/70 bg-gold-400 font-semibold text-brand-950'
-                  : 'border border-gold-400/20 bg-white text-stone-600'
+                  ? 'border border-brand-600 bg-brand-600 font-semibold text-white'
+                  : 'border border-stone-200 bg-white text-stone-600'
               }`}
             >
               {s} ({statusCounts[s]})

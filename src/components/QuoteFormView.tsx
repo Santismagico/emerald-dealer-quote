@@ -121,10 +121,10 @@ export function QuoteFormView({
             onClick={() => setStep(i)}
             className={`min-h-11 flex-1 rounded-full border px-1 py-2 text-[11px] font-semibold ${
               i === step
-                ? 'border-gold-300/70 bg-gold-400 text-brand-950'
+                ? 'border-brand-600 bg-brand-600 text-white'
                 : i < step
-                  ? 'border-brand-600/60 bg-brand-800 text-ivory-100'
-                  : 'border-gold-400/20 bg-white text-stone-500'
+                  ? 'border-brand-200 bg-brand-50 text-brand-800'
+                  : 'border-stone-200 bg-white text-stone-500'
             }`}
           >
             {label}
@@ -377,7 +377,7 @@ export function QuoteFormView({
                       className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold text-white"
                       onClick={() => patch({ images: quote.images.filter((_, idx) => idx !== i) })}
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-brand-950 bg-red-700 shadow-lg">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-red-600 shadow-lg">
                         ✕
                       </span>
                     </button>

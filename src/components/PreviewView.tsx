@@ -330,18 +330,18 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       </div>
 
       {/* Pestañas cliente / interno */}
-      <div className="grid grid-cols-2 gap-1 rounded-full border border-gold-400/20 bg-brand-950/70 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
         <button
           type="button"
           onClick={() => void changeTab('cliente')}
-          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${tab === 'cliente' ? 'bg-gold-400 text-brand-950 shadow' : 'text-stone-500'}`}
+          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${tab === 'cliente' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'}`}
         >
           Vista cliente
         </button>
         <button
           type="button"
           onClick={() => void changeTab('interno')}
-          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${tab === 'interno' ? 'bg-amber-300 text-amber-950 shadow' : 'text-stone-500'}`}
+          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${tab === 'interno' ? 'bg-amber-100 text-amber-800 shadow' : 'text-stone-500'}`}
         >
           Interna
         </button>

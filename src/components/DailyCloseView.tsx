@@ -75,12 +75,12 @@ export function DailyCloseView() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-full border border-gold-400/20 bg-brand-950/70 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
         <button
           type="button"
           onClick={() => setMode('dia')}
           className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
-            mode === 'dia' ? 'bg-gold-400 text-brand-950 shadow' : 'text-stone-500'
+            mode === 'dia' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
           }`}
         >
           Cierre del día
@@ -89,7 +89,7 @@ export function DailyCloseView() {
           type="button"
           onClick={() => setMode('mes')}
           className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
-            mode === 'mes' ? 'bg-gold-400 text-brand-950 shadow' : 'text-stone-500'
+            mode === 'mes' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
           }`}
         >
           Cierre del mes

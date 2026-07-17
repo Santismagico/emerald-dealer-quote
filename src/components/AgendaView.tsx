@@ -81,12 +81,12 @@ export function AgendaView() {
       </Button>
 
       {todayCount > 0 && (
-        <div className="luxury-card-soft flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-ivory-200">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold-400/40 bg-gold-400/10 text-gold-300" aria-hidden>
+        <div className="luxury-card-soft flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-stone-700">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-800" aria-hidden>
             ◆
           </span>
           <span>
-            Hoy tienes <strong className="text-gold-300">{todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`}</strong>.
+            Hoy tienes <strong className="text-brand-800">{todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`}</strong>.
           </span>
         </div>
       )}
@@ -102,8 +102,8 @@ export function AgendaView() {
               onClick={() => setFilter(value)}
               className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm ${
                 filter === value
-                  ? 'border border-gold-300/70 bg-gold-400 font-semibold text-brand-950'
-                  : 'border border-gold-400/20 bg-white text-stone-600'
+                  ? 'border border-brand-600 bg-brand-600 font-semibold text-white'
+                  : 'border border-stone-200 bg-white text-stone-600'
               }`}
             >
               {label} ({counts[value]})
