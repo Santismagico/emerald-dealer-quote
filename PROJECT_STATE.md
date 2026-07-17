@@ -94,7 +94,9 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**PUBLICADO (2026-07-17, por orden expresa de Santiago):** `main` = `d251ad3` con toda la candidata: correcciones de fondo C1–C9, identidad "el mesón del joyero" con día/noche (D-029), ícono "La gema viva", y las correcciones finales D-030. Despliegue de GitHub Pages en verde (37 s) y sitio en vivo verificado: los meta theme-color nuevos se sirven y el `pwa-512.png` publicado es idéntico byte a byte al local. Las ramas `main` y `codex/correcciones-finales-fable` apuntan al mismo commit.
+**PUBLICADO v1.0.0 (2026-07-17, por orden expresa de Santiago):** `main` = `60bed8e` con la **Fase 1 pre-SaaS completa, auditada y aprobada por Fable** (informe y veredicto en `docs/AUDITORIA_FASE1.md`). Deploy en verde (41 s) y sitio en vivo verificado: título "Emerald Dealer", bundle con versión 1.0.0 y CSP con hash final servidos. La Fase 1 queda **publicada**; siguen la revisión profesional de `docs/legal/` y el registro en Wompi (Santiago), y la Fase 2 (nube) espera su orden.
+
+Publicación anterior del mismo día (v2 estética+pagos): `main` = `d251ad3` con toda la candidata: correcciones de fondo C1–C9, identidad "el mesón del joyero" con día/noche (D-029), ícono "La gema viva", y las correcciones finales D-030. Despliegue de GitHub Pages en verde (37 s) y sitio en vivo verificado: los meta theme-color nuevos se sirven y el `pwa-512.png` publicado es idéntico byte a byte al local. Las ramas `main` y `codex/correcciones-finales-fable` apuntan al mismo commit.
 
 **Camino SaaS descongelado (D-031, 2026-07-17):** `SAAS_PLAN.md` es ahora la hoja de
 ruta canónica hacia el producto cobrable — fases 0–4, auditoría integral, requisitos
