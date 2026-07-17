@@ -88,9 +88,11 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**La candidata D-030 está corregida y verificada localmente, pero NO publicada.** El Ecosistema v1.0 público sigue en `main` = `ae57b95`; no sustituirlo sin autorización expresa de Santiago.
+**La candidata D-030 está corregida, verificada y RESPALDADA, pero NO publicada.** El Ecosistema v1.0 público sigue en `main` = `ae57b95`; no sustituirlo sin autorización expresa de Santiago.
 
-Siguiente secuencia: 1) guardar esta candidata en un commit local; 2) revisarla con Santiago; 3) reinstalarla en un teléfono real para confirmar el ícono del sistema, arranque, modo oscuro y navegación; 4) revisar manualmente cotizaciones antiguas que puedan tener el mismo dinero como anticipo y abono; 5) confirmar si el enlace seguirá siendo público o requiere protección privada; 6) solo entonces, y con autorización expresa, llevar la candidata a `main` y verificar el despliegue visible.
+Estado del relevo (2026-07-17, Fable): la candidata vive en la rama `codex/correcciones-finales-fable`, tip `fc12dbb`, árbol limpio, **subida a GitHub** con seguimiento configurado. Verificación en ese tip: **452 pruebas en 24 archivos y `npm run build` en verde** (el build ahora incluye la verificación de íconos PWA de `scripts/verify-pwa-assets.mjs`). Cualquier agente retoma con `git pull` en esa rama; no hace falta leer conversaciones previas.
+
+Siguiente secuencia: 1) revisar la candidata con Santiago (apariencia día y noche, recorrido de las 5 áreas); 2) reinstalarla en un teléfono real para confirmar el ícono del sistema, arranque, modo oscuro y navegación; 3) repetir la prueba rápida de privacidad de la hoja de ruta (escribir "precio por gramo" en observaciones del cliente y confirmar que el PDF cliente se bloquea); 4) revisar manualmente cotizaciones antiguas que puedan tener el mismo dinero como anticipo y abono; 5) confirmar si el enlace seguirá siendo público o requiere protección privada; 6) solo entonces, y con autorización expresa, llevar la candidata a `main` y verificar el despliegue visible.
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
