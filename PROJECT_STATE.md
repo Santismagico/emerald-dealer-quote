@@ -1,5 +1,7 @@
 # PROJECT_STATE — Emerald Dealer Quote
 
+> **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
+
 _Actualizado: 2026-07-16 por Codex después de completar D-030 (instalación, temas, pantallas estrechas, pagos y documentación). Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
 ## Qué aplicación es

@@ -143,3 +143,26 @@ Este informe es acumulativo. Registra lo revisado, lo corregido y las pruebas qu
 - `docs/legal/aviso-tratamiento-datos.md`
 
 Estos borradores requieren revisión del contador y de un profesional jurídico colombiano antes de utilizarse con usuarios.
+
+## S6 — Salida de OneDrive
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Media | El proyecto activo vivía bajo sincronización de OneDrive, con riesgo conocido para dependencias y escrituras frecuentes. | Ruta de trabajo, `CLAUDE.md`, `PROJECT_STATE.md` | S6 (este commit) |
+
+### Acciones completadas
+
+- Clon limpio creado en `C:\Dev\emerald-dealer`, sin espacios en la ruta.
+- Rama activa: `codex/correcciones-finales-fable`; no se modificó `main`.
+- Dependencias instaladas desde el lockfile: 0 vulnerabilidades informadas.
+- 467 pruebas en 26 archivos, compilación y hash CSP final verificados desde la nueva ruta.
+- `gh auth status` confirmó la cuenta activa de GitHub.
+- `CLAUDE.md` y `PROJECT_STATE.md` declaran la nueva ruta canónica y ordenan abrir allí las sesiones nuevas.
+- La carpeta anterior se conserva como copia congelada; no se borra.
+
+### Decisiones tomadas
+
+- La memoria de Fable continúa anclada a la ruta anterior hasta que Fable la reubique en su primera sesión sobre `C:\Dev\emerald-dealer`.
+- `CARPETA_ANTIGUA.txt` se deja solo en la copia de OneDrive y no se versiona.

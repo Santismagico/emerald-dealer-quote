@@ -1,5 +1,7 @@
 # CLAUDE.md — Rol de Claude en este proyecto
 
+> **Ruta canónica desde la Fase 1:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La carpeta anterior de OneDrive queda únicamente como copia congelada.
+
 Claude (Fable/Opus/Sonnet en Claude Code) cumple funciones de **arquitectura, planificación y auditoría**. OpenAI Codex ejecuta la implementación siguiendo `docs/HANDOFF_TO_CODEX.md`.
 
 ## Sobre el propietario
