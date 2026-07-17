@@ -28,7 +28,7 @@ export function jobChip(job: { delivered: boolean; ready: boolean }): {
   className: string;
 } {
   if (job.delivered) return { label: 'Entregada ✓', className: 'bg-stone-200 text-stone-600' };
-  if (job.ready) return { label: 'Listo ✓', className: 'bg-brand-100 text-brand-800' };
+  if (job.ready) return { label: 'Listo ✓', className: 'bg-emerald-100 text-emerald-800' };
   return { label: 'En taller', className: 'bg-amber-100 text-amber-800' };
 }
 
@@ -53,7 +53,9 @@ export function WorkshopView({ onOpenJob }: { onOpenJob: (quote: Quote) => void 
               type="button"
               onClick={() => setFilter(value)}
               className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm ${
-                filter === value ? 'bg-brand-800 text-white' : 'bg-white text-stone-600'
+                filter === value
+                  ? 'border border-gold-300/70 bg-gold-400 font-semibold text-brand-950'
+                  : 'border border-gold-400/20 bg-white text-stone-600'
               }`}
             >
               {label} ({counts[value]})

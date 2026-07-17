@@ -49,7 +49,7 @@ export function PaymentsPanel({
   return (
     <div className="mt-4 border-t border-amber-200 pt-4">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
-        💰 Pagos recibidos del cliente
+        Pagos recibidos del cliente
       </p>
 
       {deposit > 0 && (
@@ -77,7 +77,7 @@ export function PaymentsPanel({
           <li key={payment.id} className="rounded-xl bg-white p-3 shadow-sm">
             <button
               type="button"
-              className="block w-full text-left"
+              className="block min-h-11 w-full text-left"
               onClick={() => void toggleExpanded(payment.id)}
             >
               <div className="flex items-center justify-between gap-2">

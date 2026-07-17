@@ -119,8 +119,12 @@ export function QuoteFormView({
             key={label}
             type="button"
             onClick={() => setStep(i)}
-            className={`flex-1 rounded-full py-2 text-xs font-medium ${
-              i === step ? 'bg-brand-800 text-white' : i < step ? 'bg-brand-100 text-brand-800' : 'bg-white text-stone-500'
+            className={`min-h-11 flex-1 rounded-full border px-1 py-2 text-[11px] font-semibold ${
+              i === step
+                ? 'border-gold-300/70 bg-gold-400 text-brand-950'
+                : i < step
+                  ? 'border-brand-600/60 bg-brand-800 text-ivory-100'
+                  : 'border-gold-400/20 bg-white text-stone-500'
             }`}
           >
             {label}
@@ -270,7 +274,7 @@ export function QuoteFormView({
                     <button
                       type="button"
                       aria-label="Quitar costo"
-                      className="min-h-12 w-10 rounded-xl text-red-500 active:bg-red-50"
+                      className="min-h-12 w-11 rounded-xl text-red-500 active:bg-red-50"
                       onClick={() => patch({ extraCosts: quote.extraCosts.filter((c) => c.id !== cost.id) })}
                     >
                       ✕
@@ -280,7 +284,7 @@ export function QuoteFormView({
               </div>
               <button
                 type="button"
-                className="mt-2 text-sm font-medium text-brand-800"
+                className="mt-2 inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-medium text-brand-800"
                 onClick={() => patch({ extraCosts: [...quote.extraCosts, { id: newId(), label: '', amount: 0 }] })}
               >
                 ＋ Agregar costo
@@ -370,10 +374,12 @@ export function QuoteFormView({
                     <button
                       type="button"
                       aria-label="Quitar imagen"
-                      className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs text-white"
+                      className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold text-white"
                       onClick={() => patch({ images: quote.images.filter((_, idx) => idx !== i) })}
                     >
-                      ✕
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-brand-950 bg-red-700 shadow-lg">
+                        ✕
+                      </span>
                     </button>
                   </div>
                 ))}

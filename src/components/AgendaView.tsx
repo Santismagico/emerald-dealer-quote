@@ -33,7 +33,7 @@ const DURATIONS = [
 
 const STATUS_STYLE: Record<AppointmentStatus, string> = {
   programada: 'bg-amber-100 text-amber-800',
-  cumplida: 'bg-brand-100 text-brand-800',
+  cumplida: 'bg-emerald-100 text-emerald-800',
   cancelada: 'bg-stone-200 text-stone-600',
   noAsistio: 'bg-red-100 text-red-700'
 };
@@ -81,8 +81,13 @@ export function AgendaView() {
       </Button>
 
       {todayCount > 0 && (
-        <div className="rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-          📅 Hoy tienes <strong>{todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`}</strong>.
+        <div className="luxury-card-soft flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-ivory-200">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gold-400/40 bg-gold-400/10 text-gold-300" aria-hidden>
+            ◆
+          </span>
+          <span>
+            Hoy tienes <strong className="text-gold-300">{todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`}</strong>.
+          </span>
         </div>
       )}
 
@@ -96,7 +101,9 @@ export function AgendaView() {
               type="button"
               onClick={() => setFilter(value)}
               className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm ${
-                filter === value ? 'bg-brand-800 text-white' : 'bg-white text-stone-600'
+                filter === value
+                  ? 'border border-gold-300/70 bg-gold-400 font-semibold text-brand-950'
+                  : 'border border-gold-400/20 bg-white text-stone-600'
               }`}
             >
               {label} ({counts[value]})

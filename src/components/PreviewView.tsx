@@ -330,20 +330,20 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       </div>
 
       {/* Pestañas cliente / interno */}
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-full border border-gold-400/20 bg-brand-950/70 p-1">
         <button
           type="button"
           onClick={() => void changeTab('cliente')}
-          className={`min-h-11 rounded-full py-2 text-sm font-medium ${tab === 'cliente' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'}`}
+          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${tab === 'cliente' ? 'bg-gold-400 text-brand-950 shadow' : 'text-stone-500'}`}
         >
           Vista cliente
         </button>
         <button
           type="button"
           onClick={() => void changeTab('interno')}
-          className={`min-h-11 rounded-full py-2 text-sm font-medium ${tab === 'interno' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'}`}
+          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${tab === 'interno' ? 'bg-amber-300 text-amber-950 shadow' : 'text-stone-500'}`}
         >
-          🔒 Interna
+          Interna
         </button>
       </div>
 
@@ -377,7 +377,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       ) : null}
 
       {tab === 'cliente' ? (
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="client-document rounded-2xl bg-white p-5 shadow-sm">
           {/* Réplica fiel de lo que verá el cliente: sin datos sensibles */}
           <div className="border-b border-stone-200 pb-4">
             <div className="flex items-start justify-between gap-3">
@@ -449,7 +449,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       ) : (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-700">
-            🔒 Información confidencial — no compartir con el cliente
+            Información confidencial — no compartir con el cliente
           </p>
           <div className="space-y-1.5">
             <SummaryRow label="Subtotal material" value={formatCOP(calc.materialSubtotal)} />
@@ -487,7 +487,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           {quote.status === 'aprobada' ? (
             <div className="mt-4 border-t border-amber-200 pt-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                🛠 Trabajo del taller
+                Trabajo del taller
               </p>
               <div className="space-y-1 rounded-xl bg-white p-3 shadow-sm">
                 <SummaryRow
@@ -499,13 +499,13 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
               </div>
               <div className="mt-2">
                 <Button variant="secondary" full onClick={() => void runAfterFlush(onOpenWorkshop)}>
-                  🛠 Abrir en el Taller
+                  Abrir en el Taller
                 </Button>
               </div>
             </div>
           ) : (
             <p className="mt-4 rounded-xl bg-white/60 p-3 text-xs text-stone-500">
-              🛠 Al pasar a estado <strong>aprobada</strong>, esta cotización se convierte en un trabajo
+              Al pasar a estado <strong>aprobada</strong>, esta cotización se convierte en un trabajo
               del taller: sus etapas de producción y los abonos del cliente se manejan en la pestaña{' '}
               <strong>Taller</strong>.
             </p>
@@ -536,20 +536,20 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={() => void runAfterFlush(onEdit)} disabled={busy}>
-            ✏ Editar
+            Editar
           </Button>
           <Button onClick={handleSave} disabled={busy}>
-            💾 Guardar
+            Guardar
           </Button>
           <Button variant="secondary" onClick={() => void doClientPdf()} disabled={busy}>
-            📄 PDF cliente
+            PDF cliente
           </Button>
           <Button onClick={() => void doWhatsApp()} disabled={busy}>
-            📲 WhatsApp
+            WhatsApp
           </Button>
           <div className="col-span-2">
             <Button variant="secondary" full onClick={() => void doShareClientPdf()} disabled={busy}>
-              📤 Compartir PDF
+              Compartir PDF
             </Button>
           </div>
         </div>

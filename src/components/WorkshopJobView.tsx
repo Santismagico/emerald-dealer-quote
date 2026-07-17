@@ -207,7 +207,7 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
             {job.delivered ? (
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm text-stone-700">
-                  ✔ Entregada el <strong>{formatDateCO(quote.deliveredAt)}</strong>
+                  ✓ Entregada el <strong>{formatDateCO(quote.deliveredAt)}</strong>
                 </p>
                 <button
                   type="button"
@@ -223,7 +223,7 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
                 full
                 onClick={() => setConfirmDelivery('entregar')}
               >
-                ✔ Marcar como entregada
+                Marcar como entregada
               </Button>
             )}
           </div>
@@ -231,7 +231,7 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-            🔒 Trabajo interno del taller — no compartir con el cliente
+            Trabajo interno del taller — no compartir con el cliente
           </p>
 
           <PaymentsPanel

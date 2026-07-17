@@ -72,7 +72,9 @@ export function HistoryView({
               type="button"
               onClick={() => setStatusFilter(s)}
               className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm capitalize ${
-                statusFilter === s ? 'bg-brand-800 text-white' : 'bg-white text-stone-600'
+                statusFilter === s
+                  ? 'border border-gold-300/70 bg-gold-400 font-semibold text-brand-950'
+                  : 'border border-gold-400/20 bg-white text-stone-600'
               }`}
             >
               {s} ({statusCounts[s]})
@@ -134,7 +136,7 @@ export function HistoryView({
                     className="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-left"
                   >
                     <span className="text-sm font-medium text-amber-800">
-                      🛠 Taller:{' '}
+                      Taller:{' '}
                       {isQuoteDelivered(quote)
                         ? 'entregada ✓'
                         : `${quote.production.filter((s) => s.status === 'lista').length}/${quote.production.length} etapas listas`}

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store';
+import type { ReactNode } from 'react';
 import type { Quote } from './types';
 import { newId } from './utils/id';
 import { todayISO, addDays } from './utils/dates';
@@ -129,6 +130,10 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [view]);
+
+  useEffect(() => {
     if (!store.ready || !backupReminder.needsFirstDataAnchor || reminderAnchorRef.current) return;
     reminderAnchorRef.current = true;
     void store.ensureBackupReminderFirstDataAt(reminderNow.toISOString()).catch(() => {
@@ -172,8 +177,15 @@ function AppShell() {
 
   if (!store.ready) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-stone-100">
-        <p className="text-stone-500">Cargando…</p>
+      <div className="lux-theme app-shell flex min-h-dvh items-center justify-center">
+        <div className="text-center">
+          <img
+            src={`${import.meta.env.BASE_URL}pwa-192.png`}
+            alt=""
+            className="brand-icon mx-auto h-14 w-14"
+          />
+          <p className="mt-4 text-sm tracking-[0.16em] text-gold-300">CARGANDO…</p>
+        </div>
       </div>
     );
   }
@@ -267,22 +279,31 @@ function AppShell() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col bg-stone-100">
-      <header className="safe-top sticky top-0 z-40 bg-brand-900 text-white shadow">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-semibold leading-tight">{store.settings.jewelryName}</h1>
-            <p className="text-xs text-brand-100/80">Cotizaciones de joyería</p>
+    <div className="lux-theme app-shell mx-auto flex min-h-dvh max-w-lg flex-col">
+      <header className="luxury-header safe-top sticky top-0 z-40 text-ivory-100">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <img
+              src={`${import.meta.env.BASE_URL}pwa-192.png`}
+              alt=""
+              className="brand-icon h-11 w-11 shrink-0"
+            />
+            <div className="min-w-0">
+              <h1 className="luxury-title truncate text-xl font-semibold leading-tight tracking-[0.025em] text-ivory-100">
+                {store.settings.jewelryName}
+              </h1>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.22em] text-gold-300/80">
+                Cotizaciones de joyería
+              </p>
+            </div>
           </div>
-          <span className="text-gold-400 text-2xl" aria-hidden>
-            ◆
-          </span>
+          <div className="h-px w-8 shrink-0 bg-gradient-to-r from-transparent to-gold-400/80" aria-hidden />
         </div>
       </header>
 
       {isInAppBrowser() && <InAppBrowserBanner />}
 
-      <main className="flex-1 px-4 pb-28 pt-4">
+      <main className="relative flex-1 px-4 pb-28 pt-5">
         {backupReminder.shouldShow && !store.backupExporting ? (
           <BackupReminderBanner
             busy={snoozingReminder}
@@ -375,36 +396,36 @@ function AppShell() {
         )}
       </main>
 
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg border-t border-stone-200 bg-white">
+      <nav className="luxury-nav safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg">
         <div className="grid grid-cols-5">
           <NavButton
             label="Cotizador"
-            icon="🗂"
+            icon={<LineIcon name="quotes" />}
             active={view === 'history' || view === 'form' || view === 'preview'}
             onClick={() => void runAfterViewFlush(() => setView('history'))}
           />
           <NavButton
             label="Taller"
-            icon="🛠"
+            icon={<LineIcon name="workshop" />}
             active={view === 'workshop' || view === 'workshopJob'}
             onClick={() => void runAfterViewFlush(() => setView('workshop'))}
           />
           <NavButton
             label="Agenda"
-            icon="📅"
+            icon={<LineIcon name="calendar" />}
             badge={todayAppointments}
             active={view === 'agenda'}
             onClick={() => void runAfterViewFlush(() => setView('agenda'))}
           />
           <NavButton
             label="Piedras"
-            icon="💎"
+            icon={<LineIcon name="gem" />}
             active={view === 'stones'}
             onClick={() => void runAfterViewFlush(() => setView('stones'))}
           />
           <NavButton
             label="Más"
-            icon="☰"
+            icon={<LineIcon name="menu" />}
             active={
               view === 'more' ||
               view === 'dailyClose' ||
@@ -432,11 +453,11 @@ function BackupReminderBanner({
   onSnooze: () => void;
 }) {
   return (
-    <section className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 p-4 shadow-sm">
+    <section className="luxury-card mb-4 rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-brand-900">Respaldo recomendado</h2>
-          <p className="mt-1 text-sm text-brand-800">
+          <h2 className="luxury-title text-base font-semibold text-gold-300">Respaldo recomendado</h2>
+          <p className="mt-1 text-sm text-stone-500">
             Protege tu información. Han pasado varios días desde el último respaldo.
           </p>
         </div>
@@ -444,7 +465,7 @@ function BackupReminderBanner({
           type="button"
           aria-label="Cerrar y recordar mañana"
           disabled={busy}
-          className="min-h-11 min-w-11 rounded-lg text-xl text-brand-800 disabled:text-stone-400"
+          className="min-h-11 min-w-11 rounded-lg text-xl text-gold-300 disabled:text-stone-500"
           onClick={onSnooze}
         >
           ×
@@ -453,7 +474,7 @@ function BackupReminderBanner({
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          className="min-h-12 rounded-xl bg-brand-800 px-4 font-medium text-white disabled:bg-stone-300"
+          className="min-h-12 rounded-xl border border-gold-300/70 bg-gold-400 px-4 font-semibold text-brand-950 shadow-lg disabled:border-stone-500 disabled:bg-stone-700 disabled:text-stone-400"
           disabled={busy}
           onClick={onExport}
         >
@@ -461,7 +482,7 @@ function BackupReminderBanner({
         </button>
         <button
           type="button"
-          className="min-h-12 rounded-xl border border-brand-700 bg-white px-4 font-medium text-brand-800 disabled:border-stone-300 disabled:text-stone-400"
+          className="min-h-12 rounded-xl border border-gold-400/70 bg-transparent px-4 font-semibold text-gold-300 disabled:border-stone-500 disabled:text-stone-500"
           disabled={busy}
           onClick={onSnooze}
         >
@@ -498,6 +519,107 @@ function InAppBrowserBanner() {
   );
 }
 
+type LineIconName =
+  | 'quotes'
+  | 'workshop'
+  | 'calendar'
+  | 'gem'
+  | 'menu'
+  | 'report'
+  | 'client'
+  | 'supplier'
+  | 'settings';
+
+function LineIcon({ name, size = 22 }: { name: LineIconName; size?: number }) {
+  let drawing: ReactNode;
+  if (name === 'quotes') {
+    drawing = (
+      <>
+        <path d="M3.8 7.2h6.1l1.8 2H20v9.3H3.8z" />
+        <path d="M7.2 13h9.4M7.2 16h6.4" />
+      </>
+    );
+  } else if (name === 'workshop') {
+    drawing = (
+      <>
+        <path d="m14.2 5.1 4.7 4.7-2.1 2.1-4.7-4.7z" />
+        <path d="m12.9 8.5-7.3 7.3a2 2 0 0 0 2.8 2.8l7.3-7.3" />
+        <path d="m13.8 4.7 1.7-1.7 5.5 5.5-1.7 1.7" />
+      </>
+    );
+  } else if (name === 'calendar') {
+    drawing = (
+      <>
+        <rect x="3.5" y="5.3" width="17" height="15" rx="2.2" />
+        <path d="M7.5 3.5v3.6m9-3.6v3.6M3.5 9.5h17" />
+        <path d="M8 13h2m4 0h2m-8 3.5h2m4 0h2" />
+      </>
+    );
+  } else if (name === 'gem') {
+    drawing = (
+      <>
+        <path d="m6.4 4.5-3 5.1L12 20.5l8.6-10.9-3-5.1z" />
+        <path d="m3.4 9.6 5.1.1L12 20.5l3.5-10.8 5.1-.1M6.4 4.5l2.1 5.2L12 4.5l3.5 5.2 2.1-5.2" />
+      </>
+    );
+  } else if (name === 'menu') {
+    drawing = (
+      <>
+        <path d="M6 7h14M6 12h14M6 17h14" />
+        <circle cx="3.3" cy="7" r=".65" fill="currentColor" stroke="none" />
+        <circle cx="3.3" cy="12" r=".65" fill="currentColor" stroke="none" />
+        <circle cx="3.3" cy="17" r=".65" fill="currentColor" stroke="none" />
+      </>
+    );
+  } else if (name === 'report') {
+    drawing = (
+      <>
+        <path d="M4 20V4m0 16h16" />
+        <path d="M7.5 16v-4h3v4m2.5 0V8h3v8m2.5 0V6h2" />
+      </>
+    );
+  } else if (name === 'client') {
+    drawing = (
+      <>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20c.6-4 3-6 7-6s6.4 2 7 6" />
+      </>
+    );
+  } else if (name === 'supplier') {
+    drawing = (
+      <>
+        <path d="M3.5 8.5 12 4l8.5 4.5L12 13z" />
+        <path d="M5.5 10.5V17l6.5 3.2 6.5-3.2v-6.5M12 13v7.2" />
+      </>
+    );
+  } else {
+    drawing = (
+      <>
+        <path d="M4 6h10m4 0h2M4 12h3m4 0h9M4 18h7m4 0h5" />
+        <circle cx="16" cy="6" r="2" />
+        <circle cx="9" cy="12" r="2" />
+        <circle cx="13" cy="18" r="2" />
+      </>
+    );
+  }
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+    >
+      {drawing}
+    </svg>
+  );
+}
+
 function MoreView({
   onDailyClose,
   onClients,
@@ -512,25 +634,25 @@ function MoreView({
   return (
     <div className="space-y-3">
       <MoreItem
-        icon="📊"
+        icon={<LineIcon name="report" />}
         title="Cierre del día"
         subtitle="PDF interno con todos los movimientos del negocio"
         onClick={onDailyClose}
       />
       <MoreItem
-        icon="👤"
+        icon={<LineIcon name="client" />}
         title="Clientes"
         subtitle="Datos de contacto y notas de tus clientes"
         onClick={onClients}
       />
       <MoreItem
-        icon="🤝"
+        icon={<LineIcon name="supplier" />}
         title="Proveedores"
         subtitle="A quiénes les compras piedras y servicios"
         onClick={onSuppliers}
       />
       <MoreItem
-        icon="⚙"
+        icon={<LineIcon name="settings" />}
         title="Ajustes"
         subtitle="Datos de la joyería, precio del oro y respaldos"
         onClick={onSettings}
@@ -545,7 +667,7 @@ function MoreItem({
   subtitle,
   onClick
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;
@@ -554,16 +676,16 @@ function MoreItem({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-sm active:bg-stone-50"
+      className="luxury-card flex min-h-[4.75rem] w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99]"
     >
-      <span className="text-2xl" aria-hidden>
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-gold-400/35 bg-gold-400/10 text-gold-300" aria-hidden>
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold text-stone-900">{title}</span>
+        <span className="luxury-title block text-lg font-semibold text-ivory-100">{title}</span>
         <span className="block truncate text-xs text-stone-500">{subtitle}</span>
       </span>
-      <span className="text-stone-400" aria-hidden>
+      <span className="text-gold-400/70" aria-hidden>
         ›
       </span>
     </button>
@@ -572,7 +694,7 @@ function MoreItem({
 
 function BackRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" className="min-h-11 text-sm font-medium text-brand-800" onClick={onClick}>
+    <button type="button" className="min-h-11 rounded-lg px-1 text-sm font-semibold text-gold-300" onClick={onClick}>
       {label}
     </button>
   );
@@ -586,7 +708,7 @@ function NavButton({
   onClick
 }: {
   label: string;
-  icon: string;
+  icon: ReactNode;
   active: boolean;
   /** Número pequeño sobre el ícono (0 lo oculta). Aviso local, sin notificaciones. */
   badge?: number;
@@ -596,11 +718,11 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium ${
-        active ? 'text-brand-800' : 'text-stone-500'
+      className={`flex min-h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold tracking-[0.02em] transition-colors ${
+        active ? 'nav-item-active text-gold-300' : 'text-stone-500'
       }`}
     >
-      <span className="relative text-lg leading-none" aria-hidden>
+      <span className="nav-icon-frame relative leading-none" aria-hidden>
         {icon}
         {badge > 0 ? (
           <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">

@@ -136,7 +136,9 @@ export function StonesView() {
               type="button"
               onClick={() => setFilter(value)}
               className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm ${
-                filter === value ? 'bg-brand-800 text-white' : 'bg-white text-stone-600'
+                filter === value
+                  ? 'border border-gold-300/70 bg-gold-400 font-semibold text-brand-950'
+                  : 'border border-gold-400/20 bg-white text-stone-600'
               }`}
             >
               {label} ({counts[value]})
@@ -194,7 +196,7 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            summary.exhausted ? 'bg-stone-200 text-stone-600' : 'bg-brand-100 text-brand-800'
+            summary.exhausted ? 'bg-stone-200 text-stone-600' : 'bg-emerald-100 text-emerald-800'
           }`}
         >
           {summary.exhausted ? 'Agotado' : 'Con existencias'}
@@ -278,7 +280,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
           </div>
           <span
             className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              summary.exhausted ? 'bg-stone-200 text-stone-600' : 'bg-brand-100 text-brand-800'
+              summary.exhausted ? 'bg-stone-200 text-stone-600' : 'bg-emerald-100 text-emerald-800'
             }`}
           >
             {summary.exhausted ? 'Agotado' : 'Con existencias'}
@@ -319,10 +321,10 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                💳 Crédito con el proveedor
+                Crédito con el proveedor
               </p>
               {summary.creditSettled ? (
-                <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-800">
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
                   Saldado ✓
                 </span>
               ) : (
@@ -347,7 +349,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                   <li key={payment.id} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2">
                     <button
                       type="button"
-                      className="min-w-0 flex-1 text-left"
+                      className="min-h-11 min-w-0 flex-1 text-left"
                       onClick={() => setPaymentForm(payment)}
                     >
                       <p className="text-sm font-medium text-stone-800">{formatCOP(payment.amount)}</p>
@@ -396,7 +398,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    className="min-w-0 flex-1 text-left"
+                    className="min-h-11 min-w-0 flex-1 text-left"
                     onClick={() => setSaleForm(sale)}
                   >
                     <p className="text-sm font-medium text-stone-800">

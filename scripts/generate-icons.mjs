@@ -1,17 +1,16 @@
-// Genera los iconos PWA (pwa-192.png, pwa-512.png, apple-touch-icon.png)
-// sin dependencias externas: escribe PNG válidos usando zlib de Node.
-// Diseño: fondo verde esmeralda con una gema de talla esmeralda (octágono).
+// Genera todos los iconos instalables desde la pieza maestra de marca.
+// No requiere dependencias externas: decodifica, redimensiona y escribe PNG con Node.
 
-import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { deflateSync, inflateSync } from 'node:zlib';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const sourcePath = join(root, 'assets', 'branding', 'app-icon-source.png');
 const outDir = join(root, 'public');
 mkdirSync(outDir, { recursive: true });
 
-// ---------- Codificador PNG mínimo ----------
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -42,11 +41,11 @@ function encodePng(width, height, rgba) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // color type RGBA
+  ihdr[8] = 8;
+  ihdr[9] = 6;
   const raw = Buffer.alloc(height * (width * 4 + 1));
   for (let y = 0; y < height; y++) {
-    raw[y * (width * 4 + 1)] = 0; // filtro None
+    raw[y * (width * 4 + 1)] = 0;
     rgba.copy(raw, y * (width * 4 + 1) + 1, y * width * 4, (y + 1) * width * 4);
   }
   return Buffer.concat([
@@ -57,61 +56,127 @@ function encodePng(width, height, rgba) {
   ]);
 }
 
-// ---------- Dibujo de la gema ----------
-const BG = [6, 60, 47]; // verde esmeralda oscuro
-const GEM_OUTER = [16, 150, 105];
-const GEM_INNER = [110, 231, 183];
-
-/** ¿El punto (x, y) cae dentro de un octágono tipo "talla esmeralda"? */
-function inOctagon(x, y, cx, cy, halfW, halfH, cut) {
-  const dx = Math.abs(x - cx);
-  const dy = Math.abs(y - cy);
-  if (dx > halfW || dy > halfH) return false;
-  return dx / halfW + dy / halfH <= 1 + (1 - cut);
+function paeth(a, b, c) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  return pb <= pc ? b : c;
 }
 
-function drawIcon(size) {
-  const rgba = Buffer.alloc(size * size * 4);
-  const cx = size / 2;
-  const cy = size / 2;
-  const outerW = size * 0.30;
-  const outerH = size * 0.34;
-  const innerW = outerW * 0.62;
-  const innerH = outerH * 0.62;
+function decodePng(path) {
+  const png = readFileSync(path);
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!png.subarray(0, 8).equals(signature)) throw new Error('La pieza maestra no es un PNG válido.');
 
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  let interlace = 0;
+  const idat = [];
+
+  while (offset < png.length) {
+    const length = png.readUInt32BE(offset);
+    const type = png.toString('ascii', offset + 4, offset + 8);
+    const data = png.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+      interlace = data[12];
+    } else if (type === 'IDAT') {
+      idat.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+    offset += length + 12;
+  }
+
+  if (bitDepth !== 8 || ![2, 6].includes(colorType) || interlace !== 0) {
+    throw new Error('La pieza maestra debe ser PNG RGB/RGBA de 8 bits y sin entrelazado.');
+  }
+
+  const channels = colorType === 6 ? 4 : 3;
+  const stride = width * channels;
+  const inflated = inflateSync(Buffer.concat(idat));
+  const pixels = Buffer.alloc(width * height * channels);
+
+  for (let y = 0; y < height; y++) {
+    const filter = inflated[y * (stride + 1)];
+    const rowStart = y * stride;
+    const rawStart = y * (stride + 1) + 1;
+    for (let x = 0; x < stride; x++) {
+      const left = x >= channels ? pixels[rowStart + x - channels] : 0;
+      const up = y > 0 ? pixels[rowStart - stride + x] : 0;
+      const upperLeft = y > 0 && x >= channels ? pixels[rowStart - stride + x - channels] : 0;
+      const value = inflated[rawStart + x];
+      if (filter === 0) pixels[rowStart + x] = value;
+      else if (filter === 1) pixels[rowStart + x] = (value + left) & 255;
+      else if (filter === 2) pixels[rowStart + x] = (value + up) & 255;
+      else if (filter === 3) pixels[rowStart + x] = (value + Math.floor((left + up) / 2)) & 255;
+      else if (filter === 4) pixels[rowStart + x] = (value + paeth(left, up, upperLeft)) & 255;
+      else throw new Error(`Filtro PNG no compatible: ${filter}`);
+    }
+  }
+
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let i = 0, j = 0; i < pixels.length; i += channels, j += 4) {
+    rgba[j] = pixels[i];
+    rgba[j + 1] = pixels[i + 1];
+    rgba[j + 2] = pixels[i + 2];
+    rgba[j + 3] = channels === 4 ? pixels[i + 3] : 255;
+  }
+  return { width, height, rgba };
+}
+
+function sampleBilinear(source, x, y, channel) {
+  const x0 = Math.max(0, Math.min(source.width - 1, Math.floor(x)));
+  const y0 = Math.max(0, Math.min(source.height - 1, Math.floor(y)));
+  const x1 = Math.min(source.width - 1, x0 + 1);
+  const y1 = Math.min(source.height - 1, y0 + 1);
+  const tx = Math.max(0, Math.min(1, x - x0));
+  const ty = Math.max(0, Math.min(1, y - y0));
+  const at = (px, py) => source.rgba[(py * source.width + px) * 4 + channel];
+  const top = at(x0, y0) * (1 - tx) + at(x1, y0) * tx;
+  const bottom = at(x0, y1) * (1 - tx) + at(x1, y1) * tx;
+  return top * (1 - ty) + bottom * ty;
+}
+
+function resizeSquare(source, size) {
+  if (source.width !== source.height) throw new Error('La pieza maestra del icono debe ser cuadrada.');
+  const rgba = Buffer.alloc(size * size * 4);
+  const samples = 3;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      // Supermuestreo 2x2 para suavizar bordes.
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      for (const [ox, oy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
-        const px = x + ox;
-        const py = y + oy;
-        let color = BG;
-        if (inOctagon(px, py, cx, cy, innerW, innerH, 0.55)) color = GEM_INNER;
-        else if (inOctagon(px, py, cx, cy, outerW, outerH, 0.55)) color = GEM_OUTER;
-        r += color[0];
-        g += color[1];
-        b += color[2];
+      for (let channel = 0; channel < 4; channel++) {
+        let sum = 0;
+        for (let sy = 0; sy < samples; sy++) {
+          for (let sx = 0; sx < samples; sx++) {
+            const sourceX = ((x + (sx + 0.5) / samples) * source.width) / size - 0.5;
+            const sourceY = ((y + (sy + 0.5) / samples) * source.height) / size - 0.5;
+            sum += sampleBilinear(source, sourceX, sourceY, channel);
+          }
+        }
+        rgba[(y * size + x) * 4 + channel] = Math.round(sum / (samples * samples));
       }
-      const i = (y * size + x) * 4;
-      rgba[i] = Math.round(r / 4);
-      rgba[i + 1] = Math.round(g / 4);
-      rgba[i + 2] = Math.round(b / 4);
-      rgba[i + 3] = 255;
     }
   }
   return encodePng(size, size, rgba);
 }
 
+const source = decodePng(sourcePath);
 const targets = [
   ['pwa-192.png', 192],
   ['pwa-512.png', 512],
+  ['pwa-maskable-512.png', 512],
   ['apple-touch-icon.png', 180]
 ];
 
 for (const [name, size] of targets) {
-  writeFileSync(join(outDir, name), drawIcon(size));
+  writeFileSync(join(outDir, name), resizeSquare(source, size));
   console.log(`✔ public/${name} (${size}x${size})`);
 }

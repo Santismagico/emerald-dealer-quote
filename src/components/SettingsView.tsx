@@ -182,7 +182,7 @@ export function SettingsView() {
                 —
               </div>
             )}
-            <label className="cursor-pointer text-sm font-medium text-brand-800">
+            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-2 text-sm font-medium text-brand-800">
               {form.logoDataUrl ? 'Cambiar logo' : 'Subir logo'}
               <input
                 type="file"
@@ -202,7 +202,7 @@ export function SettingsView() {
               />
             </label>
             {form.logoDataUrl ? (
-              <button type="button" className="text-sm text-red-600" onClick={() => patch({ logoDataUrl: '' })}>
+              <button type="button" className="min-h-11 rounded-xl px-2 text-sm text-red-600" onClick={() => patch({ logoDataUrl: '' })}>
                 Quitar
               </button>
             ) : null}

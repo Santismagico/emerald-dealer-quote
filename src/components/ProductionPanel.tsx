@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<StageStatus, string> = {
 const STATUS_STYLE: Record<StageStatus, string> = {
   pendiente: 'bg-stone-200 text-stone-700',
   enProceso: 'bg-amber-100 text-amber-800',
-  lista: 'bg-brand-100 text-brand-800'
+  lista: 'bg-emerald-100 text-emerald-800'
 };
 
 const NEXT_STATUS: Record<StageStatus, StageStatus> = {
@@ -79,7 +79,7 @@ export function ProductionPanel({
     <div className="mt-4 border-t border-amber-200 pt-4">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-          🛠 Producción del taller
+          Producción del taller
         </p>
         <span className="text-xs text-stone-500">
           {summary.stagesDone}/{summary.stagesTotal} listas
@@ -106,7 +106,7 @@ export function ProductionPanel({
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
-                className="min-w-0 flex-1 text-left"
+                className="min-h-11 min-w-0 flex-1 text-left"
                 onClick={() => void toggleExpanded(stage.id)}
               >
                 <p className="truncate text-sm font-medium text-stone-800">{stage.name}</p>

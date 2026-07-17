@@ -75,12 +75,12 @@ export function DailyCloseView() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-full border border-gold-400/20 bg-brand-950/70 p-1">
         <button
           type="button"
           onClick={() => setMode('dia')}
-          className={`min-h-11 rounded-full py-2 text-sm font-medium ${
-            mode === 'dia' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'
+          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
+            mode === 'dia' ? 'bg-gold-400 text-brand-950 shadow' : 'text-stone-500'
           }`}
         >
           Cierre del día
@@ -88,8 +88,8 @@ export function DailyCloseView() {
         <button
           type="button"
           onClick={() => setMode('mes')}
-          className={`min-h-11 rounded-full py-2 text-sm font-medium ${
-            mode === 'mes' ? 'bg-white text-brand-900 shadow' : 'text-stone-600'
+          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
+            mode === 'mes' ? 'bg-gold-400 text-brand-950 shadow' : 'text-stone-500'
           }`}
         >
           Cierre del mes
@@ -138,7 +138,7 @@ export function DailyCloseView() {
             )}
           </SectionCard>
 
-          <SectionCard title="💍 Joyería (cotizador y taller)">
+          <SectionCard title="Joyería (cotizador y taller)">
             <SummaryRow label="Entró por pagos de clientes" value={formatCOP(report.totals.paymentsReceived)} />
             <SummaryRow label="Salió al taller" value={`- ${formatCOP(report.totals.workshopPaid)}`} />
             <SummaryRow
@@ -199,7 +199,7 @@ export function DailyCloseView() {
             </SectionCard>
           )}
 
-          <SectionCard title="💎 Piedras">
+          <SectionCard title="Piedras">
             <SummaryRow label="Entró por ventas" value={formatCOP(report.totals.stonesSold)} />
             <SummaryRow
               label="Salió en compras de contado"
@@ -286,7 +286,7 @@ export function DailyCloseView() {
       )}
 
       <Button full disabled={busy || (mode === 'dia' && !validDay)} onClick={() => void download()}>
-        {busy ? 'Generando…' : mode === 'dia' ? '📄 Descargar PDF del día' : '📄 Descargar PDF del mes'}
+        {busy ? 'Generando…' : mode === 'dia' ? 'Descargar PDF del día' : 'Descargar PDF del mes'}
       </Button>
       <p className="text-center text-[11px] text-stone-400">
         Documento interno: solo se descarga en este dispositivo. Nunca se envía ni se comparte.
