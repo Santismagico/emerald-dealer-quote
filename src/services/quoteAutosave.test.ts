@@ -80,6 +80,19 @@ describe('guardado diferido de producción y abonos', () => {
     expect(writes.at(-1)?.clientNotes).toBe('último');
   });
 
+  it('una ráfaga de 20 cambios y flush produce una sola escritura con la última versión', async () => {
+    const writes: Quote[] = [];
+    const controller = makeController({ save: async (quote) => void writes.push(quote) });
+
+    for (let index = 1; index <= 20; index += 1) {
+      controller.update((quote) => ({ ...quote, clientNotes: `versión ${index}` }));
+    }
+    await controller.flush();
+
+    expect(writes).toHaveLength(1);
+    expect(writes[0].clientNotes).toBe('versión 20');
+  });
+
   it('el blur fuerza el guardado pendiente y cancela el temporizador', async () => {
     const writes: Quote[] = [];
     const controller = makeController({ save: async (quote) => void writes.push(quote) });

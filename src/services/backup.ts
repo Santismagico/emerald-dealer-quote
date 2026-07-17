@@ -106,6 +106,20 @@ function normalizeBackup(data: unknown): BackupFile {
     if (quoteIds.has(id)) {
       throw new Error('El respaldo contiene cotizaciones duplicadas.');
     }
+    const payments = (q as Quote).payments;
+    if (
+      payments !== undefined &&
+      (!Array.isArray(payments) ||
+        payments.some(
+          (payment) =>
+            typeof payment !== 'object' ||
+            payment === null ||
+            typeof payment.amount !== 'number' ||
+            !Number.isFinite(payment.amount)
+        ))
+    ) {
+      throw new Error('El respaldo contiene un abono inválido. Revisa el archivo e inténtalo de nuevo.');
+    }
     quoteIds.add(id);
   }
   const clientIds = new Set<string>();

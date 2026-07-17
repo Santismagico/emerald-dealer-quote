@@ -216,6 +216,34 @@ describe('restauración atómica de respaldos', () => {
     expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
   });
 
+  it('rechaza un abono con monto de texto sin iniciar escrituras parciales', async () => {
+    const corrupted = makeBackup('abono-corrupto');
+    corrupted.quotes[0].payments = [
+      {
+        id: 'payment-corrupto',
+        amount: 'hola' as unknown as number,
+        date: '2026-07-11',
+        receivedBy: '',
+        method: '',
+        notes: ''
+      }
+    ];
+    const transactions = trackAtomicTransactions();
+
+    await expect(backupService.importBackup(corrupted)).rejects.toThrow('abono inválido');
+    expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
+  });
+
+  it('importa una imagen data URL de aproximadamente 5 MB sin romper la restauración', async () => {
+    const large = makeBackup('imagen-grande');
+    large.quotes[0].images = [`data:image/jpeg;base64,${'A'.repeat(5 * 1024 * 1024)}`];
+
+    await backupService.importBackup(large);
+
+    const restored = await storage.listQuotes();
+    expect(restored[0].images[0]).toHaveLength(large.quotes[0].images[0].length);
+  });
+
   it('rechaza identificadores duplicados antes de iniciar la escritura', async () => {
     const duplicateClients = makeBackup('duplicated-clients', { clients: 2 });
     duplicateClients.clients[1].id = duplicateClients.clients[0].id;

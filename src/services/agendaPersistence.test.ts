@@ -129,17 +129,25 @@ describe('migración real v1 → v2', () => {
   it('conserva ajustes, clientes y cotizaciones, y estrena la agenda vacía', async () => {
     await seedV1Database();
 
-    const [settings, clients, quotes, appointments] = await Promise.all([
+    const [settings, clients, quotes, appointments, stoneLots, suppliers] = await Promise.all([
       storage.loadSettings(),
       storage.listClients(),
       storage.listQuotes(),
-      storage.listAppointments()
+      storage.listAppointments(),
+      storage.listStoneLots(),
+      storage.listSuppliers()
     ]);
 
     expect(settings.quoteCounter).toBe(7);
     expect(clients.map((c) => c.id)).toEqual(['c-v1']);
     expect(quotes.map((q) => q.number)).toEqual(['ED-2026-0007']);
     expect(appointments).toEqual([]);
+    expect(stoneLots).toEqual([]);
+    expect(suppliers).toEqual([]);
+
+    // Abrir y leer una segunda vez comprueba que la migración completa a v4 es idempotente.
+    expect((await storage.listClients()).map((c) => c.id)).toEqual(['c-v1']);
+    expect((await storage.listQuotes()).map((q) => q.number)).toEqual(['ED-2026-0007']);
   });
 
   it('después de migrar se pueden guardar y leer citas', async () => {

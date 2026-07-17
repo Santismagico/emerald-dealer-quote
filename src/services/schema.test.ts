@@ -66,10 +66,26 @@ describe('normalizeQuote: datos corruptos o de versiones viejas', () => {
     delete old.production;
     delete old.payments;
     delete old.depositDate;
+    delete old.approvedAt;
+    delete old.deliveredAt;
     const q = normalizeQuote(old);
     expect(q.production).toEqual([]);
     expect(q.payments).toEqual([]);
     expect(q.depositDate).toBe('');
+    expect(q.approvedAt).toBe('');
+    expect(q.deliveredAt).toBe('');
+  });
+
+  it('construye un objeto nuevo y descarta claves de contaminación de prototipo', () => {
+    const raw = JSON.parse(
+      '{"id":"q-segura","number":"ED-2026-0001","__proto__":{"infectado":true},"constructor":{"prototype":{"infectado":true}}}'
+    ) as Record<string, unknown>;
+    const q = normalizeQuote(raw);
+
+    expect(q).not.toBe(raw);
+    expect(Object.prototype.hasOwnProperty.call(q, '__proto__')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(q, 'constructor')).toBe(false);
+    expect(({} as Record<string, unknown>).infectado).toBeUndefined();
   });
 
   it('tipos corruptos se corrigen en vez de romper la app', () => {
