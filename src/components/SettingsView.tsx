@@ -62,6 +62,16 @@ export function SettingsView() {
   // En la PWA instalada de Android, un input file con display:none dentro de un
   // label puede no abrir el selector; el clic programático desde un botón sí.
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoFile = async (file: File | null) => {
+    if (!file) return;
+    try {
+      patch({ logoDataUrl: await fileToCompressedDataUrl(file) });
+      store.showToast('Logo cargado.');
+    } catch (error) {
+      store.showToast(error instanceof Error ? error.message : 'No se pudo cargar el logo.');
+    }
+  };
   // Valor del oro que tenía el formulario al abrirse: permite saber si el
   // usuario lo editó a mano o si debe conservarse el auto-actualizado.
   const initialGoldRef = useRef({
@@ -188,7 +198,12 @@ export function SettingsView() {
             <button
               type="button"
               className="inline-flex min-h-11 cursor-pointer items-center rounded-xl px-2 text-sm font-medium text-brand-800"
-              onClick={() => logoInputRef.current?.click()}
+              onClick={() => {
+                // El aviso confirma que el toque llegó; si la galería no se
+                // abre después, el bloqueo está en el sistema, no en la app.
+                store.showToast('Abriendo la galería…');
+                logoInputRef.current?.click();
+              }}
             >
               {form.logoDataUrl ? 'Cambiar logo' : 'Subir logo'}
             </button>
@@ -200,16 +215,7 @@ export function SettingsView() {
               aria-hidden="true"
               className="sr-only"
               onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  try {
-                    patch({ logoDataUrl: await fileToCompressedDataUrl(file) });
-                  } catch (error) {
-                    store.showToast(
-                      error instanceof Error ? error.message : 'No se pudo cargar el logo.'
-                    );
-                  }
-                }
+                await handleLogoFile(e.target.files?.[0] ?? null);
                 e.target.value = '';
               }}
             />
@@ -219,6 +225,20 @@ export function SettingsView() {
               </button>
             ) : null}
           </div>
+          {/* Camino alterno: control nativo visible, inmune a los trucos de
+              ocultamiento que algunos Android bloquean en la PWA instalada. */}
+          <p className="mt-2 text-xs text-stone-500">
+            ¿El botón no abre la galería? Usa este selector directo:
+          </p>
+          <input
+            type="file"
+            accept="image/*"
+            className="mt-1 block w-full text-sm text-stone-600"
+            onChange={async (e) => {
+              await handleLogoFile(e.target.files?.[0] ?? null);
+              e.target.value = '';
+            }}
+          />
         </div>
         <Field label="NIT o identificación (opcional)">
           <TextInput value={form.nit} onChange={(nit) => patch({ nit })} />

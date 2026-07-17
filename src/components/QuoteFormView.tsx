@@ -395,7 +395,10 @@ export function QuoteFormView({
                       type="button"
                       aria-label="Agregar imagen de referencia"
                       className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-stone-300 text-2xl text-stone-400"
-                      onClick={() => imageInputRef.current?.click()}
+                      onClick={() => {
+                        store.showToast('Abriendo la galería…');
+                        imageInputRef.current?.click();
+                      }}
                     >
                       ＋
                     </button>
@@ -416,6 +419,23 @@ export function QuoteFormView({
                 )}
               </div>
               {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
+              {quote.images.length < MAX_IMAGES && (
+                <>
+                  <p className="mt-2 text-xs text-stone-500">
+                    ¿El botón ＋ no abre la galería? Usa este selector directo:
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="mt-1 block w-full text-sm text-stone-600"
+                    onChange={(e) => {
+                      void addImages(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              )}
             </div>
           </SectionCard>
         </div>
