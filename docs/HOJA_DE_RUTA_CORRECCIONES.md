@@ -216,12 +216,12 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | C7 | F | El anticipo significa dinero ya pagado: suma a lo recibido y reduce la deuda; los anticipos nuevos o modificados llevan fecha real | QuoteForm, PaymentsPanel, dailyReport | verificada | deeab61 |
 | C8 | F | Confusión entre anticipo y abonos: registrar el saldo real y mostrar "Pagada" sin mezclarlo con "Entregada" | payments.ts, workshop.ts, WorkshopJobView, PaymentsPanel, WorkshopView | publicada | 5d67440 + D-030 |
 | C9 | F | Hacer visible cualquier sobrepago, retirar la acción falsa cuando el total es $0 y evitar duplicados por doble toque/reintento | payments.ts, workshop.ts, Taller y cierres | publicada | d251ad3 |
-| C10 | F | Permitir deslizar todos los pasos del cotizador en Android y mantener accesibles los botones de navegación | App, QuoteForm, index.css | verificada; pendiente de publicación | este commit |
+| C10 | F | Permitir deslizar todos los pasos del cotizador en Android y mantener accesibles los botones de navegación | App, QuoteForm, index.css | publicada | ab77ad3 |
 | E1 | E | Primera estética oscura/dorada de Codex | App, componentes e íconos | rechazada por Santiago; reemplazada, no publicar | 55771e0 |
 | E2 | E | Primer ícono de esmeralda dentro de rombo dorado | íconos PWA y manifiesto | rechazado con E1; reemplazado, no publicar | 55771e0 |
 | E3 | E | Nueva identidad "el mesón del joyero" e ícono "La gema viva" con volumen | App, componentes, temas e íconos | publicada | 4f3df5f + fb564ca |
 | E4 | E | Corregir recorte adaptable, arranque oscuro, contraste nocturno y pantallas de 320–360 px | generadores PWA, manifiesto, estilos y formulario | publicada | d251ad3 |
-| E5 | E | Adaptar la aplicación a PC con contenido amplio, formularios en columnas y menú lateral | App, QuoteForm, index.css | verificada; pendiente de publicación | este commit |
+| E5 | E | Adaptar la aplicación a PC con contenido amplio, formularios en columnas y menú lateral | App, QuoteForm, index.css | publicada | e27654a |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._
