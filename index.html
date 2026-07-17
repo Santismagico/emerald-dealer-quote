@@ -3,12 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#031b15" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f1ea" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1310" />
+    <meta name="theme-color" content="#f4f1ea" />
     <meta name="description" content="Cotizaciones profesionales de joyería" />
     <link rel="icon" type="image/png" href="/pwa-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ED Quote" />
     <title>Emerald Dealer Quote</title>
   </head>
@@ -25,11 +27,11 @@
           var root = document.getElementById('root');
           if (root && !root.hasChildNodes()) {
             root.innerHTML =
-              '<div style="min-height:100vh;box-sizing:border-box;font-family:system-ui,sans-serif;padding:48px 24px;text-align:center;color:#f7f1e4;background:linear-gradient(180deg,#063f32,#031b15)">' +
-              '<h2 style="font-family:Georgia,serif;color:#d7be7a;letter-spacing:.03em">Emerald Dealer Quote</h2>' +
+              '<div style="min-height:100vh;box-sizing:border-box;font-family:system-ui,sans-serif;padding:48px 24px;text-align:center;color:#22302a;background:#f4f1ea">' +
+              '<h2 style="font-family:Palatino,Georgia,serif;color:#0a4d38;letter-spacing:.02em">Emerald Dealer Quote</h2>' +
               '<p>No se pudo cargar la aplicación en este navegador.</p>' +
               '<p>Copia esta dirección y ábrela directamente en <strong>Chrome</strong> (Android) o <strong>Safari</strong> (iPhone):</p>' +
-              '<p style="background:#0b2c25;border:1px solid rgba(215,190,122,.35);padding:12px;border-radius:12px;word-break:break-all"><strong>santismagico.github.io/emerald-dealer-quote</strong></p>' +
+              '<p style="background:#ffffff;border:1px solid #d6cfbe;padding:12px;border-radius:12px;word-break:break-all"><strong>santismagico.github.io/emerald-dealer-quote</strong></p>' +
               '</div>';
           }
         }
