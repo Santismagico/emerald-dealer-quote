@@ -102,6 +102,7 @@ function AppShell() {
   const [snoozingReminder, setSnoozingReminder] = useState(false);
   const previewRef = useRef<PreviewViewHandle>(null);
   const workshopJobRef = useRef<WorkshopJobViewHandle>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const reminderAnchorRef = useRef(false);
   const snoozeRef = useRef(false);
 
@@ -131,6 +132,7 @@ function AppShell() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [view]);
 
   useEffect(() => {
@@ -279,7 +281,7 @@ function AppShell() {
   };
 
   return (
-    <div className="atelier app-shell mx-auto flex min-h-dvh max-w-lg flex-col">
+    <div className="atelier app-shell mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
       <header className="luxury-header safe-top top-0 z-40">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -302,7 +304,7 @@ function AppShell() {
 
       {isInAppBrowser() && <InAppBrowserBanner />}
 
-      <main className="relative flex-1 px-4 pb-28 pt-5">
+      <main ref={mainRef} className="app-main relative min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-5">
         {backupReminder.shouldShow && !store.backupExporting ? (
           <BackupReminderBanner
             busy={snoozingReminder}

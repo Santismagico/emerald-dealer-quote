@@ -133,6 +133,20 @@ button {
   position: relative;
 }
 
+/* El contenido es la zona desplazable. Esto evita que Android dependa del
+   desplazamiento de la ventana instalada y mantiene la navegación accesible. */
+.app-main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.quote-form-actions {
+  position: sticky;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+}
+
 .luxury-header {
   position: sticky;
   border-bottom: 1px solid var(--line);

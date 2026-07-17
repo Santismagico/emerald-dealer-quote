@@ -113,7 +113,7 @@ export function QuoteFormView({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="quote-form space-y-4">
       {/* Indicador de pasos */}
       <div className="flex items-center gap-1.5">
         {STEPS.map((label, i) => (
@@ -418,7 +418,7 @@ export function QuoteFormView({
       )}
 
       {/* Barra inferior con total en vivo y navegación */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="quote-form-actions rounded-2xl bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm text-stone-500">Total estimado</span>
           <span className="text-lg font-bold text-brand-900">{formatCOP(calc.total)}</span>
