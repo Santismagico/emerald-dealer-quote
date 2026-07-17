@@ -1,4 +1,4 @@
-﻿// Etapa 7: primera migración real de IndexedDB (v1→v2) y persistencia de la
+// Etapa 7: primera migración real de IndexedDB (v1→v2) y persistencia de la
 // agenda. Se prueba con una base v1 auténtica creada a mano: al abrir la app
 // nueva debe aparecer el almacén de citas SIN perder un solo dato anterior.
 
@@ -29,7 +29,7 @@ function cita(overrides: Partial<Appointment> = {}): Appointment {
   return {
     id: 'a-1',
     clientId: null,
-    clientName: 'María Gómez',
+    clientName: 'Cliente Ejemplo',
     date: '2026-07-20',
     time: '10:00',
     durationMinutes: 60,

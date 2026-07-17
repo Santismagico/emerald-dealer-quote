@@ -78,7 +78,7 @@ describe('persistencia normalizada de clientes', () => {
     await dbPut('clients', {
       id: 'c-legacy-normalize',
       name: 42,
-      phone: 3001234567,
+      phone: 3000000000,
       email: null,
       notes: ['anterior']
     });
@@ -124,7 +124,7 @@ describe('persistencia normalizada de clientes', () => {
     const corrupt = {
       ...sampleClient({ id: 'c-save-normalized' }),
       name: 42,
-      phone: 3001234567,
+      phone: 3000000000,
       email: null,
       claveAjena: 'no guardar'
     };

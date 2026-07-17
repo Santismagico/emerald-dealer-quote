@@ -12,7 +12,7 @@ describe('mensaje de WhatsApp', () => {
   const message = buildWhatsAppMessage(quote, calc, settings);
 
   it('saluda al cliente por su nombre', () => {
-    expect(message).toContain('Hola María Gómez');
+    expect(message).toContain('Hola Cliente Ejemplo');
   });
 
   it('incluye número, total y vigencia', () => {
@@ -80,13 +80,13 @@ describe('mensaje de WhatsApp', () => {
 
 describe('enlace de WhatsApp', () => {
   it('agrega el prefijo 57 a celulares colombianos de 10 dígitos', () => {
-    const link = whatsAppLink('hola', '300 123-4567');
-    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent('hola')}`);
+    const link = whatsAppLink('hola', '300 000-0000');
+    expect(link).toBe(`https://wa.me/573000000000?text=${encodeURIComponent('hola')}`);
   });
 
   it('respeta números que ya traen indicativo internacional', () => {
-    const link = whatsAppLink('hola', '+57 300 123 4567');
-    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent('hola')}`);
+    const link = whatsAppLink('hola', '+57 300 000 0000');
+    expect(link).toBe(`https://wa.me/573000000000?text=${encodeURIComponent('hola')}`);
   });
 
   it('no toca números que no parecen celular colombiano', () => {
@@ -100,8 +100,8 @@ describe('enlace de WhatsApp', () => {
   });
 
   it('ignora ceros iniciales antes de normalizar', () => {
-    const link = whatsAppLink('hola', '0300 123 4567');
-    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent('hola')}`);
+    const link = whatsAppLink('hola', '0300 000 0000');
+    expect(link).toBe(`https://wa.me/573000000000?text=${encodeURIComponent('hola')}`);
   });
 
   it('funciona sin teléfono', () => {
@@ -110,8 +110,8 @@ describe('enlace de WhatsApp', () => {
 
   it('codifica símbolos, comillas y saltos sin alterar el teléfono saneado', () => {
     const message = 'Texto & detalle #1 "especial"\nsegunda línea';
-    const link = whatsAppLink(message, '+57 (300) 123-4567');
-    expect(link).toBe(`https://wa.me/573001234567?text=${encodeURIComponent(message)}`);
+    const link = whatsAppLink(message, '+57 (300) 000-0000');
+    expect(link).toBe(`https://wa.me/573000000000?text=${encodeURIComponent(message)}`);
     expect(link).not.toContain('& detalle');
     expect(link).not.toContain('#1');
   });

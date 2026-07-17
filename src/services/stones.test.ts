@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { StoneLot, StoneSale } from '../types';
 import {
   countStoneLots,
@@ -26,7 +26,7 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
   return {
     id: 'v-1',
     date: '2026-07-15',
-    buyer: 'Comprador Bogotá',
+    buyer: 'Comprador Ciudad Ejemplo',
     carats: 1,
     quantity: 1,
     valueCop: 2000000,
@@ -38,11 +38,11 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
 function lote(overrides: Partial<StoneLot> = {}): StoneLot {
   return {
     id: 'l-1',
-    name: 'Muzo 12',
+    name: 'Lote Ejemplo 12',
     stoneType: 'Esmeralda',
     description: 'Talla esmeralda, calidad alta',
     purchaseDate: '2026-07-10',
-    supplier: 'Proveedor Muzo',
+    supplier: 'Proveedor Ejemplo',
     supplierId: null,
     carats: 5,
     quantity: 4,
@@ -138,7 +138,7 @@ describe('existencias y flujo', () => {
   const esmeralda = lote({ id: 'l-1', stoneType: 'Esmeralda', carats: 5, quantity: 4 });
   const esmeraldaMin = lote({
     id: 'l-2',
-    name: 'Chivor 3',
+    name: 'Lote Ejemplo 3',
     stoneType: 'esmeralda',
     carats: 2,
     quantity: 2,
@@ -179,9 +179,9 @@ describe('existencias y flujo', () => {
   });
 
   it('busca por nombre de lote, piedra, descripción o proveedor', () => {
-    expect(matchesLotSearch(esmeraldaMin, 'chivor')).toBe(true);
-    expect(matchesLotSearch(esmeralda, 'muzo')).toBe(true);
-    expect(matchesLotSearch(zafiro, 'muzo')).toBe(true); // proveedor "Proveedor Muzo"
+    expect(matchesLotSearch(esmeraldaMin, 'ejemplo 3')).toBe(true);
+    expect(matchesLotSearch(esmeralda, 'esmeralda')).toBe(true);
+    expect(matchesLotSearch(zafiro, 'proveedor ejemplo')).toBe(true);
     expect(matchesLotSearch(lote({ supplier: 'Otro' }), 'inexistente')).toBe(false);
   });
 
@@ -193,7 +193,7 @@ describe('existencias y flujo', () => {
 
   it('un lote sin nombre se muestra con su tipo de piedra', () => {
     expect(lotDisplayName(zafiro)).toBe('Lote de Zafiro');
-    expect(lotDisplayName(esmeralda)).toBe('Muzo 12');
+    expect(lotDisplayName(esmeralda)).toBe('Lote Ejemplo 12');
   });
 });
 
@@ -325,7 +325,7 @@ describe('compras a credito y pagos al proveedor (C4)', () => {
 
   it('no permite cambiar el proveedor de un lote que ya tiene pagos', () => {
     const original = credito({
-      supplier: 'Proveedor Muzo',
+      supplier: 'Proveedor Ejemplo',
       supplierId: 'sup-1',
       supplierPayments: [pago()]
     });
@@ -347,7 +347,7 @@ describe('compras a credito y pagos al proveedor (C4)', () => {
 
   it('permite editar otros datos sin alterar el proveedor ni los pagos', () => {
     const original = credito({
-      supplier: 'Proveedor Muzo',
+      supplier: 'Proveedor Ejemplo',
       supplierId: 'sup-1',
       supplierPayments: [pago()]
     });

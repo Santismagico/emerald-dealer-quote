@@ -397,7 +397,7 @@ describe('guardado diferido de producción y abonos', () => {
     controller.update((quote) => ({
       ...quote,
       production: patchById(quote.production, quote.production[0].id, { notes: 'Cambio interno' }),
-      payments: patchById(quote.payments, quote.payments[0].id, { receivedBy: 'Santiago' })
+      payments: patchById(quote.payments, quote.payments[0].id, { receivedBy: 'Responsable Ejemplo' })
     }));
     const latest = controller.getLatest();
 

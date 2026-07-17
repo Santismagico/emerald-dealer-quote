@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
 import type { StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
@@ -19,11 +19,11 @@ const DAY = '2026-07-15';
 function lote(overrides: Partial<StoneLot> = {}): StoneLot {
   return {
     id: 'l-1',
-    name: 'Muzo 12',
+    name: 'Lote Ejemplo 12',
     stoneType: 'Esmeralda',
     description: '',
     purchaseDate: DAY,
-    supplier: 'Proveedor Muzo',
+    supplier: 'Proveedor Ejemplo',
     supplierId: null,
     carats: 5,
     quantity: 4,
@@ -55,7 +55,7 @@ describe('cierre del día: qué entra en el reporte', () => {
     const report = buildDailyReport(DAY, [], lots);
 
     expect(report.stonePurchases.length).toBe(1);
-    expect(report.stonePurchases[0].lotName).toBe('Muzo 12');
+    expect(report.stonePurchases[0].lotName).toBe('Lote Ejemplo 12');
     expect(report.stoneSales.length).toBe(1);
     expect(report.stoneSales[0].valueCop).toBe(2000000);
   });
@@ -75,8 +75,8 @@ describe('cierre del día: qué entra en el reporte', () => {
           cost: 300000,
           paid: true,
           paidAt: DAY,
-          paidTo: 'Taller Ramírez',
-          paidBy: 'Santiago',
+          paidTo: 'Taller Ejemplo',
+          paidBy: 'Responsable Ejemplo',
           notes: ''
         },
         {
@@ -254,7 +254,7 @@ describe('PDF del cierre del día', () => {
     const text = contentToPlainText(content);
     expect(text).toContain('DOCUMENTO INTERNO — NO ENTREGAR AL CLIENTE');
     expect(text).toContain('CIERRE DEL DÍA');
-    expect(text).toContain('Muzo 12');
+    expect(text).toContain('Lote Ejemplo 12');
     expect(text).toContain('MOVIMIENTO NETO DEL DÍA');
     expect(content.quoteNumber).toBe('');
   });
@@ -360,7 +360,7 @@ describe('cierre del mes (C6)', () => {
 
   it('agrupa todo el mes y respeta los límites', () => {
     const report = buildMonthlyReport('2026-07', [], julio);
-    expect(report.stonePurchases.map((p) => p.lotName)).toEqual(['Muzo 12']);
+    expect(report.stonePurchases.map((p) => p.lotName)).toEqual(['Lote Ejemplo 12']);
     expect(report.stoneSales.length).toBe(1);
     expect(report.totals.cashIn).toBe(3000000);
     expect(report.totals.cashOut).toBe(1000000);

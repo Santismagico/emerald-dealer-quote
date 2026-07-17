@@ -590,8 +590,8 @@ function LotForm({
           {isNew ? 'Nueva compra (lote)' : 'Editar compra del lote'}
         </h3>
         <div className="mt-4 space-y-3">
-          <Field label="Nombre del lote" hint="Opcional. Ej: Muzo 12.">
-            <TextInput value={form.name} onChange={(name) => patch({ name })} placeholder="Ej: Muzo 12" />
+          <Field label="Nombre del lote" hint="Opcional. Ej: Lote Ejemplo 12.">
+            <TextInput value={form.name} onChange={(name) => patch({ name })} placeholder="Ej: Lote Ejemplo 12" />
           </Field>
           <Field label="Tipo de piedra">
             <TextInput

@@ -26,9 +26,9 @@ afterEach(() => {
 function proveedor(overrides: Partial<Supplier> = {}): Supplier {
   return {
     id: 'sup-1',
-    name: 'Proveedor Muzo',
-    phone: '3001234567',
-    city: 'Bogotá',
+    name: 'Proveedor Ejemplo',
+    phone: '3000000000',
+    city: 'Ciudad Ejemplo',
     notes: '',
     createdAt: '2026-07-16T09:00:00.000Z',
     ...overrides
@@ -42,7 +42,7 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
     stoneType: 'Esmeralda',
     description: '',
     purchaseDate: '2026-07-16',
-    supplier: 'Proveedor Muzo',
+    supplier: 'Proveedor Ejemplo',
     supplierId: 'sup-1',
     carats: 2,
     quantity: 2,
@@ -123,11 +123,11 @@ describe('migración real v3 → v4', () => {
     await storage.saveSupplier(proveedor());
     await storage.saveStoneLot(loteVinculado());
 
-    await storage.saveSupplier(proveedor({ name: 'Proveedor Chivor' }));
+    await storage.saveSupplier(proveedor({ name: 'Proveedor Alterno Ejemplo' }));
 
     const [lot] = await storage.listStoneLots();
     expect(lot.supplierId).toBe('sup-1');
-    expect(lot.supplier).toBe('Proveedor Chivor');
+    expect(lot.supplier).toBe('Proveedor Alterno Ejemplo');
     expect(lot.sales.map((sale) => sale.id)).toEqual(['sale-1']);
     expect(lot.supplierPayments.map((payment) => payment.id)).toEqual(['pay-1']);
   });
@@ -141,7 +141,7 @@ describe('migración real v3 → v4', () => {
     const [lot] = await storage.listStoneLots();
     expect(await storage.listSuppliers()).toEqual([]);
     expect(lot.supplierId).toBeNull();
-    expect(lot.supplier).toBe('Proveedor Muzo');
+    expect(lot.supplier).toBe('Proveedor Ejemplo');
     expect(lot.sales).toHaveLength(1);
     expect(lot.sales[0].valueCop).toBe(1500000);
     expect(lot.supplierPayments).toHaveLength(1);

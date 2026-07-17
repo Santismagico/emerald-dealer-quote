@@ -18,7 +18,7 @@ function cita(overrides: Partial<Appointment> = {}): Appointment {
   return {
     id: 'a-1',
     clientId: null,
-    clientName: 'María Gómez',
+    clientName: 'Cliente Ejemplo',
     date: TODAY,
     time: '10:00',
     durationMinutes: 60,

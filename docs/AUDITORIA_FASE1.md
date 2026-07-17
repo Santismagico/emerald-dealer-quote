@@ -96,3 +96,26 @@ Este informe es acumulativo. Registra lo revisado, lo corregido y las pruebas qu
 | `jspdf` | Genera localmente los PDF de cliente e internos sin enviar datos a un servidor. |
 
 `package-lock.json` está versionado. `npm audit --audit-level=low` del 2026-07-17 informó 0 vulnerabilidades.
+
+## S4 — Barrido del repositorio público
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Media | Los fixtures usaban un nombre común, teléfonos plausibles y nombres geográficos que no quedaban identificados inequívocamente como datos ficticios. No se encontró evidencia de que pertenecieran al piloto, pero se reemplazaron preventivamente. | `src/test/fixtures.ts` y pruebas relacionadas | S4 (este commit) |
+| Media | `.gitignore` cubría ZIP y variables locales, pero no respaldos JSON de datos ni carpetas de capturas locales. | `.gitignore` | S4 (este commit) |
+
+### Decisiones tomadas
+
+- Todo dato de prueba de persona, comprador, proveedor, taller, lote, ciudad, teléfono y correo quedó marcado como “Ejemplo” o usa valores reservados como `3000000000` y `example.com`.
+- Las menciones a Santiago en documentación histórica, decisiones y reglas del propietario se conservan: identifican legítimamente al dueño del proyecto y no son datos de un cliente ni de una joyería piloto.
+- No se encontró la lista privada de las siete joyerías, ni correos, teléfonos, NIT, cédulas o direcciones atribuibles a ellas.
+- No se reescribió el historial de Git. No apareció un dato real que requiera elevar una decisión histórica a Santiago.
+- `.gitignore` mantiene `*.zip`, `.env`, `.env.*` y ahora agrega respaldos de datos y capturas locales.
+
+### Pruebas y verificaciones
+
+- Barrido por contenido de `src/test/fixtures.ts`, todos los tests, `docs/`, Markdown y código fuente.
+- Barrido de nombres de archivo.
+- Suite completa después de reemplazar fixtures para demostrar que no cambió el comportamiento.

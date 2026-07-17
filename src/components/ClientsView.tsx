@@ -33,7 +33,7 @@ export function ClientsView() {
             <TextInput value={editing.name} onChange={(name) => setEditing({ ...editing, name })} placeholder="Nombre completo" />
           </Field>
           <Field label="Teléfono">
-            <TextInput value={editing.phone} onChange={(phone) => setEditing({ ...editing, phone })} inputMode="tel" placeholder="300 123 4567" />
+            <TextInput value={editing.phone} onChange={(phone) => setEditing({ ...editing, phone })} inputMode="tel" placeholder="300 000 0000" />
           </Field>
           <Field label="Email (opcional)">
             <TextInput value={editing.email} onChange={(email) => setEditing({ ...editing, email })} inputMode="email" type="email" />

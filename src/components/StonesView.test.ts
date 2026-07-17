@@ -6,11 +6,11 @@ describe('aviso al eliminar un lote', () => {
   it('enumera ventas, pagos, deuda y pérdida del historial', () => {
     const lot: StoneLot = {
       id: 'lot-1',
-      name: 'Muzo 12',
+      name: 'Lote Ejemplo 12',
       stoneType: 'Esmeralda',
       description: '',
       purchaseDate: '2026-07-16',
-      supplier: 'Proveedor Muzo',
+      supplier: 'Proveedor Ejemplo',
       supplierId: 'sup-1',
       carats: 3,
       quantity: 3,

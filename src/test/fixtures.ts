@@ -6,10 +6,10 @@ import { defaultSettings } from '../services/storage';
 export function sampleClient(overrides: Partial<Client> = {}): Client {
   return {
     id: 'c-1',
-    name: 'María Gómez',
-    phone: '3001234567',
-    email: 'maria@example.com',
-    city: 'Bogotá',
+    name: 'Cliente Ejemplo',
+    phone: '3000000000',
+    email: 'cliente@example.com',
+    city: 'Ciudad Ejemplo',
     document: '',
     notes: 'Cliente frecuente',
     createdAt: '2026-07-01T10:00:00.000Z',
@@ -22,9 +22,9 @@ export function sampleSettings(overrides: Partial<Settings> = {}): Settings {
     ...defaultSettings(),
     goldPricePerGram: 550000,
     defaultMarginPercent: 25,
-    phone: '3009876543',
-    whatsapp: '573009876543',
-    city: 'Bogotá',
+    phone: '3000000000',
+    whatsapp: '573000000000',
+    city: 'Ciudad Ejemplo',
     ...overrides
   };
 }
@@ -81,8 +81,8 @@ export function sampleQuote(overrides: Partial<Quote> = {}): Quote {
         cost: 300000,
         paid: true,
         paidAt: '2026-07-06',
-        paidTo: 'Taller Ramírez',
-        paidBy: 'Santiago',
+        paidTo: 'Taller Ejemplo',
+        paidBy: 'Responsable Ejemplo',
         notes: ''
       },
       {

@@ -10,6 +10,11 @@ Thumbs.db
 
 # Paquetes de auditoria locales (no subir)
 *.zip
+respaldo-*.json
+*backup-datos*.json
+capturas-locales/
+screenshots/
+*.screenshot.png
 
 # Mapa de conocimiento Graphify (generado, se reconstruye con /graphify)
 graphify-out/

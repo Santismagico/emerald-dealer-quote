@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   normalizeAppointment,
   normalizeClient,
@@ -23,7 +23,7 @@ describe('normalizeClient: datos antiguos o corruptos', () => {
     const normalized = normalizeClient({
       id: 'c-antiguo',
       name: 'Cliente antiguo',
-      phone: 3001234567,
+      phone: 3000000000,
       email: null,
       notes: ['dato viejo']
     });
@@ -170,7 +170,7 @@ describe('normalizeAppointment', () => {
     const valid = {
       id: 'a-1',
       clientId: 'c-1',
-      clientName: 'María Gómez',
+      clientName: 'Cliente Ejemplo',
       date: '2026-07-20',
       time: '10:30',
       durationMinutes: 90,
@@ -207,11 +207,11 @@ describe('normalizeStoneLot', () => {
   it('conserva un lote bien formado con sus ventas', () => {
     const valid = {
       id: 'l-1',
-      name: 'Muzo 12',
+      name: 'Lote Ejemplo 12',
       stoneType: 'Esmeralda',
       description: 'Calidad alta',
       purchaseDate: '2026-07-15',
-      supplier: 'Proveedor Muzo',
+      supplier: 'Proveedor Ejemplo',
       supplierId: null,
       carats: 5,
       quantity: 4,

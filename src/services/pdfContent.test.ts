@@ -304,7 +304,7 @@ describe('PDF del cliente: contenido esperado', () => {
   });
 
   it('incluye los datos del cliente', () => {
-    expect(text).toContain('María Gómez');
+    expect(text).toContain('Cliente Ejemplo');
   });
 
   it('incluye el total, anticipo y saldo formateados en COP', () => {
@@ -354,7 +354,7 @@ describe('documento interno', () => {
 
   it('incluye el seguimiento de producción con estados y pagos', () => {
     expect(text).toContain('Fundición: lista el 6 de julio de 2026');
-    expect(text).toContain('300.000 pagado el 6 de julio de 2026 a Taller Ramírez (pagó Santiago)');
+    expect(text).toContain('300.000 pagado el 6 de julio de 2026 a Taller Ejemplo (pagó Responsable Ejemplo)');
     expect(text).toContain('Pulido: en proceso');
     expect(text).toContain('120.000 por pagar');
   });

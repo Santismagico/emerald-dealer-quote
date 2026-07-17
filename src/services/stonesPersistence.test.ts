@@ -1,4 +1,4 @@
-﻿// Etapa 8: migración IndexedDB v2→v3 (almacén de lotes de piedras) y respaldo
+// Etapa 8: migración IndexedDB v2→v3 (almacén de lotes de piedras) y respaldo
 // v4. Se prueba contra una base v2 auténtica (la que dejó la Etapa 7): al abrir
 // la app nueva debe aparecer el almacén de lotes SIN perder un solo dato.
 
@@ -29,7 +29,7 @@ function cita(overrides: Partial<Appointment> = {}): Appointment {
   return {
     id: 'a-1',
     clientId: null,
-    clientName: 'María Gómez',
+    clientName: 'Cliente Ejemplo',
     date: '2026-07-20',
     time: '10:00',
     durationMinutes: 60,
@@ -45,11 +45,11 @@ function cita(overrides: Partial<Appointment> = {}): Appointment {
 function lote(overrides: Partial<StoneLot> = {}): StoneLot {
   return {
     id: 'l-1',
-    name: 'Muzo 12',
+    name: 'Lote Ejemplo 12',
     stoneType: 'Esmeralda',
     description: '',
     purchaseDate: '2026-07-15',
-    supplier: 'Proveedor Muzo',
+    supplier: 'Proveedor Ejemplo',
     supplierId: null,
     carats: 5,
     quantity: 4,
@@ -61,7 +61,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
       {
         id: 'v-1',
         date: '2026-07-15',
-        buyer: 'Comprador Bogotá',
+        buyer: 'Comprador Ciudad Ejemplo',
         carats: 1,
         quantity: 1,
         valueCop: 2000000,
@@ -220,7 +220,7 @@ describe('respaldo v4 con lotes de piedras', () => {
 
     const lots = await storage.listStoneLots();
     expect(lots.map((l) => l.id)).toEqual(['l-import']);
-    expect(lots[0].sales[0].buyer).toBe('Comprador Bogotá');
+    expect(lots[0].sales[0].buyer).toBe('Comprador Ciudad Ejemplo');
   });
 
   it('rechaza un respaldo con lotes duplicados o sin identificador', async () => {

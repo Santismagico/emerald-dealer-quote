@@ -285,7 +285,7 @@ export interface StoneSale {
  */
 export interface StoneLot {
   id: string;
-  /** Nombre del lote, ej: "Muzo 12". Si queda vacío, la app muestra piedra + fecha. */
+  /** Nombre del lote, ej: "Lote Ejemplo 12". Si queda vacío, la app muestra piedra + fecha. */
   name: string;
   /** Tipo de piedra: Esmeralda, Zafiro, etc. Agrupa el inventario. */
   stoneType: string;

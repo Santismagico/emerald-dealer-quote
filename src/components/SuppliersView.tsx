@@ -43,7 +43,7 @@ export function SuppliersView() {
               value={editing.phone}
               onChange={(phone) => setEditing({ ...editing, phone })}
               inputMode="tel"
-              placeholder="300 123 4567"
+              placeholder="300 000 0000"
             />
           </Field>
           <Field label="Ciudad">
