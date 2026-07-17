@@ -114,3 +114,21 @@ Texto utilizado: `Precio del material por gramo: $550.000`
 - iPhone con Safari: **Aprobado**.
 - Android con Chrome: **No probado**.
 - Candidata: **Sin fallas conocidas, pendiente de validacion fisica en Android antes de publicar**.
+
+---
+
+## Prueba física sobre la versión PUBLICADA (2026-07-17)
+
+Con la v2 ya publicada en https://santismagico.github.io/emerald-dealer-quote/
+(`main` = c365aaf: correcciones C1–C9, identidad "el mesón del joyero" D-029 e
+ícono "La gema viva"), Santiago desinstaló y reinstaló la PWA en su teléfono
+personal siguiendo los pasos visuales y reportó textualmente: **"todo perfecto"**.
+
+Cubre: instalación desde el navegador, ícono nuevo visible en la pantalla de
+inicio, arranque y uso de la aplicación publicada en dispositivo real, con los
+datos existentes intactos.
+
+## Estado final actualizado
+
+- Teléfono de Santiago (dispositivo real, versión publicada): **Aprobado**.
+- Versión publicada: **Sin fallas reportadas**.
