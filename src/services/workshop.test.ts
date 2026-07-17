@@ -47,6 +47,35 @@ describe('trabajos del taller derivados de cotizaciones', () => {
     expect(job.total).toBe(total);
     expect(job.paid).toBe(3000000);
     expect(job.balance).toBe(total - 3000000);
+    expect(job.paidInFull).toBe(false);
+  });
+
+  it('un trabajo queda pagado solo cuando el dinero recibido cubre el total (D-028)', () => {
+    const quote = sampleQuote({ status: 'aprobada' });
+    const total = calculateQuote(quoteToCalcInput(quote)).total;
+
+    expect(workshopJobFromQuote({ ...quote, deposit: total, payments: [] }).paidInFull).toBe(true);
+    expect(workshopJobFromQuote({ ...quote, deposit: total - 1, payments: [] }).paidInFull).toBe(
+      false
+    );
+  });
+
+  it('pagada y entregada son estados independientes (D-028)', () => {
+    const quote = sampleQuote({ status: 'aprobada' });
+    const total = calculateQuote(quoteToCalcInput(quote)).total;
+
+    const pagadaSinEntregar = workshopJobFromQuote({ ...quote, deposit: total, payments: [] });
+    expect(pagadaSinEntregar.paidInFull).toBe(true);
+    expect(pagadaSinEntregar.delivered).toBe(false);
+
+    const entregadaSinPagar = workshopJobFromQuote({
+      ...quote,
+      deposit: 0,
+      payments: [],
+      deliveredAt: '2026-07-16'
+    });
+    expect(entregadaSinPagar.paidInFull).toBe(false);
+    expect(entregadaSinPagar.delivered).toBe(true);
   });
 
   it('cuenta el avance de etapas sin modificar la cotización', () => {

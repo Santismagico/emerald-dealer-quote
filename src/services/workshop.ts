@@ -5,7 +5,7 @@
 import type { Quote } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { productionSummary } from './production';
-import { clientPaidTotal } from './payments';
+import { clientPaidTotal, isQuotePaidInFull } from './payments';
 import { quoteMatchesHistorySearch } from './quoteStatus';
 import { isValidISODate } from '../utils/dates';
 
@@ -25,6 +25,8 @@ export interface WorkshopJob {
   ready: boolean;
   /** true cuando la joya ya se ENTREGÓ al cliente (independiente de "lista"). */
   delivered: boolean;
+  /** true cuando el cliente ya pagó todo. Derivado del dinero, no una marca (D-028). */
+  paidInFull: boolean;
 }
 
 /** Una entrega solo existe si tiene una fecha real en formato YYYY-MM-DD. */
@@ -44,7 +46,8 @@ export function workshopJobFromQuote(quote: Quote): WorkshopJob {
     stagesTotal: summary.stagesTotal,
     stagesDone: summary.stagesDone,
     ready: summary.stagesTotal > 0 && summary.stagesDone === summary.stagesTotal,
-    delivered: isQuoteDelivered(quote)
+    delivered: isQuoteDelivered(quote),
+    paidInFull: isQuotePaidInFull(total, quote.deposit, quote.payments ?? [])
   };
 }
 

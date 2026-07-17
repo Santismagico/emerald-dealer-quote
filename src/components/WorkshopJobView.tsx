@@ -9,6 +9,7 @@ import { ProductionPanel } from './ProductionPanel';
 import { PaymentsPanel } from './PaymentsPanel';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { workshopJobFromQuote, withQuoteDelivery } from '../services/workshop';
+import { settlementPayment } from '../services/payments';
 import { jobChip } from './WorkshopView';
 import {
   createQuoteAutosaveController,
@@ -86,6 +87,7 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
     const calc = useMemo(() => calculateQuote(quoteToCalcInput(quote)), [quote]);
     const job = useMemo(() => workshopJobFromQuote(quote), [quote]);
     const [confirmDelivery, setConfirmDelivery] = useState<'entregar' | 'deshacer' | null>(null);
+    const [confirmPaid, setConfirmPaid] = useState(false);
 
     const flushPending = async () => {
       await autosave.flush();
@@ -103,6 +105,33 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
         store.showToast('No se pudo guardar. Puedes reintentar.');
       } finally {
         setConfirmDelivery(null);
+      }
+    };
+
+    /**
+     * "El cliente ya pagó todo": registra el saldo que falta como un pago de hoy
+     * (D-028). La etiqueta "Pagada" sale sola de las cuentas y ese dinero queda
+     * en el cierre del día, en vez de desaparecer.
+     */
+    const settleBalance = async () => {
+      const latest = autosave.getLatest();
+      const payment = settlementPayment(
+        calculateQuote(quoteToCalcInput(latest)).total,
+        latest.deposit,
+        latest.payments
+      );
+      if (payment === null) {
+        setConfirmPaid(false);
+        return;
+      }
+      try {
+        updatePayments((current) => [...current, payment], 'immediate');
+        await autosave.flush();
+        store.showToast('Joya marcada como pagada');
+      } catch {
+        store.showToast('No se pudo guardar. Puedes reintentar.');
+      } finally {
+        setConfirmPaid(false);
       }
     };
 
@@ -198,20 +227,30 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
             <SummaryRow label="Total pagado por el cliente" value={formatCOP(job.paid)} />
             <SummaryRow
               label="Saldo pendiente"
-              value={formatCOP(job.balance)}
+              value={job.paidInFull ? 'Pagada ✓' : formatCOP(job.balance)}
               bold
-              valueClass={job.balance < 0 ? 'text-red-600' : undefined}
+              valueClass={job.paidInFull ? 'text-brand-800' : undefined}
             />
           </div>
-          <div className="mt-3 border-t border-stone-100 pt-3">
+          <div className="mt-3 space-y-2 border-t border-stone-100 pt-3">
+            {job.paidInFull ? (
+              <p className="rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-900">
+                ✓ <strong>Pagada.</strong> El cliente no debe nada.
+              </p>
+            ) : (
+              <Button variant="secondary" full onClick={() => setConfirmPaid(true)}>
+                El cliente ya pagó todo
+              </Button>
+            )}
+
             {job.delivered ? (
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 rounded-xl bg-stone-100 px-3 py-2">
                 <p className="text-sm text-stone-700">
-                  ✓ Entregada el <strong>{formatDateCO(quote.deliveredAt)}</strong>
+                  ✓ <strong>Entregada</strong> el {formatDateCO(quote.deliveredAt)}
                 </p>
                 <button
                   type="button"
-                  className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-medium text-stone-500 active:bg-stone-100"
+                  className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-medium text-stone-500 active:bg-stone-200"
                   onClick={() => setConfirmDelivery('deshacer')}
                 >
                   Deshacer
@@ -250,6 +289,15 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
             onCommit={flushPending}
           />
         </div>
+
+        <ConfirmDialog
+          open={confirmPaid}
+          title="El cliente ya pagó todo"
+          message={`Se registrará un pago de ${formatCOP(job.balance)} con la fecha de hoy y la joya quedará marcada como pagada. Ese dinero entra al cierre del día. Si el pago fue otro día o quieres anotar el medio de pago, edítalo después en la lista de pagos.`}
+          confirmLabel="Sí, pagó todo"
+          onCancel={() => setConfirmPaid(false)}
+          onConfirm={() => void settleBalance()}
+        />
 
         <ConfirmDialog
           open={confirmDelivery === 'entregar'}

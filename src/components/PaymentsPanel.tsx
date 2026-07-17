@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import type { ClientPayment } from '../types';
 import { runAfterSuccessfulFlush, type QuoteSaveMode } from '../services/quoteAutosave';
-import { clientPaidTotal, emptyPayment, paymentsTotal } from '../services/payments';
+import { clientPaidTotal, emptyPayment, isQuotePaidInFull, paymentsTotal } from '../services/payments';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate } from '../utils/dates';
 import { patchById } from '../utils/collections';
@@ -32,6 +32,7 @@ export function PaymentsPanel({
   const laterPayments = paymentsTotal(payments);
   const totalPaid = clientPaidTotal(deposit, payments);
   const realBalance = quoteTotal - totalPaid;
+  const paidInFull = isQuotePaidInFull(quoteTotal, deposit, payments);
   const commitInBackground = () => void onCommit().catch(() => {});
 
   const patchPayment = (id: string, partial: Partial<ClientPayment>) =>
@@ -55,20 +56,27 @@ export function PaymentsPanel({
       {deposit > 0 && (
         <div className="mb-2 rounded-xl bg-white p-3 shadow-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-800">Anticipo pagado</span>
+            <span className="font-medium text-stone-800">1er pago · Anticipo</span>
             <span className="font-medium text-stone-800">{formatCOP(deposit)}</span>
           </div>
           <p className="text-xs text-stone-500">
             {isValidISODate(depositDate)
               ? `Recibido el ${formatDateCO(depositDate)}`
               : 'Fecha no registrada en este dato antiguo'}
+            {' · '}
+            <span className="text-stone-400">Se escribe en la cotización</span>
+          </p>
+          <p className="mt-1 text-[11px] text-brand-800">
+            Ya está contado abajo. No lo vuelvas a registrar como abono.
           </p>
         </div>
       )}
 
       {payments.length === 0 && (
         <p className="rounded-xl bg-white/60 p-3 text-xs text-stone-500">
-          Aún no has registrado abonos posteriores. Registra cada nuevo pago que reciba la joyería: cuánto, cuándo y quién lo recibió.
+          {deposit > 0
+            ? 'Aún no hay pagos después del anticipo. Registra aquí cada nuevo pago que reciba la joyería: cuánto, cuándo y quién lo recibió.'
+            : 'Aún no has registrado pagos. Registra aquí cada pago que reciba la joyería: cuánto, cuándo y quién lo recibió.'}
         </p>
       )}
 
@@ -155,13 +163,13 @@ export function PaymentsPanel({
       </div>
 
       <div className="mt-3 space-y-1 rounded-xl bg-white p-3 shadow-sm">
-        <SummaryRow label="Abonos posteriores" value={formatCOP(laterPayments)} />
+        <SummaryRow label={deposit > 0 ? 'Abonos posteriores' : 'Abonos'} value={formatCOP(laterPayments)} />
         <SummaryRow label="Total pagado" value={formatCOP(totalPaid)} />
         <SummaryRow
           label="Saldo real pendiente"
-          value={formatCOP(realBalance)}
+          value={paidInFull ? 'Pagada ✓' : formatCOP(realBalance)}
           bold
-          valueClass={realBalance < 0 ? 'text-red-600' : undefined}
+          valueClass={paidInFull ? 'text-brand-800' : undefined}
         />
         {realBalance < 0 && (
           <p className="text-[11px] text-red-600">Los abonos superan el total cotizado: revisa los montos.</p>

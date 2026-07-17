@@ -116,9 +116,13 @@ function JobCard({ job, onOpen }: { job: WorkshopJob; onOpen: () => void }) {
                 : 'Sin etapas creadas todavía'}
           </span>
           <span>
-            Saldo: <span className={`font-semibold ${job.balance > 0 ? 'text-stone-800' : 'text-brand-800'}`}>
-              {formatCOP(job.balance)}
-            </span>
+            {job.paidInFull ? (
+              <span className="font-semibold text-brand-800">Pagada ✓</span>
+            ) : (
+              <>
+                Saldo: <span className="font-semibold text-stone-800">{formatCOP(job.balance)}</span>
+              </>
+            )}
           </span>
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200">

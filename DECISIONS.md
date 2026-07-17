@@ -247,3 +247,33 @@ carga en Ajustes para sus documentos de cliente.
 La decisión no modifica cálculos, datos, PDF ni reglas de privacidad. La candidata quedó
 verificada con 432 pruebas, build y revisión móvil, pero no se publica hasta recibir una
 orden expresa de Santiago y completar la comprobación física del ícono reinstalando la PWA.
+
+## D-028 · Joya pagada como estado derivado y pago del saldo en un toque · 2026-07-16 · Vigente
+
+Santiago reportó una confusión real de uso: el dinero del cliente se pide en dos pantallas
+(el **anticipo** en el formulario de la cotización y los **abonos** en el Taller), así que era
+fácil registrar el mismo pago dos veces; y aunque existía "Entregada", no existía "Pagada".
+
+Decisiones de negocio tomadas por Santiago:
+
+1. **"Pagada" es automática, nunca una marca manual.** En cuanto lo recibido (anticipo +
+   abonos) iguala o supera el total cotizado, la joya muestra "Pagada ✓". Al ser un estado
+   DERIVADO del dinero (`isQuotePaidInFull` en `services/payments.ts`), la etiqueta no puede
+   contradecir las cuentas ni depende de que Santiago se acuerde de marcarla. Una cotización
+   con total cero no se marca pagada sola.
+2. **"El cliente ya pagó todo" registra el dinero, no solo la etiqueta.** El botón crea un
+   abono por el saldo exacto que falta, fechado hoy (`settlementPayment`), de modo que ese
+   dinero entra al Cierre del día y a la caja. Editar fecha, medio o monto sigue disponible
+   en la lista de pagos. Si no falta nada, no se crea un abono de cero.
+3. **El anticipo sigue viviendo en la cotización** (cambio mínimo: no altera cómo se cotiza
+   ni el descuento del anticipo en el PDF del cliente), pero el panel de pagos del Taller lo
+   muestra arriba como "1er pago · Anticipo" y advierte que **ya está contado y no debe
+   registrarse otra vez como abono**. Esto ataca la causa de la confusión sin tocar datos.
+4. **Pagada y entregada son independientes**: una joya puede estar pagada sin entregar y
+   entregada sin pagar. Los filtros del Taller siguen describiendo el estado físico
+   (En taller / Listos / Entregados) y el dinero se lee en la tarjeta y en el trabajo.
+
+`clientPendingBalance` nunca devuelve negativo (pagar de más no es saldo a favor), pero el
+aviso rojo "los abonos superan el total" se conserva. No cambia la base local, ni el PDF, ni
+las reglas de privacidad, ni se agregan dependencias. 445 pruebas en verde. Extiende D-026
+(el anticipo es dinero pagado) y no altera D-014 (guardado diferido) ni D-024 (cierre).
