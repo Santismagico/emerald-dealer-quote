@@ -88,11 +88,14 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**La candidata D-030 está corregida, verificada y RESPALDADA, pero NO publicada.** El Ecosistema v1.0 público sigue en `main` = `ae57b95`; no sustituirlo sin autorización expresa de Santiago.
+**PUBLICADO (2026-07-17, por orden expresa de Santiago):** `main` = `d251ad3` con toda la candidata: correcciones de fondo C1–C9, identidad "el mesón del joyero" con día/noche (D-029), ícono "La gema viva", y las correcciones finales D-030. Despliegue de GitHub Pages en verde (37 s) y sitio en vivo verificado: los meta theme-color nuevos se sirven y el `pwa-512.png` publicado es idéntico byte a byte al local. Las ramas `main` y `codex/correcciones-finales-fable` apuntan al mismo commit.
 
-Estado del relevo (2026-07-17, Fable): la candidata vive en la rama `codex/correcciones-finales-fable`, tip `fc12dbb`, árbol limpio, **subida a GitHub** con seguimiento configurado. Verificación en ese tip: **452 pruebas en 24 archivos y `npm run build` en verde** (el build ahora incluye la verificación de íconos PWA de `scripts/verify-pwa-assets.mjs`). Cualquier agente retoma con `git pull` en esa rama; no hace falta leer conversaciones previas.
+Pendientes después de publicar (no técnicos):
 
-Siguiente secuencia: 1) revisar la candidata con Santiago (apariencia día y noche, recorrido de las 5 áreas); 2) reinstalarla en un teléfono real para confirmar el ícono del sistema, arranque, modo oscuro y navegación; 3) repetir la prueba rápida de privacidad de la hoja de ruta (escribir "precio por gramo" en observaciones del cliente y confirmar que el PDF cliente se bloquea); 4) revisar manualmente cotizaciones antiguas que puedan tener el mismo dinero como anticipo y abono; 5) confirmar si el enlace seguirá siendo público o requiere protección privada; 6) solo entonces, y con autorización expresa, llevar la candidata a `main` y verificar el despliegue visible.
+1. **Reinstalar la PWA en el teléfono de Santiago** para ver el ícono nuevo (los teléfonos que ya la tenían pueden conservar el anterior por caché hasta reinstalar) y confirmar arranque, modo oscuro y navegación (`PHYSICAL_TEST_REPORT.md`).
+2. **Revisar con Santiago cotizaciones antiguas** que puedan tener el mismo dinero como anticipo Y como abono manual; la app no deduplica sola (D-026). Con D-030 cualquier sobrepago ya es visible en el Taller, lo que facilita encontrarlas.
+3. Decidir si el enlace sigue público o requiere protección privada.
+4. Si algo falla en vivo: llevar `main` de vuelta a `ae57b95` restaura la versión anterior automáticamente.
 
 Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada en `PHYSICAL_TEST_REPORT.md` antes de autorizar cualquier publicación. Las plantillas de piezas frecuentes siguen requiriendo autorización aparte.
 
@@ -128,3 +131,4 @@ npm test && npm run build
 | 2026-07-16 | C8: joya pagada y pago del saldo (Fable) | Estado "Pagada" derivado del dinero, botón que registra el saldo como pago de hoy, anticipo marcado como 1er pago ya contado; 445 pruebas y build en verde; flujo, persistencia y cierre verificados en navegador; no publicado (D-028) | 5d67440 |
 | 2026-07-16 | Nueva identidad "el mesón del joyero" (Fable) | Papel cálido, acento esmeralda, tema claro/oscuro e ícono "La gema viva"; reemplaza la estética D-027; no publicado (D-029) | 4f3df5f + fb564ca |
 | 2026-07-16 | Endurecimiento final (Codex) | Ícono adaptable/Apple, arranque y contraste nocturno, pantallas estrechas, sobrepagos/total cero/idempotencia y documentación; 452 pruebas, verificación PWA, build y revisión 320/390 px en verde; no publicado (D-030) | `codex/correcciones-finales-fable` |
+| 2026-07-17 | **Publicación de la candidata completa (Fable, orden expresa de Santiago)** | `main` avanzado por fast-forward a la candidata (C1–C9, D-028/D-029/D-030); 452 pruebas y build en verde sobre el commit publicado; deploy de Pages en verde y sitio en vivo verificado (theme-color nuevos servidos, ícono publicado idéntico byte a byte al local) | d251ad3 en main |

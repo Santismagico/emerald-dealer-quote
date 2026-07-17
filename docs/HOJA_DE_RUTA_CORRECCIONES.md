@@ -214,12 +214,12 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada y reforzada | 05d301d + deeab61 |
 | C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación solo con meses anteriores | dailyReport.ts, DailyCloseView | verificada y reforzada | 05d301d + deeab61 |
 | C7 | F | El anticipo significa dinero ya pagado: suma a lo recibido y reduce la deuda; los anticipos nuevos o modificados llevan fecha real | QuoteForm, PaymentsPanel, dailyReport | verificada | deeab61 |
-| C8 | F | Confusión entre anticipo y abonos: registrar el saldo real y mostrar "Pagada" sin mezclarlo con "Entregada" | payments.ts, workshop.ts, WorkshopJobView, PaymentsPanel, WorkshopView | verificada y reforzada, no publicada | 5d67440 + D-030 |
-| C9 | F | Hacer visible cualquier sobrepago, retirar la acción falsa cuando el total es $0 y evitar duplicados por doble toque/reintento | payments.ts, workshop.ts, Taller y cierres | verificada, no publicada | `codex/correcciones-finales-fable` |
+| C8 | F | Confusión entre anticipo y abonos: registrar el saldo real y mostrar "Pagada" sin mezclarlo con "Entregada" | payments.ts, workshop.ts, WorkshopJobView, PaymentsPanel, WorkshopView | publicada | 5d67440 + D-030 |
+| C9 | F | Hacer visible cualquier sobrepago, retirar la acción falsa cuando el total es $0 y evitar duplicados por doble toque/reintento | payments.ts, workshop.ts, Taller y cierres | publicada | d251ad3 |
 | E1 | E | Primera estética oscura/dorada de Codex | App, componentes e íconos | rechazada por Santiago; reemplazada, no publicar | 55771e0 |
 | E2 | E | Primer ícono de esmeralda dentro de rombo dorado | íconos PWA y manifiesto | rechazado con E1; reemplazado, no publicar | 55771e0 |
-| E3 | E | Nueva identidad "el mesón del joyero" e ícono "La gema viva" con volumen | App, componentes, temas e íconos | verificada, no publicada | 4f3df5f + fb564ca |
-| E4 | E | Corregir recorte adaptable, arranque oscuro, contraste nocturno y pantallas de 320–360 px | generadores PWA, manifiesto, estilos y formulario | verificada, no publicada | `codex/correcciones-finales-fable` |
+| E3 | E | Nueva identidad "el mesón del joyero" e ícono "La gema viva" con volumen | App, componentes, temas e íconos | publicada | 4f3df5f + fb564ca |
+| E4 | E | Corregir recorte adaptable, arranque oscuro, contraste nocturno y pantallas de 320–360 px | generadores PWA, manifiesto, estilos y formulario | publicada | d251ad3 |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._
