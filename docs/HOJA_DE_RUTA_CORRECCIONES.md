@@ -12,6 +12,8 @@ si el agente que empieza no es el que termina._
   contiene además la estabilización funcional de Codex (`2b1b220` y `deeab61`), todavía no publicada.
 - 432 pruebas en 24 archivos y build en verde. Punto seguro de esta tanda:
   `punto-seguro-estabilizacion-fondo-2026-07-16`.
+- La renovación estética de lujo y el nuevo ícono instalable quedaron verificados en
+  `55771e0`, únicamente en la rama de trabajo. Todavía no están publicados.
 - **CUIDADO NUEVO:** ahora hay usuarios potenciales usando la app publicada con datos
   reales en su teléfono. Un push a `main` actualiza la app en vivo. La PWA se actualiza
   sola al reabrir; los datos locales (IndexedDB) NUNCA se tocan al actualizar, salvo
@@ -211,8 +213,11 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | C5 | F+E | Cierre separado Joyería vs Piedras + columna corrida del "Día del cierre" | dailyReport.ts, DailyCloseView, index.css | verificada y reforzada | 05d301d + deeab61 |
 | C6 | F | Cierre mensual acumulado: ventas, compras, deudas, balance y comparación solo con meses anteriores | dailyReport.ts, DailyCloseView | verificada y reforzada | 05d301d + deeab61 |
 | C7 | F | El anticipo significa dinero ya pagado: suma a lo recibido y reduce la deuda; los anticipos nuevos o modificados llevan fecha real | QuoteForm, PaymentsPanel, dailyReport | verificada | deeab61 |
+| E1 | E | Cambiar toda la aplicación de una estética plana a una identidad lujosa en verde esmeralda oscuro, dorado champaña y marfil | App, componentes compartidos y todas las pantallas | verificada, no publicada | 55771e0 |
+| E2 | E | Reemplazar el ícono genérico de instalación por una esmeralda facetada dentro de un rombo dorado | íconos PWA, generador, manifiesto y pantalla de inicio | verificada, no publicada | 55771e0 |
 
-_Pendiente: la tanda de correcciones ESTÉTICAS que Santiago anunció para después de las de fondo._
+_Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
+nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._
 
 _Antes de publicar: revisar manualmente cotizaciones antiguas que tengan anticipo y también un
 abono posterior por el mismo valor. La app no intenta adivinar ni borrar automáticamente un posible

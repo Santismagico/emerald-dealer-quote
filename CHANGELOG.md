@@ -4,6 +4,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado
 
 ## [Unreleased] — 2026-07-16
 
+### Identidad visual de lujo
+
+- Renovación completa con fondo esmeralda profundo, dorado champaña, marfil, títulos elegantes, tarjetas con mayor profundidad y campos claros de lectura fácil.
+- Encabezado, navegación inferior, menús, formularios, filtros, ventanas, avisos y estados vacíos ahora comparten el mismo sistema visual; los emojis decorativos fueron reemplazados por íconos lineales consistentes.
+- Nuevo ícono instalable: una esmeralda facetada dentro de un rombo dorado, con archivos específicos para iPhone, Android y recorte adaptable. El generador queda sincronizado con la pieza maestra.
+- Se conservaron los colores funcionales de peligro, pendiente y éxito, la apariencia clara del documento del cliente y la separación entre la marca de la app y el logo particular de la joyería.
+- Revisión visual móvil en anchos de 320 y 390 px, controles táctiles de al menos 44 px, **432 pruebas aprobadas en 24 archivos** y build de producción sin errores. Candidata no publicada.
+
 ### Estabilización de correcciones de fondo
 
 - El **anticipo** ahora se trata de forma coherente como dinero ya pagado: suma al total recibido, reduce la deuda y, cuando es nuevo o cambia, exige una fecha real para entrar al cierre correspondiente. Los anticipos antiguos sin fecha conservan su efecto sobre la deuda sin inventarles una fecha histórica.

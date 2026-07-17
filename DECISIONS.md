@@ -225,3 +225,25 @@ Decisiones confirmadas por Santiago y reglas de estabilización aplicadas antes 
 **Revisión manual antes de publicar:** en versiones anteriores el anticipo reducía el precio en la cotización, pero no formaba parte del panel de pagos del Taller. Por eso podría existir alguna cotización antigua donde Santiago haya registrado el mismo dinero también como un abono manual. La app no deduplica esos casos automáticamente, porque no puede saber con certeza si son el mismo pago o dos pagos reales.
 
 No se agregaron dependencias ni se cambió la base local. La compatibilidad se resuelve al normalizar cotizaciones antiguas y preservar sus datos conocidos.
+
+## D-027 · Identidad visual lujosa e ícono instalable propio · 2026-07-16 · Vigente
+
+Santiago decidió reemplazar la estética plana por una identidad completa de lujo: fondo
+esmeralda profundo (`#031b15`), superficies verdes con profundidad, dorado champaña,
+marfil y títulos con una serif del sistema. No se cargan fuentes externas ni se agrega
+ninguna dependencia, para conservar el funcionamiento sin internet.
+
+La navegación usa íconos lineales consistentes en lugar de emojis. El dorado es un acento
+de marca; rojo, ámbar y verde conservan sus significados de peligro, pendiente y éxito.
+Los campos editables permanecen claros, los controles táctiles miden al menos 44 px y el
+documento del cliente conserva apariencia de papel claro dentro del entorno oscuro.
+
+El ícono de la aplicación es una esmeralda facetada dentro de un rombo dorado sobre fondo
+esmeralda oscuro. La pieza maestra vive en `assets/branding/app-icon-source.png` y
+`npm run icons` genera las versiones 180, 192, 512 y 512 adaptable para Android. Este
+ícono identifica la aplicación instalada y es independiente del logo que cada joyería
+carga en Ajustes para sus documentos de cliente.
+
+La decisión no modifica cálculos, datos, PDF ni reglas de privacidad. La candidata quedó
+verificada con 432 pruebas, build y revisión móvil, pero no se publica hasta recibir una
+orden expresa de Santiago y completar la comprobación física del ícono reinstalando la PWA.
