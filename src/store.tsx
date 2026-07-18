@@ -6,6 +6,7 @@ import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from '.
 import { defaultSettings } from './services/storage';
 import { localDataSource, type StoreDataSource } from './services/dataSource';
 import { CLOUD_DATA_CHANGED_EVENT, cloudDataSource } from './services/cloud/api';
+import type { OutboxStatus } from './services/cloud/outbox';
 import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
@@ -26,6 +27,7 @@ interface AppStore {
   suppliers: Supplier[];
   toast: string | null;
   backupExporting: boolean;
+  cloudSync: OutboxStatus;
   showToast: (message: string) => void;
   updateSettings: (settings: Settings, goldPriceWasEdited: boolean) => Promise<Settings>;
   exportBackup: () => Promise<boolean>;
@@ -42,6 +44,7 @@ interface AppStore {
   upsertSupplier: (supplier: Supplier) => Promise<void>;
   removeSupplier: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
+  retryCloudChanges: (id?: string) => Promise<void>;
   reloadAll: () => Promise<void>;
   /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
   refreshGoldPrice: () => Promise<GoldPriceBreakdown>;
@@ -77,6 +80,12 @@ export function StoreProvider({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
+  const [cloudSync, setCloudSync] = useState<OutboxStatus>({ pending: 0, held: 0, operations: [] });
+
+  const refreshCloudSync = useCallback(async () => {
+    if (!dataSource.cloudSyncStatus) return;
+    setCloudSync(await dataSource.cloudSyncStatus());
+  }, [dataSource]);
 
   const reloadAll = useCallback(async () => {
     const [s, c, q, a, sm, sp] = await Promise.all([
@@ -111,15 +120,17 @@ export function StoreProvider({
       .finally(() => setReady(true))
       // Después de cargar, actualiza el precio del oro del día (si hay internet).
       // Encadenado para no competir con la carga inicial de settings.
-      .then(() => refreshGoldPrice())
+      .then(() => Promise.all([refreshGoldPrice(), refreshCloudSync()]))
       .catch(() => {});
-  }, [reloadAll, refreshGoldPrice]);
+  }, [reloadAll, refreshCloudSync, refreshGoldPrice]);
 
   useEffect(() => {
-    const reloadCloudChanges = () => void reloadAll().catch(() => {});
+    const reloadCloudChanges = () => {
+      void Promise.all([reloadAll(), refreshCloudSync()]).catch(() => {});
+    };
     window.addEventListener(CLOUD_DATA_CHANGED_EVENT, reloadCloudChanges);
     return () => window.removeEventListener(CLOUD_DATA_CHANGED_EVENT, reloadCloudChanges);
-  }, [reloadAll]);
+  }, [reloadAll, refreshCloudSync]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -236,6 +247,12 @@ export function StoreProvider({
     return number;
   }, [dataSource]);
 
+  const retryCloudChanges = useCallback(async (id?: string) => {
+    if (!dataSource.retryCloudChanges) return;
+    await dataSource.retryCloudChanges(id);
+    await refreshCloudSync();
+  }, [dataSource, refreshCloudSync]);
+
   return (
     <StoreContext.Provider
       value={{
@@ -248,6 +265,7 @@ export function StoreProvider({
         suppliers,
         toast,
         backupExporting,
+        cloudSync,
         showToast,
         updateSettings,
         exportBackup,
@@ -264,6 +282,7 @@ export function StoreProvider({
         upsertSupplier,
         removeSupplier,
         nextQuoteNumber,
+        retryCloudChanges,
         reloadAll,
         refreshGoldPrice
       }}

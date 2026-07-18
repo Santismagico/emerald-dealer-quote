@@ -268,12 +268,18 @@ export function AccountView({
   email,
   organizationName,
   onSignOut,
-  onImport
+  onImport,
+  pendingChanges,
+  heldChanges,
+  onRetryChanges
 }: {
   email: string;
   organizationName: string;
   onSignOut: () => Promise<void>;
   onImport: () => void;
+  pendingChanges: number;
+  heldChanges: number;
+  onRetryChanges: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -283,6 +289,39 @@ export function AccountView({
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Correo</p>
           <p className="mt-1 break-words text-sm text-stone-800">{email}</p>
+        </div>
+        <div className="rounded-xl bg-stone-100 p-3" aria-live="polite">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Cambios sin subir</p>
+          <p className="mt-1 text-sm text-stone-800">
+            {pendingChanges + heldChanges === 0
+              ? 'Todo está al día.'
+              : `${pendingChanges + heldChanges} cambio${pendingChanges + heldChanges === 1 ? '' : 's'} pendiente${pendingChanges + heldChanges === 1 ? '' : 's'}.`}
+          </p>
+          {heldChanges > 0 ? (
+            <div className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              <p>
+                {heldChanges === 1
+                  ? 'Un cambio necesita otro intento. Tus demás datos pueden seguir subiendo.'
+                  : `${heldChanges} cambios necesitan otro intento. Tus demás datos pueden seguir subiendo.`}
+              </p>
+              <Button
+                variant="secondary"
+                full
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  setError('');
+                  void onRetryChanges()
+                    .catch(() => setError('Todavía no fue posible subir esos cambios. Puedes volver a intentarlo.'))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                Reintentar cambios
+              </Button>
+            </div>
+          ) : pendingChanges > 0 ? (
+            <p className="mt-1 text-xs text-stone-500">Se subirán automáticamente cuando haya conexión.</p>
+          ) : null}
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Joyería</p>

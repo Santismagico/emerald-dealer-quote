@@ -1,6 +1,7 @@
 import type { Appointment, Client, Quote, Settings, StoneLot, Supplier } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import * as storage from './storage';
+import type { OutboxStatus } from './cloud/outbox';
 
 export interface StoreDataSource {
   loadSettings: () => Promise<Settings>;
@@ -27,6 +28,8 @@ export interface StoreDataSource {
   saveSupplier: (supplier: Supplier) => Promise<void>;
   deleteSupplier: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
+  cloudSyncStatus?: () => Promise<OutboxStatus>;
+  retryCloudChanges?: (id?: string) => Promise<void>;
 }
 
 export const localDataSource: StoreDataSource = storage;

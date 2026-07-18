@@ -9,7 +9,8 @@ import {
   startOutboxTriggers,
   type CloudOutbox,
   type CloudOutboxOperation,
-  type CloudTable
+  type CloudTable,
+  type OutboxStatus
 } from './outbox';
 import {
   createCloudSync,
@@ -40,6 +41,8 @@ export interface CloudDataSource extends StoreDataSource {
   pullAll: () => Promise<void>;
   flush: () => Promise<void>;
   pendingCount: () => Promise<number>;
+  cloudSyncStatus: () => Promise<OutboxStatus>;
+  retryCloudChanges: (id?: string) => Promise<void>;
 }
 
 export const CLOUD_DATA_CHANGED_EVENT = 'emerald-cloud-data-changed';
@@ -59,6 +62,8 @@ function resultOrThrow<T>(result: QueryResult<T>, action: string): T {
   return result.data;
 }
 
+export class CloudOperationRejectedError extends Error {}
+
 export function createSupabaseCloudRemote(
   client: () => Promise<SupabaseLike> = async () => (await getSupabase()) as unknown as SupabaseLike
 ): CloudRemote {
@@ -77,7 +82,9 @@ export function createSupabaseCloudRemote(
           ? { p_id: operation.entityId, p_data: operation.data, p_updated_at: operation.updatedAt }
           : { p_id: operation.entityId };
       const result = await (await client()).rpc(functions[operation.type], args);
-      if (result.error) throw new Error(result.error.message || 'No se pudo sincronizar el cambio.');
+      if (result.error) {
+        throw new CloudOperationRejectedError(result.error.message || 'No se pudo sincronizar el cambio.');
+      }
     },
     async nextQuoteNumber() {
       const result = await (await client()).rpc('next_quote_number');
@@ -254,6 +261,10 @@ export function createCloudDataSource(options: {
     },
     async pendingCount() {
       return (await options.outbox.list()).length;
+    },
+    cloudSyncStatus: options.outbox.status,
+    async retryCloudChanges(id) {
+      await options.outbox.retryHeld(id);
     }
   };
 }
@@ -261,6 +272,11 @@ export function createCloudDataSource(options: {
 export const supabaseCloudRemote = createSupabaseCloudRemote();
 export const cloudOutbox = createCloudOutbox({
   repository: indexedDbOutboxRepository,
+  maxAttempts: 5,
+  shouldHold: (error) => error instanceof CloudOperationRejectedError,
+  onChange: () => {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(CLOUD_DATA_CHANGED_EVENT));
+  },
   prepare: async (operation) => {
     const prepared = await prepareCloudOperation(supabaseCloudRemote, indexedDbSyncCache, operation);
     if (prepared !== operation && typeof window !== 'undefined') {

@@ -434,6 +434,9 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               organizationName={cloudAccount.organizationName}
               onSignOut={cloudAccount.signOut}
               onImport={() => setView('cloudImport')}
+              pendingChanges={store.cloudSync.pending}
+              heldChanges={store.cloudSync.held}
+              onRetryChanges={() => store.retryCloudChanges()}
             />
           </div>
         )}
@@ -475,6 +478,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
           <NavButton
             label="Más"
             icon={<LineIcon name="menu" />}
+            badge={cloudAccount ? store.cloudSync.pending + store.cloudSync.held : 0}
             active={
               view === 'more' ||
               view === 'dailyClose' ||
