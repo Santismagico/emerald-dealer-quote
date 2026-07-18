@@ -207,8 +207,8 @@ Informe acumulativo para la revisión final de Fable.
 
 - Se creó **Emerald Dealer - Pruebas Fase 2** dentro de la organización Emerald Dealer, región São Paulo, con costo confirmado de US$0 al mes.
 - El proyecto anterior **ED Project** de Canadá no se modificó.
-- Las cuatro migraciones se aplicaron en orden y quedaron registradas en el historial del proyecto.
-- La comprobación real confirmó nueve tablas con RLS activo, seis permisos de lectura autenticada, cero permisos de escritura directa y cero políticas de escritura directa.
+- Las cuatro migraciones iniciales se aplicaron en orden y quedaron registradas en el historial del proyecto.
+- La primera comprobación cubrió las seis tablas editables, pero no incluyó los permisos heredados de `organizations` y `memberships`; N6 permitió descubrir y corregir esa omisión antes de aprobar la fase.
 - Las catorce operaciones públicas elevadas tienen ruta interna vacía, niegan ejecución anónima y administrativa, y solo permiten la llamada autenticada prevista.
 - El registro está habilitado y exige confirmación de correo.
 - La URL y la clave publicable viven únicamente en `.env.local`, ignorado por Git. La clave secreta no se extrajo, no se guardó y no se mostró.
@@ -225,7 +225,30 @@ Informe acumulativo para la revisión final de Fable.
 - Revisión completa: 497 pruebas, compilación correcta, cero vulnerabilidades y ningún secreto detectado.
 - Se agregó un asistente de Windows que pide la clave secreta de forma oculta, la mantiene solo durante N6 y la elimina de la sesión al terminar.
 
-### Pendiente para cerrar N5/N6
+## N6 — Primera ejecución y corrección preventiva
 
-- Santiago debe copiar una sola vez la clave secreta del proyecto de **pruebas** dentro del aviso oculto. No debe pegarla en el chat ni guardarla en archivos.
-- N6 creará y eliminará automáticamente dos cuentas y dos joyerías ficticias. Si falla un solo aislamiento, la fase se detiene.
+### Evidencia de la primera ejecución
+
+- Commit probado: `406ab7df79db85fa0c1365f231db8f354dfbc048`.
+- Duración: 21.800 ms.
+- Los nueve controles funcionales de aislamiento aprobaron: lecturas propias, bloqueo cruzado, bloqueo anónimo, operaciones protegidas, membresía ajena, consecutivos concurrentes y datos malformados.
+- La limpieza posterior confirmó cero cuentas, sesiones, joyerías, membresías y registros ficticios en las nueve tablas.
+- La evidencia local contiene únicamente fecha, proyecto, duración y resultados; no contiene claves.
+
+### Hallazgo posterior que invalida esta primera aprobación
+
+La revisión completa posterior encontró seis permisos directos heredados en
+`organizations` y `memberships`. RLS bloqueó los intentos durante N6, por lo que no
+hubo cruce de datos, pero la configuración incumplía la regla de mínimo privilegio y
+la primera ejecución no se acepta como cierre definitivo.
+
+### Corrección aplicada
+
+- Se agregó la migración `20260718212000_close_authenticated_table_grants.sql` sin modificar migraciones ya aplicadas.
+- Se retiraron todos los permisos heredados de las nueve tablas y se reabrieron únicamente las ocho lecturas necesarias; `org_counters` permanece completamente cerrado.
+- La comprobación posterior confirmó: 9/9 tablas con RLS, 8 lecturas explícitas, 0 permisos no-lectura, 0 permisos anónimos, 0 acceso directo a `org_counters` y 14 operaciones protegidas disponibles para usuarios autenticados.
+- La prueba automática nueva falló antes de la corrección y aprobó después.
+
+### Pendiente para cerrar N6
+
+- Repetir los nueve controles sobre el nuevo commit candidato. Si falla un solo control, la fase vuelve a detenerse.

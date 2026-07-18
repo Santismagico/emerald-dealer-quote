@@ -474,3 +474,17 @@ publicable quedan en `.env.local`, ignorado por Git. La clave secreta no se extr
 guarda: N6 la solicita de forma oculta, la mantiene solo durante la ejecución y la elimina
 de la sesión al terminar. El proyecto sigue siendo desechable y no puede recibir datos
 reales de clientes. Esta decisión no publica la aplicación ni modifica `main`.
+
+## D-038 · N6 solo se aprueba con doble comprobación de aislamiento y permisos · 2026-07-18 · Vigente
+
+La primera ejecución N6 aprobó sus nueve controles en 21.800 ms y limpió todas las
+cuentas, sesiones, joyerías y registros ficticios. La revisión posterior detectó seis
+permisos directos heredados en `organizations` y `memberships`. RLS había bloqueado los
+intentos, pero conservar esos permisos contradecía D-036 y el principio de mínimo
+privilegio, por lo que la evidencia inicial se invalidó voluntariamente.
+
+Se agregó una migración nueva, sin reescribir el historial, que retira todos los
+permisos de tabla de sesiones autenticadas y reabre solo las ocho lecturas necesarias.
+La comprobación real posterior dio 9/9 tablas con RLS, cero permisos no-lectura, cero
+permisos anónimos, cero acceso a `org_counters` y las 14 operaciones protegidas
+disponibles. N6 debe repetirse sobre el commit corregido antes de continuar a N7.

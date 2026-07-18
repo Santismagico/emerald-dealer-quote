@@ -27,6 +27,7 @@ export function verifySecurityConfiguration() {
   const deploy = read('.github/workflows/deploy.yml')
   const gates = read('.github/workflows/security-gates.yml')
   const migration = read('supabase/migrations/20260718200036_harden_cloud_writes.sql').toLowerCase()
+  const grantClosure = read('supabase/migrations/20260718212000_close_authenticated_table_grants.sql').toLowerCase()
 
   if (/^\s*push\s*:/m.test(deploy)) {
     throw new Error('La publicación sigue activándose automáticamente con push.')
@@ -52,6 +53,12 @@ export function verifySecurityConfiguration() {
   requireText(migration, 'revoke insert, update, delete on table public.org_settings', 'Las escrituras directas siguen abiertas.')
   requireText(migration, 'alter default privileges for role postgres', 'Los objetos futuros no nacen cerrados.')
   requireText(migration, 'revoke execute on functions from public, anon, authenticated, service_role', 'Las funciones futuras conservan permisos implícitos.')
+  requireText(grantClosure, 'revoke all privileges on table public.organizations, public.memberships', 'Quedaron permisos de tabla heredados para sesiones autenticadas.')
+  requireText(grantClosure, 'public.stone_lots, public.suppliers from authenticated', 'El cierre de permisos no cubre todas las tablas.')
+  requireText(grantClosure, 'grant select on table public.organizations, public.memberships, public.org_settings', 'Las lecturas legítimas no quedaron documentadas de forma explícita.')
+  if (/grant\s+(insert|update|delete|truncate|references|trigger)/.test(grantClosure)) {
+    throw new Error('La migración de cierre vuelve a conceder permisos directos de escritura o administración.')
+  }
 
   return {
     checkedAt: new Date().toISOString(),
@@ -73,6 +80,7 @@ export function verifySecurityConfiguration() {
       rls: sha256('supabase/migrations/0002_rls.sql'),
       functions: sha256('supabase/migrations/0003_funciones.sql'),
       hardening: sha256('supabase/migrations/20260718200036_harden_cloud_writes.sql'),
+      tableGrantClosure: sha256('supabase/migrations/20260718212000_close_authenticated_table_grants.sql'),
     },
   }
 }

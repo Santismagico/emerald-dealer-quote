@@ -3,11 +3,13 @@ import schemaSource from '../../../supabase/migrations/0001_esquema.sql?raw'
 import rlsSource from '../../../supabase/migrations/0002_rls.sql?raw'
 import functionsSource from '../../../supabase/migrations/0003_funciones.sql?raw'
 import hardeningSource from '../../../supabase/migrations/20260718200036_harden_cloud_writes.sql?raw'
+import grantClosureSource from '../../../supabase/migrations/20260718212000_close_authenticated_table_grants.sql?raw'
 
 const schema = schemaSource.toLowerCase()
 const rls = rlsSource.toLowerCase()
 const functions = functionsSource.toLowerCase()
 const hardening = hardeningSource.toLowerCase()
+const grantClosure = grantClosureSource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -67,6 +69,17 @@ describe('migraciones de nube', () => {
         expect(hardening).toContain(`drop policy if exists ${table}_${operation}_member`)
       }
     }
+  })
+
+  it('retira todos los permisos de tabla sobrantes antes de reabrir solo lecturas', () => {
+    expect(grantClosure).toContain(
+      'revoke all privileges on table public.organizations, public.memberships,'
+    )
+    expect(grantClosure).toContain('public.stone_lots, public.suppliers from authenticated')
+    expect(grantClosure).toContain(
+      'grant select on table public.organizations, public.memberships, public.org_settings,'
+    )
+    expect(grantClosure).not.toMatch(/grant\s+(insert|update|delete|truncate|references|trigger)/)
   })
 
   it('valida identidad, fechas, estados y dinero critico dentro de la base de datos', () => {
