@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { StoreProvider, selectStoreDataSource, useStore } from './store';
 import type { ReactNode } from 'react';
-import type { Quote } from './types';
+import type { BackupFile, Quote } from './types';
 import { newId } from './utils/id';
 import { todayISO, addDays } from './utils/dates';
 import { HistoryView } from './components/HistoryView';
@@ -22,10 +22,16 @@ import {
   CreateOrganizationView,
   PasswordRecoveryView
 } from './components/CloudAccountViews';
+import { CloudImportView } from './components/CloudImportView';
 import { Toast } from './components/ui';
 import { CloudAuthProvider, useCloudAuth } from './cloudAuthContext';
 import { cloudEnabled } from './services/cloud/config';
 import { startCloudLifecycle } from './services/cloud/api';
+import {
+  hasLocalDataToImport,
+  isCloudEmpty,
+  readLocalImportSource
+} from './services/cloud/importer';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
 import { todaysPendingAppointments } from './services/agenda';
 import {
@@ -46,7 +52,8 @@ type ViewName =
   | 'clients'
   | 'suppliers'
   | 'settings'
-  | 'account';
+  | 'account'
+  | 'cloudImport';
 
 interface CloudAccountInfo {
   email: string;
@@ -420,8 +427,15 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               email={cloudAccount.email}
               organizationName={cloudAccount.organizationName}
               onSignOut={cloudAccount.signOut}
+              onImport={() => setView('cloudImport')}
             />
           </div>
+        )}
+        {view === 'cloudImport' && cloudAccount && (
+          <CloudImportView
+            onDone={() => setView('account')}
+            onCancel={() => setView('account')}
+          />
         )}
       </main>
 
@@ -461,7 +475,8 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               view === 'clients' ||
               view === 'suppliers' ||
               view === 'settings' ||
-              view === 'account'
+              view === 'account' ||
+              view === 'cloudImport'
             }
             onClick={() => void runAfterViewFlush(() => setView('more'))}
           />
@@ -775,7 +790,7 @@ function NavButton({
   );
 }
 
-function CloudWorkspace() {
+function ReadyCloudWorkspace() {
   const auth = useCloudAuth();
 
   useEffect(() => startCloudLifecycle(), []);
@@ -789,6 +804,53 @@ function CloudWorkspace() {
       }} />
     </StoreProvider>
   );
+}
+
+function CloudWorkspace() {
+  const auth = useCloudAuth();
+  const [importState, setImportState] = useState<'checking' | 'offer' | 'ready'>('checking');
+  const [localSource, setLocalSource] = useState<BackupFile | null>(null);
+  const organizationId = auth.organization?.id ?? '';
+  const marker = `emerald-cloud-import-reviewed:${organizationId}`;
+
+  useEffect(() => {
+    let mounted = true;
+    if (!organizationId || window.localStorage.getItem(marker) === 'yes') {
+      setImportState('ready');
+      return;
+    }
+    void Promise.all([readLocalImportSource(), isCloudEmpty()])
+      .then(([local, empty]) => {
+        if (!mounted) return;
+        if (empty && hasLocalDataToImport(local)) {
+          setLocalSource(local);
+          setImportState('offer');
+        } else {
+          setImportState('ready');
+        }
+      })
+      .catch(() => {
+        // Una persona que ya trabajó en nube debe poder entrar con la caché aun sin internet.
+        if (mounted) setImportState('ready');
+      });
+    return () => { mounted = false; };
+  }, [marker, organizationId]);
+
+  if (importState === 'checking') return <CloudLoadingView />;
+  if (importState === 'offer') {
+    const continueToApp = () => {
+      window.localStorage.setItem(marker, 'yes');
+      setImportState('ready');
+    };
+    return (
+      <CloudImportView
+        initialSource={localSource}
+        onDone={continueToApp}
+        onCancel={continueToApp}
+      />
+    );
+  }
+  return <ReadyCloudWorkspace />;
 }
 
 function CloudEntry() {

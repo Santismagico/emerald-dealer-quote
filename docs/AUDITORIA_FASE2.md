@@ -123,3 +123,33 @@ Informe acumulativo para la revisión final de Fable.
 - Creación de joyería seguida por ajustes iniciales, en el orden correcto.
 - Recuperación de contraseña con dirección segura y mensaje neutral.
 - Suite completa: 491 pruebas aprobadas y compilación correcta.
+
+## N4 — Importación controlada de datos locales
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Alta | Una importación grande no debe enviarse como una sola operación ni perder lo pendiente si se corta internet. | `src/services/cloud/importer.ts` | N4 |
+| Media | Repetir una importación debe actualizar los mismos identificadores y nunca crear copias. | `src/services/cloud/importer.ts` | N4 |
+| Media | Un archivo inválido no debe dejar habilitada por error una fuente elegida anteriormente. | `src/components/CloudImportView.tsx` | N4 |
+
+### Decisiones tomadas
+
+- Tras crear la joyería, se ofrece la importación inicial únicamente cuando la nube está vacía y este dispositivo sí contiene información.
+- La opción queda disponible siempre desde Más → Cuenta → “Importar datos de este dispositivo”.
+- Antes de subir, la pantalla recomienda y permite descargar un respaldo local.
+- La fuente local se obtiene leyendo la base existente; la fuente de archivo reutiliza la validación de respaldos v1 a v5.
+- La carga se divide en grupos de 20 registros, muestra cantidad y porcentaje, y confirma cada grupo antes de avanzar.
+- Se conservan todos los identificadores. Repetir el proceso actualiza los mismos registros mediante LWW y no duplica.
+- Si se corta internet, la importación no declara éxito: informa que lo pendiente quedó protegido en la cola.
+- “Ahora no” solo omite la invitación inicial para esa joyería en ese dispositivo; la importación manual continúa disponible.
+
+### Pruebas agregadas
+
+- Respaldo ficticio con 200 cotizaciones e imágenes.
+- Avance por lotes hasta 100 %.
+- Segunda importación del mismo respaldo sin duplicados.
+- Detección de datos locales y nube vacía.
+- Corte de conexión con conservación de pendientes.
+- Suite completa: 495 pruebas aprobadas y compilación correcta.

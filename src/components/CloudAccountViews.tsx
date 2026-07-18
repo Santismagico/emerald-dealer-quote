@@ -267,11 +267,13 @@ export function PasswordRecoveryView() {
 export function AccountView({
   email,
   organizationName,
-  onSignOut
+  onSignOut,
+  onImport
 }: {
   email: string;
   organizationName: string;
   onSignOut: () => Promise<void>;
+  onImport: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -287,6 +289,9 @@ export function AccountView({
           <p className="mt-1 text-sm text-stone-800">{organizationName}</p>
         </div>
         {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        <Button variant="secondary" full disabled={busy} onClick={onImport}>
+          Importar datos de este dispositivo
+        </Button>
         <Button
           variant="secondary"
           full
