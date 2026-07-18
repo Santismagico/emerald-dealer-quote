@@ -42,6 +42,8 @@ export interface CloudDataSource extends StoreDataSource {
   pendingCount: () => Promise<number>;
 }
 
+export const CLOUD_DATA_CHANGED_EVENT = 'emerald-cloud-data-changed';
+
 const functionNames: Record<CloudTable, { upsert: string; delete: string }> = {
   org_settings: { upsert: 'upsert_settings', delete: 'delete_settings' },
   clients: { upsert: 'upsert_client', delete: 'delete_client' },
@@ -84,6 +86,27 @@ export function createSupabaseCloudRemote(
       return value;
     }
   };
+}
+
+export async function prepareCloudOperation(
+  remote: Pick<CloudRemote, 'nextQuoteNumber'>,
+  cache: Pick<typeof indexedDbSyncCache, 'put'>,
+  operation: CloudOutboxOperation
+): Promise<CloudOutboxOperation> {
+  if (operation.table !== 'quotes' || operation.type !== 'upsert') return operation;
+  const data = operation.data as Record<string, unknown> | null;
+  if (!data || (typeof data.number === 'string' && data.number.trim())) return operation;
+
+  const prepared = {
+    ...operation,
+    data: { ...data, number: await remote.nextQuoteNumber() }
+  };
+  await cache.put('quotes', {
+    id: operation.entityId,
+    data: prepared.data,
+    updatedAt: operation.updatedAt
+  });
+  return prepared;
 }
 
 function changedLots(before: StoneLot[], after: StoneLot[]): StoneLot[] {
@@ -238,6 +261,13 @@ export function createCloudDataSource(options: {
 export const supabaseCloudRemote = createSupabaseCloudRemote();
 export const cloudOutbox = createCloudOutbox({
   repository: indexedDbOutboxRepository,
+  prepare: async (operation) => {
+    const prepared = await prepareCloudOperation(supabaseCloudRemote, indexedDbSyncCache, operation);
+    if (prepared !== operation && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(CLOUD_DATA_CHANGED_EVENT));
+    }
+    return prepared;
+  },
   execute: (operation) => supabaseCloudRemote.execute(operation)
 });
 export const cloudSync = createCloudSync({

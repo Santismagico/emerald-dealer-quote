@@ -236,10 +236,16 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
 
   const duplicateQuote = async (quote: Quote) => {
     const now = new Date().toISOString();
+    let number = '';
+    try {
+      number = await store.nextQuoteNumber();
+    } catch {
+      // La copia también puede guardarse sin señal y recibirá el consecutivo al reconectar.
+    }
     const copy: Quote = {
       ...quote,
       id: newId(),
-      number: await store.nextQuoteNumber(),
+      number,
       status: 'borrador',
       // La copia es una pieza nueva: aprobación, entrega, taller y abonos no se heredan.
       approvedAt: '',
@@ -254,7 +260,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
       updatedAt: now
     };
     await store.upsertQuote(copy);
-    store.showToast(`Copia creada: ${copy.number}`);
+    store.showToast(copy.number ? `Copia creada: ${copy.number}` : 'Copia guardada sin número. Se numerará al volver la conexión.');
     setDraft(copy);
     setView('form');
   };

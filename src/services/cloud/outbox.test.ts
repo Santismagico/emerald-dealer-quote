@@ -22,6 +22,74 @@ function deferred() {
 }
 
 describe('cola de sincronización', () => {
+  it('al volver la red asigna el número del servidor y sube la cotización una sola vez', async () => {
+    const repository = memoryRepository();
+    let online = false;
+    let time = 1_000;
+    let uploads = 0;
+    let assigned = 0;
+    const outbox = createCloudOutbox({
+      repository,
+      createId: () => 'op-offline',
+      now: () => time,
+      scheduleRetry: () => {},
+      prepare: async (operation) => {
+        if (!online) throw new Error('sin red');
+        return {
+          ...operation,
+          data: { ...(operation.data as object), number: `ED-2026-${String(++assigned).padStart(4, '0')}` }
+        };
+      },
+      execute: async (operation) => {
+        if (!online) throw new Error('sin red');
+        uploads += 1;
+        expect(operation.data).toMatchObject({ number: 'ED-2026-0001' });
+      }
+    });
+    await outbox.enqueue({
+      table: 'quotes', type: 'upsert', entityId: 'q-offline', data: { id: 'q-offline', number: '' },
+      updatedAt: '2026-07-18T10:00:00Z'
+    });
+
+    await outbox.flush();
+    online = true;
+    time = 2_000;
+    await outbox.flush();
+
+    expect(assigned).toBe(1);
+    expect(uploads).toBe(1);
+    expect(await outbox.list()).toEqual([]);
+  });
+
+  it('dos cotizaciones creadas sin red reciben dos números distintos', async () => {
+    const repository = memoryRepository();
+    let sequence = 6;
+    const uploadedNumbers: string[] = [];
+    const outbox = createCloudOutbox({
+      repository,
+      createId: (() => { let id = 0; return () => `op-${++id}`; })(),
+      now: () => 1_000,
+      scheduleRetry: () => {},
+      prepare: async (operation) => ({
+        ...operation,
+        data: { ...(operation.data as object), number: `ED-2026-${String(++sequence).padStart(4, '0')}` }
+      }),
+      execute: async (operation) => {
+        uploadedNumbers.push((operation.data as { number: string }).number);
+      }
+    });
+    for (const id of ['q-a', 'q-b']) {
+      await outbox.enqueue({
+        table: 'quotes', type: 'upsert', entityId: id, data: { id, number: '' },
+        updatedAt: '2026-07-18T10:00:00Z'
+      });
+    }
+
+    await outbox.flush();
+
+    expect(uploadedNumbers).toEqual(['ED-2026-0007', 'ED-2026-0008']);
+  });
+
   it('procesa operaciones estrictamente en serie', async () => {
     const repository = memoryRepository();
     const first = deferred();

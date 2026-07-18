@@ -49,6 +49,7 @@ export interface CloudOutbox {
 
 interface OutboxOptions {
   repository: OutboxRepository;
+  prepare?: (operation: CloudOutboxOperation) => Promise<CloudOutboxOperation>;
   execute: (operation: CloudOutboxOperation) => Promise<void>;
   now?: () => number;
   createId?: () => string;
@@ -104,14 +105,19 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
           break;
         }
 
+        let ready = operation;
         try {
-          await options.execute(operation);
+          if (options.prepare) {
+            ready = await options.prepare(operation);
+            if (ready !== operation) await options.repository.put(ready);
+          }
+          await options.execute(ready);
           await options.repository.remove(operation.id);
           processed += 1;
         } catch {
-          const attempts = operation.attempts + 1;
+          const attempts = ready.attempts + 1;
           const delay = retryBaseMs * 2 ** Math.min(attempts - 1, 8);
-          const failed = { ...operation, attempts, nextAttemptAt: now() + delay };
+          const failed = { ...ready, attempts, nextAttemptAt: now() + delay };
           await options.repository.put(failed);
           schedule(failed.nextAttemptAt, flush);
           break;

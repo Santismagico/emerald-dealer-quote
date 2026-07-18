@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from './types';
 import { defaultSettings } from './services/storage';
 import { localDataSource, type StoreDataSource } from './services/dataSource';
-import { cloudDataSource } from './services/cloud/api';
+import { CLOUD_DATA_CHANGED_EVENT, cloudDataSource } from './services/cloud/api';
 import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
@@ -114,6 +114,12 @@ export function StoreProvider({
       .then(() => refreshGoldPrice())
       .catch(() => {});
   }, [reloadAll, refreshGoldPrice]);
+
+  useEffect(() => {
+    const reloadCloudChanges = () => void reloadAll().catch(() => {});
+    window.addEventListener(CLOUD_DATA_CHANGED_EVENT, reloadCloudChanges);
+    return () => window.removeEventListener(CLOUD_DATA_CHANGED_EVENT, reloadCloudChanges);
+  }, [reloadAll]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);

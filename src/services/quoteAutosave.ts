@@ -31,6 +31,30 @@ export interface QuoteAutosaveController {
   hasPendingChanges: () => boolean;
 }
 
+export const CLIENT_DOCUMENT_NUMBER_MESSAGE =
+  'Esta cotización quedó guardada sin número. Conéctate a internet para recibir el número definitivo antes de generar el PDF del cliente.';
+
+export function clientDocumentNumberError(quote: Quote): string | null {
+  return quote.number.trim() ? null : CLIENT_DOCUMENT_NUMBER_MESSAGE;
+}
+
+export async function saveQuoteWithDeferredServerNumber(options: {
+  quote: Quote;
+  requestNumber: () => Promise<string>;
+  save: (quote: Quote) => Promise<void>;
+}): Promise<Quote> {
+  let saved = options.quote;
+  if (!saved.number.trim()) {
+    try {
+      saved = { ...saved, number: await options.requestNumber() };
+    } catch {
+      // Sin conexión se conserva como borrador sin numerar; la cola lo completará al volver la red.
+    }
+  }
+  await options.save(saved);
+  return saved;
+}
+
 /**
  * Conserva la versión local más reciente y agrupa las escrituras de una cotización.
  * Nunca ejecuta dos guardados al mismo tiempo y, si llegan cambios durante uno,

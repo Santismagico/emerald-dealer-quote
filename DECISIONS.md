@@ -490,3 +490,15 @@ permisos anónimos, cero acceso a `org_counters` y las 14 operaciones protegidas
 disponibles. La repetición corregida aprobó 9/9 controles en 20.498 ms sobre el commit
 `fffa1bdbf0600c7077f473d39a90546a4926166f`; después se confirmó nuevamente la limpieza
 total y la permanencia de los permisos mínimos. N6 queda aprobado para continuar a N7.
+
+## D-039 · Cotizaciones sin señal se guardan sin numerar · 2026-07-18 · Vigente
+
+Una cotización nueva o duplicada se guarda de inmediato en el dispositivo y en la cola
+aunque no haya conexión. Mientras espera se muestra como **sin número**: nunca se inventa
+un consecutivo provisional que pueda confundirse con el definitivo. Al volver la red, la
+cola solicita el consecutivo a `next_quote_number()` y guarda esa operación ya numerada
+antes de intentar subirla; así un reintento no consume otro número ni duplica la subida.
+
+El PDF del cliente y la opción de compartirlo quedan bloqueados hasta recibir el número
+real, con una explicación clara. El PDF interno puede conservar la marca "Sin número".
+El consecutivo definitivo continúa generándose exclusivamente en el servidor.

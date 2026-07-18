@@ -25,8 +25,10 @@ import {
 import { buildWhatsAppMessage, whatsAppLink } from '../services/whatsapp';
 import { getEffectiveQuoteStatus, withQuoteStatus } from '../services/quoteStatus';
 import {
+  clientDocumentNumberError,
   createQuoteAutosaveController,
   runAfterSuccessfulFlush,
+  saveQuoteWithDeferredServerNumber,
   type QuoteAutosaveController,
   type QuoteAutosaveStatus
 } from '../services/quoteAutosave';
@@ -102,14 +104,17 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
     autosaveRef.current = createQuoteAutosaveController({
       initialQuote: quote,
       save: async (latest) => {
-        if (!latest.number) {
-          const number = await requestQuoteNumber();
-          if (!autosaveRef.current?.getLatest().number) {
-            autosaveRef.current?.update((current) => ({ ...current, number }));
+        await saveQuoteWithDeferredServerNumber({
+          quote: latest,
+          requestNumber: requestQuoteNumber,
+          save: async (candidate) => {
+            if (candidate.number && !latest.number) {
+              autosaveRef.current?.update((current) => ({ ...current, number: candidate.number }));
+              return;
+            }
+            await callbacksRef.current.save(candidate);
           }
-          return;
-        }
-        await callbacksRef.current.save(latest);
+        });
       },
       onDraft: (latest) => callbacksRef.current.onSaved(latest),
       onStatus: (status) => {
@@ -156,28 +161,23 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
     [quote, calc, store.settings]
   );
 
-  const ensureQuoteNumber = async (): Promise<Quote> => {
-    const current = autosave.getLatest();
-    if (current.number) return current;
-
-    const number = await requestQuoteNumber();
-    if (!autosave.getLatest().number) {
-      autosave.update((latest) => ({ ...latest, number }));
-    }
-    return autosave.getLatest();
-  };
-
   /** Guarda la última versión local, nunca la prop capturada por un render anterior. */
   const persist = async (): Promise<Quote> => {
-    await ensureQuoteNumber();
     return autosave.commit();
+  };
+
+  const persistClientDocument = async (): Promise<Quote> => {
+    const saved = await persist();
+    const message = clientDocumentNumberError(saved);
+    if (message) throw new Error(message);
+    return saved;
   };
 
   const handleSave = async () => {
     setBusy(true);
     try {
       const saved = await persist();
-      store.showToast(`Guardada como ${saved.number}`);
+      store.showToast(saved.number ? `Guardada como ${saved.number}` : 'Guardada sin número. Se numerará al volver la conexión.');
     } catch {
       store.showToast('No se pudo guardar. Intenta de nuevo.');
     } finally {
@@ -196,7 +196,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
 
     setBusy(true);
     try {
-      const saved = await persist();
+      const saved = await persistClientDocument();
       const savedCalc = calculateQuote(quoteToCalcInput(saved));
       const savedWords = findSensitiveWordsInClientText(saved, savedCalc, store.settings);
       if (savedWords.length > 0) {
@@ -205,8 +205,10 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       }
       await downloadClientPdf(saved, savedCalc, store.settings);
       store.showToast('PDF del cliente generado');
-    } catch {
-      store.showToast('No se pudo generar el PDF.');
+    } catch (error) {
+      store.showToast(error instanceof Error && error.message === clientDocumentNumberError(autosave.getLatest())
+        ? error.message
+        : 'No se pudo generar el PDF.');
     } finally {
       setBusy(false);
     }
@@ -221,7 +223,7 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
           quote: current,
           calc: currentCalc,
           settings: store.settings,
-          persist,
+          persist: persistClientDocument,
           share: (saved) =>
             shareClientPdf(saved, calculateQuote(quoteToCalcInput(saved)), store.settings)
         });
@@ -234,8 +236,10 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
       }
 
       store.showToast(clientPdfShareMessage(outcome.result));
-    } catch {
-      store.showToast('No se pudo preparar el PDF. Puedes descargarlo manualmente.');
+    } catch (error) {
+      store.showToast(error instanceof Error && error.message === clientDocumentNumberError(autosave.getLatest())
+        ? error.message
+        : 'No se pudo preparar el PDF. Puedes descargarlo manualmente.');
     }
   };
 
@@ -292,7 +296,6 @@ export const PreviewView = forwardRef<PreviewViewHandle, PreviewViewProps>(funct
     try {
       // Misma lógica del historial (D-019/D-024): etapas estándar y approvedAt al aprobar.
       autosave.update((current) => withQuoteStatus(current, status, new Date().toISOString()));
-      await ensureQuoteNumber();
       await autosave.flush();
       store.showToast(`Estado: ${status}`);
     } catch {
