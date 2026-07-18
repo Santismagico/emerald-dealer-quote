@@ -264,7 +264,35 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
               />
             )}
           </div>
-          <div className="mt-3 space-y-2 border-t border-stone-100 pt-3">
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Trabajo interno del taller — no compartir con el cliente
+          </p>
+
+          <PaymentsPanel
+            deposit={quote.deposit}
+            depositDate={quote.depositDate}
+            payments={quote.payments}
+            quoteTotal={calc.total}
+            onChange={updatePayments}
+            onCommit={flushPending}
+          />
+
+          <ProductionPanel
+            stages={quote.production}
+            quoteTotal={calc.total}
+            onChange={updateProduction}
+            onCommit={flushPending}
+          />
+        </div>
+
+        {/* Cierre del trabajo: las acciones finales van DESPUÉS del proceso,
+            para que la pantalla se lea como el paso a paso real de la joya. */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <p className="mb-3 text-[15px] font-semibold text-stone-900">Cierre del trabajo</p>
+          <div className="space-y-2">
             {!job.hasValidTotal ? (
               <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 <strong>Sin total cotizado.</strong> Corrige la cotización antes de registrar el pago del saldo.
@@ -306,28 +334,6 @@ export const WorkshopJobView = forwardRef<WorkshopJobViewHandle, WorkshopJobView
               </Button>
             )}
           </div>
-        </div>
-
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-            Trabajo interno del taller — no compartir con el cliente
-          </p>
-
-          <PaymentsPanel
-            deposit={quote.deposit}
-            depositDate={quote.depositDate}
-            payments={quote.payments}
-            quoteTotal={calc.total}
-            onChange={updatePayments}
-            onCommit={flushPending}
-          />
-
-          <ProductionPanel
-            stages={quote.production}
-            quoteTotal={calc.total}
-            onChange={updateProduction}
-            onCommit={flushPending}
-          />
         </div>
 
         <ConfirmDialog

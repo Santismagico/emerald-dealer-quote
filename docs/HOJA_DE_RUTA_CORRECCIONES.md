@@ -231,3 +231,9 @@ nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior po
 _Antes de publicar: revisar manualmente cotizaciones antiguas que tengan anticipo y también un
 abono posterior por el mismo valor. La app no intenta adivinar ni borrar automáticamente un posible
 registro duplicado._
+
+_Tanda del 2026-07-17 (Fable, publicada en `7c3d49f`): C10-F fotos reales de teléfono
+aceptadas al cargar logo/referencias — el límite de 1.5 MB pasó al resultado comprimido
+(D-034); C11-E "Guardar ajustes" fluye normal en el teléfono y solo flota en computador;
+C12-E el cierre del trabajo (pagada/entregada) pasó al final de la pantalla del taller,
+después de pagos y producción. 468 pruebas y build en verde; bundle en vivo verificado._
