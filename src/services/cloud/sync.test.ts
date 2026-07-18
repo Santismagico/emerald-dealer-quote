@@ -19,23 +19,64 @@ const remoteQuote = (updated_at: string) => ({
 });
 
 describe('sincronización LWW', () => {
-  it('elimina de este dispositivo una cotización que ya no existe en la nube', async () => {
+  it('conserva datos locales previos cuando la nube está vacía y no hay cola', async () => {
     const cache = memoryCache([
-      { id: 'q-1', data: { id: 'q-1' }, updatedAt: '2026-07-18T10:00:00Z' },
-      { id: 'q-2', data: { id: 'q-2' }, updatedAt: '2026-07-18T10:00:00Z' },
-      { id: 'q-3', data: { id: 'q-3' }, updatedAt: '2026-07-18T10:00:00Z' }
+      { id: 'c-1', data: { id: 'c-1' }, updatedAt: '2026-07-01T10:00:00Z' },
+      { id: 'c-2', data: { id: 'c-2' }, updatedAt: '2026-07-02T10:00:00Z' },
+      { id: 'c-3', data: { id: 'c-3' }, updatedAt: '2026-07-03T10:00:00Z' }
+    ]);
+    const sync = createCloudSync({
+      remote: { list: async () => [] },
+      cache,
+      listPending: async () => []
+    });
+
+    await sync.pullTable('clients');
+
+    expect([...cache.values.keys()].sort()).toEqual(['c-1', 'c-2', 'c-3']);
+  });
+
+  it('conserva datos nunca subidos aunque la nube ya tenga otros registros', async () => {
+    const cache = memoryCache([
+      { id: 'c-local-1', data: { id: 'c-local-1' }, updatedAt: '2026-07-01T10:00:00Z' },
+      { id: 'c-local-2', data: { id: 'c-local-2' }, updatedAt: '2026-07-02T10:00:00Z' }
     ]);
     const sync = createCloudSync({
       remote: {
-        list: async () => [
-          { id: 'q-1', data: { id: 'q-1' }, updated_at: '2026-07-18T11:00:00Z' },
-          { id: 'q-2', data: { id: 'q-2' }, updated_at: '2026-07-18T11:00:00Z' }
-        ]
+        list: async () => [{
+          id: 'c-cloud', data: { id: 'c-cloud' }, updated_at: '2026-07-18T11:00:00Z'
+        }]
       },
       cache,
       listPending: async () => []
     });
 
+    await sync.pullTable('clients');
+
+    expect([...cache.values.keys()].sort()).toEqual(['c-cloud', 'c-local-1', 'c-local-2']);
+  });
+
+  it('tras reconciliar el dispositivo sí aplica un borrado hecho en otro dispositivo', async () => {
+    const cache = memoryCache([
+      { id: 'q-1', data: { id: 'q-1' }, updatedAt: '2026-07-18T10:00:00Z' },
+      { id: 'q-2', data: { id: 'q-2' }, updatedAt: '2026-07-18T10:00:00Z' },
+      { id: 'q-3', data: { id: 'q-3' }, updatedAt: '2026-07-18T10:00:00Z' }
+    ]);
+    let remoteRows = [
+      { id: 'q-1', data: { id: 'q-1' }, updated_at: '2026-07-18T11:00:00Z' },
+      { id: 'q-2', data: { id: 'q-2' }, updated_at: '2026-07-18T11:00:00Z' },
+      { id: 'q-3', data: { id: 'q-3' }, updated_at: '2026-07-18T11:00:00Z' }
+    ];
+    const sync = createCloudSync({
+      remote: { list: async () => remoteRows },
+      cache,
+      listPending: async () => []
+    });
+
+    await sync.pullTable('quotes');
+    expect([...cache.values.values()].every((record) => record.seenInCloud)).toBe(true);
+
+    remoteRows = remoteRows.filter((row) => row.id !== 'q-3');
     await sync.pullTable('quotes');
 
     expect([...cache.values.keys()].sort()).toEqual(['q-1', 'q-2']);

@@ -20,6 +20,8 @@ export interface SyncCacheRecord {
   id: string;
   data: unknown;
   updatedAt: string;
+  /** El dispositivo ya confirmó este registro como parte de la nube. */
+  seenInCloud?: boolean;
 }
 
 export interface CloudSyncRemote {
@@ -84,7 +86,8 @@ export const indexedDbSyncCache: CloudSyncCache = {
     return values.map((value) => ({
       id: recordId(table, value),
       data: value,
-      updatedAt: recordUpdatedAt(value)
+      updatedAt: recordUpdatedAt(value),
+      seenInCloud: typeof value.cloudUpdatedAt === 'string' && value.cloudUpdatedAt.length > 0
     }));
   },
   async put(table, record) {
@@ -133,7 +136,9 @@ export function createCloudSync(options: {
     );
 
     for (const localRow of localRows) {
-      if (remoteIds.has(localRow.id) || pendingById.has(localRow.id)) continue;
+      // Ante cualquier duda se conserva el dato: solo se reconcilian borrados
+      // de registros que este dispositivo ya vio o subió a la nube.
+      if (!localRow.seenInCloud || remoteIds.has(localRow.id) || pendingById.has(localRow.id)) continue;
       await options.cache.remove(table, localRow.id);
     }
 
@@ -151,7 +156,8 @@ export function createCloudSync(options: {
       await options.cache.put(table, {
         id,
         data: remoteRow.data,
-        updatedAt: remoteRow.updated_at
+        updatedAt: remoteRow.updated_at,
+        seenInCloud: true
       });
     }
   };

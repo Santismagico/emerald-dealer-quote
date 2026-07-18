@@ -161,7 +161,15 @@ export function CloudImportView({
           )}
         </SectionCard>
 
-        {onCancel && !busy ? <Button variant="ghost" full onClick={onCancel}>Ahora no</Button> : null}
+        {onCancel && !busy ? (
+          <div className="space-y-2 rounded-xl bg-amber-50 p-3">
+            <p className="text-sm text-amber-900">
+              Si continúas sin subirlos, estos datos seguirán guardados solamente en este dispositivo.
+              No aparecerán en tus otros dispositivos hasta que vuelvas a Cuenta y los subas.
+            </p>
+            <Button variant="ghost" full onClick={onCancel}>Seguir sin subir estos datos</Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

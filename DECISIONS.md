@@ -502,3 +502,20 @@ antes de intentar subirla; así un reintento no consume otro número ni duplica 
 El PDF del cliente y la opción de compartirlo quedan bloqueados hasta recibir el número
 real, con una explicación clara. El PDF interno puede conservar la marca "Sin número".
 El consecutivo definitivo continúa generándose exclusivamente en el servidor.
+
+## D-040 · Los borrados remotos solo afectan registros ya reconciliados · 2026-07-18 · Vigente
+
+Para corregir la regresión A1 se elige la protección **por registro visto en la nube**,
+no una marca general de importación por dispositivo. Cada registro conserva localmente
+la señal durable `cloudUpdatedAt` cuando fue recibido de la nube o entró al proceso de
+subida. Mientras una subida siga pendiente, la cola continúa protegiéndolo.
+
+Un registro anterior al modo nube que nunca se subió no tiene esa señal y jamás se
+elimina porque falte en un `pull`. Esto protege tanto una cuenta nueva con nube vacía
+como un teléfono que entra a una joyería cuya nube ya contiene datos de otro aparato.
+Una vez que el dispositivo confirmó el registro como parte de la nube, su ausencia en
+una respuesta remota exitosa sí representa un borrado entre dispositivos y se aplica.
+
+La opción de continuar sin importar deja de llamarse "Ahora no": explica que los datos
+seguirán solamente en ese dispositivo y que no aparecerán en otros hasta subirlos desde
+Cuenta. Ante cualquier estado ambiguo, la regla sigue siendo conservar el dato.

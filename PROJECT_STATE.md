@@ -2,9 +2,9 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-18 por Codex al cerrar las correcciones C-N1 a C-N4 de la auditoría independiente. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-18 por Codex al cerrar la regresión A1 encontrada en la segunda auditoría independiente. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
-> **SIGUIENTE TRABAJO: segunda auditoría independiente de Fable sobre `codex/fase2-nube`.** C-N1 a C-N4 quedaron corregidos en cuatro commits separados, con 510 pruebas, compilación con nube, compilación pública y comprobación visual local. Fable debe ejecutar las pruebas por su cuenta y revisar el diff completo. `main` y la aplicación pública no se modifican.
+> **SIGUIENTE TRABAJO: tercera auditoría independiente de Fable sobre `codex/fase2-nube`.** A1 protege los datos anteriores al modo nube sin romper los borrados entre dispositivos después de reconciliar. La candidata queda con 512 pruebas y compilación aprobada por Codex. Fable debe ejecutar las pruebas por su cuenta y revisar el diff completo. `main` y la aplicación pública no se modifican.
 
 ## Qué aplicación es
 
@@ -20,6 +20,8 @@ PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colomb
 - **Fase 1 completada y publicada:** informe en `docs/AUDITORIA_FASE1.md`.
 - **Fase 2 completada como candidata:** N0–N8 en `codex/fase2-nube`; informe acumulativo en `docs/AUDITORIA_FASE2.md`. N6 aprobó 9/9 controles y N7 comprobó recorrido, importación idempotente y recuperación real sin conexión.
 - **Correcciones de la auditoría Fable completadas:** C-N1 sincroniza borrados sin destruir cambios locales pendientes; C-N2 guarda cotizaciones sin señal y reserva el consecutivo en el servidor al reconectar; C-N3 muestra cambios sin subir y permite recuperar rechazos apartados; C-N4 excluye Supabase de la precarga pública.
+- **Regresión A1 corregida:** un pull conserva clientes, cotizaciones y demás datos que solo han existido localmente, incluso si la nube ya contiene otros registros. Solo puede aplicar un borrado remoto sobre registros que ese dispositivo ya reconcilió con la nube. "Ahora no" fue reemplazado por una explicación honesta de que los datos seguirán solo en ese aparato.
+- **Verificación A1:** la prueba de 3 clientes locales contra nube vacía falló antes del arreglo y pasó después; también aprobaron nube no vacía, borrado posterior desde un segundo dispositivo y fallo remoto sin pérdida. Cierre completo: 512/512 pruebas y compilación 1.1.0.
 - **Verificación de correcciones:** 510/510 pruebas; compilación con nube; compilación pública sin Supabase en `dist/sw.js`; CSP pública exacta; app pública local abierta directamente en el cotizador y sin errores visibles.
 - **Verificación de cierre:** 498 pruebas en 34 archivos, PWA, compilación 1.1.0 y hash CSP final aprobados; 0 vulnerabilidades conocidas y ningún secreto detectado.
 - **Siguiente decisión:** Fable o un revisor independiente audita la rama. Publicar únicamente después de cerrar los bloqueos premercado y con orden expresa de Santiago.
@@ -99,7 +101,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**CORRECCIONES C-N1 A C-N4 CERRADAS EN RAMA SEGURA (2026-07-18):** los cuatro defectos de la auditoría Fable quedaron corregidos sobre `codex/fase2-nube`, sin tocar RLS, funciones protegidas, permisos, `main` ni el despliegue. El siguiente paso es que Fable repita la auditoría contra el código y el diff completo. Antes de publicar siguen pendientes SMTP propio probado, documentos legales aprobados y una nueva N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin una orden separada y expresa de Santiago.**
+**REGRESIÓN A1 CERRADA EN RAMA SEGURA (2026-07-18):** la segunda auditoría aprobó C-N2, C-N3 y C-N4, y encontró que C-N1 podía borrar el historial local anterior a la nube. A1 conserva ahora todo dato no reconciliado y mantiene los borrados multidispositivo para registros ya vistos en la nube. El siguiente paso es la tercera auditoría independiente contra el código y el diff completo. Antes de publicar siguen pendientes SMTP propio probado, documentos legales aprobados y una nueva N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin una orden separada y expresa de Santiago.**
 
 **Estado público anterior:** `main` conserva la versión del piloto. La publicación de Fase 1 fue autorizada por Santiago y está documentada en `docs/AUDITORIA_FASE1.md`; Fase 2 no ha sido publicada.
 
@@ -158,3 +160,4 @@ npm test && npm run build
 | 2026-07-17 | E7: botones de acción sin anclaje en PC y Android (Codex) | Cotización y Ajustes dejan Siguiente/Anterior y Guardar ajustes dentro del recorrido normal; desplazamiento comprobado en PC y Android; 468 pruebas, build y revisión visual en vivo | 877a8cc |
 | 2026-07-18 | Fase 2 N0–N8 (Codex + Santiago) | Cuentas, RLS, operaciones protegidas, sincronización, importación, N6 9/9 y N7 real con modo sin conexión; candidata 1.1.0 cerrada en rama segura y no publicada | `codex/fase2-nube` |
 | 2026-07-18 | Correcciones C-N1 a C-N4 (Codex) | Borrados entre dispositivos, cotización sin señal, cola visible y recuperable, y precarga pública sin Supabase; 510 pruebas, ambas compilaciones, CSP y recorrido público local aprobados; no publicado | `cdfe380`, `dd29797`, `0692a81`, `39b9baa` |
+| 2026-07-18 | A1: proteger historial local previo a la nube (Codex) | Solo se aplican borrados remotos a registros ya reconciliados; nube vacía/no vacía, segundo dispositivo y fallo remoto cubiertos; texto de continuar sin importar aclarado; 512 pruebas y build en verde; no publicado | `codex/fase2-nube` |
