@@ -3,7 +3,10 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from './types';
-import * as storage from './services/storage';
+import { defaultSettings } from './services/storage';
+import { localDataSource, type StoreDataSource } from './services/dataSource';
+import { cloudDataSource } from './services/cloud/api';
+import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
 import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
@@ -46,9 +49,24 @@ interface AppStore {
 
 const StoreContext = createContext<AppStore | null>(null);
 
+export function selectStoreDataSource(options: {
+  hasSession: boolean;
+  cloudConfigured?: boolean;
+  local?: StoreDataSource;
+  cloud?: StoreDataSource;
+}): StoreDataSource {
+  const local = options.local ?? localDataSource;
+  const cloud = options.cloud ?? cloudDataSource;
+  const configured = options.cloudConfigured ?? cloudEnabled();
+  return configured && options.hasSession ? cloud : local;
+}
+
+// N2 conserva el modo local. N3 conectará aquí la sesión autenticada.
+const dataSource = selectStoreDataSource({ hasSession: false });
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [settings, setSettings] = useState<Settings>(storage.defaultSettings());
+  const [settings, setSettings] = useState<Settings>(defaultSettings());
   const [clients, setClients] = useState<Client[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -59,12 +77,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reloadAll = useCallback(async () => {
     const [s, c, q, a, sm, sp] = await Promise.all([
-      storage.loadSettings(),
-      storage.listClients(),
-      storage.listQuotes(),
-      storage.listAppointments(),
-      storage.listStoneLots(),
-      storage.listSuppliers()
+      dataSource.loadSettings(),
+      dataSource.listClients(),
+      dataSource.listQuotes(),
+      dataSource.listAppointments(),
+      dataSource.listStoneLots(),
+      dataSource.listSuppliers()
     ]);
     setSettings(s);
     setClients(c);
@@ -75,9 +93,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshGoldPrice = useCallback(async () => {
-    const markup = (await storage.loadSettings()).goldMarkupPerGram;
+    const markup = (await dataSource.loadSettings()).goldMarkupPerGram;
     const fetched = await fetchGoldPriceCOP(markup);
-    const { settings: next, info } = await storage.saveFetchedGoldPrice(fetched);
+    const { settings: next, info } = await dataSource.saveFetchedGoldPrice(fetched);
     setSettings(next);
     return info;
   }, []);
@@ -100,13 +118,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateSettings = useCallback(async (next: Settings, goldPriceWasEdited: boolean) => {
-    const saved = await storage.saveEditableSettings(next, goldPriceWasEdited);
+    const saved = await dataSource.saveEditableSettings(next, goldPriceWasEdited);
     setSettings(saved);
     return saved;
   }, []);
 
   const recordBackupExported = useCallback(async (exportedAt: string) => {
-    const next = await storage.recordBackupExported(exportedAt);
+    const next = await dataSource.recordBackupExported(exportedAt);
     setSettings(next);
   }, []);
 
@@ -123,23 +141,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const exportBackup = useCallback(() => backupExportControllerRef.current!.start(), []);
 
   const snoozeBackupReminder = useCallback(async (snoozedUntil: string) => {
-    const next = await storage.snoozeBackupReminder(snoozedUntil);
+    const next = await dataSource.snoozeBackupReminder(snoozedUntil);
     setSettings(next);
   }, []);
 
   const ensureBackupReminderFirstDataAt = useCallback(async (startedAt: string) => {
-    const next = await storage.ensureBackupReminderFirstDataAt(startedAt);
+    const next = await dataSource.ensureBackupReminderFirstDataAt(startedAt);
     setSettings(next);
   }, []);
 
   const upsertClient = useCallback(async (client: Client) => {
-    await storage.saveClient(client);
-    setClients(await storage.listClients());
+    await dataSource.saveClient(client);
+    setClients(await dataSource.listClients());
   }, []);
 
   const removeClient = useCallback(async (id: string) => {
-    await storage.deleteClient(id);
-    setClients(await storage.listClients());
+    await dataSource.deleteClient(id);
+    setClients(await dataSource.listClients());
   }, []);
 
   const upsertQuote = useCallback(async (quote: Quote) => {
@@ -151,61 +169,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         b.updatedAt.localeCompare(a.updatedAt)
       )
     );
-    await storage.saveQuote(quote);
+    await dataSource.saveQuote(quote);
   }, []);
 
   const removeQuote = useCallback(async (id: string) => {
     setQuotes((prev) => prev.filter((q) => q.id !== id));
-    await storage.deleteQuote(id);
+    await dataSource.deleteQuote(id);
   }, []);
 
   const upsertAppointment = useCallback(async (appointment: Appointment) => {
     // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
     // y la escritura local se confirma detrás.
     setAppointments((prev) => sortAgenda([appointment, ...prev.filter((a) => a.id !== appointment.id)]));
-    await storage.saveAppointment(appointment);
+    await dataSource.saveAppointment(appointment);
   }, []);
 
   const removeAppointment = useCallback(async (id: string) => {
     setAppointments((prev) => prev.filter((a) => a.id !== id));
-    await storage.deleteAppointment(id);
+    await dataSource.deleteAppointment(id);
   }, []);
 
   const upsertStoneLot = useCallback(async (lot: StoneLot) => {
     // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
     // y la escritura local se confirma detrás.
     setStoneLots((prev) => sortStoneLots([lot, ...prev.filter((l) => l.id !== lot.id)]));
-    await storage.saveStoneLot(lot);
+    await dataSource.saveStoneLot(lot);
   }, []);
 
   const removeStoneLot = useCallback(async (id: string) => {
     setStoneLots((prev) => prev.filter((l) => l.id !== id));
-    await storage.deleteStoneLot(id);
+    await dataSource.deleteStoneLot(id);
   }, []);
 
   const upsertSupplier = useCallback(async (supplier: Supplier) => {
-    await storage.saveSupplier(supplier);
+    await dataSource.saveSupplier(supplier);
     const [nextSuppliers, nextStoneLots] = await Promise.all([
-      storage.listSuppliers(),
-      storage.listStoneLots()
+      dataSource.listSuppliers(),
+      dataSource.listStoneLots()
     ]);
     setSuppliers(nextSuppliers);
     setStoneLots(nextStoneLots);
   }, []);
 
   const removeSupplier = useCallback(async (id: string) => {
-    await storage.deleteSupplier(id);
+    await dataSource.deleteSupplier(id);
     const [nextSuppliers, nextStoneLots] = await Promise.all([
-      storage.listSuppliers(),
-      storage.listStoneLots()
+      dataSource.listSuppliers(),
+      dataSource.listStoneLots()
     ]);
     setSuppliers(nextSuppliers);
     setStoneLots(nextStoneLots);
   }, []);
 
   const nextQuoteNumber = useCallback(async () => {
-    const number = await storage.nextQuoteNumber();
-    setSettings(await storage.loadSettings());
+    const number = await dataSource.nextQuoteNumber();
+    setSettings(await dataSource.loadSettings());
     return number;
   }, []);
 

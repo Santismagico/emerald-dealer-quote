@@ -10,7 +10,8 @@ export type StoreName =
   | 'quotes'
   | 'appointments'
   | 'stoneLots'
-  | 'suppliers';
+  | 'suppliers'
+  | 'cloudOutbox';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
 
@@ -46,6 +47,10 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   // v4 — proveedores (corrección C3, 2026-07-16).
   (db) => {
     createStoreIfMissing(db, 'suppliers');
+  },
+  // v5 — cola persistente para sincronización con la nube (Fase 2 N2).
+  (db) => {
+    createStoreIfMissing(db, 'cloudOutbox');
   }
 ];
 

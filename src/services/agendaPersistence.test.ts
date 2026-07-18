@@ -84,10 +84,10 @@ describe('escalera de migraciones', () => {
   }
 
   it('la versión actual coincide con la cantidad de migraciones', () => {
-    expect(db.DB_VERSION).toBe(4);
+    expect(db.DB_VERSION).toBe(5);
   });
 
-  it('una base nueva (v0) crea los seis almacenes', () => {
+  it('una base nueva (v0) crea los siete almacenes', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 0);
     expect(fake.created).toEqual([
@@ -96,32 +96,33 @@ describe('escalera de migraciones', () => {
       'quotes',
       'appointments',
       'stoneLots',
-      'suppliers'
+      'suppliers',
+      'cloudOutbox'
     ]);
   });
 
-  it('una base v1 agrega citas, lotes y proveedores', () => {
+  it('una base v1 agrega citas, lotes, proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 1);
-    expect(fake.created).toEqual(['appointments', 'stoneLots', 'suppliers']);
+    expect(fake.created).toEqual(['appointments', 'stoneLots', 'suppliers', 'cloudOutbox']);
   });
 
-  it('una base v2 agrega lotes y proveedores', () => {
+  it('una base v2 agrega lotes, proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 2);
-    expect(fake.created).toEqual(['stoneLots', 'suppliers']);
+    expect(fake.created).toEqual(['stoneLots', 'suppliers', 'cloudOutbox']);
   });
 
-  it('una base v3 solo agrega los proveedores', () => {
+  it('una base v3 agrega proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 3);
-    expect(fake.created).toEqual(['suppliers']);
+    expect(fake.created).toEqual(['suppliers', 'cloudOutbox']);
   });
 
-  it('una base ya migrada no crea nada', () => {
+  it('una base v4 solo agrega la cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 4);
-    expect(fake.created).toEqual([]);
+    expect(fake.created).toEqual(['cloudOutbox']);
   });
 });
 

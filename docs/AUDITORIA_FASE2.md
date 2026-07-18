@@ -59,3 +59,36 @@ Informe acumulativo para la revisión final de Fable.
 - Bloqueo de cambios directos en membresías y consecutivos.
 - Permisos explícitos sin acceso anónimo.
 - Protección y permisos exactos de las operaciones elevadas.
+
+## N2 — Trabajo sin conexión y sincronización
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Alta | Si dos envíos se ejecutaran al tiempo, una respuesta lenta podría dejar información en un orden incorrecto. | `src/services/cloud/outbox.ts` | N2 |
+| Alta | Un corte de internet a mitad de un envío no puede eliminar el cambio fallido ni los cambios que todavía no salieron. | `src/services/cloud/outbox.ts` | N2 |
+| Media | Una lectura desde la nube no debe reemplazar una edición local más reciente que todavía está pendiente. | `src/services/cloud/sync.ts` | N2 |
+
+### Decisiones tomadas
+
+- La base local sube de la versión 4 a la 5 agregando únicamente `cloudOutbox` al final de la escalera; no se reordena ni elimina ningún almacén anterior.
+- La cola es persistente, procesa un cambio a la vez y conserva los fallos con esperas crecientes antes de reintentar.
+- La cola intenta continuar al recuperar internet y cuando la aplicación vuelve a primer plano.
+- Las lecturas de nube pasan por la normalización existente y se guardan en la caché local.
+- En un conflicto gana la fecha más reciente. Una eliminación local pendiente no se revive durante una lectura.
+- La aplicación conserva la fuente local si falta configuración o sesión. La nube solo puede seleccionarse cuando existen ambas.
+- El consecutivo en modo nube se solicita a la operación protegida del servidor; no se inventan consecutivos distintos mientras no hay conexión.
+- Todas las pruebas usan sustitutos en memoria. No hubo llamadas de red ni se conectó un proyecto real.
+
+### Pruebas agregadas
+
+- Procesamiento estrictamente serial.
+- Reintento con espera creciente.
+- Corte de red a mitad del envío con conservación de pendientes.
+- Conflicto resuelto a favor de la versión remota más reciente.
+- Conflicto resuelto a favor de la edición local más reciente.
+- Eliminación pendiente protegida frente a una lectura remota.
+- Traducción exacta hacia las operaciones protegidas usando Supabase simulado.
+- Selector local/nube para las tres combinaciones posibles de configuración y sesión.
+- Migración local a la versión 5 sin perder los almacenes anteriores.
