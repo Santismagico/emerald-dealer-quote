@@ -2,9 +2,9 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-18 por Codex al cerrar la candidata de Fase 2. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-18 por Codex al cerrar las correcciones C-N1 a C-N4 de la auditoría independiente. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
-> **SIGUIENTE TRABAJO: revisión independiente de la candidata 1.1.0 en `codex/fase2-nube`.** N0–N8 están implementados y N6/N7 aprobaron. Antes de mercado faltan SMTP propio probado, aprobación profesional de los documentos legales, revisor independiente y una nueva N6 sobre el commit final que se pretenda publicar. `main` y la aplicación pública no se modifican sin orden expresa de Santiago.
+> **SIGUIENTE TRABAJO: segunda auditoría independiente de Fable sobre `codex/fase2-nube`.** C-N1 a C-N4 quedaron corregidos en cuatro commits separados, con 510 pruebas, compilación con nube, compilación pública y comprobación visual local. Fable debe ejecutar las pruebas por su cuenta y revisar el diff completo. `main` y la aplicación pública no se modifican.
 
 ## Qué aplicación es
 
@@ -19,6 +19,8 @@ PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colomb
 
 - **Fase 1 completada y publicada:** informe en `docs/AUDITORIA_FASE1.md`.
 - **Fase 2 completada como candidata:** N0–N8 en `codex/fase2-nube`; informe acumulativo en `docs/AUDITORIA_FASE2.md`. N6 aprobó 9/9 controles y N7 comprobó recorrido, importación idempotente y recuperación real sin conexión.
+- **Correcciones de la auditoría Fable completadas:** C-N1 sincroniza borrados sin destruir cambios locales pendientes; C-N2 guarda cotizaciones sin señal y reserva el consecutivo en el servidor al reconectar; C-N3 muestra cambios sin subir y permite recuperar rechazos apartados; C-N4 excluye Supabase de la precarga pública.
+- **Verificación de correcciones:** 510/510 pruebas; compilación con nube; compilación pública sin Supabase en `dist/sw.js`; CSP pública exacta; app pública local abierta directamente en el cotizador y sin errores visibles.
 - **Verificación de cierre:** 498 pruebas en 34 archivos, PWA, compilación 1.1.0 y hash CSP final aprobados; 0 vulnerabilidades conocidas y ningún secreto detectado.
 - **Siguiente decisión:** Fable o un revisor independiente audita la rama. Publicar únicamente después de cerrar los bloqueos premercado y con orden expresa de Santiago.
 
@@ -97,7 +99,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**CANDIDATA v1.1.0 CERRADA EN RAMA SEGURA (2026-07-18):** N0–N8 de Fase 2 están implementados en `codex/fase2-nube`. N6 aprobó 9/9 controles sobre `fffa1bdbf0600c7077f473d39a90546a4926166f`; N7 aprobó recorrido real, privacidad de la vista cliente, trabajo sin conexión, recuperación e importación sin duplicados. Antes de publicar: SMTP propio probado, documentos legales aprobados, revisor independiente y nueva N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin orden expresa de Santiago.**
+**CORRECCIONES C-N1 A C-N4 CERRADAS EN RAMA SEGURA (2026-07-18):** los cuatro defectos de la auditoría Fable quedaron corregidos sobre `codex/fase2-nube`, sin tocar RLS, funciones protegidas, permisos, `main` ni el despliegue. El siguiente paso es que Fable repita la auditoría contra el código y el diff completo. Antes de publicar siguen pendientes SMTP propio probado, documentos legales aprobados y una nueva N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin una orden separada y expresa de Santiago.**
 
 **Estado público anterior:** `main` conserva la versión del piloto. La publicación de Fase 1 fue autorizada por Santiago y está documentada en `docs/AUDITORIA_FASE1.md`; Fase 2 no ha sido publicada.
 
@@ -155,3 +157,4 @@ npm test && npm run build
 | 2026-07-17 | E6: navegación del cotizador sin anclaje en Android (Codex) | Siguiente/Anterior vuelven a su posición normal dentro del formulario; el desplazamiento táctil sigue funcionando y PC permanece igual; 467 pruebas, build y revisión visual móvil/PC en vivo | 33d5d53 |
 | 2026-07-17 | E7: botones de acción sin anclaje en PC y Android (Codex) | Cotización y Ajustes dejan Siguiente/Anterior y Guardar ajustes dentro del recorrido normal; desplazamiento comprobado en PC y Android; 468 pruebas, build y revisión visual en vivo | 877a8cc |
 | 2026-07-18 | Fase 2 N0–N8 (Codex + Santiago) | Cuentas, RLS, operaciones protegidas, sincronización, importación, N6 9/9 y N7 real con modo sin conexión; candidata 1.1.0 cerrada en rama segura y no publicada | `codex/fase2-nube` |
+| 2026-07-18 | Correcciones C-N1 a C-N4 (Codex) | Borrados entre dispositivos, cotización sin señal, cola visible y recuperable, y precarga pública sin Supabase; 510 pruebas, ambas compilaciones, CSP y recorrido público local aprobados; no publicado | `cdfe380`, `dd29797`, `0692a81`, `39b9baa` |
