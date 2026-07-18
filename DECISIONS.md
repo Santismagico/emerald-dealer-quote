@@ -487,4 +487,6 @@ Se agregó una migración nueva, sin reescribir el historial, que retira todos l
 permisos de tabla de sesiones autenticadas y reabre solo las ocho lecturas necesarias.
 La comprobación real posterior dio 9/9 tablas con RLS, cero permisos no-lectura, cero
 permisos anónimos, cero acceso a `org_counters` y las 14 operaciones protegidas
-disponibles. N6 debe repetirse sobre el commit corregido antes de continuar a N7.
+disponibles. La repetición corregida aprobó 9/9 controles en 20.498 ms sobre el commit
+`fffa1bdbf0600c7077f473d39a90546a4926166f`; después se confirmó nuevamente la limpieza
+total y la permanencia de los permisos mínimos. N6 queda aprobado para continuar a N7.

@@ -34,7 +34,7 @@
 - [x] Publicación manual con revisión de credenciales, dependencias, pruebas, compilación y evidencia por commit.
 - [x] Proyecto desechable de São Paulo creado, migraciones aplicadas, nueve tablas con RLS y confirmación de correo activada.
 - [x] Primera ejecución N6 detectó una omisión de permisos heredados; todos los datos ficticios se limpiaron y la omisión quedó corregida y comprobada en el proyecto de pruebas.
-- [ ] Repetir N6 contra el proyecto real de pruebas sobre el commit corregido y adjuntar esa evidencia al commit exacto.
+- [x] N6 repetido y aprobado: 9/9 controles en 20.498 ms sobre `fffa1bdbf0600c7077f473d39a90546a4926166f`; limpieza total y permisos mínimos comprobados después de la ejecución.
 - [ ] Aprobar una matriz de permisos antes de habilitar invitaciones o varios roles.
 - [ ] HTTPS obligatorio, cabeceras de seguridad, rate limiting.
 - [ ] Secretos en gestor de secretos, jamás en el repo.

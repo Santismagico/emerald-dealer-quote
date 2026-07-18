@@ -249,6 +249,15 @@ la primera ejecución no se acepta como cierre definitivo.
 - La comprobación posterior confirmó: 9/9 tablas con RLS, 8 lecturas explícitas, 0 permisos no-lectura, 0 permisos anónimos, 0 acceso directo a `org_counters` y 14 operaciones protegidas disponibles para usuarios autenticados.
 - La prueba automática nueva falló antes de la corrección y aprobó después.
 
-### Pendiente para cerrar N6
+### Aprobación definitiva
 
-- Repetir los nueve controles sobre el nuevo commit candidato. Si falla un solo control, la fase vuelve a detenerse.
+- Commit probado: `fffa1bdbf0600c7077f473d39a90546a4926166f`.
+- Duración: 20.498 ms.
+- Resultado: 9 de 9 controles aprobados en el proyecto desechable correcto.
+- Evidencia completa, con los nueve resultados en `true` y sin ninguna clave.
+- Rama limpia y sin cambios posteriores al commit probado.
+- Limpieza confirmada directamente: cero cuentas, sesiones, joyerías, membresías y registros ficticios.
+- Permisos confirmados directamente: 9/9 tablas con RLS, 8 lecturas necesarias, 0 permisos no-lectura, 0 acceso anónimo, 0 acceso directo a `org_counters` y 14 operaciones protegidas disponibles.
+- Los avisos del proveedor no cambiaron: el contador cerrado y las 14 operaciones protegidas son decisiones intencionales ya documentadas; el único índice sin uso corresponde al proyecto vacío.
+
+**N6 aprobado.** Cualquier cambio posterior que afecte código, migraciones o controles de seguridad obliga a repetir N6 sobre el nuevo commit antes de publicar.
