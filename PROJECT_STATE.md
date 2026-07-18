@@ -2,24 +2,25 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-18 por Fable al arrancar la Fase 2. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-18 por Codex al cerrar la candidata de Fase 2. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
-> **SIGUIENTE TRABAJO (Codex): ejecutar la Fase 2 según `docs/FASE2_ORDEN_DE_TRABAJO_CODEX.md`** (D-035), en la rama `codex/fase2-nube`, sin tocar `main`. La v1.0.1 publicada sigue siendo la del piloto de siete joyerías. C13 (selector de fotos en el Xiaomi de Santiago) está en pausa, diagnosticado como permisos MIUI/app Archivos; la nota de ayuda para usuarios Xiaomi se incluye en la siguiente tanda de correcciones.
+> **SIGUIENTE TRABAJO: revisión independiente de la candidata 1.1.0 en `codex/fase2-nube`.** N0–N8 están implementados y N6/N7 aprobaron. Antes de mercado faltan SMTP propio probado, aprobación profesional de los documentos legales, revisor independiente y una nueva N6 sobre el commit final que se pretenda publicar. `main` y la aplicación pública no se modifican sin orden expresa de Santiago.
 
 ## Qué aplicación es
 
-PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colombia). Cotiza piezas (oro + piedras + mano de obra), genera PDF para el cliente (sin datos internos) y PDF interno (con costos y margen), comparte por WhatsApp, lleva historial, seguimiento de producción del taller y abonos del cliente. Todo local (IndexedDB), sin backend.
+PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colombia). Cotiza piezas (oro + piedras + mano de obra), genera PDF para el cliente (sin datos internos) y PDF interno (con costos y margen), comparte por WhatsApp, lleva historial, seguimiento de producción del taller y abonos del cliente. La candidata 1.1.0 conserva IndexedDB como caché y agrega, mediante una bandera de compilación, cuentas y datos sincronizados con Supabase; la versión pública sigue en modo local.
 
-- **Stack:** React 19 + TypeScript + Vite 8 + Tailwind 4 + jsPDF + vite-plugin-pwa + Vitest. Sin router ni gestor de estado externo.
-- **Versión candidata:** 1.0.0 en `codex/correcciones-finales-fable`. La versión pública no cambia hasta que Santiago autorice avanzar `main`.
-- **Producción:** https://santismagico.github.io/emerald-dealer-quote/ — el despliegue solo se inicia por un push a `main` o por ejecución manual de `.github/workflows/deploy.yml`. Un push de la rama de trabajo o de una etiqueta no lo activa.
+- **Stack:** React 19 + TypeScript + Vite 8 + Tailwind 4 + jsPDF + vite-plugin-pwa + Vitest + `@supabase/supabase-js` 2.110.7. Sin router ni gestor de estado externo.
+- **Versión candidata:** 1.1.0 en `codex/fase2-nube`. La versión pública 1.0.1 no cambia hasta que Santiago autorice una orden separada de publicación.
+- **Producción:** https://santismagico.github.io/emerald-dealer-quote/ — `.github/workflows/deploy.yml` solo acepta ejecución manual, commit exacto aprobado por N6 y confirmación `PUBLICAR`. Un push a cualquier rama no publica.
 - **Repositorio:** https://github.com/Santismagico/emerald-dealer-quote (público — nunca subir datos reales ni secretos).
 
 ## Estado de Git y respaldos
 
-- **Fase 1 completada en la rama segura:** S1–S6 tienen un commit independiente; S7 reúne la versión 1.0.0, el informe final y las verificaciones. Informe: `docs/AUDITORIA_FASE1.md`.
-- **Verificación actual:** 467 pruebas en 26 archivos, build de producción, PWA y hash CSP final en verde; `npm audit` con 0 vulnerabilidades.
-- **Siguiente decisión:** Fable audita la rama. Publicar a `main` únicamente con orden expresa de Santiago.
+- **Fase 1 completada y publicada:** informe en `docs/AUDITORIA_FASE1.md`.
+- **Fase 2 completada como candidata:** N0–N8 en `codex/fase2-nube`; informe acumulativo en `docs/AUDITORIA_FASE2.md`. N6 aprobó 9/9 controles y N7 comprobó recorrido, importación idempotente y recuperación real sin conexión.
+- **Verificación de cierre:** 498 pruebas en 34 archivos, PWA, compilación 1.1.0 y hash CSP final aprobados; 0 vulnerabilidades conocidas y ningún secreto detectado.
+- **Siguiente decisión:** Fable o un revisor independiente audita la rama. Publicar únicamente después de cerrar los bloqueos premercado y con orden expresa de Santiago.
 
 - Base de Fable conservada: `fable/regeneracion-emerald-dealer-quote-v1` hasta `fb564ca`. Correcciones de Codex: `codex/correcciones-finales-fable`. Ninguna de esas ramas publica la aplicación por sí sola.
 - Punto de restauración de esta tanda: tag `punto-seguro-estabilizacion-fondo-2026-07-16`, subido a GitHub antes de las correcciones de Codex.
@@ -85,7 +86,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Riesgos conocidos
 
-- Proyecto dentro de OneDrive (sincronización puede interferir con `node_modules`; conviene moverlo algún día, no urgente).
+- Riesgo resuelto: el proyecto canónico ya vive en `C:\Dev\emerald-dealer`; la copia de OneDrive está congelada.
 - Dependencia de 2 APIs gratuitas para el precio del oro (mitigado con fallback y límites de sanidad).
 - Repo público: cuidado con datos personales en ejemplos, fixtures o capturas.
 - Un teléfono que ya tenga instalada la PWA puede conservar el ícono anterior por caché; para comprobar el nuevo conviene desinstalar y volver a instalar.
@@ -96,19 +97,16 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**PUBLICADO v1.0.0 (2026-07-17, por orden expresa de Santiago):** `main` = `60bed8e` con la **Fase 1 pre-SaaS completa, auditada y aprobada por Fable** (informe y veredicto en `docs/AUDITORIA_FASE1.md`). Deploy en verde (41 s) y sitio en vivo verificado: título "Emerald Dealer", bundle con versión 1.0.0 y CSP con hash final servidos. La Fase 1 queda **publicada**; siguen la revisión profesional de `docs/legal/` y el registro en Wompi (Santiago), y la Fase 2 (nube) espera su orden.
+**CANDIDATA v1.1.0 CERRADA EN RAMA SEGURA (2026-07-18):** N0–N8 de Fase 2 están implementados en `codex/fase2-nube`. N6 aprobó 9/9 controles sobre `fffa1bdbf0600c7077f473d39a90546a4926166f`; N7 aprobó recorrido real, privacidad de la vista cliente, trabajo sin conexión, recuperación e importación sin duplicados. Antes de publicar: SMTP propio probado, documentos legales aprobados, revisor independiente y nueva N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin orden expresa de Santiago.**
+
+**Estado público anterior:** `main` conserva la versión del piloto. La publicación de Fase 1 fue autorizada por Santiago y está documentada en `docs/AUDITORIA_FASE1.md`; Fase 2 no ha sido publicada.
 
 Publicación anterior del mismo día (v2 estética+pagos): `main` = `d251ad3` con toda la candidata: correcciones de fondo C1–C9, identidad "el mesón del joyero" con día/noche (D-029), ícono "La gema viva", y las correcciones finales D-030. Despliegue de GitHub Pages en verde (37 s) y sitio en vivo verificado: los meta theme-color nuevos se sirven y el `pwa-512.png` publicado es idéntico byte a byte al local. Las ramas `main` y `codex/correcciones-finales-fable` apuntan al mismo commit.
 
-**Camino SaaS descongelado (D-031, 2026-07-17):** `SAAS_PLAN.md` es ahora la hoja de
-ruta canónica hacia el producto cobrable — fases 0–4, auditoría integral, requisitos
-legales y calendario (auditoría fin de julio; beta nube ago–sep; cobro octubre 2026).
-La **Fase 1 está ORDENADA y planificada al detalle**: Codex la ejecuta siguiendo
-`docs/FASE1_ORDEN_DE_TRABAJO_CODEX.md` (etapas S1–S7 con archivos, casos límite y
-pruebas exactas; S0 completada), trabajando en la rama
-`codex/correcciones-finales-fable` sin tocar `main`. Fable audita el informe
-`docs/AUDITORIA_FASE1.md` al cierre. El piloto formal (Fase 0) ya tiene siete
-joyerías confirmadas (lista privada de Santiago).
+**Antecedente de la ruta SaaS (D-031/D-035):** `SAAS_PLAN.md` y las órdenes de trabajo
+condujeron a las Fases 1 y 2. Fase 1 quedó publicada y Fase 2 quedó cerrada como
+candidata auditable en su rama protegida. Los cobros, suscripciones, invitaciones de
+varios miembros, Realtime, notificaciones y dominio propio siguen fuera de alcance.
 
 Pendientes después de publicar (no técnicos):
 
@@ -156,3 +154,4 @@ npm test && npm run build
 | 2026-07-17 | E5: adaptación para computador (Codex) | La app usa el ancho disponible, menú lateral y formulario en columnas sin alterar la presentación móvil; 467 pruebas y build en verde; publicada y verificada en vivo | e27654a |
 | 2026-07-17 | E6: navegación del cotizador sin anclaje en Android (Codex) | Siguiente/Anterior vuelven a su posición normal dentro del formulario; el desplazamiento táctil sigue funcionando y PC permanece igual; 467 pruebas, build y revisión visual móvil/PC en vivo | 33d5d53 |
 | 2026-07-17 | E7: botones de acción sin anclaje en PC y Android (Codex) | Cotización y Ajustes dejan Siguiente/Anterior y Guardar ajustes dentro del recorrido normal; desplazamiento comprobado en PC y Android; 468 pruebas, build y revisión visual en vivo | 877a8cc |
+| 2026-07-18 | Fase 2 N0–N8 (Codex + Santiago) | Cuentas, RLS, operaciones protegidas, sincronización, importación, N6 9/9 y N7 real con modo sin conexión; candidata 1.1.0 cerrada en rama segura y no publicada | `codex/fase2-nube` |

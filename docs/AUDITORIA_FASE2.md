@@ -261,3 +261,98 @@ la primera ejecución no se acepta como cierre definitivo.
 - Los avisos del proveedor no cambiaron: el contador cerrado y las 14 operaciones protegidas son decisiones intencionales ya documentadas; el único índice sin uso corresponde al proyecto vacío.
 
 **N6 aprobado.** Cualquier cambio posterior que afecte código, migraciones o controles de seguridad obliga a repetir N6 sobre el nuevo commit antes de publicar.
+
+## N7 — Ensayo del corte sin publicar
+
+### Alcance y datos ficticios
+
+- La compilación de nube se ejecutó localmente en `http://127.0.0.1:4174/`; no se modificó `main` ni el sitio público.
+- Se confirmó una cuenta, una sesión, una joyería, una membresía y una configuración en el proyecto **Emerald Dealer - Pruebas Fase 2**.
+- Se recorrieron Cotizador, Taller, Agenda, Piedras y Más contra la nube. Los estados vacíos iniciales y las pantallas de cuenta cargaron sin error.
+- Todos los registros creados quedaron marcados como ficticios: tres clientes de prueba, la cotización `ED-2026-0001`, una cita, un lote de una piedra/1 ct por $100.000 y una etapa Diseño en proceso.
+- La cotización recibió un único consecutivo, quedó aprobada y apareció automáticamente en Taller. La vista cliente mostró $740.107 y no expuso margen, costos, precio por gramo ni la nota interna; esos datos permanecieron únicamente en la vista interna.
+
+### Cuenta y correo
+
+- La confirmación obligatoria de correo permaneció activada; no se deshabilitó para facilitar la prueba.
+- Dos intentos de registro devolvieron `429 email rate limit exceeded` y no crearon cuentas. El correo integrado del proyecto de prueba alcanzó su límite antes de entregar la confirmación.
+- Para continuar N7 sin debilitar la configuración global, Santiago creó manualmente un único usuario de prueba con confirmación administrativa. Después se comprobó una cuenta confirmada y una sesión activa.
+- **Bloqueo antes de mercado:** configurar un SMTP propio en Supabase y repetir entrega de confirmación, recuperación de contraseña y redirecciones autorizadas. La documentación oficial de autenticación por correo y la configuración SMTP quedan como referencia: <https://supabase.com/docs/guides/auth/passwords> y <https://supabase.com/docs/guides/auth/auth-smtp>.
+
+### Prueba real sin conexión y recuperación
+
+1. En Chrome se cargaron los datos de la nube y se activó `Offline` desde Network.
+2. Se guardó `Cliente Cola N7`. Chrome lo mostró en su caché local, mientras la consulta directa al proyecto confirmó 2 clientes remotos y 0 copias de ese registro.
+3. Se restauró `No throttling`. El primer cambio de visibilidad reactivó la cola.
+4. La consulta posterior confirmó 3 clientes remotos y exactamente 1 copia de `Cliente Cola N7`.
+5. No se recargó ni se volvió a pulsar Guardar durante la recuperación.
+
+Resultado: la lectura en caché, la persistencia local, la cola pendiente y el envío posterior sin duplicados quedaron comprobados con red real bloqueada desde el navegador. Además, las ocho pruebas dirigidas de `outbox`, `sync` y `api` aprobaron.
+
+### Importación idempotente
+
+- Más → Cuenta detectó cinco registros locales listos para subir.
+- Santiago completó “Subir a mi cuenta” usando los datos del mismo dispositivo, sin elegir archivo externo.
+- Antes y después de repetir la importación se mantuvieron exactamente: 3 clientes, 1 cotización, 1 cita, 1 lote, 0 proveedores y 1 configuración. `Cliente Cola N7` continuó con una sola copia.
+
+Resultado: la importación desde el mismo origen quedó comprobada sin duplicados.
+
+### Revisión posterior con datos ficticios
+
+- Permisos sin cambios: 9/9 tablas con RLS, 8 lecturas autenticadas, 0 permisos autenticados de escritura directa, 0 permisos anónimos y 0 acceso directo a `org_counters`.
+- El asesor conserva los avisos intencionales ya documentados: `org_counters` sin política directa y las catorce operaciones protegidas disponibles para personas autenticadas.
+- El índice `quotes_org_updated` continúa marcado como no usado; con una sola cotización no existe evidencia suficiente para retirarlo.
+- Apareció un aviso adicional: protección contra contraseñas filtradas desactivada. La función está disponible desde el plan Pro según <https://supabase.com/docs/guides/auth/password-security>. Antes de mercado se debe activar o aceptar el riesgo formalmente; en el plan gratuito se mantendrá como mínimo la exigencia de ocho caracteres en servidor y aplicación.
+
+### Guion del corte público — documentado, no ejecutado
+
+1. Resolver primero SMTP propio, documentos legales y revisión independiente.
+2. Crear en GitHub la variable `VITE_SUPABASE_URL` y el secreto `VITE_SUPABASE_ANON_KEY`. Aunque la clave publicable no otorga privilegios administrativos, se conservará fuera de los archivos versionados. La clave `service_role` no se copia ni a GitHub ni al navegador.
+3. En una orden de publicación separada, incorporar al paso de compilación del workflow manual:
+
+   ```yaml
+   env:
+     DEPLOY_BASE: /emerald-dealer-quote/
+     VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+     VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+   ```
+
+4. Ejecutar todos los controles y repetir N6 sobre el commit final exacto. El workflow ya exige que `n6_evidence_commit` coincida con `GITHUB_SHA` y que la confirmación humana sea `PUBLICAR`.
+5. Solo con orden expresa de Santiago, ejecutar manualmente `Deploy a GitHub Pages` y verificar tanto la acción como la interfaz publicada.
+
+**N7 aprobado.** El ensayo no publicó nada. Los bloqueos de SMTP, revisión legal, revisor independiente y nueva N6 sobre la candidata final permanecen abiertos antes de mercado.
+
+## N8 — Cierre de fase
+
+### Entregables
+
+- Versión candidata actualizada a **1.1.0** en `package.json` y `package-lock.json`.
+- `CHANGELOG.md`, `SECURITY_CHECKLIST.md`, `PROJECT_STATE.md` y este informe alineados con el estado real de N0–N8.
+- Guion de corte público documentado sin agregar variables a GitHub, sin ejecutar el workflow y sin tocar `main`.
+- La rama protegida conserva únicamente código, migraciones, pruebas y documentación; no contiene `.env.local`, correos de acceso, contraseñas, claves ni datos reales de joyerías.
+
+### Verificación final local
+
+- `npm run security:check`: aprobado.
+- Dependencias: 0 vulnerabilidades con nivel alto o superior; `npm audit` informó 0 vulnerabilidades totales.
+- Guardias de credenciales y entorno N6: 9/9 pruebas aprobadas.
+- Escaneo de archivos versionados y preparados: ningún secreto detectado.
+- Evidencia y controles de publicación/base de datos: aprobados.
+- Suite: **498 pruebas en 34 archivos**, todas aprobadas.
+- PWA: iconos, manifiesto y configuraciones aprobados.
+- TypeScript y build de producción 1.1.0: aprobados.
+- Hash CSP calculado sobre el `dist/index.html` final: aprobado.
+
+### Verificación final remota
+
+- 9/9 tablas con RLS.
+- 8 permisos de lectura autenticada, 0 permisos autenticados de escritura directa, 0 permisos anónimos y 0 acceso directo a `org_counters`.
+- Los avisos de las catorce operaciones protegidas y del contador sin política son intencionales y están cubiertos por N6.
+- El aviso de contraseña filtrada permanece como bloqueo premercado ligado al plan; el índice de cotizaciones sin uso se conserva hasta disponer de volumen representativo.
+- Los datos ficticios de N7 permanecen únicamente en el proyecto desechable para la revisión: 1 cuenta, 1 joyería, 3 clientes, 1 cotización, 1 cita, 1 lote y 1 configuración. No se eliminan sin autorización porque sirven como evidencia reproducible de la candidata.
+
+### Veredicto y límites
+
+**Fase 2 cerrada como candidata auditable.** La rama queda lista para revisión de Santiago y Fable/revisor independiente. No está lista todavía para aceptar datos reales ni salir al mercado hasta cerrar SMTP propio, documentos legales, protección/aceptación de riesgo de contraseñas filtradas y revisión independiente.
+
+La N6 definitiva existente está asociada al commit de seguridad `fffa1bdbf0600c7077f473d39a90546a4926166f`. Como N8 agrega versión y documentación, el workflow manual exigirá repetir N6 sobre el commit final exacto antes de cualquier publicación. **Nada se publicó y `main` no se modificó.**
