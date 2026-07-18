@@ -42,7 +42,7 @@
 - [ ] Configurar un SMTP propio, verificar entrega de confirmación y recuperación, y mantener activada la confirmación de correo. El correo integrado de prueba alcanzó el límite del proveedor y no es aceptable para mercado.
 - [ ] Activar protección contra contraseñas filtradas antes de mercado o documentar formalmente la aceptación del riesgo; Supabase la ofrece desde el plan Pro. Mientras el proyecto siga gratuito, exigir al menos ocho caracteres en servidor y aplicación.
 - [ ] Completar la revisión profesional de términos, privacidad y tratamiento de datos; no retirar las marcas de borrador antes de esa aprobación.
-- [ ] Nombrar un revisor independiente y cerrar sus hallazgos antes de aceptar información real de joyerías.
+- [x] Nombrar un revisor independiente y cerrar sus hallazgos antes de aceptar información real de joyerías. Fable auditó la candidata 1.1.0 en tres pasadas (`docs/AUDITORIA_FABLE_FASE2.md`, `_SEGUNDA.md`, `_TERCERA.md`); los cinco hallazgos quedaron corregidos y verificados. Pendiente menor sin bloqueo: O1.
 - [ ] Repetir N6 sobre el commit final de la candidata que se vaya a publicar; el despliegue rechaza cualquier commit distinto.
 - [ ] Configurar en GitHub `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` únicamente cuando Santiago ordene el corte público. La clave `service_role` nunca entra en GitHub ni en el navegador.
 - [ ] Confirmar HTTPS, cabeceras de seguridad y límites de abuso en el entorno público final.

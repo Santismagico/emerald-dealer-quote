@@ -4,7 +4,7 @@
 
 _Actualizado: 2026-07-18 por Codex al cerrar la regresión A1 encontrada en la segunda auditoría independiente. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
-> **SIGUIENTE TRABAJO: tercera auditoría independiente de Fable sobre `codex/fase2-nube`.** A1 protege los datos anteriores al modo nube sin romper los borrados entre dispositivos después de reconciliar. La candidata queda con 512 pruebas y compilación aprobada por Codex. Fable debe ejecutar las pruebas por su cuenta y revisar el diff completo. `main` y la aplicación pública no se modifican.
+> **SIGUIENTE TRABAJO: ninguno técnico. La candidata 1.1.0 quedó auditada y aprobada.** Las tres auditorías independientes de Fable están cerradas (`docs/AUDITORIA_FABLE_FASE2.md`, `_SEGUNDA.md`, `_TERCERA.md`): los cinco hallazgos (H1–H4 y A1) fueron corregidos y verificados con pruebas propias del auditor. Queda **O1** como observación menor (ventana estrecha entre guardar y encolar en `cloud/api.ts`), sin bloquear. **Lo que sigue no es código:** documentos legales aprobados por un profesional, SMTP propio probado, decisión sobre contraseñas filtradas y nueva N6 sobre el commit final. `main` y la aplicación pública nunca se modificaron.
 
 ## Qué aplicación es
 
@@ -161,3 +161,4 @@ npm test && npm run build
 | 2026-07-18 | Fase 2 N0–N8 (Codex + Santiago) | Cuentas, RLS, operaciones protegidas, sincronización, importación, N6 9/9 y N7 real con modo sin conexión; candidata 1.1.0 cerrada en rama segura y no publicada | `codex/fase2-nube` |
 | 2026-07-18 | Correcciones C-N1 a C-N4 (Codex) | Borrados entre dispositivos, cotización sin señal, cola visible y recuperable, y precarga pública sin Supabase; 510 pruebas, ambas compilaciones, CSP y recorrido público local aprobados; no publicado | `cdfe380`, `dd29797`, `0692a81`, `39b9baa` |
 | 2026-07-18 | A1: proteger historial local previo a la nube (Codex) | Solo se aplican borrados remotos a registros ya reconciliados; nube vacía/no vacía, segundo dispositivo y fallo remoto cubiertos; texto de continuar sin importar aclarado; 512 pruebas y build en verde; no publicado | `codex/fase2-nube` |
+| 2026-07-18 | **Auditorías independientes de la Fase 2 (Fable)** | Tres pasadas sobre la candidata: 5 hallazgos (H1–H4 y A1, este último una regresión que borraba el historial local) reportados y cerrados; pruebas, compilación pública, CSP, precaché y secretos ejecutados por el auditor; A1 verificada con 5 pruebas propias. Aprobación técnica; bloqueos legales y de operación siguen abiertos | `c789235`, `121df13`, `0111145` |
