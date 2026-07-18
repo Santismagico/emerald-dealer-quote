@@ -237,3 +237,11 @@ aceptadas al cargar logo/referencias — el límite de 1.5 MB pasó al resultado
 (D-034); C11-E "Guardar ajustes" fluye normal en el teléfono y solo flota en computador;
 C12-E el cierre del trabajo (pagada/entregada) pasó al final de la pantalla del taller,
 después de pagos y producción. 468 pruebas y build en verde; bundle en vivo verificado._
+
+_C13 (EN PAUSA, 2026-07-17): en el Xiaomi de Santiago el selector de fotos no abre en
+ninguna variante (programática, nativa visible, importar respaldo), ni en la PWA ni en
+Chrome pestaña, aunque el toque llega a la app (v1.0.1 diagnóstica lo demostró). Causa
+probable: MIUI niega a Chrome el permiso de Fotos/Almacenamiento o la app "Archivos"
+del sistema está deshabilitada. Pasos de solución ya entregados a Santiago; sin
+dispositivo disponible para confirmar. Pendiente: nota de ayuda dentro de la app para
+usuarios Xiaomi (folclor común en Colombia) — incluirla en la siguiente tanda._
