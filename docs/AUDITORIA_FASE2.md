@@ -92,3 +92,34 @@ Informe acumulativo para la revisión final de Fable.
 - Traducción exacta hacia las operaciones protegidas usando Supabase simulado.
 - Selector local/nube para las tres combinaciones posibles de configuración y sesión.
 - Migración local a la versión 5 sin perder los almacenes anteriores.
+
+## N3 — Cuenta, sesión y primera joyería
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Corregido en commit |
+|---|---|---|---|
+| Alta | La aplicación no debe activar la fuente de nube solo por tener variables: también exige una sesión confirmada. | `src/store.tsx` | N3 |
+| Media | Los errores originales del proveedor no son adecuados para una persona sin conocimientos técnicos. | `src/services/cloud/auth.ts` | N3 |
+| Media | Los documentos legales siguen siendo borradores y contienen campos pendientes; no deben presentarse como definitivos. | `docs/legal/` | Pendiente de aprobación profesional antes de beta |
+
+### Decisiones tomadas
+
+- Cuando la nube está configurada y no existe sesión, la aplicación muestra un muro de acceso; el modo público actual sin variables conserva el recorrido local.
+- El registro exige correo, contraseña repetida y aceptación expresa de términos y privacidad.
+- La fecha de aceptación y la versión de los borradores se guardan como información de la cuenta.
+- Los términos y la política se muestran en vistas internas simples usando directamente los borradores existentes.
+- La recuperación de contraseña muestra un mensaje neutral que no confirma si un correo está registrado.
+- El primer ingreso sin membresía muestra “Crea tu joyería”; la creación se hace mediante la operación protegida y luego guarda `defaultSettings()` con el nombre elegido.
+- La sección Más incluye “Cuenta” únicamente en modo nube con sesión; allí se muestran correo, nombre de joyería y cierre de sesión.
+- Al volver desde un enlace de recuperación se solicita una contraseña nueva de mínimo ocho caracteres.
+- La confirmación obligatoria de correo se comprobará visualmente en el panel durante N5.
+
+### Pruebas agregadas
+
+- Traducción de errores comunes a español claro.
+- Bloqueo de registro sin aceptación legal.
+- Normalización del correo y registro de fecha de aceptación.
+- Creación de joyería seguida por ajustes iniciales, en el orden correcto.
+- Recuperación de contraseña con dirección segura y mensaje neutral.
+- Suite completa: 491 pruebas aprobadas y compilación correcta.

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react';
-import { StoreProvider, useStore } from './store';
+import { StoreProvider, selectStoreDataSource, useStore } from './store';
 import type { ReactNode } from 'react';
 import type { Quote } from './types';
 import { newId } from './utils/id';
@@ -15,7 +15,17 @@ import { DailyCloseView } from './components/DailyCloseView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
 import { SettingsView } from './components/SettingsView';
+import {
+  AccountView,
+  CloudAccessView,
+  CloudLoadingView,
+  CreateOrganizationView,
+  PasswordRecoveryView
+} from './components/CloudAccountViews';
 import { Toast } from './components/ui';
+import { CloudAuthProvider, useCloudAuth } from './cloudAuthContext';
+import { cloudEnabled } from './services/cloud/config';
+import { startCloudLifecycle } from './services/cloud/api';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
 import { todaysPendingAppointments } from './services/agenda';
 import {
@@ -35,7 +45,14 @@ type ViewName =
   | 'dailyClose'
   | 'clients'
   | 'suppliers'
-  | 'settings';
+  | 'settings'
+  | 'account';
+
+interface CloudAccountInfo {
+  email: string;
+  organizationName: string;
+  signOut: () => Promise<void>;
+}
 
 const APP_URL = 'https://santismagico.github.io/emerald-dealer-quote/';
 
@@ -91,7 +108,7 @@ function emptyQuote(defaults: {
   };
 }
 
-function AppShell() {
+function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
   const store = useStore();
   const [view, setView] = useState<ViewName>('history');
   const [draft, setDraft] = useState<Quote | null>(null);
@@ -369,6 +386,7 @@ function AppShell() {
             onClients={() => setView('clients')}
             onSuppliers={() => setView('suppliers')}
             onSettings={() => setView('settings')}
+            onAccount={cloudAccount ? () => setView('account') : undefined}
           />
         )}
         {view === 'dailyClose' && (
@@ -393,6 +411,16 @@ function AppShell() {
           <div className="space-y-4">
             <BackRow label="← Más" onClick={() => setView('more')} />
             <SettingsView />
+          </div>
+        )}
+        {view === 'account' && cloudAccount && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <AccountView
+              email={cloudAccount.email}
+              organizationName={cloudAccount.organizationName}
+              onSignOut={cloudAccount.signOut}
+            />
           </div>
         )}
       </main>
@@ -432,7 +460,8 @@ function AppShell() {
               view === 'dailyClose' ||
               view === 'clients' ||
               view === 'suppliers' ||
-              view === 'settings'
+              view === 'settings' ||
+              view === 'account'
             }
             onClick={() => void runAfterViewFlush(() => setView('more'))}
           />
@@ -625,12 +654,14 @@ function MoreView({
   onDailyClose,
   onClients,
   onSuppliers,
-  onSettings
+  onSettings,
+  onAccount
 }: {
   onDailyClose: () => void;
   onClients: () => void;
   onSuppliers: () => void;
   onSettings: () => void;
+  onAccount?: () => void;
 }) {
   return (
     <div className="space-y-3">
@@ -658,6 +689,14 @@ function MoreView({
         subtitle="Datos de la joyería, precio del oro y respaldos"
         onClick={onSettings}
       />
+      {onAccount ? (
+        <MoreItem
+          icon={<LineIcon name="client" />}
+          title="Cuenta"
+          subtitle="Correo, joyería y cierre de sesión"
+          onClick={onAccount}
+        />
+      ) : null}
     </div>
   );
 }
@@ -736,7 +775,39 @@ function NavButton({
   );
 }
 
+function CloudWorkspace() {
+  const auth = useCloudAuth();
+
+  useEffect(() => startCloudLifecycle(), []);
+
+  return (
+    <StoreProvider dataSource={selectStoreDataSource({ hasSession: true })}>
+      <AppShell cloudAccount={{
+        email: auth.session?.user.email ?? '',
+        organizationName: auth.organization?.name ?? '',
+        signOut: auth.signOut
+      }} />
+    </StoreProvider>
+  );
+}
+
+function CloudEntry() {
+  const auth = useCloudAuth();
+  if (!auth.ready) return <CloudLoadingView />;
+  if (!auth.session) return <CloudAccessView />;
+  if (auth.passwordRecovery) return <PasswordRecoveryView />;
+  if (!auth.organization) return <CreateOrganizationView />;
+  return <CloudWorkspace />;
+}
+
 export default function App() {
+  if (cloudEnabled()) {
+    return (
+      <CloudAuthProvider>
+        <CloudEntry />
+      </CloudAuthProvider>
+    );
+  }
   return (
     <StoreProvider>
       <AppShell />

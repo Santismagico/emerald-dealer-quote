@@ -61,10 +61,13 @@ export function selectStoreDataSource(options: {
   return configured && options.hasSession ? cloud : local;
 }
 
-// N2 conserva el modo local. N3 conectará aquí la sesión autenticada.
-const dataSource = selectStoreDataSource({ hasSession: false });
-
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({
+  children,
+  dataSource = localDataSource
+}: {
+  children: ReactNode;
+  dataSource?: StoreDataSource;
+}) {
   const [ready, setReady] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings());
   const [clients, setClients] = useState<Client[]>([]);
@@ -90,7 +93,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAppointments(a);
     setStoneLots(sm);
     setSuppliers(sp);
-  }, []);
+  }, [dataSource]);
 
   const refreshGoldPrice = useCallback(async () => {
     const markup = (await dataSource.loadSettings()).goldMarkupPerGram;
@@ -98,7 +101,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { settings: next, info } = await dataSource.saveFetchedGoldPrice(fetched);
     setSettings(next);
     return info;
-  }, []);
+  }, [dataSource]);
 
   useEffect(() => {
     reloadAll()
@@ -121,12 +124,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const saved = await dataSource.saveEditableSettings(next, goldPriceWasEdited);
     setSettings(saved);
     return saved;
-  }, []);
+  }, [dataSource]);
 
   const recordBackupExported = useCallback(async (exportedAt: string) => {
     const next = await dataSource.recordBackupExported(exportedAt);
     setSettings(next);
-  }, []);
+  }, [dataSource]);
 
   const backupExportControllerRef = useRef<BackupExportController | null>(null);
   if (!backupExportControllerRef.current) {
@@ -143,22 +146,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const snoozeBackupReminder = useCallback(async (snoozedUntil: string) => {
     const next = await dataSource.snoozeBackupReminder(snoozedUntil);
     setSettings(next);
-  }, []);
+  }, [dataSource]);
 
   const ensureBackupReminderFirstDataAt = useCallback(async (startedAt: string) => {
     const next = await dataSource.ensureBackupReminderFirstDataAt(startedAt);
     setSettings(next);
-  }, []);
+  }, [dataSource]);
 
   const upsertClient = useCallback(async (client: Client) => {
     await dataSource.saveClient(client);
     setClients(await dataSource.listClients());
-  }, []);
+  }, [dataSource]);
 
   const removeClient = useCallback(async (id: string) => {
     await dataSource.deleteClient(id);
     setClients(await dataSource.listClients());
-  }, []);
+  }, [dataSource]);
 
   const upsertQuote = useCallback(async (quote: Quote) => {
     // Se parcha el estado localmente: recargar TODAS las cotizaciones (con sus
@@ -170,36 +173,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
     );
     await dataSource.saveQuote(quote);
-  }, []);
+  }, [dataSource]);
 
   const removeQuote = useCallback(async (id: string) => {
     setQuotes((prev) => prev.filter((q) => q.id !== id));
     await dataSource.deleteQuote(id);
-  }, []);
+  }, [dataSource]);
 
   const upsertAppointment = useCallback(async (appointment: Appointment) => {
     // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
     // y la escritura local se confirma detrás.
     setAppointments((prev) => sortAgenda([appointment, ...prev.filter((a) => a.id !== appointment.id)]));
     await dataSource.saveAppointment(appointment);
-  }, []);
+  }, [dataSource]);
 
   const removeAppointment = useCallback(async (id: string) => {
     setAppointments((prev) => prev.filter((a) => a.id !== id));
     await dataSource.deleteAppointment(id);
-  }, []);
+  }, [dataSource]);
 
   const upsertStoneLot = useCallback(async (lot: StoneLot) => {
     // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
     // y la escritura local se confirma detrás.
     setStoneLots((prev) => sortStoneLots([lot, ...prev.filter((l) => l.id !== lot.id)]));
     await dataSource.saveStoneLot(lot);
-  }, []);
+  }, [dataSource]);
 
   const removeStoneLot = useCallback(async (id: string) => {
     setStoneLots((prev) => prev.filter((l) => l.id !== id));
     await dataSource.deleteStoneLot(id);
-  }, []);
+  }, [dataSource]);
 
   const upsertSupplier = useCallback(async (supplier: Supplier) => {
     await dataSource.saveSupplier(supplier);
@@ -209,7 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ]);
     setSuppliers(nextSuppliers);
     setStoneLots(nextStoneLots);
-  }, []);
+  }, [dataSource]);
 
   const removeSupplier = useCallback(async (id: string) => {
     await dataSource.deleteSupplier(id);
@@ -219,13 +222,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ]);
     setSuppliers(nextSuppliers);
     setStoneLots(nextStoneLots);
-  }, []);
+  }, [dataSource]);
 
   const nextQuoteNumber = useCallback(async () => {
     const number = await dataSource.nextQuoteNumber();
     setSettings(await dataSource.loadSettings());
     return number;
-  }, []);
+  }, [dataSource]);
 
   return (
     <StoreContext.Provider
