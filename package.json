@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run && node scripts/verify-pwa-assets.mjs",
     "test:csp": "npm run build && node scripts/verify-csp-hash.mjs",
+    "test:public-cloud": "node scripts/verify-public-cloud-precache.mjs",
     "test:watch": "vitest",
     "icons": "node scripts/generate-app-icon-source.mjs && node scripts/generate-icons.mjs && node scripts/verify-pwa-assets.mjs",
     "test:assets": "node scripts/verify-pwa-assets.mjs",

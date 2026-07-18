@@ -79,6 +79,9 @@ export default defineConfig(({ mode }) => {
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
+      workbox: {
+        globIgnores: cloudOrigin ? [] : ['**/supabase-*.js']
+      },
       manifest: {
         name: 'Emerald Dealer',
         short_name: 'Emerald Dealer',
@@ -97,6 +100,15 @@ export default defineConfig(({ mode }) => {
       }
       })
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('/node_modules/@supabase/')) return 'supabase';
+          }
+        }
+      }
+    },
     test: {
       environment: 'node'
     }
