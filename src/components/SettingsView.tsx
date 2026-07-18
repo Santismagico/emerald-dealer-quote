@@ -363,7 +363,7 @@ export function SettingsView() {
         </p>
       </SectionCard>
 
-      <div className="sticky bottom-24 z-30">
+      <div>
         <Button full onClick={handleSave} disabled={!dirty}>
           {dirty ? 'Guardar ajustes' : 'Ajustes guardados ✓'}
         </Button>

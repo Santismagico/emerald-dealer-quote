@@ -546,11 +546,6 @@ html::-webkit-scrollbar-track {
     margin-top: 0;
   }
 
-  .quote-form-actions {
-    position: sticky;
-    bottom: 1rem;
-    z-index: 30;
-  }
 }
 
 @media (max-width: 360px) {
