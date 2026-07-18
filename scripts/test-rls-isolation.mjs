@@ -182,6 +182,7 @@ export async function runN6(env = process.env) {
   const password = `N6-${crypto.randomUUID()}-Aa1!`
   const users = []
   const organizations = []
+  const apis = []
   const startedAt = Date.now()
 
   try {
@@ -191,7 +192,6 @@ export async function runN6(env = process.env) {
       users.push({ id: created.user.id, email })
     }
 
-    const apis = []
     for (const [index, user] of users.entries()) {
       const api = client(config.url, config.publishableKey)
       assertSuccess(await api.auth.signInWithPassword({ email: user.email, password }), `ingreso usuario ${index + 1}`)
@@ -242,6 +242,9 @@ export async function runN6(env = process.env) {
     writeFileSync(resolve(directory, 'n6-evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8')
     return evidence
   } finally {
+    for (const api of apis) {
+      await api.auth.signOut({ scope: 'global' })
+    }
     if (organizations.length > 0) {
       await admin.from('organizations').delete().in('id', organizations)
     }

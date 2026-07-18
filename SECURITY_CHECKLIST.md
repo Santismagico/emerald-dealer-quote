@@ -32,6 +32,7 @@
 - [x] Escrituras directas cerradas; la aplicación solo puede cambiar datos mediante operaciones protegidas.
 - [x] Validación en servidor para identificadores, fechas, estados y valores COP críticos.
 - [x] Publicación manual con revisión de credenciales, dependencias, pruebas, compilación y evidencia por commit.
+- [x] Proyecto desechable de São Paulo creado, migraciones aplicadas, nueve tablas con RLS y confirmación de correo activada.
 - [ ] Ejecutar N6 contra el proyecto real de pruebas y adjuntar la evidencia al commit exacto.
 - [ ] Aprobar una matriz de permisos antes de habilitar invitaciones o varios roles.
 - [ ] HTTPS obligatorio, cabeceras de seguridad, rate limiting.

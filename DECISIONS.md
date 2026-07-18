@@ -462,3 +462,15 @@ Este cambio no publica, no modifica `main` ni activa el muro de cuenta en el sit
 Antes de invitaciones debe aprobarse la matriz de permisos owner/admin/seller. Antes de
 datos reales siguen pendientes N6 en el proyecto de pruebas, revisión legal, recuperación
 y auditoría independiente.
+
+## D-037 · Proyecto aislado para pruebas reales de nube · 2026-07-18 · Vigente
+
+Santiago confirmó el costo de **US$0 al mes** y autorizó crear **Emerald Dealer -
+Pruebas Fase 2** en São Paulo dentro de su organización de Supabase. El proyecto anterior
+de Canadá queda intacto y no se considera entorno de pruebas aprobado.
+
+Las cuatro migraciones se aplicaron únicamente al nuevo proyecto. La URL y la clave
+publicable quedan en `.env.local`, ignorado por Git. La clave secreta no se extrae ni se
+guarda: N6 la solicita de forma oculta, la mantiene solo durante la ejecución y la elimina
+de la sesión al terminar. El proyecto sigue siendo desechable y no puede recibir datos
+reales de clientes. Esta decisión no publica la aplicación ni modifica `main`.

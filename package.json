@@ -18,6 +18,7 @@
     "security:evidence": "node scripts/verify-security-evidence.mjs",
     "security:record": "node scripts/verify-security-evidence.mjs --write",
     "security:n6": "node scripts/test-rls-isolation.mjs",
+    "security:n6:secure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-n6-secure.ps1",
     "security:check": "npm audit --audit-level=high && npm run security:secrets:test && npm run security:secrets && npm run security:evidence && npm test && npm run build"
   },
   "dependencies": {

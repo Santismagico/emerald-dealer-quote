@@ -176,7 +176,7 @@ Informe acumulativo para la revisión final de Fable.
 
 - Prueba previa controlada: 2 pruebas nuevas fallaron antes del cambio, demostrando la ausencia del control.
 - Prueba posterior: 497 de 497 aprobadas.
-- La validación en un proyecto real queda pendiente de N5/N6; no se declara lista para producción antes de esa evidencia.
+- La estructura y los permisos ya se validaron en el proyecto real de pruebas; el aislamiento completo con dos cuentas sigue pendiente de N6.
 
 ## S2 — Controles de candidata y publicación manual
 
@@ -197,6 +197,35 @@ Informe acumulativo para la revisión final de Fable.
 
 ### Pendiente antes de beta
 
-- Crear o identificar el proyecto desechable de pruebas en São Paulo.
-- Aplicar las cuatro migraciones, ejecutar N6, revisar los avisos de Supabase y adjuntar la evidencia al commit exacto.
+- Ejecutar N6 y adjuntar la evidencia al commit exacto.
+- Completar el ensayo de uso, modo sin conexión y recuperación de N7.
 - Nombrar un revisor independiente antes de aceptar datos reales.
+
+## N5 — Proyecto real de pruebas y conexión segura
+
+### Resultado
+
+- Se creó **Emerald Dealer - Pruebas Fase 2** dentro de la organización Emerald Dealer, región São Paulo, con costo confirmado de US$0 al mes.
+- El proyecto anterior **ED Project** de Canadá no se modificó.
+- Las cuatro migraciones se aplicaron en orden y quedaron registradas en el historial del proyecto.
+- La comprobación real confirmó nueve tablas con RLS activo, seis permisos de lectura autenticada, cero permisos de escritura directa y cero políticas de escritura directa.
+- Las catorce operaciones públicas elevadas tienen ruta interna vacía, niegan ejecución anónima y administrativa, y solo permiten la llamada autenticada prevista.
+- El registro está habilitado y exige confirmación de correo.
+- La URL y la clave publicable viven únicamente en `.env.local`, ignorado por Git. La clave secreta no se extrajo, no se guardó y no se mostró.
+
+### Avisos del proveedor
+
+- `org_counters` aparece con RLS y sin políticas. Es intencional: no admite acceso directo y solo lo usa el consecutivo protegido.
+- Supabase advierte que las catorce operaciones elevadas son ejecutables por personas autenticadas. Es la frontera intencional de escritura; cada operación valida sesión, membresía, rol y datos, y no permite elegir otra joyería.
+- Los índices aparecen todavía sin uso porque el proyecto está vacío. Se revisarán nuevamente después de N6/N7 con datos ficticios.
+
+### Comprobaciones locales
+
+- CSP aprobada con nube y sin nube; el verificador se corrigió para leer la misma configuración que la compilación.
+- Revisión completa: 497 pruebas, compilación correcta, cero vulnerabilidades y ningún secreto detectado.
+- Se agregó un asistente de Windows que pide la clave secreta de forma oculta, la mantiene solo durante N6 y la elimina de la sesión al terminar.
+
+### Pendiente para cerrar N5/N6
+
+- Santiago debe copiar una sola vez la clave secreta del proyecto de **pruebas** dentro del aviso oculto. No debe pegarla en el chat ni guardarla en archivos.
+- N6 creará y eliminará automáticamente dos cuentas y dos joyerías ficticias. Si falla un solo aislamiento, la fase se detiene.
