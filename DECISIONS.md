@@ -417,3 +417,30 @@ al respaldo y al PDF), con mensaje claro si no se logra reducir. Además, el bot
 superponía al contenido al deslizar, mismo defecto que Santiago ya había rechazado en
 el cotizador) y conserva la posición flotante solo en computador, igual que las
 acciones del formulario. Sin dependencias nuevas.
+
+## D-035 · Arranque de la Fase 2 (nube) y primera dependencia nueva · 2026-07-18 · Vigente
+
+Santiago ordenó arrancar la Fase 2 del plan SaaS (D-031/D-032). Fable escribió la orden
+de trabajo arquitectónica completa en `docs/FASE2_ORDEN_DE_TRABAJO_CODEX.md`; Codex
+ejecuta en la rama `codex/fase2-nube` y Fable audita al cierre. Decisiones de
+arquitectura fijadas en esa orden:
+
+1. **Bandera de entorno:** sin `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` al compilar,
+   la app es EXACTAMENTE la actual (el build público del piloto no cambia). El corte al
+   muro de login es una orden aparte de Santiago; los pilotos convertirán sus datos en
+   la misma URL con el importador de origen local.
+2. **Primera dependencia nueva del proyecto: `@supabase/supabase-js`**, autorizada por
+   ser el cliente oficial que gestiona sesiones y renovación de tokens (prohibido
+   construir auth propia). Se carga con import dinámico solo cuando la nube está activa.
+3. **Esquema multi-organización** con claves compuestas (organization_id, id-texto
+   local), RLS en todas las tablas, funciones security-definer para organización,
+   consecutivo con bloqueo y upserts LWW por `updatedAt`.
+4. **Sincronización v1:** online-first con caché IndexedDB y outbox serial persistente
+   (nuevo almacén al final de la escalera, D-022); LWW en ambos sentidos; sin Realtime.
+5. **Pruebas innegociables antes de la beta:** aislamiento total entre organizaciones
+   (4 operaciones × 6 tablas + RPCs + anon + membresía ajena) y consecutivo sin
+   duplicados bajo concurrencia, contra el proyecto real, con script reproducible.
+
+La cuenta de Supabase la crea Santiago guiado (etapa N5); la service key jamás entra al
+repositorio. El plan de corte del enlace público queda documentado pero NO se ejecuta
+sin su orden.
