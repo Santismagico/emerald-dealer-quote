@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { defineConfig, type PluginOption } from 'vite';
+import { defineConfig, loadEnv, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -13,7 +13,17 @@ import { VitePWA } from 'vite-plugin-pwa';
  * seguridad de index.html) se permiten por hash, no con 'unsafe-inline'.
  * Únicos destinos de red permitidos: las dos APIs del precio del oro.
  */
-function cspPlugin(): PluginOption {
+export function supabaseConnectOrigin(url: string | undefined): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' ? parsed.origin : '';
+  } catch {
+    return '';
+  }
+}
+
+function cspPlugin(cloudOrigin: string): PluginOption {
   const hashPlaceholder = '__INLINE_SCRIPT_HASHES__';
   return {
     name: 'inject-csp',
@@ -26,7 +36,7 @@ function cspPlugin(): PluginOption {
           `script-src 'self' ${hashPlaceholder}`,
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob:",
-          "connect-src 'self' https://api.gold-api.com https://open.er-api.com",
+          `connect-src 'self' https://api.gold-api.com https://open.er-api.com${cloudOrigin ? ` ${cloudOrigin}` : ''}`,
           "manifest-src 'self'",
           "worker-src 'self'",
           "object-src 'none'",
@@ -54,15 +64,18 @@ function cspPlugin(): PluginOption {
 // El workflow de despliegue define DEPLOY_BASE.
 const base = process.env.DEPLOY_BASE || '/';
 
-export default defineConfig({
-  base,
-  define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'dev')
-  },
-  plugins: [
-    react(),
-    tailwindcss(),
-    cspPlugin(),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const cloudOrigin = supabaseConnectOrigin(env.VITE_SUPABASE_URL);
+  return {
+    base,
+    define: {
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'dev')
+    },
+    plugins: [
+      react(),
+      tailwindcss(),
+      cspPlugin(cloudOrigin),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
@@ -82,9 +95,10 @@ export default defineConfig({
           { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       }
-    })
-  ],
-  test: {
-    environment: 'node'
-  }
+      })
+    ],
+    test: {
+      environment: 'node'
+    }
+  };
 });

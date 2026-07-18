@@ -14,4 +14,12 @@ if (html.includes("script-src 'self' 'unsafe-inline'") || html.includes("script-
 }
 if (html.includes('__INLINE_SCRIPT_HASHES__')) throw new Error('Quedó un marcador CSP sin resolver.');
 
+const expectedCloudOrigin = process.env.EXPECT_CLOUD_ORIGIN?.trim();
+if (expectedCloudOrigin && !html.includes(`connect-src 'self' https://api.gold-api.com https://open.er-api.com ${expectedCloudOrigin}`)) {
+  throw new Error('La CSP final no contiene el origen de Supabase esperado.');
+}
+if (!expectedCloudOrigin && /connect-src[^;]*\.supabase\.co/.test(html)) {
+  throw new Error('El build local incluyó un origen de Supabase sin configuración.');
+}
+
 console.log('Hash CSP final verificado.');
