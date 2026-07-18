@@ -126,6 +126,16 @@ export function createCloudSync(options: {
         .filter((operation) => operation.table === table)
         .map((operation) => [operation.entityId, operation])
     );
+    const remoteIds = new Set(
+      remoteRows
+        .map((row) => entityId(table, row))
+        .filter((id): id is string => Boolean(id))
+    );
+
+    for (const localRow of localRows) {
+      if (remoteIds.has(localRow.id) || pendingById.has(localRow.id)) continue;
+      await options.cache.remove(table, localRow.id);
+    }
 
     for (const remoteRow of remoteRows) {
       const id = entityId(table, remoteRow);

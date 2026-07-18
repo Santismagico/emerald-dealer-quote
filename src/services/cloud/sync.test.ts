@@ -19,6 +19,63 @@ const remoteQuote = (updated_at: string) => ({
 });
 
 describe('sincronización LWW', () => {
+  it('elimina de este dispositivo una cotización que ya no existe en la nube', async () => {
+    const cache = memoryCache([
+      { id: 'q-1', data: { id: 'q-1' }, updatedAt: '2026-07-18T10:00:00Z' },
+      { id: 'q-2', data: { id: 'q-2' }, updatedAt: '2026-07-18T10:00:00Z' },
+      { id: 'q-3', data: { id: 'q-3' }, updatedAt: '2026-07-18T10:00:00Z' }
+    ]);
+    const sync = createCloudSync({
+      remote: {
+        list: async () => [
+          { id: 'q-1', data: { id: 'q-1' }, updated_at: '2026-07-18T11:00:00Z' },
+          { id: 'q-2', data: { id: 'q-2' }, updated_at: '2026-07-18T11:00:00Z' }
+        ]
+      },
+      cache,
+      listPending: async () => []
+    });
+
+    await sync.pullTable('quotes');
+
+    expect([...cache.values.keys()].sort()).toEqual(['q-1', 'q-2']);
+  });
+
+  it('conserva una cotización creada sin conexión que todavía espera subir', async () => {
+    const cache = memoryCache([
+      { id: 'q-local', data: { id: 'q-local' }, updatedAt: '2026-07-18T12:00:00Z' }
+    ]);
+    const pending = [{
+      id: 'op-local', table: 'quotes', type: 'upsert', entityId: 'q-local', data: { id: 'q-local' },
+      updatedAt: '2026-07-18T12:00:00Z', queuedAt: 1, attempts: 0, nextAttemptAt: 0
+    } satisfies CloudOutboxOperation];
+    const sync = createCloudSync({
+      remote: { list: async () => [] },
+      cache,
+      listPending: async () => pending
+    });
+
+    await sync.pullTable('quotes');
+
+    expect(cache.values.has('q-local')).toBe(true);
+  });
+
+  it('si la consulta remota falla deja intacta toda la caché', async () => {
+    const original = [
+      { id: 'q-1', data: { id: 'q-1' }, updatedAt: '2026-07-18T10:00:00Z' },
+      { id: 'q-2', data: { id: 'q-2' }, updatedAt: '2026-07-18T10:00:00Z' }
+    ];
+    const cache = memoryCache(original);
+    const sync = createCloudSync({
+      remote: { list: async () => { throw new Error('sin red'); } },
+      cache,
+      listPending: async () => []
+    });
+
+    await expect(sync.pullTable('quotes')).rejects.toThrow('sin red');
+    expect([...cache.values.values()]).toEqual(original);
+  });
+
   it('la versión remota más reciente reemplaza la caché', async () => {
     const cache = memoryCache([{
       id: 'q-1', data: { id: 'q-1', pieceDescription: 'Versión local' }, updatedAt: '2026-07-18T10:00:00Z'
