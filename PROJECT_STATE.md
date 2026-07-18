@@ -2,7 +2,9 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-17 por Codex al cerrar la Fase 1 pre-SaaS. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-18 por Fable al arrancar la Fase 2. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+
+> **SIGUIENTE TRABAJO (Codex): ejecutar la Fase 2 según `docs/FASE2_ORDEN_DE_TRABAJO_CODEX.md`** (D-035), en la rama `codex/fase2-nube`, sin tocar `main`. La v1.0.1 publicada sigue siendo la del piloto de siete joyerías. C13 (selector de fotos en el Xiaomi de Santiago) está en pausa, diagnosticado como permisos MIUI/app Archivos; la nota de ayuda para usuarios Xiaomi se incluye en la siguiente tanda de correcciones.
 
 ## Qué aplicación es
 
