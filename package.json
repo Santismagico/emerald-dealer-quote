@@ -12,7 +12,13 @@
     "test:csp": "npm run build && node scripts/verify-csp-hash.mjs",
     "test:watch": "vitest",
     "icons": "node scripts/generate-app-icon-source.mjs && node scripts/generate-icons.mjs && node scripts/verify-pwa-assets.mjs",
-    "test:assets": "node scripts/verify-pwa-assets.mjs"
+    "test:assets": "node scripts/verify-pwa-assets.mjs",
+    "security:secrets:test": "node --test scripts/check-tracked-secrets.node-tests.mjs scripts/test-rls-isolation.guard.node-tests.mjs",
+    "security:secrets": "node scripts/check-tracked-secrets.mjs",
+    "security:evidence": "node scripts/verify-security-evidence.mjs",
+    "security:record": "node scripts/verify-security-evidence.mjs --write",
+    "security:n6": "node scripts/test-rls-isolation.mjs",
+    "security:check": "npm audit --audit-level=high && npm run security:secrets:test && npm run security:secrets && npm run security:evidence && npm test && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",

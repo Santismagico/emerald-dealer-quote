@@ -27,8 +27,13 @@
 
 ## Obligatorio antes de cualquier versión con backend/SaaS
 
-- [ ] Autenticación gestionada (no casera) y autorización validada en backend.
-- [ ] Aislamiento por `organization_id` en TODAS las consultas (idealmente RLS).
+- [x] Autenticación gestionada (no casera) y autorización validada en operaciones protegidas.
+- [x] Aislamiento por `organization_id` en todas las tablas, con RLS activado.
+- [x] Escrituras directas cerradas; la aplicación solo puede cambiar datos mediante operaciones protegidas.
+- [x] Validación en servidor para identificadores, fechas, estados y valores COP críticos.
+- [x] Publicación manual con revisión de credenciales, dependencias, pruebas, compilación y evidencia por commit.
+- [ ] Ejecutar N6 contra el proyecto real de pruebas y adjuntar la evidencia al commit exacto.
+- [ ] Aprobar una matriz de permisos antes de habilitar invitaciones o varios roles.
 - [ ] HTTPS obligatorio, cabeceras de seguridad, rate limiting.
 - [ ] Secretos en gestor de secretos, jamás en el repo.
 - [ ] Backups cifrados y política de retención.

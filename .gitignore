@@ -15,6 +15,7 @@ respaldo-*.json
 capturas-locales/
 screenshots/
 *.screenshot.png
+security-evidence/
 
 # Mapa de conocimiento Graphify (generado, se reconstruye con /graphify)
 graphify-out/

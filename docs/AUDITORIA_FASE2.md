@@ -153,3 +153,50 @@ Informe acumulativo para la revisión final de Fable.
 - Detección de datos locales y nube vacía.
 - Corte de conexión con conservación de pendientes.
 - Suite completa: 495 pruebas aprobadas y compilación correcta.
+
+## S1 — Frontera única de escritura y validación en servidor
+
+### Hallazgos
+
+| Severidad | Descripción | Archivo | Estado |
+|---|---|---|---|
+| Alta | El navegador conservaba permisos de escritura directa y podía evitar las validaciones de las operaciones protegidas. | `supabase/migrations/0001_esquema.sql`, `0002_rls.sql` | Corregido por migración nueva |
+| Alta | Los datos JSON aceptaban identificadores distintos, fechas absurdas, estados inventados o dinero negativo/fraccionado. | `supabase/migrations/0003_funciones.sql` | Corregido por migración nueva |
+| Media | Los objetos futuros podían heredar permisos amplios si una migración olvidaba cerrarlos. | Privilegios por defecto de PostgreSQL | Corregido |
+
+### Decisiones tomadas
+
+- Las lecturas directas continúan aisladas por joyería; crear, editar y eliminar solo se permite mediante operaciones protegidas.
+- Las operaciones obtienen la joyería desde la sesión y comprueban la membresía y el rol.
+- Ajustes quedan reservados para owner/admin. Los registros operativos permiten owner/admin/seller hasta que exista una matriz de permisos aprobada antes de las invitaciones.
+- La base valida identificadores, fechas, estados permitidos y los valores COP críticos como enteros no negativos.
+- Existe un retroceso de emergencia separado de las migraciones automáticas. Reabriría temporalmente una frontera menos segura y requiere autorización y corrección inmediata.
+
+### Evidencia
+
+- Prueba previa controlada: 2 pruebas nuevas fallaron antes del cambio, demostrando la ausencia del control.
+- Prueba posterior: 497 de 497 aprobadas.
+- La validación en un proyecto real queda pendiente de N5/N6; no se declara lista para producción antes de esa evidencia.
+
+## S2 — Controles de candidata y publicación manual
+
+### Decisiones tomadas
+
+- Un cambio en `main` deja de publicar automáticamente.
+- La publicación exige una ejecución manual, el commit exacto aprobado por N6 y la palabra `PUBLICAR`.
+- Cada candidata revisa dependencias, credenciales, migraciones, pruebas y compilación.
+- La evidencia no contiene claves y queda asociada al commit durante 90 días.
+- N6 tiene un guardia que se niega a trabajar si la dirección, el nombre y la confirmación no corresponden al proyecto desechable de pruebas.
+
+### Pruebas agregadas
+
+- Detección de archivos privados, llaves, tokens y URLs con contraseña sin imprimir el valor detectado.
+- Aceptación de variables y ejemplos que no contienen una credencial real.
+- Cinco rechazos del guardia N6 ante proyecto incorrecto, nombre no seguro, marca de producción o confirmación incompleta.
+- Comprobación automática de que el flujo público no tiene activación por `push` y exige todos los controles.
+
+### Pendiente antes de beta
+
+- Crear o identificar el proyecto desechable de pruebas en São Paulo.
+- Aplicar las cuatro migraciones, ejecutar N6, revisar los avisos de Supabase y adjuntar la evidencia al commit exacto.
+- Nombrar un revisor independiente antes de aceptar datos reales.

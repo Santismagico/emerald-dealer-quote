@@ -444,3 +444,21 @@ arquitectura fijadas en esa orden:
 La cuenta de Supabase la crea Santiago guiado (etapa N5); la service key jamás entra al
 repositorio. El plan de corte del enlace público queda documentado pero NO se ejecuta
 sin su orden.
+
+## D-036 · Frontera de escritura y salida al mercado auditable · 2026-07-18 · Vigente
+
+Santiago aprobó las dos medidas de endurecimiento previas a continuar con la nube:
+
+1. **Escrituras únicamente por operaciones protegidas.** Las lecturas continúan aisladas
+   por RLS, pero el navegador pierde los permisos directos para crear, editar o eliminar.
+   La base comprueba membresía, rol, identificadores, fechas, estados y valores COP
+   críticos antes de guardar. Los objetos futuros nacen sin permisos implícitos.
+2. **Candidatas por etapas y publicación humana.** Dependencias, credenciales, migraciones,
+   pruebas, compilación y aislamiento N6 generan evidencia por commit. GitHub Pages deja
+   de publicar por un simple cambio en `main`: exige ejecución manual, el commit exacto
+   aprobado por N6 y la confirmación `PUBLICAR`.
+
+Este cambio no publica, no modifica `main` ni activa el muro de cuenta en el sitio actual.
+Antes de invitaciones debe aprobarse la matriz de permisos owner/admin/seller. Antes de
+datos reales siguen pendientes N6 en el proyecto de pruebas, revisión legal, recuperación
+y auditoría independiente.
