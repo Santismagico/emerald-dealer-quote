@@ -220,6 +220,10 @@ export function startOutboxTriggers(
 
   onlineSource.addEventListener('online', flush);
   visibilitySource.addEventListener('visibilitychange', visibleFlush);
+  // Al arrancar no ocurre ningún evento: la app ya está visible y ya hay red.
+  // Sin este intento inicial, lo encolado en una sesión anterior queda esperando
+  // para siempre un aviso que nunca llega.
+  visibleFlush();
   return () => {
     onlineSource.removeEventListener('online', flush);
     visibilitySource.removeEventListener('visibilitychange', visibleFlush);

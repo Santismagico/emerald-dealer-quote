@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createCloudOutbox,
+  startOutboxTriggers,
   type CloudOutboxOperation,
   type OutboxRepository
 } from './outbox';
@@ -256,5 +257,36 @@ describe('cola de sincronización', () => {
     expect(await outbox.flush()).toEqual({ processed: 1, pending: 2 });
     expect((await outbox.list()).map((operation) => operation.entityId)).toEqual(['q-2', 'q-3']);
     expect((await outbox.list())[0].attempts).toBe(1);
+  });
+  it('al arrancar sube lo pendiente de la sesión anterior sin esperar ningún evento', async () => {
+    // El caso real: crear sin señal, cerrar la app, reabrirla con internet.
+    // Al abrir no ocurre ni "online" ni "visibilitychange": la subida debe
+    // dispararse sola o el cambio queda esperando para siempre.
+    const repository = memoryRepository();
+    const uploaded: string[] = [];
+    const flushed = deferred();
+    const outbox = createCloudOutbox({
+      repository,
+      createId: (() => { let id = 0; return () => `op-boot-${++id}`; })(),
+      now: () => 1_000,
+      execute: async (operation) => {
+        uploaded.push(operation.entityId);
+        flushed.resolve();
+      }
+    });
+    await outbox.enqueue({
+      table: 'quotes', type: 'upsert', entityId: 'q-pendiente-de-ayer',
+      data: { id: 'q-pendiente-de-ayer' }, updatedAt: '2026-07-18T10:00:00Z'
+    });
+
+    const silentSource = { addEventListener: () => {}, removeEventListener: () => {} };
+    const stop = startOutboxTriggers(outbox, silentSource, silentSource);
+    await flushed.promise;
+    // Esperar a que la subida iniciada al arrancar termine su limpieza.
+    await outbox.flush();
+    stop();
+
+    expect(uploaded).toEqual(['q-pendiente-de-ayer']);
+    expect(await outbox.status()).toMatchObject({ pending: 0, held: 0 });
   });
 });
