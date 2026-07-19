@@ -327,11 +327,22 @@ button {
 .atelier .shadow-xl {
   box-shadow: var(--shadow-lift);
 }
+/* Las ventanas emergentes respetan la franja de la navegación inferior:
+   sin este colchón, sus botones quedan incrustados detrás del menú fijo
+   en teléfonos (los diálogos usan max-h-full y se desplazan por dentro). */
 .atelier .fixed.inset-0.bg-black\/40,
 .atelier .fixed.inset-0.bg-black\/70 {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
   background-color: var(--overlay);
   backdrop-filter: blur(4px);
+}
+
+/* En computador la navegación es lateral: el colchón inferior vuelve al normal. */
+@media (min-width: 1024px) {
+  .atelier .fixed.inset-0.bg-black\/40,
+  .atelier .fixed.inset-0.bg-black\/70 {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  }
 }
 
 /* Los documentos para el cliente conservan su papel claro en ambos temas. */

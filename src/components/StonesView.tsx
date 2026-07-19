@@ -270,7 +270,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="truncate text-base font-semibold text-stone-900">{lotDisplayName(lot)}</h3>
@@ -585,7 +585,7 @@ function LotForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <h3 className="text-base font-semibold text-stone-900">
           {isNew ? 'Nueva compra (lote)' : 'Editar compra del lote'}
         </h3>
@@ -704,7 +704,7 @@ function SupplierPaymentForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <h3 className="text-base font-semibold text-stone-900">
           {isNew ? 'Pago al proveedor' : 'Editar pago'}
         </h3>
@@ -784,7 +784,7 @@ function SaleForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <h3 className="text-base font-semibold text-stone-900">
           {isNew ? 'Registrar venta' : 'Editar venta'}
         </h3>

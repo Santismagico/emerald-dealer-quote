@@ -164,7 +164,7 @@ export function AgendaView() {
           onClick={() => setStatusMenuFor(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+            className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold text-stone-900">Estado de la cita</h3>
@@ -261,7 +261,7 @@ function AppointmentForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <h3 className="text-base font-semibold text-stone-900">
           {isNew ? 'Nueva cita' : 'Editar cita'}
         </h3>

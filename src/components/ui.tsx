@@ -268,7 +268,7 @@ export function ConfirmDialog({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] backdrop-blur-sm sm:items-center">
-      <div className="luxury-card w-full max-w-sm rounded-2xl p-5 shadow-xl">
+      <div className="luxury-card max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl p-5 shadow-xl">
         <h3 className="text-lg font-semibold text-stone-900">{title}</h3>
         <p className="mt-2 text-sm text-stone-600">{message}</p>
         <div className="mt-5 flex gap-3">

@@ -161,7 +161,7 @@ export function HistoryView({
           onClick={() => setStatusMenuFor(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+            className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold text-stone-900">Cambiar estado</h3>
