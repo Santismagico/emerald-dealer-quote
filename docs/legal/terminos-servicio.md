@@ -6,7 +6,7 @@
 
 ## 1. Identificación y aceptación
 
-Emerald Dealer es ofrecido por Héctor Germán Santiago Orjuela Rodríguez (persona natural, Bogotá, Colombia; contacto: sanitisorjuela@gmail.com, WhatsApp 3105725618). Al crear o usar una cuenta, la joyería acepta estos términos mediante una casilla explícita, registrada con fecha, hora y versión del texto. La autorización de tratamiento de datos se solicita por separado.
+Emerald Dealer es ofrecido por Héctor Germán Santiago Orjuela Rodríguez (persona natural, Bogotá, Colombia; contacto: santisorjuela@gmail.com, WhatsApp 3105725618). Al crear o usar una cuenta, la joyería acepta estos términos mediante una casilla explícita, registrada con fecha, hora y versión del texto. La autorización de tratamiento de datos se solicita por separado.
 
 ## 2. Servicio
 
