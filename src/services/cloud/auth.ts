@@ -1,9 +1,85 @@
 import type { Settings } from '../../types';
 import { getSupabase } from './config';
 
+/** Versiones independientes de los textos que hoy siguen en borrador. */
+export const TERMS_VERSION = 'draft-2026-07-20';
+export const PRIVACY_VERSION = 'draft-2026-07-20';
+export const NOTICE_VERSION = 'draft-2026-07-20';
+
+export interface LegalAcceptance {
+  acceptedTerms: boolean;
+  acceptedPrivacy: boolean;
+}
+
+export interface LegalAcceptanceRequirements {
+  needsTermsAcceptance: boolean;
+  needsPrivacyAcceptance: boolean;
+}
+
+export interface CloudUserMetadata {
+  password_set_by_user?: boolean;
+  accepted_terms_at?: string;
+  accepted_privacy_at?: string;
+  accepted_notice_at?: string;
+  /** Campo agregado antiguo; no se usa para decidir si una aceptación está vigente. */
+  legal_version?: string;
+  terms_version?: string;
+  privacy_version?: string;
+  notice_version?: string;
+  /** Campo usado por las cuentas creadas antes de versionar cada documento. */
+  legal_draft_date?: string;
+}
+
 export interface CloudUser {
   id: string;
   email?: string;
+  user_metadata?: CloudUserMetadata | null;
+}
+
+/** El acceso con contraseña temporal obliga a fijar clave propia en el primer ingreso. */
+export function mustSetOwnPassword(session: CloudSession | null): boolean {
+  if (!session) return false;
+  const metadata = session.user.user_metadata;
+  if (metadata?.password_set_by_user === true) return false;
+  if (metadata?.password_set_by_user === false) return true;
+
+  // Las cuentas antiguas creadas desde la aplicación ya eligieron su propia
+  // contraseña. Sus aceptaciones previas permiten distinguirlas de una cuenta
+  // creada manualmente con contraseña temporal y sin metadata legal.
+  const isLegacySelfSignup = Boolean(
+    metadata?.accepted_terms_at &&
+    metadata?.accepted_privacy_at &&
+    metadata?.legal_draft_date
+  );
+  return !isLegacySelfSignup;
+}
+
+/** Calcula cada aceptación por separado para no sobrescribir evidencia que sigue vigente. */
+export function legalAcceptanceRequirements(
+  session: CloudSession | null
+): LegalAcceptanceRequirements {
+  if (!session) return { needsTermsAcceptance: false, needsPrivacyAcceptance: false };
+  const metadata = session.user.user_metadata;
+  const hasCurrentTerms = Boolean(
+    metadata?.accepted_terms_at &&
+    metadata?.terms_version === TERMS_VERSION
+  );
+  const hasCurrentPrivacy = Boolean(
+    metadata?.accepted_privacy_at &&
+    metadata?.accepted_notice_at &&
+    metadata?.privacy_version === PRIVACY_VERSION &&
+    metadata?.notice_version === NOTICE_VERSION
+  );
+  return {
+    needsTermsAcceptance: !hasCurrentTerms,
+    needsPrivacyAcceptance: !hasCurrentPrivacy
+  };
+}
+
+/** Exige las aceptaciones que falten para la versión visible. */
+export function mustAcceptLegal(session: CloudSession | null): boolean {
+  const requirements = legalAcceptanceRequirements(session);
+  return requirements.needsTermsAcceptance || requirements.needsPrivacyAcceptance;
 }
 
 export interface CloudSession {
@@ -45,7 +121,10 @@ interface SupabaseAuthLike {
       email: string,
       options: { redirectTo: string }
     ) => Promise<{ error: AuthError | null }>;
-    updateUser: (attributes: { password: string }) => Promise<{ error: AuthError | null }>;
+    updateUser: (attributes: {
+      password?: string;
+      data?: Record<string, unknown>;
+    }) => Promise<{ error: AuthError | null }>;
     signOut: () => Promise<{ error: AuthError | null }>;
     onAuthStateChange: (
       callback: (event: CloudAuthEvent, session: CloudSession | null) => void
@@ -68,11 +147,16 @@ export interface CloudAuthService {
     callback: (event: CloudAuthEvent, session: CloudSession | null) => void
   ) => () => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, acceptedLegal: boolean) => Promise<{
+  signUp: (email: string, password: string, acceptance: LegalAcceptance) => Promise<{
     needsEmailConfirmation: boolean;
   }>;
   sendPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  completeFirstAccess: (options: {
+    password?: string;
+    acceptedTerms: boolean;
+    acceptedPrivacy: boolean;
+  }) => Promise<void>;
   signOut: () => Promise<void>;
   getOrganization: () => Promise<CloudOrganization | null>;
   createOrganization: (name: string, settings: Settings) => Promise<CloudOrganization>;
@@ -95,6 +179,31 @@ function throwIfError(error: AuthError | null): void {
 
 function cleanEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function requireFullLegalAcceptance({ acceptedTerms, acceptedPrivacy }: LegalAcceptance): void {
+  if (!acceptedTerms) throw new Error('Debes aceptar los términos de servicio.');
+  if (!acceptedPrivacy) {
+    throw new Error('Debes autorizar el tratamiento de datos y aceptar la política de privacidad.');
+  }
+}
+
+function legalAcceptanceMetadata(
+  acceptedAt: string,
+  { acceptedTerms, acceptedPrivacy }: LegalAcceptance
+): Record<string, unknown> {
+  const metadata: Record<string, unknown> = {};
+  if (acceptedTerms) {
+    metadata.accepted_terms_at = acceptedAt;
+    metadata.terms_version = TERMS_VERSION;
+  }
+  if (acceptedPrivacy) {
+    metadata.accepted_privacy_at = acceptedAt;
+    metadata.accepted_notice_at = acceptedAt;
+    metadata.privacy_version = PRIVACY_VERSION;
+    metadata.notice_version = NOTICE_VERSION;
+  }
+  return metadata;
 }
 
 function appRedirectUrl(): string {
@@ -133,8 +242,8 @@ export function createCloudAuthService(
       });
       throwIfError(result.error);
     },
-    async signUp(email, password, acceptedLegal) {
-      if (!acceptedLegal) throw new Error('Debes aceptar los términos y la política de privacidad.');
+    async signUp(email, password, acceptance) {
+      requireFullLegalAcceptance(acceptance);
       if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
       const acceptedAt = now().toISOString();
       const result = await (await getClient()).auth.signUp({
@@ -143,14 +252,36 @@ export function createCloudAuthService(
         options: {
           emailRedirectTo: redirectUrl(),
           data: {
-            accepted_terms_at: acceptedAt,
-            accepted_privacy_at: acceptedAt,
-            legal_draft_date: '2026-07-17'
+            password_set_by_user: true,
+            ...legalAcceptanceMetadata(acceptedAt, acceptance)
           }
         }
       });
       throwIfError(result.error);
       return { needsEmailConfirmation: result.data.session === null };
+    },
+    async completeFirstAccess({ password, acceptedTerms, acceptedPrivacy }) {
+      const changesPassword = typeof password === 'string';
+      const changesLegal = acceptedTerms || acceptedPrivacy;
+      if (!changesPassword && !changesLegal) throw new Error('No hay cambios pendientes por guardar.');
+      if (changesPassword && password.length < 8) {
+        throw new Error('La contraseña debe tener al menos 8 caracteres.');
+      }
+
+      const data: Record<string, unknown> = {};
+      if (changesPassword) data.password_set_by_user = true;
+      if (changesLegal) {
+        Object.assign(
+          data,
+          legalAcceptanceMetadata(now().toISOString(), { acceptedTerms, acceptedPrivacy })
+        );
+      }
+
+      const result = await (await getClient()).auth.updateUser({
+        ...(changesPassword ? { password } : {}),
+        data
+      });
+      throwIfError(result.error);
     },
     async sendPasswordReset(email) {
       const result = await (await getClient()).auth.resetPasswordForEmail(cleanEmail(email), {
@@ -160,7 +291,10 @@ export function createCloudAuthService(
     },
     async updatePassword(password) {
       if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
-      const result = await (await getClient()).auth.updateUser({ password });
+      const result = await (await getClient()).auth.updateUser({
+        password,
+        data: { password_set_by_user: true }
+      });
       throwIfError(result.error);
     },
     async signOut() {

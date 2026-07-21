@@ -519,3 +519,24 @@ una respuesta remota exitosa sí representa un borrado entre dispositivos y se a
 La opción de continuar sin importar deja de llamarse "Ahora no": explica que los datos
 seguirán solamente en ese dispositivo y que no aparecerán en otros hasta subirlos desde
 Cuenta. Ante cualquier estado ambiguo, la regla sigue siendo conservar el dato.
+
+## D-041 · Contraseña temporal y aceptación legal son pasos independientes · 2026-07-20 · Vigente en candidata
+
+El cierre del trabajo incompleto de Fable separa dos necesidades que no deben confundirse:
+una cuenta creada manualmente puede tener que reemplazar una contraseña temporal, mientras
+una cuenta existente puede necesitar únicamente revisar una nueva versión legal. La app
+solo muestra y exige el paso que realmente falta. Las cuentas antiguas creadas desde la
+aplicación conservan la contraseña que ya eligieron y cambiar una clave temporal no
+sobrescribe la fecha de aceptación anterior.
+
+La aceptación contractual de los términos y la autorización de tratamiento de datos usan
+dos casillas separadas, nunca premarcadas. La segunda muestra tanto el aviso de tratamiento
+como la política de privacidad. Para continuar deben existir fecha y versión coincidentes
+de términos, política y aviso; un cambio de versión vuelve a pedir únicamente la aceptación
+del documento correspondiente, sin reemplazar la fecha vigente de los demás.
+
+La versión actual se identifica como `draft-2026-07-20` porque los tres documentos aún
+contienen campos pendientes y no tienen revisión profesional. Esta trazabilidad en metadata
+sirve para probar el recorrido técnico, pero no se presenta como evidencia jurídica final:
+antes de mercado se debe decidir con el revisor legal si hace falta un registro inmutable
+con hora del servidor. No se habilita la nube pública ni se modifica `main` con esta decisión.

@@ -224,6 +224,7 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | E5 | E | Adaptar la aplicación a PC con contenido amplio, formularios en columnas y menú lateral | App, QuoteForm, index.css | publicada | e27654a |
 | E6 | E | En Android, devolver Siguiente/Anterior a su posición normal sin perder el desplazamiento corregido | QuoteForm, index.css | publicada | 33d5d53 |
 | E7 | E | En PC, devolver Siguiente/Anterior y Guardar ajustes a su posición normal; ningún botón queda anclado | QuoteForm, SettingsView, index.css | publicada | 877a8cc |
+| C14 | F | Completar el primer acceso legal sin obligar a cambiar una contraseña propia: separar clave temporal y aceptación, exigir términos + autorización de datos + versión vigente, mostrar el aviso y conservar los textos como borradores hasta revisión profesional | cloud/auth, CloudAccountViews, docs/legal | verificada; no publicada | este commit |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._

@@ -17,22 +17,27 @@ LEE PRIMERO, EN ESTE ORDEN (contienen todo el contexto; no adivines nada):
 2. PROJECT_STATE.md — foto del estado real y el siguiente trabajo exacto.
 3. SAAS_PLAN.md — la hoja de ruta de negocio (fases 0–4, calendario a octubre).
 4. docs/FASE2_ORDEN_DE_TRABAJO_CODEX.md — el plano de la fase en curso.
-5. DECISIONS.md, D-028 a D-035 — decisiones vigentes (identidad, pagos,
-   decisiones comerciales, arquitectura de la nube).
+5. DECISIONS.md, D-028 a D-041 — decisiones vigentes (identidad, pagos,
+   arquitectura de la nube y cierre técnico del primer acceso legal).
 6. docs/HOJA_DE_RUTA_CORRECCIONES.md — método de correcciones y su tabla.
 
-ESTADO VERIFICADO AL CIERRE DE LA SESIÓN ANTERIOR (2026-07-18):
+ESTADO VERIFICADO AL CIERRE DE LA SESIÓN ANTERIOR (2026-07-20):
 - `main` = lo PUBLICADO en https://santismagico.github.io/emerald-dealer-quote/
   — versión 1.0.1 "Emerald Dealer": identidad "mesón del joyero" (claro/oscuro),
   ícono "La gema viva", Fase 1 de auditoría completa (2 hallazgos altos
   corregidos), 468 pruebas en 26 archivos, build con verificación PWA y CSP.
 - **Piloto activo:** siete joyerías reales usando la app publicada. La lista de
   sus nombres es PRIVADA de Santiago y JAMÁS se escribe en el repositorio.
-- **Fase 2 (nube) ORDENADA:** Codex la construye en la rama `codex/fase2-nube`
-  siguiendo la orden de trabajo (Supabase + RLS + outbox offline + importador,
-  todo tras bandera de entorno: la app publicada no cambia). Fable audita al
-  cierre igual que en la Fase 1 (verificar afirmaciones contra el código, correr
-  pruebas uno mismo, revisar el diff completo, probar el aislamiento).
+- **Fase 2 (nube) CERRADA COMO CANDIDATA, NO PUBLICADA:** vive en
+  `codex/fase2-nube`; las tres auditorías de Fable y la regresión A1 están
+  cerradas. C14 completó la tanda legal/técnica que Fable dejó inconclusa:
+  contraseña temporal y aceptación son independientes, hay dos casillas,
+  aviso visible y versiones separadas por documento. Cierre: 521 pruebas en
+  35 archivos, PWA, build, CSP y secretos aprobados.
+- **Bloqueo legal vigente:** los tres documentos siguen como `BORRADOR` con
+  campos `[COMPLETAR]`. Faltan datos reales del negocio, revisión profesional
+  y una decisión/implementación para guardar evidencia protegida en servidor;
+  la metadata actual solo demuestra el recorrido técnico.
 - C13 EN PAUSA: en el Xiaomi de Santiago no abre el selector de fotos (ni
   nativo); diagnóstico: permisos MIUI o app "Archivos" deshabilitada. Incluir
   nota de ayuda para Xiaomi en la próxima tanda de correcciones.

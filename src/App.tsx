@@ -20,6 +20,7 @@ import {
   CloudAccessView,
   CloudLoadingView,
   CreateOrganizationView,
+  FirstAccessView,
   PasswordRecoveryView
 } from './components/CloudAccountViews';
 import { CloudImportView } from './components/CloudImportView';
@@ -868,6 +869,7 @@ function CloudEntry() {
   if (!auth.ready) return <CloudLoadingView />;
   if (!auth.session) return <CloudAccessView />;
   if (auth.passwordRecovery) return <PasswordRecoveryView />;
+  if (auth.needsFirstAccess) return <FirstAccessView />;
   if (!auth.organization) return <CreateOrganizationView />;
   return <CloudWorkspace />;
 }

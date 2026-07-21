@@ -37,6 +37,8 @@ Un cambio en el código nunca publica el sitio por sí solo. La publicación es 
 - Falla una prueba, la compilación o la comprobación N6.
 - El proyecto no está claramente marcado como pruebas.
 - La evidencia N6 corresponde a otro commit.
+- Algún documento legal conserva la marca `BORRADOR`, una versión que empieza por `draft-` o un campo `[COMPLETAR]`.
+- No existe aprobación profesional de los tres documentos legales o sigue pendiente la decisión sobre un registro de aceptación protegido en el servidor.
 - No existe autorización expresa de Santiago para publicar.
 - Se intenta utilizar datos reales de clientes en el entorno de pruebas.
 

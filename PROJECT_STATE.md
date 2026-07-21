@@ -2,9 +2,9 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-18 por Codex al cerrar la regresión A1 encontrada en la segunda auditoría independiente. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-07-20 por Codex al cerrar C14, la tanda legal/técnica que Fable dejó incompleta. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
-> **SIGUIENTE TRABAJO: ninguno técnico. La candidata 1.1.0 quedó auditada y aprobada.** Las tres auditorías independientes de Fable están cerradas (`docs/AUDITORIA_FABLE_FASE2.md`, `_SEGUNDA.md`, `_TERCERA.md`): los cinco hallazgos (H1–H4 y A1) fueron corregidos y verificados con pruebas propias del auditor. Queda **O1** como observación menor (ventana estrecha entre guardar y encolar en `cloud/api.ts`), sin bloquear. **Lo que sigue no es código:** documentos legales aprobados por un profesional, SMTP propio probado, decisión sobre contraseñas filtradas y nueva N6 sobre el commit final. `main` y la aplicación pública nunca se modificaron.
+> **SIGUIENTE TRABAJO: completar y aprobar los documentos; no publicar.** C14 dejó verificado el recorrido técnico: contraseña temporal y aceptaciones son pasos independientes, términos y autorización de datos usan casillas separadas, cada documento conserva su propia versión y la app solo vuelve a pedir lo que cambió. Los tres textos siguen marcados como `BORRADOR` y contienen campos `[COMPLETAR]`. Antes de mercado faltan los datos del negocio, revisión profesional, decisión e implementación de evidencia protegida en el servidor, SMTP propio, decisión sobre contraseñas filtradas y nueva N6 sobre el commit final. `main` y la aplicación pública no fueron modificados.
 
 ## Qué aplicación es
 
@@ -22,9 +22,10 @@ PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colomb
 - **Correcciones de la auditoría Fable completadas:** C-N1 sincroniza borrados sin destruir cambios locales pendientes; C-N2 guarda cotizaciones sin señal y reserva el consecutivo en el servidor al reconectar; C-N3 muestra cambios sin subir y permite recuperar rechazos apartados; C-N4 excluye Supabase de la precarga pública.
 - **Regresión A1 corregida:** un pull conserva clientes, cotizaciones y demás datos que solo han existido localmente, incluso si la nube ya contiene otros registros. Solo puede aplicar un borrado remoto sobre registros que ese dispositivo ya reconcilió con la nube. "Ahora no" fue reemplazado por una explicación honesta de que los datos seguirán solo en ese aparato.
 - **Verificación A1:** la prueba de 3 clientes locales contra nube vacía falló antes del arreglo y pasó después; también aprobaron nube no vacía, borrado posterior desde un segundo dispositivo y fallo remoto sin pérdida. Cierre completo: 512/512 pruebas y compilación 1.1.0.
+- **C14 — recorrido legal técnico cerrado:** Fable inició la corrección y Codex la terminó sin presentar los textos como definitivos. Se verificaron 521/521 pruebas en 35 archivos, PWA, compilación 1.1.0, hash CSP, ausencia de secretos y recorrido móvil de registro/documentos sin desbordamiento. La metadata del navegador no es evidencia jurídica final y la nube pública continúa bloqueada.
 - **Verificación de correcciones:** 510/510 pruebas; compilación con nube; compilación pública sin Supabase en `dist/sw.js`; CSP pública exacta; app pública local abierta directamente en el cotizador y sin errores visibles.
 - **Verificación de cierre:** 498 pruebas en 34 archivos, PWA, compilación 1.1.0 y hash CSP final aprobados; 0 vulnerabilidades conocidas y ningún secreto detectado.
-- **Siguiente decisión:** Fable o un revisor independiente audita la rama. Publicar únicamente después de cerrar los bloqueos premercado y con orden expresa de Santiago.
+- **Siguiente decisión:** Santiago completa los datos reales del negocio y entrega los tres borradores a revisión contable/profesional; después se define el registro protegido de aceptación. Publicar únicamente tras cerrar todos los bloqueos premercado y con orden expresa de Santiago.
 
 - Base de Fable conservada: `fable/regeneracion-emerald-dealer-quote-v1` hasta `fb564ca`. Correcciones de Codex: `codex/correcciones-finales-fable`. Ninguna de esas ramas publica la aplicación por sí sola.
 - Punto de restauración de esta tanda: tag `punto-seguro-estabilizacion-fondo-2026-07-16`, subido a GitHub antes de las correcciones de Codex.
@@ -101,7 +102,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 ## Siguiente paso exacto
 
-**REGRESIÓN A1 CERRADA EN RAMA SEGURA (2026-07-18):** la segunda auditoría aprobó C-N2, C-N3 y C-N4, y encontró que C-N1 podía borrar el historial local anterior a la nube. A1 conserva ahora todo dato no reconciliado y mantiene los borrados multidispositivo para registros ya vistos en la nube. El siguiente paso es la tercera auditoría independiente contra el código y el diff completo. Antes de publicar siguen pendientes SMTP propio probado, documentos legales aprobados y una nueva N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin una orden separada y expresa de Santiago.**
+**C14 CERRADA COMO RECORRIDO TÉCNICO, NO COMO APROBACIÓN LEGAL (2026-07-20):** las tres auditorías de Fable y la regresión A1 ya estaban cerradas. La tanda inconclusa de términos quedó terminada y verificada en `codex/fase2-nube`: dos casillas independientes, aviso visible, versiones por documento y primer acceso que no obliga a reemplazar una contraseña propia. El siguiente paso es completar los campos del negocio, obtener revisión profesional y decidir la evidencia protegida en servidor. Después siguen SMTP propio, decisión sobre contraseñas filtradas y N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin una orden separada y expresa de Santiago.**
 
 **Estado público anterior:** `main` conserva la versión del piloto. La publicación de Fase 1 fue autorizada por Santiago y está documentada en `docs/AUDITORIA_FASE1.md`; Fase 2 no ha sido publicada.
 

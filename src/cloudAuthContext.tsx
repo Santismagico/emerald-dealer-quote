@@ -11,10 +11,13 @@ import type { Settings } from './types';
 import { cloudEnabled } from './services/cloud/config';
 import {
   cloudAuth,
+  legalAcceptanceRequirements,
+  mustSetOwnPassword,
   type CloudAuthEvent,
   type CloudAuthService,
   type CloudOrganization,
-  type CloudSession
+  type CloudSession,
+  type LegalAcceptance
 } from './services/cloud/auth';
 
 interface CloudAuthContextValue {
@@ -22,12 +25,23 @@ interface CloudAuthContextValue {
   session: CloudSession | null;
   organization: CloudOrganization | null;
   passwordRecovery: boolean;
+  /** Cuenta que aún debe fijar su contraseña propia o aceptar los documentos legales. */
+  needsFirstAccess: boolean;
+  needsPasswordSetup: boolean;
+  needsLegalAcceptance: boolean;
+  needsTermsAcceptance: boolean;
+  needsPrivacyAcceptance: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, acceptedLegal: boolean) => Promise<{
+  signUp: (email: string, password: string, acceptance: LegalAcceptance) => Promise<{
     needsEmailConfirmation: boolean;
   }>;
   sendPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  completeFirstAccess: (options: {
+    password?: string;
+    acceptedTerms: boolean;
+    acceptedPrivacy: boolean;
+  }) => Promise<void>;
   signOut: () => Promise<void>;
   createOrganization: (name: string, settings: Settings) => Promise<void>;
   refreshOrganization: () => Promise<void>;
@@ -94,12 +108,23 @@ export function CloudAuthProvider({
     setOrganization(await service.getOrganization());
   }, [service]);
 
+  const needsPasswordSetup = mustSetOwnPassword(session);
+  const { needsTermsAcceptance, needsPrivacyAcceptance } =
+    legalAcceptanceRequirements(session);
+  const needsLegalAcceptance = needsTermsAcceptance || needsPrivacyAcceptance;
+  const needsFirstAccess = needsPasswordSetup || needsLegalAcceptance;
+
   return (
     <CloudAuthContext.Provider value={{
       ready,
       session,
       organization,
       passwordRecovery,
+      needsFirstAccess,
+      needsPasswordSetup,
+      needsLegalAcceptance,
+      needsTermsAcceptance,
+      needsPrivacyAcceptance,
       async signIn(email, password) {
         await service.signIn(email, password);
         await applySession(await service.getSession(), 'SIGNED_IN');
@@ -109,6 +134,11 @@ export function CloudAuthProvider({
       async updatePassword(password) {
         await service.updatePassword(password);
         setPasswordRecovery(false);
+      },
+      async completeFirstAccess(options) {
+        await service.completeFirstAccess(options);
+        // Releer la sesión trae la metadata actualizada y apaga el primer acceso.
+        await applySession(await service.getSession(), 'SIGNED_IN');
       },
       async signOut() {
         await service.signOut();

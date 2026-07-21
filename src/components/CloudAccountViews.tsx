@@ -1,11 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import termsSource from '../../docs/legal/terminos-servicio.md?raw';
 import privacySource from '../../docs/legal/politica-privacidad.md?raw';
+import noticeSource from '../../docs/legal/aviso-tratamiento-datos.md?raw';
 import { defaultSettings } from '../services/storage';
 import { useCloudAuth } from '../cloudAuthContext';
 import { Button, Field, SectionCard, TextInput } from './ui';
 
-type AuthMode = 'sign-in' | 'sign-up' | 'forgot' | 'terms' | 'privacy';
+type LegalMode = 'terms' | 'privacy' | 'notice';
+type AuthMode = 'sign-in' | 'sign-up' | 'forgot' | LegalMode;
 
 function BrandHeader({ subtitle }: { subtitle: string }) {
   return (
@@ -54,9 +56,72 @@ function LegalDocument({ source, onBack }: { source: string; onBack: () => void 
   return (
     <div className="atelier min-h-dvh px-4 py-6">
       <div className="mx-auto max-w-lg space-y-4">
-        <Button variant="ghost" onClick={onBack}>← Volver al registro</Button>
+        <Button variant="ghost" onClick={onBack}>← Volver</Button>
         <SectionCard>{blocks}</SectionCard>
       </div>
+    </div>
+  );
+}
+
+function LegalAcceptanceFields({
+  acceptedTerms,
+  acceptedPrivacy,
+  onTermsChange,
+  onPrivacyChange,
+  onOpen,
+  showTerms = true,
+  showPrivacy = true
+}: {
+  acceptedTerms: boolean;
+  acceptedPrivacy: boolean;
+  onTermsChange: (value: boolean) => void;
+  onPrivacyChange: (value: boolean) => void;
+  onOpen: (document: LegalMode) => void;
+  showTerms?: boolean;
+  showPrivacy?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      {showTerms ? (
+        <div className="flex min-h-12 items-start gap-3 text-sm text-stone-600">
+          <input
+            id="accept-terms"
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => onTermsChange(event.target.checked)}
+            className="mt-1 h-5 w-5 shrink-0"
+          />
+          <span>
+            <label htmlFor="accept-terms" className="cursor-pointer">Acepto los</label>{' '}
+            <button type="button" className="min-h-11 font-semibold text-brand-800" onClick={() => onOpen('terms')}>
+              términos de servicio
+            </button>.
+          </span>
+        </div>
+      ) : null}
+      {showPrivacy ? (
+        <div className="flex min-h-12 items-start gap-3 text-sm text-stone-600">
+          <input
+            id="accept-privacy"
+            type="checkbox"
+            checked={acceptedPrivacy}
+            onChange={(event) => onPrivacyChange(event.target.checked)}
+            className="mt-1 h-5 w-5 shrink-0"
+          />
+          <span>
+            <label htmlFor="accept-privacy" className="cursor-pointer">
+              Autorizo el tratamiento de mis datos según el
+            </label>{' '}
+            <button type="button" className="min-h-11 font-semibold text-brand-800" onClick={() => onOpen('notice')}>
+              aviso de tratamiento
+            </button>{' '}
+            y la{' '}
+            <button type="button" className="min-h-11 font-semibold text-brand-800" onClick={() => onOpen('privacy')}>
+              política de privacidad
+            </button>.
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -67,13 +132,15 @@ export function CloudAccessView() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   if (mode === 'terms') return <LegalDocument source={termsSource} onBack={() => setMode('sign-up')} />;
   if (mode === 'privacy') return <LegalDocument source={privacySource} onBack={() => setMode('sign-up')} />;
+  if (mode === 'notice') return <LegalDocument source={noticeSource} onBack={() => setMode('sign-up')} />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -98,12 +165,14 @@ export function CloudAccessView() {
       if (mode === 'sign-in') {
         await auth.signIn(email, password);
       } else if (mode === 'sign-up') {
-        const result = await auth.signUp(email, password, acceptedLegal);
+        const result = await auth.signUp(email, password, { acceptedTerms, acceptedPrivacy });
         if (result.needsEmailConfirmation) {
           setMessage('Cuenta creada. Revisa tu correo y confirma el enlace antes de iniciar sesión.');
           setMode('sign-in');
           setPassword('');
           setConfirmation('');
+          setAcceptedTerms(false);
+          setAcceptedPrivacy(false);
         }
       } else {
         await auth.sendPasswordReset(email);
@@ -137,29 +206,18 @@ export function CloudAccessView() {
               </Field>
             ) : null}
             {mode === 'sign-up' ? (
-              <>
+              <div className="space-y-4">
                 <Field label="Repite la contraseña">
                   <TextInput value={confirmation} onChange={setConfirmation} type="password" />
                 </Field>
-                <label className="flex min-h-12 items-start gap-3 text-sm text-stone-600">
-                  <input
-                    type="checkbox"
-                    checked={acceptedLegal}
-                    onChange={(event) => setAcceptedLegal(event.target.checked)}
-                    className="mt-1 h-5 w-5 shrink-0"
-                  />
-                  <span>
-                    Acepto los{' '}
-                    <button type="button" className="min-h-11 font-semibold text-brand-800" onClick={() => setMode('terms')}>
-                      términos
-                    </button>{' '}
-                    y la{' '}
-                    <button type="button" className="min-h-11 font-semibold text-brand-800" onClick={() => setMode('privacy')}>
-                      política de privacidad
-                    </button>.
-                  </span>
-                </label>
-              </>
+                <LegalAcceptanceFields
+                  acceptedTerms={acceptedTerms}
+                  acceptedPrivacy={acceptedPrivacy}
+                  onTermsChange={setAcceptedTerms}
+                  onPrivacyChange={setAcceptedPrivacy}
+                  onOpen={setMode}
+                />
+              </div>
             ) : null}
             {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
             {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p> : null}
@@ -210,6 +268,109 @@ export function CreateOrganizationView() {
             {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
             <Button full type="submit" disabled={busy || !name.trim()}>
               {busy ? 'Creando…' : 'Crear mi joyería'}
+            </Button>
+          </form>
+        </SectionCard>
+        <Button variant="ghost" full disabled={busy} onClick={() => void auth.signOut()}>Cerrar sesión</Button>
+      </div>
+    </div>
+  );
+}
+
+export function FirstAccessView() {
+  const auth = useCloudAuth();
+  const [mode, setMode] = useState<'main' | LegalMode>('main');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  if (mode === 'terms') return <LegalDocument source={termsSource} onBack={() => setMode('main')} />;
+  if (mode === 'privacy') return <LegalDocument source={privacySource} onBack={() => setMode('main')} />;
+  if (mode === 'notice') return <LegalDocument source={noticeSource} onBack={() => setMode('main')} />;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setError('');
+    if (auth.needsPasswordSetup && password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (auth.needsPasswordSetup && password !== confirmation) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    if (auth.needsTermsAcceptance && !acceptedTerms) {
+      setError('Debes aceptar los términos de servicio.');
+      return;
+    }
+    if (auth.needsPrivacyAcceptance && !acceptedPrivacy) {
+      setError('Debes autorizar el tratamiento de datos y aceptar la política de privacidad.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await auth.completeFirstAccess({
+        ...(auth.needsPasswordSetup ? { password } : {}),
+        acceptedTerms: auth.needsTermsAcceptance ? acceptedTerms : false,
+        acceptedPrivacy: auth.needsPrivacyAcceptance ? acceptedPrivacy : false
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo completar el primer acceso.');
+      setBusy(false);
+    }
+  };
+
+  const title = auth.needsPasswordSetup && auth.needsLegalAcceptance
+    ? 'Completa tu primer ingreso'
+    : auth.needsPasswordSetup
+      ? 'Crea tu contraseña'
+      : 'Revisa los documentos';
+  const subtitle = auth.needsPasswordSetup && auth.needsLegalAcceptance
+    ? 'Reemplaza la contraseña temporal y revisa los documentos para continuar.'
+    : auth.needsPasswordSetup
+      ? 'Reemplaza la contraseña temporal por una que solo tú conozcas.'
+      : 'Los documentos cambiaron. Revísalos y decide si deseas continuar.';
+
+  return (
+    <div className="atelier flex min-h-dvh items-center justify-center px-4 py-8">
+      <div className="w-full max-w-sm space-y-5">
+        <BrandHeader subtitle="Primer ingreso seguro" />
+        <SectionCard title={title} subtitle={subtitle}>
+          <form className="space-y-4" onSubmit={(event) => void submit(event)}>
+            {auth.needsPasswordSetup ? (
+              <>
+                <Field label="Nueva contraseña" hint="Mínimo 8 caracteres.">
+                  <TextInput value={password} onChange={setPassword} type="password" />
+                </Field>
+                <Field label="Repite la contraseña">
+                  <TextInput value={confirmation} onChange={setConfirmation} type="password" />
+                </Field>
+              </>
+            ) : null}
+            {auth.needsLegalAcceptance ? (
+              <LegalAcceptanceFields
+                acceptedTerms={acceptedTerms}
+                acceptedPrivacy={acceptedPrivacy}
+                onTermsChange={setAcceptedTerms}
+                onPrivacyChange={setAcceptedPrivacy}
+                onOpen={setMode}
+                showTerms={auth.needsTermsAcceptance}
+                showPrivacy={auth.needsPrivacyAcceptance}
+              />
+            ) : null}
+            {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+            <Button full type="submit" disabled={busy}>
+              {busy
+                ? 'Guardando…'
+                : auth.needsPasswordSetup && auth.needsLegalAcceptance
+                  ? 'Guardar y continuar'
+                  : auth.needsPasswordSetup
+                    ? 'Guardar contraseña'
+                    : 'Aceptar y continuar'}
             </Button>
           </form>
         </SectionCard>
