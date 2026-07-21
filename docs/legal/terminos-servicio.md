@@ -6,7 +6,7 @@
 
 ## 1. Identificación y aceptación
 
-Emerald Dealer es ofrecido por [COMPLETAR: nombre completo / NIT / contacto]. Al crear o usar una cuenta, la joyería acepta estos términos mediante una casilla explícita, registrada con fecha, hora y versión del texto. La autorización de tratamiento de datos se solicita por separado.
+Emerald Dealer es ofrecido por Héctor Germán Santiago Orjuela Rodríguez (persona natural, Bogotá, Colombia; contacto: sanitisorjuela@gmail.com, WhatsApp 3105725618). Al crear o usar una cuenta, la joyería acepta estos términos mediante una casilla explícita, registrada con fecha, hora y versión del texto. La autorización de tratamiento de datos se solicita por separado.
 
 ## 2. Servicio
 
@@ -50,8 +50,8 @@ Emerald Dealer podrá ceder este contrato a una sociedad que constituya para con
 
 ## 11. Soporte
 
-El soporte se presta por WhatsApp en [COMPLETAR: número], [COMPLETAR: horario]. Los tiempos de respuesta son orientativos hasta que exista un acuerdo de nivel de servicio escrito.
+El soporte se presta por WhatsApp en 3105725618, en días hábiles y horario comercial. Los tiempos de respuesta son orientativos hasta que exista un acuerdo de nivel de servicio escrito.
 
 ## 12. Ley aplicable
 
-Estos términos se rigen por las leyes de la República de Colombia. Ante cualquier controversia, las partes intentarán un arreglo directo durante 30 días; agotado este plazo, la controversia se someterá a los jueces competentes de [COMPLETAR: ciudad].
+Estos términos se rigen por las leyes de la República de Colombia. Ante cualquier controversia, las partes intentarán un arreglo directo durante 30 días; agotado este plazo, la controversia se someterá a los jueces competentes de Bogotá, Colombia.

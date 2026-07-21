@@ -6,7 +6,7 @@
 
 ## 1. Responsable y Encargado del tratamiento
 
-Emerald Dealer es operado por [COMPLETAR: nombre completo], identificado con [COMPLETAR: cédula/NIT], con domicilio en [COMPLETAR: ciudad y dirección comercial]. Contacto para temas de privacidad: [COMPLETAR: correo electrónico dedicado] y WhatsApp [COMPLETAR: número].
+Emerald Dealer es operado por Héctor Germán Santiago Orjuela Rodríguez, persona natural, en Bogotá, Colombia. Contacto para temas de privacidad: sanitisorjuela@gmail.com y WhatsApp 3105725618.
 
 - Respecto de los datos de la joyería que crea la cuenta (identificación, contacto, pagos, uso de la plataforma), Emerald Dealer es el Responsable del tratamiento.
 - Respecto de los datos de clientes finales, proveedores y otras personas que cada joyería registra en la plataforma (nombres, contacto, cotizaciones, citas, trabajos, pagos e inventario), Emerald Dealer actúa únicamente como Encargado del tratamiento; la joyería es la Responsable de esos datos frente a sus respectivos titulares y declara contar con la autorización o base jurídica necesaria para registrarlos.
@@ -27,7 +27,7 @@ Para el Plan Nube se prevé usar Supabase. El proyecto técnico validado actualm
 
 Conforme a la Ley 1581 de 2012, el titular puede conocer, actualizar, rectificar y solicitar la supresión de sus datos; pedir prueba de la autorización; conocer el uso dado a su información; presentar quejas ante la Superintendencia de Industria y Comercio, y revocar la autorización cuando proceda.
 
-Procedimiento y plazos: las solicitudes se reciben en [COMPLETAR: correo/WhatsApp]. Las consultas se resuelven en máximo 10 días hábiles (prorrogables 5 días hábiles adicionales con aviso); los reclamos, en máximo 15 días hábiles (prorrogables 8 días hábiles adicionales con aviso). El área responsable de atender estas solicitudes es [COMPLETAR: nombre/rol, aunque sea el mismo operador]. [COMPLETAR ANTES DE PUBLICAR: forma de acreditar la identidad o representación, contenido mínimo de la solicitud, constancia de recibido y procedimiento interno para consultas y reclamos].
+Procedimiento y plazos: las solicitudes se reciben en sanitisorjuela@gmail.com y WhatsApp 3105725618. Las consultas se resuelven en máximo 10 días hábiles (prorrogables 5 días hábiles adicionales con aviso); los reclamos, en máximo 15 días hábiles (prorrogables 8 días hábiles adicionales con aviso). El área responsable de atender estas solicitudes es el operador, Héctor Germán Santiago Orjuela Rodríguez. [COMPLETAR ANTES DE PUBLICAR: forma de acreditar la identidad o representación, contenido mínimo de la solicitud, constancia de recibido y procedimiento interno para consultas y reclamos].
 
 ## 6. Menores de edad y datos sensibles
 
