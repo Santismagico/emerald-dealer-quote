@@ -3,7 +3,7 @@
 // y comerciantes, no el consumidor final que encarga una pieza a la medida.
 // Vincularlos permite responder "¿cuánto me debe Fulano en total?".
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import type { Buyer } from '../types';
 import { listBuyerDebts } from '../services/receivables';
@@ -30,7 +30,7 @@ export function BuyersView() {
   const [error, setError] = useState('');
 
   // La deuda es derivada: se calcula al mostrarla, nunca se guarda (D-023).
-  const debts = listBuyerDebts(store.stoneLots, todayISO());
+  const debts = useMemo(() => listBuyerDebts(store.stoneLots, todayISO()), [store.stoneLots]);
   const debtOf = (buyerId: string) => debts.find((d) => d.buyerId === buyerId);
 
   if (editing) {

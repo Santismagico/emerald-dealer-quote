@@ -631,3 +631,32 @@ atrasado— queda a un solo toque, porque es exactamente lo que pidió el comerc
 originó esta ampliación.
 
 Esta ampliación **no agrega ninguna dependencia nueva**.
+
+## D-047 · El dinero ya cobrado no se borra por un cambio de interruptor · 2026-07-22 · Vigente
+
+Auditoría propia de la ampliación de inventario, hecha sobre el código escrito el
+mismo día. Dos hallazgos reales, ambos corregidos con pruebas que fallan antes y pasan
+después.
+
+**H1 (grave).** Al editar una venta a crédito, apagar el interruptor "se la vendí a
+crédito" vaciaba los abonos del formulario **antes** de validar. La validación rechaza
+ese cambio precisamente porque quedan abonos, así que al vaciarlos nadie protestaba y
+el guardado borraba pagos reales del comprador, en silencio y sin manera de deshacerlo.
+
+La regla que queda: **una función que cambia la forma de pago nunca borra el dinero ya
+recibido.** El motor puro `withSaleCredit` conserva siempre los abonos, la validación
+puede entonces rechazar el cambio, y el formulario explica en pantalla por qué no deja
+guardar. Lo mismo aplica a cualquier interruptor futuro que cambie contado por crédito.
+
+**H2.** Los avisos de borrado callaban la plata que le deben a la joyería. Borrar un
+lote con ventas a crédito hacía desaparecer ese cobro de la pantalla de Cobros sin
+mencionarlo, y borrar una venta se llevaba sus abonos igual de callada.
+
+La regla que queda: **todo aviso de borrado nombra el dinero que se pierde**, tanto el
+que se debe como el que le deben. `stoneLotDeletionWarning` y `stoneSaleDeletionWarning`
+son funciones puras con pruebas propias, no textos escritos dentro de un diálogo.
+
+Se agregó además cobertura de la cadena de nube que faltaba: renombrar o borrar un
+comprador sube también los lotes y las joyas que cambiaron de nombre, no sube lo que no
+cambió, y cada tabla nueva usa su función protegida sin enviar jamás el identificador de
+la organización desde el navegador.

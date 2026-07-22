@@ -76,3 +76,22 @@ necesito de usted**, en lenguaje sencillo y con pasos visuales.
 ---
 
 _Bitácora de la noche al final de este documento, según vaya avanzando._
+
+---
+
+## Bitácora de la noche (cerrada)
+
+| Hecho | Resultado |
+|---|---|
+| Proteger el trabajo | Rama `codex/fase2-nube` y sus tags subidos a GitHub |
+| Auditar mi propio trabajo | **2 defectos reales encontrados**, ambos con dinero de por medio |
+| H1 · abonos borrados por el interruptor de crédito | Corregido con `withSaleCredit` + aviso en pantalla; 8 pruebas |
+| H2 · avisos de borrado que callaban la plata | Corregido en lote y venta; 4 pruebas |
+| Cobertura de nube que faltaba | 6 pruebas: propagación al renombrar/borrar comprador y funciones protegidas |
+| Mejora de uso | "Ya le pagó todo ✓" cuando una deuda queda saldada |
+| Verificación en navegador | Defecto H1 reproducido y confirmado corregido; ventanas emergentes sin regresión a 320 px |
+| Decisión registrada | **D-047** en `DECISIONS.md` |
+| Estado final | **673 pruebas y compilación en verde** (antes 655) |
+
+Nada de lo prohibido se tocó: `main` intacto, sin publicar, sin entrar al servidor de
+producción. El parte para Héctor quedó en `docs/PARTE_DE_LA_MANANA.md`.

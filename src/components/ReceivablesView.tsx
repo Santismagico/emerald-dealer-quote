@@ -16,7 +16,12 @@ import {
   type Receivable,
   type ReceivableStatus
 } from '../services/receivables';
-import { emptyBuyerPayment, validateBuyerPayment, withBuyerPayment } from '../services/stones';
+import {
+  emptyBuyerPayment,
+  summarizeStoneSale,
+  validateBuyerPayment,
+  withBuyerPayment
+} from '../services/stones';
 import { formatDateCO, todayISO } from '../utils/dates';
 import { formatCOP } from '../utils/money';
 import { Button, Field, MoneyInput, TextInput, TextArea, EmptyState, SummaryRow } from './ui';
@@ -92,7 +97,10 @@ export function ReceivablesView() {
       sales: lot.sales.map((s) => (s.id === sale.id ? nextSale : s)),
       updatedAt: new Date().toISOString()
     });
-    store.showToast('Abono registrado');
+    // Que quede claro cuándo una deuda quedó saldada: es la noticia buena.
+    store.showToast(
+      summarizeStoneSale(nextSale).balanceCop <= 0 ? 'Venta pagada por completo ✓' : 'Abono registrado'
+    );
     setPaying(null);
     setError('');
   };
@@ -198,10 +206,21 @@ export function ReceivablesView() {
         </button>
         <section className="luxury-card rounded-2xl p-4">
           <h2 className="text-[15px] font-semibold text-stone-900">{openBuyer.name}</h2>
-          <p className="mt-1 text-2xl font-semibold text-brand-800">{formatCOP(total)}</p>
-          <p className="text-xs text-stone-500">
-            {receivables.length === 1 ? '1 venta sin pagar' : `${receivables.length} ventas sin pagar`}
-          </p>
+          {receivables.length === 0 ? (
+            <>
+              <p className="mt-1 text-2xl font-semibold text-brand-800">Ya le pagó todo ✓</p>
+              <p className="text-xs text-stone-500">No le queda ningún saldo pendiente.</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-2xl font-semibold text-brand-800">{formatCOP(total)}</p>
+              <p className="text-xs text-stone-500">
+                {receivables.length === 1
+                  ? '1 venta sin pagar'
+                  : `${receivables.length} ventas sin pagar`}
+              </p>
+            </>
+          )}
         </section>
 
         <ul className="space-y-3">
