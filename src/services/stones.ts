@@ -471,6 +471,28 @@ export function emptyBuyerPayment(today: string): BuyerPayment {
   return { id: newId(), date: today, amount: 0, notes: '' };
 }
 
+/**
+ * Cambia una venta entre contado y crédito SIN perder nunca los abonos ya
+ * recibidos (hallazgo H1 de la auditoría propia, 2026-07-22).
+ *
+ * Vaciar los abonos aquí borraría dinero real del comprador y, peor todavía,
+ * dejaría pasar a `validateStoneSale`: esa validación rechaza el cambio
+ * precisamente porque quedan abonos, así que si desaparecen antes, nadie
+ * avisa y el guardado destruye el historial de cobro.
+ *
+ * La fecha de pago solo se limpia cuando no hay nada que cobrar.
+ */
+export function withSaleCredit(sale: StoneSale, onCredit: boolean, today: string): StoneSale {
+  if (onCredit) {
+    return { ...sale, onCredit: true, dueDate: sale.dueDate || sale.date || today };
+  }
+  return {
+    ...sale,
+    onCredit: false,
+    dueDate: sale.payments.length > 0 ? sale.dueDate : ''
+  };
+}
+
 /** Copia del lote con una venta agregada o reemplazada, sin tocar el original. */
 export function withLotSale(lot: StoneLot, sale: StoneSale, nowIso: string): StoneLot {
   const exists = lot.sales.some((s) => s.id === sale.id);

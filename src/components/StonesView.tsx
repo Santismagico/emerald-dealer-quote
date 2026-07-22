@@ -23,6 +23,7 @@ import {
   validateSupplierPayment,
   withLotSale,
   withoutLotSale,
+  withSaleCredit,
   withSupplierPayment,
   withoutSupplierPayment,
   type LotFilter
@@ -57,11 +58,34 @@ function formatCarats(carats: number): string {
 
 export function stoneLotDeletionWarning(lot: StoneLot): string {
   const summary = summarizeStoneLot(lot);
+  // Si el lote tiene ventas a crédito sin saldar, borrarlo también borra ese
+  // cobro de la pantalla de Cobros. Callarlo sería hacer desaparecer plata
+  // que a Héctor le deben (hallazgo H2 de la auditoría propia, 2026-07-22).
+  const cobro =
+    summary.buyersDebt > 0
+      ? ` OJO: también se borrarán ${formatCOP(summary.buyersDebt)} que te deben por ventas a crédito y desaparecerán de Cobros.`
+      : '';
   return `¿Eliminar el lote "${lotDisplayName(lot)}"? Se borrará la compra y todo su historial: ${
     lot.sales.length
   } venta(s), ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
     summary.supplierDebt
-  )}. Esta acción no se puede deshacer.`;
+  )}.${cobro} Esta acción no se puede deshacer.`;
+}
+
+/** Aviso al eliminar una venta: nombra los abonos que se pierden con ella. */
+export function stoneSaleDeletionWarning(sale: StoneSale): string {
+  const base = `¿Eliminar la venta de ${formatCOP(sale.valueCop)} del ${
+    formatDateCO(sale.date) || 'sin fecha'
+  }?`;
+  if (!sale.onCredit || sale.payments.length === 0) {
+    return `${base} Las existencias del lote vuelven a subir.`;
+  }
+  const summary = summarizeStoneSale(sale);
+  return `${base} Se perderán también ${sale.payments.length} abono(s) por ${formatCOP(
+    summary.receivedCop
+  )} que ya te había pagado${sale.buyer ? ` ${sale.buyer}` : ''}, y el saldo de ${formatCOP(
+    summary.balanceCop
+  )} desaparecerá de Cobros.`;
 }
 
 export function StonesView() {
@@ -528,9 +552,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         <ConfirmDialog
           open={saleToDelete !== null}
           title="Eliminar venta"
-          message={`¿Eliminar la venta de ${formatCOP(saleToDelete?.valueCop ?? 0)} del ${
-            formatDateCO(saleToDelete?.date ?? '') || 'sin fecha'
-          }? Las piedras vuelven a quedar disponibles en el lote.`}
+          message={saleToDelete ? stoneSaleDeletionWarning(saleToDelete) : ''}
           confirmLabel="Eliminar"
           danger
           busy={busy}
@@ -863,14 +885,16 @@ function SaleForm({
           <Toggle
             checked={form.onCredit}
             label="Se la vendí a crédito"
-            onChange={(onCredit) =>
-              patch(
-                onCredit
-                  ? { onCredit, dueDate: form.dueDate || form.date }
-                  : { onCredit, dueDate: '', payments: [] }
-              )
-            }
+            onChange={(onCredit) => setForm(withSaleCredit(form, onCredit, todayISO()))}
           />
+          {!form.onCredit && form.payments.length > 0 ? (
+            <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700">
+              Esta venta ya tiene {form.payments.length} abono(s) por{' '}
+              {formatCOP(summarizeStoneSale({ ...form, onCredit: true }).receivedCop)}. No se
+              puede pasar a contado sin borrar ese historial de cobro: vuelve a activar el
+              crédito para poder guardar.
+            </p>
+          ) : null}
           {form.onCredit ? (
             <>
               <Field label="¿Cuándo quedaron de pagarte?">
