@@ -10,10 +10,11 @@ import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
 import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { AgendaView } from './components/AgendaView';
-import { StonesView } from './components/StonesView';
+import { InventoryView } from './components/InventoryView';
 import { DailyCloseView } from './components/DailyCloseView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
+import { BuyersView } from './components/BuyersView';
 import { SettingsView } from './components/SettingsView';
 import {
   AccountView,
@@ -52,6 +53,7 @@ type ViewName =
   | 'dailyClose'
   | 'clients'
   | 'suppliers'
+  | 'buyers'
   | 'settings'
   | 'account'
   | 'cloudImport';
@@ -380,7 +382,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         )}
         {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
         {view === 'agenda' && <AgendaView />}
-        {view === 'stones' && <StonesView />}
+        {view === 'stones' && <InventoryView />}
         {view === 'workshopJob' && draft && (
           <WorkshopJobView
             ref={workshopJobRef}
@@ -399,6 +401,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             onDailyClose={() => setView('dailyClose')}
             onClients={() => setView('clients')}
             onSuppliers={() => setView('suppliers')}
+            onBuyers={() => setView('buyers')}
             onSettings={() => setView('settings')}
             onAccount={cloudAccount ? () => setView('account') : undefined}
           />
@@ -419,6 +422,12 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
           <div className="space-y-4">
             <BackRow label="← Más" onClick={() => setView('more')} />
             <SuppliersView />
+          </div>
+        )}
+        {view === 'buyers' && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BuyersView />
           </div>
         )}
         {view === 'settings' && (
@@ -471,7 +480,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             onClick={() => void runAfterViewFlush(() => setView('agenda'))}
           />
           <NavButton
-            label="Piedras"
+            label="Inventario"
             icon={<LineIcon name="gem" />}
             active={view === 'stones'}
             onClick={() => void runAfterViewFlush(() => setView('stones'))}
@@ -485,6 +494,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               view === 'dailyClose' ||
               view === 'clients' ||
               view === 'suppliers' ||
+              view === 'buyers' ||
               view === 'settings' ||
               view === 'account' ||
               view === 'cloudImport'
@@ -680,12 +690,14 @@ function MoreView({
   onDailyClose,
   onClients,
   onSuppliers,
+  onBuyers,
   onSettings,
   onAccount
 }: {
   onDailyClose: () => void;
   onClients: () => void;
   onSuppliers: () => void;
+  onBuyers: () => void;
   onSettings: () => void;
   onAccount?: () => void;
 }) {
@@ -708,6 +720,12 @@ function MoreView({
         title="Proveedores"
         subtitle="A quiénes les compras piedras y servicios"
         onClick={onSuppliers}
+      />
+      <MoreItem
+        icon={<LineIcon name="client" />}
+        title="Compradores"
+        subtitle="A quiénes les vendes piedras y joyas, y cuánto te deben"
+        onClick={onBuyers}
       />
       <MoreItem
         icon={<LineIcon name="settings" />}

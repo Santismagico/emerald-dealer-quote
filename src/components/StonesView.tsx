@@ -17,6 +17,7 @@ import {
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
+  summarizeStoneSale,
   validateStoneSale,
   validateStoneLotPurchaseUpdate,
   validateSupplierPayment,
@@ -26,6 +27,7 @@ import {
   withoutSupplierPayment,
   type LotFilter
 } from '../services/stones';
+import { receivableStatus } from '../services/receivables';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
 import {
@@ -83,7 +85,16 @@ export function StonesView() {
 
       <SectionCard title="Negocio de piedras">
         <SummaryRow label="Invertido comprando lotes" value={formatCOP(flow.totalSpent)} />
-        <SummaryRow label="Recibido por ventas" value={formatCOP(flow.totalEarned)} />
+        <SummaryRow label="Vendido (valor acordado)" value={formatCOP(flow.totalEarned)} />
+        <SummaryRow label="Ya recibido de verdad" value={formatCOP(flow.totalReceived)} />
+        {flow.totalReceivable > 0 && (
+          <SummaryRow
+            label="Te deben por ventas a crédito"
+            value={formatCOP(flow.totalReceivable)}
+            bold
+            valueClass="text-brand-800"
+          />
+        )}
         <div className="border-t border-stone-100 pt-1">
           <SummaryRow
             label="Flujo neto (ventas − compras)"
@@ -412,6 +423,20 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                       {formatDateCO(sale.date)}
                       {sale.buyer ? ` · ${sale.buyer}` : ''}
                     </p>
+                    {sale.onCredit ? (
+                      <p
+                        className={`text-xs font-medium ${
+                          summarizeStoneSale(sale).balanceCop > 0 &&
+                          receivableStatus(sale.dueDate, todayISO()) === 'vencido'
+                            ? 'text-red-600'
+                            : 'text-stone-600'
+                        }`}
+                      >
+                        {summarizeStoneSale(sale).balanceCop > 0
+                          ? `Le debe ${formatCOP(summarizeStoneSale(sale).balanceCop)} · pagan el ${formatDateCO(sale.dueDate)}`
+                          : 'Crédito ya pagado ✓'}
+                      </p>
+                    ) : null}
                   </button>
                   <button
                     type="button"
@@ -763,6 +788,7 @@ function SaleForm({
 
   const others = lot.sales.filter((s) => s.id !== initial.id);
   const available = summarizeStoneLot({ ...lot, sales: others });
+  const saleSummary = summarizeStoneSale(form);
 
   const save = async () => {
     const error = validateStoneSale(lot, form, isNew ? undefined : initial.id);
@@ -801,19 +827,80 @@ function SaleForm({
               <DecimalInput value={form.quantity} onValue={(quantity) => patch({ quantity })} />
             </Field>
           </div>
-          <Field label="Valor recibido (total)">
+          <Field label="Valor de la venta (total)">
             <MoneyInput value={form.valueCop} onValue={(valueCop) => patch({ valueCop })} />
           </Field>
           <Field label="A quién le vendiste">
-            <TextInput
-              value={form.buyer}
-              onChange={(buyer) => patch({ buyer })}
-              placeholder="Nombre del comprador"
+            <Select
+              value={form.buyerId ?? ''}
+              onChange={(buyerId) => {
+                const buyer = store.buyers.find((b) => b.id === buyerId);
+                patch({
+                  buyerId: buyer ? buyer.id : null,
+                  buyer: buyer ? buyer.name : form.buyer
+                });
+              }}
+              options={[
+                { value: '', label: 'Escribir el nombre' },
+                ...store.buyers.map((b) => ({ value: b.id, label: b.name }))
+              ]}
             />
           </Field>
+          {form.buyerId === null ? (
+            <Field label="Nombre del comprador">
+              <TextInput
+                value={form.buyer}
+                onChange={(buyer) => patch({ buyer })}
+                placeholder="Nombre del comprador"
+              />
+            </Field>
+          ) : null}
           <Field label="Fecha de la venta">
             <TextInput type="date" value={form.date} onChange={(date) => patch({ date })} />
           </Field>
+
+          {/* Crédito al vender (D-042): una fecha acordada y abonos libres. */}
+          <Toggle
+            checked={form.onCredit}
+            label="Se la vendí a crédito"
+            onChange={(onCredit) =>
+              patch(
+                onCredit
+                  ? { onCredit, dueDate: form.dueDate || form.date }
+                  : { onCredit, dueDate: '', payments: [] }
+              )
+            }
+          />
+          {form.onCredit ? (
+            <>
+              <Field label="¿Cuándo quedaron de pagarte?">
+                <TextInput
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(dueDate) => patch({ dueDate })}
+                />
+              </Field>
+              {form.payments.length > 0 ? (
+                <div className="space-y-1 rounded-xl bg-stone-50 p-3">
+                  <SummaryRow label="Ya te abonó" value={formatCOP(saleSummary.receivedCop)} />
+                  <SummaryRow
+                    label="Le falta"
+                    value={formatCOP(saleSummary.balanceCop)}
+                    bold
+                    valueClass="text-brand-800"
+                  />
+                  <p className="pt-1 text-xs text-stone-500">
+                    Los abonos se registran desde Cobros.
+                  </p>
+                </div>
+              ) : (
+                <p className="rounded-xl bg-stone-50 p-3 text-xs text-stone-500">
+                  Al guardar, esta venta aparecerá en Cobros y allí podrás registrar los abonos.
+                </p>
+              )}
+            </>
+          ) : null}
+
           <Field label="Notas internas">
             <TextArea value={form.notes} onChange={(notes) => patch({ notes })} rows={2} />
           </Field>

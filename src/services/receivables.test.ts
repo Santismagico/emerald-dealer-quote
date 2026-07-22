@@ -209,6 +209,26 @@ describe('listBuyerDebts: cuánto me debe cada quien', () => {
     expect(listBuyerDebts(lots, HOY).map((d) => d.buyerName)).toEqual(['Pedro', 'Ana', 'Luisa']);
   });
 
+  it('guarda los días que faltan para el cobro más próximo', () => {
+    const lots = [
+      lote([
+        venta({ id: 'v-lejana', buyerId: 'buy-1', dueDate: '2026-09-01' }),
+        venta({ id: 'v-cercana', buyerId: 'buy-1', dueDate: '2026-07-26' })
+      ])
+    ];
+    expect(listBuyerDebts(lots, HOY)[0].daysUntilDue).toBe(5);
+  });
+
+  it('si ya hay algo vencido, los días que faltan dejan de importar', () => {
+    const lots = [
+      lote([
+        venta({ id: 'v-vencida', buyerId: 'buy-1', dueDate: '2026-07-01' }),
+        venta({ id: 'v-futura', buyerId: 'buy-1', dueDate: '2026-09-01' })
+      ])
+    ];
+    expect(listBuyerDebts(lots, HOY)[0].daysUntilDue).toBe(0);
+  });
+
   it('guarda la fecha acordada más antigua sin saldar', () => {
     const lots = [
       lote([

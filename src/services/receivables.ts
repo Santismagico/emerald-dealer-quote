@@ -47,6 +47,8 @@ export interface BuyerDebt {
   /** La fecha acordada más antigua que sigue sin saldar. */
   oldestDueDate: string;
   maxDaysOverdue: number;
+  /** Días que faltan para el cobro más próximo. 0 si ya hay algo vencido. */
+  daysUntilDue: number;
   saleCount: number;
   status: ReceivableStatus;
 }
@@ -142,10 +144,9 @@ export function listBuyerDebts(lots: readonly StoneLot[], today: string): BuyerD
 
       const status = receivableStatus(sale.dueDate, today);
       const overdue = status === 'vencido';
-      const days =
-        overdue && isValidISODate(sale.dueDate) && isValidISODate(today)
-          ? daysBetween(sale.dueDate, today)
-          : 0;
+      const valid = isValidISODate(sale.dueDate) && isValidISODate(today);
+      const days = overdue && valid ? daysBetween(sale.dueDate, today) : 0;
+      const until = !overdue && valid ? Math.max(0, daysBetween(today, sale.dueDate)) : 0;
 
       const key = buyerDebtKey(sale.buyerId, buyerDisplayName(sale));
       const current = byBuyer.get(key);
@@ -157,6 +158,7 @@ export function listBuyerDebts(lots: readonly StoneLot[], today: string): BuyerD
           overdueCop: overdue ? summary.balanceCop : 0,
           oldestDueDate: sale.dueDate,
           maxDaysOverdue: days,
+          daysUntilDue: until,
           saleCount: 1,
           status
         });
@@ -174,6 +176,9 @@ export function listBuyerDebts(lots: readonly StoneLot[], today: string): BuyerD
       if (overdue || (current.status === 'alDia' && status === 'porVencer')) {
         current.status = status;
       }
+      // Los días que faltan son los del cobro más próximo; si ya hay algo
+      // vencido, ese dato deja de importar y queda en cero.
+      current.daysUntilDue = current.maxDaysOverdue > 0 ? 0 : Math.min(current.daysUntilDue, until);
     }
   }
 

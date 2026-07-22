@@ -200,7 +200,14 @@ export function DailyCloseView() {
           )}
 
           <SectionCard title="Piedras">
-            <SummaryRow label="Entró por ventas" value={formatCOP(report.totals.stonesSold)} />
+            <SummaryRow
+              label="Entró por ventas de contado"
+              value={formatCOP(report.totals.stonesSold)}
+            />
+            <SummaryRow
+              label="Entró por abonos de compradores"
+              value={formatCOP(report.totals.buyerPaymentsReceived)}
+            />
             <SummaryRow
               label="Salió en compras de contado"
               value={`- ${formatCOP(report.totals.stonesPurchasedCash)}`}
@@ -209,7 +216,33 @@ export function DailyCloseView() {
               label="Salió a proveedores (créditos)"
               value={`- ${formatCOP(report.totals.supplierPaymentsPaid)}`}
             />
+            {report.totals.stonesSoldCredit > 0 && (
+              <p className="text-[11px] text-stone-400">
+                Vendiste {formatCOP(report.totals.stonesSoldCredit)} a crédito. Ese dinero no entró
+                a caja: entrará cuando te abonen.
+              </p>
+            )}
           </SectionCard>
+
+          {(report.totals.jewelsSold > 0 || report.totals.jewelsAcquiredCost > 0) && (
+            <SectionCard title="Joyas en stock">
+              <SummaryRow label="Entró por ventas" value={formatCOP(report.totals.jewelsSold)} />
+              <SummaryRow
+                label="Salió en piezas nuevas"
+                value={`- ${formatCOP(report.totals.jewelsAcquiredCost)}`}
+              />
+              {report.jewelSales.length > 0 && (
+                <SummaryRow
+                  label="Resultado de lo vendido"
+                  value={formatCOP(report.totals.jewelsResult)}
+                  bold
+                  valueClass={
+                    report.totals.jewelsResult < 0 ? 'text-red-600' : 'text-brand-800'
+                  }
+                />
+              )}
+            </SectionCard>
+          )}
 
           {report.stonePurchases.length > 0 && (
             <SectionCard title={`Piedras compradas (${report.stonePurchases.length})`}>
@@ -229,9 +262,54 @@ export function DailyCloseView() {
               {report.stoneSales.map((s, i) => (
                 <ReportLine
                   key={i}
-                  main={`${s.lotName} · ${s.quantity} pz`}
-                  detail={s.buyer ? `a ${s.buyer}` : ''}
+                  main={`${s.lotName} · ${s.quantity} pz${s.onCredit ? ' · A CRÉDITO' : ''}`}
+                  detail={
+                    s.onCredit
+                      ? `${s.buyer ? `a ${s.buyer} · ` : ''}pagan el ${formatDateCO(s.dueDate)}`
+                      : s.buyer
+                        ? `a ${s.buyer}`
+                        : ''
+                  }
                   value={formatCOP(s.valueCop)}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.buyerPayments.length > 0 && (
+            <SectionCard title={`Abonos de compradores (${report.buyerPayments.length})`}>
+              {report.buyerPayments.map((p, i) => (
+                <ReportLine
+                  key={i}
+                  main={p.buyer || 'Sin nombre'}
+                  detail={p.lotName}
+                  value={formatCOP(p.amount)}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.jewelPurchases.length > 0 && (
+            <SectionCard title={`Joyas que entraron (${report.jewelPurchases.length})`}>
+              {report.jewelPurchases.map((j, i) => (
+                <ReportLine
+                  key={i}
+                  main={j.jewelName}
+                  detail={j.pieceType}
+                  value={`- ${formatCOP(j.costCop)}`}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.jewelSales.length > 0 && (
+            <SectionCard title={`Joyas vendidas (${report.jewelSales.length})`}>
+              {report.jewelSales.map((j, i) => (
+                <ReportLine
+                  key={i}
+                  main={j.jewelName}
+                  detail={j.buyer ? `a ${j.buyer}` : j.pieceType}
+                  value={formatCOP(j.priceCop)}
                 />
               ))}
             </SectionCard>
@@ -252,7 +330,9 @@ export function DailyCloseView() {
         </>
       )}
 
-      {(report.totals.supplierDebt > 0 || report.totals.clientsOwe > 0) && (
+      {(report.totals.supplierDebt > 0 ||
+        report.totals.clientsOwe > 0 ||
+        report.totals.buyersOwe > 0) && (
         <SectionCard title="Deudas a la fecha">
           {report.totals.supplierDebt > 0 && (
             <SummaryRow
@@ -265,6 +345,13 @@ export function DailyCloseView() {
             <SummaryRow
               label="Clientes te deben"
               value={formatCOP(report.totals.clientsOwe)}
+              valueClass="text-brand-800"
+            />
+          )}
+          {report.totals.buyersOwe > 0 && (
+            <SummaryRow
+              label="Te deben por piedras"
+              value={formatCOP(report.totals.buyersOwe)}
               valueClass="text-brand-800"
             />
           )}

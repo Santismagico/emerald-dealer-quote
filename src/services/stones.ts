@@ -276,12 +276,16 @@ export function stonesInventory(lots: readonly StoneLot[]): StoneInventoryEntry[
 export interface StonesFlow {
   /** COP invertido comprando lotes (contado + crédito). */
   totalSpent: number;
-  /** COP recibido por todas las ventas. */
+  /** COP vendido al PRECIO ACORDADO, haya entrado o no (D-042). */
   totalEarned: number;
+  /** COP realmente recibido: contado completo + abonos de las ventas a crédito. */
+  totalReceived: number;
   /** Ventas − compras. Negativo es normal si hay lotes sin vender todavía. */
   balance: number;
   /** COP que aún se les debe a los proveedores por lotes a crédito (C4). */
   totalDebt: number;
+  /** COP que los compradores aún deben por ventas a crédito (D-042). */
+  totalReceivable: number;
   lotCount: number;
   saleCount: number;
 }
@@ -289,11 +293,16 @@ export interface StonesFlow {
 export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   let totalSpent = 0;
   let totalEarned = 0;
+  let totalReceived = 0;
   let totalDebt = 0;
+  let totalReceivable = 0;
   let saleCount = 0;
   for (const lot of lots) {
     totalSpent += toSafeCOP(lot.purchaseValueCop);
-    totalDebt += summarizeStoneLot(lot).supplierDebt;
+    const summary = summarizeStoneLot(lot);
+    totalDebt += summary.supplierDebt;
+    totalReceived += summary.receivedFromBuyers;
+    totalReceivable += summary.buyersDebt;
     for (const sale of lot.sales) {
       totalEarned += toSafeCOP(sale.valueCop);
       saleCount += 1;
@@ -302,8 +311,10 @@ export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   return {
     totalSpent,
     totalEarned,
+    totalReceived,
     balance: totalEarned - totalSpent,
     totalDebt,
+    totalReceivable,
     lotCount: lots.length,
     saleCount
   };
