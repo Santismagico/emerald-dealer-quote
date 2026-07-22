@@ -4,12 +4,14 @@ import rlsSource from '../../../supabase/migrations/0002_rls.sql?raw'
 import functionsSource from '../../../supabase/migrations/0003_funciones.sql?raw'
 import hardeningSource from '../../../supabase/migrations/20260718200036_harden_cloud_writes.sql?raw'
 import grantClosureSource from '../../../supabase/migrations/20260718212000_close_authenticated_table_grants.sql?raw'
+import inventorySource from '../../../supabase/migrations/20260721210000_inventario_compradores_y_joyas.sql?raw'
 
 const schema = schemaSource.toLowerCase()
 const rls = rlsSource.toLowerCase()
 const functions = functionsSource.toLowerCase()
 const hardening = hardeningSource.toLowerCase()
 const grantClosure = grantClosureSource.toLowerCase()
+const inventory = inventorySource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -108,5 +110,62 @@ describe('migraciones de nube', () => {
       expect(functions).toContain(`function public.${name}`)
       expect(functions).toContain(`grant execute on function public.${name}`)
     }
+  })
+})
+
+describe('migracion de inventario: compradores y joyas en stock', () => {
+  const newTables = ['buyers', 'stock_jewels']
+
+  it('crea las tablas nuevas sin destruir nada de la base viva', () => {
+    for (const table of newTables) {
+      expect(inventory).toContain(`create table if not exists public.${table}`)
+    }
+    // Es la garantia de que se puede pegar sobre produccion con datos reales.
+    expect(inventory).not.toMatch(/drop\s+table/)
+    expect(inventory).not.toMatch(/drop\s+column/)
+    expect(inventory).not.toMatch(/truncate/)
+    expect(inventory).not.toMatch(/delete\s+from\s+public\.(clients|quotes|stone_lots|suppliers|org_settings)/)
+  })
+
+  it('activa RLS y solo permite LEER directamente cada tabla nueva', () => {
+    for (const table of newTables) {
+      expect(inventory).toContain(`alter table public.${table} enable row level security`)
+      expect(inventory).toContain(`create policy ${table}_select_member`)
+      // Ninguna politica de escritura directa: todo pasa por RPC protegida.
+      expect(inventory).not.toContain(`create policy ${table}_insert_member`)
+      expect(inventory).not.toContain(`create policy ${table}_update_member`)
+      expect(inventory).not.toContain(`create policy ${table}_delete_member`)
+    }
+  })
+
+  it('abre solo la lectura al navegador y cierra el acceso anonimo', () => {
+    expect(inventory).toContain('grant select on table public.buyers, public.stock_jewels to authenticated')
+    expect(inventory).toContain('revoke all on table public.buyers, public.stock_jewels from anon')
+    expect(inventory).toContain(
+      'revoke insert, update, delete on table public.buyers, public.stock_jewels from authenticated'
+    )
+  })
+
+  it('protege las funciones nuevas y resuelve la organizacion en el servidor', () => {
+    const names = ['upsert_buyer', 'upsert_stock_jewel', 'delete_buyer', 'delete_stock_jewel']
+    for (const name of names) {
+      expect(inventory).toContain(`function public.${name}`)
+      expect(inventory).toContain(`grant execute on function public.${name}`)
+      expect(inventory).toContain(`revoke all on function public.${name}`)
+    }
+    expect(inventory).toContain("set search_path = ''")
+    expect(inventory).toContain('private.current_organization_id_for_roles')
+    // Jamas se acepta un organization_id enviado por el navegador.
+    expect(inventory).not.toContain('p_organization_id')
+  })
+
+  it('valida en la base el dinero de las joyas y de los abonos del comprador', () => {
+    expect(inventory).toContain('function private.assert_stock_jewel_payload')
+    expect(inventory).toContain("p_data->'costcop'")
+    expect(inventory).toContain("p_data->'pricecop'")
+    expect(inventory).toContain("'disponible', 'apartada'")
+    // Los abonos del comprador (D-042) tambien son dinero validado en servidor.
+    expect(inventory).toContain('function private.assert_stone_lot_payload')
+    expect(inventory).toContain("sale->'payments'")
   })
 })

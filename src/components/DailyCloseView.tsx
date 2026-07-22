@@ -31,21 +31,21 @@ export function DailyCloseView() {
 
   const validDay = isValidISODate(day);
   const dailyReport = useMemo(
-    () => buildDailyReport(validDay ? day : today, store.quotes, store.stoneLots),
-    [day, validDay, today, store.quotes, store.stoneLots]
+    () => buildDailyReport(validDay ? day : today, store.quotes, store.stoneLots, store.stockJewels),
+    [day, validDay, today, store.quotes, store.stoneLots, store.stockJewels]
   );
 
   const summaries = useMemo(
-    () => listMonthlySummaries(store.quotes, store.stoneLots),
-    [store.quotes, store.stoneLots]
+    () => listMonthlySummaries(store.quotes, store.stoneLots, store.stockJewels),
+    [store.quotes, store.stoneLots, store.stockJewels]
   );
   const monthOptions = useMemo(() => {
     const months = new Set<string>([currentMonth, ...summaries.map((s) => s.month)]);
     return [...months].sort((a, b) => b.localeCompare(a));
   }, [currentMonth, summaries]);
   const monthlyReport = useMemo(
-    () => buildMonthlyReport(month, store.quotes, store.stoneLots),
-    [month, store.quotes, store.stoneLots]
+    () => buildMonthlyReport(month, store.quotes, store.stoneLots, store.stockJewels),
+    [month, store.quotes, store.stoneLots, store.stockJewels]
   );
 
   const download = async () => {

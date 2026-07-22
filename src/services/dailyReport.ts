@@ -6,10 +6,11 @@
 // sí, el día en que se hacen. Documentos SOLO internos: descarga directa,
 // sin Web Share ni WhatsApp.
 
-import type { Quote, StoneLot, Settings } from '../types';
+import type { Quote, StockJewel, StoneLot, Settings } from '../types';
 import type { PdfContent, PdfSection } from './pdfContent';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { lotDisplayName, summarizeStoneLot } from './stones';
+import { jewelDisplayName, summarizeStockJewel } from './stockJewels';
 import { clientPaidTotal } from './payments';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
@@ -31,13 +32,42 @@ export interface DailyStoneSale {
   buyer: string;
   carats: number;
   quantity: number;
+  /** Precio acordado de la venta. */
   valueCop: number;
+  /** true si fue a crédito: se lista, pero NO cuenta como entrada de caja (D-045). */
+  onCredit: boolean;
+  /** Fecha acordada de pago. Vacía en una venta de contado. */
+  dueDate: string;
 }
 
 export interface DailySupplierPayment {
   lotName: string;
   supplier: string;
   amount: number;
+}
+
+/** Abono que un comprador entregó ese día por una venta a crédito (D-042). */
+export interface DailyBuyerPayment {
+  lotName: string;
+  buyer: string;
+  amount: number;
+}
+
+/** Joya en stock que entró al inventario ese día: el dinero salió de la caja. */
+export interface DailyJewelPurchase {
+  jewelName: string;
+  pieceType: string;
+  costCop: number;
+}
+
+/** Joya en stock vendida ese día. Siempre de contado (D-044). */
+export interface DailyJewelSale {
+  jewelName: string;
+  pieceType: string;
+  buyer: string;
+  priceCop: number;
+  /** Recibido − costo de la pieza. */
+  resultCop: number;
 }
 
 export interface DailyPayment {
@@ -70,14 +100,24 @@ export interface BusinessTotals {
   paymentsReceived: number;
   /** COP pagado al taller (Joyería, sale). */
   workshopPaid: number;
-  /** COP recibido por ventas de piedras (Piedras, entra). */
+  /** COP recibido por ventas de piedras DE CONTADO (Piedras, entra). */
   stonesSold: number;
+  /** COP vendido A CRÉDITO: se informa, pero no entró a caja (D-045). */
+  stonesSoldCredit: number;
+  /** COP recibido en abonos de compradores por ventas a crédito (Piedras, entra). */
+  buyerPaymentsReceived: number;
   /** COP en compras de piedras DE CONTADO (Piedras, sale). */
   stonesPurchasedCash: number;
   /** COP en compras A CRÉDITO: se informa, pero no salió de caja. */
   stonesPurchasedCredit: number;
   /** COP pagado a proveedores por créditos (Piedras, sale). */
   supplierPaymentsPaid: number;
+  /** COP invertido en joyas que entraron al inventario (Joyas, sale). */
+  jewelsAcquiredCost: number;
+  /** COP recibido por joyas en stock vendidas (Joyas, entra). */
+  jewelsSold: number;
+  /** Recibido − costo de las joyas vendidas en el periodo. */
+  jewelsResult: number;
   cashIn: number;
   cashOut: number;
   /** Entradas − salidas del periodo. */
@@ -86,6 +126,8 @@ export interface BusinessTotals {
   supplierDebt: number;
   /** Saldos que los clientes deben en piezas aprobadas AL MOMENTO (foto actual). */
   clientsOwe: number;
+  /** Saldos que los compradores deben por piedras AL MOMENTO (foto actual, D-042). */
+  buyersOwe: number;
 }
 
 /** Núcleo compartido por el cierre del día y el del mes. */
@@ -93,6 +135,9 @@ export interface BusinessReport {
   stonePurchases: DailyStonePurchase[];
   stoneSales: DailyStoneSale[];
   supplierPayments: DailySupplierPayment[];
+  buyerPayments: DailyBuyerPayment[];
+  jewelPurchases: DailyJewelPurchase[];
+  jewelSales: DailyJewelSale[];
   payments: DailyPayment[];
   workshopPayments: DailyWorkshopPayment[];
   quotesCreated: DailyQuoteLine[];
@@ -139,15 +184,20 @@ function clientNameOf(quote: Quote): string {
 function buildBusinessReport(
   quotes: readonly Quote[],
   stoneLots: readonly StoneLot[],
+  stockJewels: readonly StockJewel[],
   matchDate: (ymd: string) => boolean,
   matchInstant: (iso: string) => boolean
 ): BusinessReport {
   const stonePurchases: DailyStonePurchase[] = [];
   const stoneSales: DailyStoneSale[] = [];
   const supplierPayments: DailySupplierPayment[] = [];
+  const buyerPayments: DailyBuyerPayment[] = [];
   let supplierDebt = 0;
+  let buyersOwe = 0;
   for (const lot of stoneLots) {
-    supplierDebt += summarizeStoneLot(lot).supplierDebt;
+    const lotSummary = summarizeStoneLot(lot);
+    supplierDebt += lotSummary.supplierDebt;
+    buyersOwe += lotSummary.buyersDebt;
     if (matchDate(lot.purchaseDate)) {
       stonePurchases.push({
         lotName: lotDisplayName(lot),
@@ -167,8 +217,21 @@ function buildBusinessReport(
           buyer: sale.buyer,
           carats: sale.carats,
           quantity: sale.quantity,
-          valueCop: sale.valueCop
+          valueCop: sale.valueCop,
+          onCredit: sale.onCredit,
+          dueDate: sale.dueDate
         });
+      }
+      // Los abonos del comprador entran a caja el día en que se reciben, no el
+      // día de la venta: es la misma regla honesta de las compras a crédito.
+      for (const payment of sale.payments) {
+        if (matchDate(payment.date)) {
+          buyerPayments.push({
+            lotName: lotDisplayName(lot),
+            buyer: sale.buyer,
+            amount: payment.amount
+          });
+        }
       }
     }
     for (const payment of lot.supplierPayments) {
@@ -179,6 +242,29 @@ function buildBusinessReport(
           amount: payment.amount
         });
       }
+    }
+  }
+
+  const jewelPurchases: DailyJewelPurchase[] = [];
+  const jewelSales: DailyJewelSale[] = [];
+  for (const jewel of stockJewels) {
+    // Una joya que entra al inventario ya se pagó: el dinero salió ese día,
+    // igual que una compra de piedras de contado.
+    if (matchDate(jewel.acquiredDate) && jewel.costCop > 0) {
+      jewelPurchases.push({
+        jewelName: jewelDisplayName(jewel),
+        pieceType: jewel.pieceType,
+        costCop: jewel.costCop
+      });
+    }
+    if (jewel.sale && matchDate(jewel.sale.date)) {
+      jewelSales.push({
+        jewelName: jewelDisplayName(jewel),
+        pieceType: jewel.pieceType,
+        buyer: jewel.sale.buyer,
+        priceCop: jewel.sale.priceCop,
+        resultCop: summarizeStockJewel(jewel).resultCop
+      });
     }
   }
 
@@ -242,17 +328,28 @@ function buildBusinessReport(
   const sum = (values: number[]) => values.reduce((acc, v) => acc + v, 0);
   const paymentsReceived = sum(payments.map((p) => p.amount));
   const workshopPaid = sum(workshopPayments.map((w) => w.cost));
-  const stonesSold = sum(stoneSales.map((s) => s.valueCop));
+  // Solo las ventas de CONTADO entran a caja el día de la venta. Las de crédito
+  // se informan aparte y entran cuando el comprador abona (D-045).
+  const stonesSold = sum(stoneSales.filter((s) => !s.onCredit).map((s) => s.valueCop));
+  const stonesSoldCredit = sum(stoneSales.filter((s) => s.onCredit).map((s) => s.valueCop));
+  const buyerPaymentsReceived = sum(buyerPayments.map((p) => p.amount));
   const stonesPurchasedCash = sum(stonePurchases.filter((p) => !p.onCredit).map((p) => p.valueCop));
   const stonesPurchasedCredit = sum(stonePurchases.filter((p) => p.onCredit).map((p) => p.valueCop));
   const supplierPaymentsPaid = sum(supplierPayments.map((p) => p.amount));
-  const cashIn = stonesSold + paymentsReceived;
-  const cashOut = stonesPurchasedCash + supplierPaymentsPaid + workshopPaid;
+  const jewelsAcquiredCost = sum(jewelPurchases.map((j) => j.costCop));
+  const jewelsSold = sum(jewelSales.map((j) => j.priceCop));
+  const jewelsResult = sum(jewelSales.map((j) => j.resultCop));
+  const cashIn = stonesSold + buyerPaymentsReceived + jewelsSold + paymentsReceived;
+  const cashOut =
+    stonesPurchasedCash + supplierPaymentsPaid + jewelsAcquiredCost + workshopPaid;
 
   return {
     stonePurchases,
     stoneSales,
     supplierPayments,
+    buyerPayments,
+    jewelPurchases,
+    jewelSales,
     payments,
     workshopPayments,
     quotesCreated,
@@ -261,19 +358,28 @@ function buildBusinessReport(
       paymentsReceived,
       workshopPaid,
       stonesSold,
+      stonesSoldCredit,
+      buyerPaymentsReceived,
       stonesPurchasedCash,
       stonesPurchasedCredit,
       supplierPaymentsPaid,
+      jewelsAcquiredCost,
+      jewelsSold,
+      jewelsResult,
       cashIn,
       cashOut,
       net: cashIn - cashOut,
       supplierDebt,
-      clientsOwe
+      clientsOwe,
+      buyersOwe
     },
     isEmpty:
       stonePurchases.length === 0 &&
       stoneSales.length === 0 &&
       supplierPayments.length === 0 &&
+      buyerPayments.length === 0 &&
+      jewelPurchases.length === 0 &&
+      jewelSales.length === 0 &&
       payments.length === 0 &&
       workshopPayments.length === 0 &&
       quotesCreated.length === 0 &&
@@ -284,13 +390,15 @@ function buildBusinessReport(
 export function buildDailyReport(
   day: string,
   quotes: readonly Quote[],
-  stoneLots: readonly StoneLot[]
+  stoneLots: readonly StoneLot[],
+  stockJewels: readonly StockJewel[] = []
 ): DailyReport {
   return {
     date: day,
     ...buildBusinessReport(
       quotes,
       stoneLots,
+      stockJewels,
       (ymd) => ymd === day,
       (iso) => isSameLocalDay(iso, day)
     )
@@ -308,13 +416,15 @@ function isSameLocalMonth(iso: string, month: string): boolean {
 export function buildMonthlyReport(
   month: string,
   quotes: readonly Quote[],
-  stoneLots: readonly StoneLot[]
+  stoneLots: readonly StoneLot[],
+  stockJewels: readonly StockJewel[] = []
 ): MonthlyReport {
   return {
     month,
     ...buildBusinessReport(
       quotes,
       stoneLots,
+      stockJewels,
       (ymd) => isValidISODate(ymd) && ymd.slice(0, 7) === month,
       (iso) => isSameLocalMonth(iso, month)
     )
@@ -327,7 +437,8 @@ export function buildMonthlyReport(
  */
 export function listMonthlySummaries(
   quotes: readonly Quote[],
-  stoneLots: readonly StoneLot[]
+  stoneLots: readonly StoneLot[],
+  stockJewels: readonly StockJewel[] = []
 ): MonthlySummary[] {
   const months = new Set<string>();
   const addDate = (ymd: string) => {
@@ -340,8 +451,15 @@ export function listMonthlySummaries(
   };
   for (const lot of stoneLots) {
     addDate(lot.purchaseDate);
-    for (const sale of lot.sales) addDate(sale.date);
+    for (const sale of lot.sales) {
+      addDate(sale.date);
+      for (const payment of sale.payments) addDate(payment.date);
+    }
     for (const payment of lot.supplierPayments) addDate(payment.date);
+  }
+  for (const jewel of stockJewels) {
+    if (jewel.costCop > 0) addDate(jewel.acquiredDate);
+    if (jewel.sale) addDate(jewel.sale.date);
   }
   for (const quote of quotes) {
     addDate(quote.date);
@@ -355,7 +473,7 @@ export function listMonthlySummaries(
   return [...months]
     .sort((a, b) => b.localeCompare(a))
     .map((month) => {
-      const { totals } = buildMonthlyReport(month, quotes, stoneLots);
+      const { totals } = buildMonthlyReport(month, quotes, stoneLots, stockJewels);
       return { month, cashIn: totals.cashIn, cashOut: totals.cashOut, net: totals.net };
     });
 }
@@ -446,7 +564,20 @@ function businessSections(report: BusinessReport): PdfSection[] {
       title: 'Piedras · Ventas',
       paragraphs: report.stoneSales.map((s) => {
         const buyer = s.buyer ? ` a ${s.buyer}` : '';
-        return `• ${s.lotName}: ${formatCarats(s.carats)} · ${s.quantity} pz${buyer} — ${formatCOP(s.valueCop)}`;
+        const credit = s.onCredit
+          ? ` — A CRÉDITO (no entró a caja; pagan el ${formatDateCO(s.dueDate)})`
+          : '';
+        return `• ${s.lotName}: ${formatCarats(s.carats)} · ${s.quantity} pz${buyer} — ${formatCOP(s.valueCop)}${credit}`;
+      })
+    });
+  }
+
+  if (report.buyerPayments.length > 0) {
+    sections.push({
+      title: 'Piedras · Abonos de compradores',
+      paragraphs: report.buyerPayments.map((p) => {
+        const buyer = p.buyer ? ` de ${p.buyer}` : '';
+        return `• ${p.lotName}${buyer} — ${formatCOP(p.amount)}`;
       })
     });
   }
@@ -461,6 +592,25 @@ function businessSections(report: BusinessReport): PdfSection[] {
     });
   }
 
+  if (report.jewelPurchases.length > 0) {
+    sections.push({
+      title: 'Joyas en stock · Entradas al inventario',
+      paragraphs: report.jewelPurchases.map(
+        (j) => `• ${j.jewelName} (${j.pieceType}) — ${formatCOP(j.costCop)}`
+      )
+    });
+  }
+
+  if (report.jewelSales.length > 0) {
+    sections.push({
+      title: 'Joyas en stock · Ventas',
+      paragraphs: report.jewelSales.map((j) => {
+        const buyer = j.buyer ? ` a ${j.buyer}` : '';
+        return `• ${j.jewelName} (${j.pieceType})${buyer} — ${formatCOP(j.priceCop)} · resultado ${formatCOP(j.resultCop)}`;
+      })
+    });
+  }
+
   return sections;
 }
 
@@ -469,10 +619,20 @@ function businessTotalsRows(totals: BusinessTotals): Array<[string, string]> {
   const rows: Array<[string, string]> = [
     ['Joyería · entró por pagos de clientes', formatCOP(totals.paymentsReceived)],
     ['Joyería · salió al taller', `- ${formatCOP(totals.workshopPaid)}`],
-    ['Piedras · entró por ventas', formatCOP(totals.stonesSold)],
+    ['Piedras · entró por ventas de contado', formatCOP(totals.stonesSold)],
+    ['Piedras · entró por abonos de compradores', formatCOP(totals.buyerPaymentsReceived)],
     ['Piedras · salió en compras de contado', `- ${formatCOP(totals.stonesPurchasedCash)}`],
     ['Piedras · salió a proveedores', `- ${formatCOP(totals.supplierPaymentsPaid)}`]
   ];
+  if (totals.jewelsSold > 0) {
+    rows.push(['Joyas en stock · entró por ventas', formatCOP(totals.jewelsSold)]);
+  }
+  if (totals.jewelsAcquiredCost > 0) {
+    rows.push(['Joyas en stock · salió en piezas nuevas', `- ${formatCOP(totals.jewelsAcquiredCost)}`]);
+  }
+  if (totals.stonesSoldCredit > 0) {
+    rows.push(['Ventas a crédito (no entró a caja)', formatCOP(totals.stonesSoldCredit)]);
+  }
   if (totals.stonesPurchasedCredit > 0) {
     rows.push(['Compras a crédito (no salió de caja)', formatCOP(totals.stonesPurchasedCredit)]);
   }
@@ -481,6 +641,9 @@ function businessTotalsRows(totals: BusinessTotals): Array<[string, string]> {
   }
   if (totals.clientsOwe > 0) {
     rows.push(['Clientes te deben (a la fecha)', formatCOP(totals.clientsOwe)]);
+  }
+  if (totals.buyersOwe > 0) {
+    rows.push(['Te deben por piedras (a la fecha)', formatCOP(totals.buyersOwe)]);
   }
   return rows;
 }
@@ -527,7 +690,8 @@ export function buildMonthlyReportPdfContent(
       paragraphs: [
         `Cotizaciones creadas: ${report.quotesCreated.length} · aprobadas: ${report.quotesApproved.length}`,
         `Pagos de clientes: ${report.payments.length} · pagos del taller: ${report.workshopPayments.length}`,
-        `Lotes comprados: ${report.stonePurchases.length} · ventas de piedras: ${report.stoneSales.length} · pagos a proveedores: ${report.supplierPayments.length}`
+        `Lotes comprados: ${report.stonePurchases.length} · ventas de piedras: ${report.stoneSales.length} · abonos de compradores: ${report.buyerPayments.length} · pagos a proveedores: ${report.supplierPayments.length}`,
+        `Joyas que entraron al inventario: ${report.jewelPurchases.length} · joyas vendidas: ${report.jewelSales.length}`
       ]
     },
     ...businessSections(report)
