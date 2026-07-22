@@ -128,6 +128,46 @@ Sigue pendiente (no bloquea las etapas): la prueba física en Android registrada
 npm test && npm run build
 ```
 
+## Ampliación de inventario (2026-07-21/22, en curso)
+
+Un comerciante grande de esmeraldas, cliente real, pidió poder revisar si sus
+compradores ya le pagaron en las fechas acordadas. Héctor autorizó la ampliación.
+Decisiones de negocio y diseño en `docs/PLAN_PIEDRAS_Y_JOYAS_EN_STOCK.md` y en
+**D-042 a D-046** de `DECISIONS.md`.
+
+**Terminado y verificado en `codex/fase2-nube` (655 pruebas y compilación en verde):**
+
+- **Crédito al VENDER (D-042).** `StoneSale` estrena `onCredit`, `dueDate`,
+  `payments[]` y `buyerId`. `valueCop` pasa a ser el precio ACORDADO; lo recibido,
+  el saldo y el atraso se derivan. Las ventas anteriores se normalizan como de
+  contado, así que dan exactamente el mismo dinero que antes.
+- **Compradores (D-043).** Entidad propia, lista aparte de Clientes, compartida por
+  piedras y joyas. Borrarlos conserva nombre, ventas y abonos.
+- **Joyas en stock (D-044).** Piezas ya fabricadas, área propia, siempre de contado.
+  "Vendida" se deriva de tener venta.
+- **Cierres honestos (D-045).** Una venta a crédito no entra a caja el día de la
+  venta; los abonos entran el día que se reciben; una joya sale de caja el día que
+  entra al inventario.
+- **Inventario (D-046).** La pestaña "Piedras" pasa a "Inventario" con tres
+  secciones (Piedras · Joyas · Cobros). El menú se queda en cinco botones.
+- **Cadena completa:** tipos, `schema.ts`, motores puros `receivables.ts` y
+  `stockJewels.ts`, escalón **v6** de IndexedDB (`buyers` + `stockJewels`),
+  **BACKUP_VERSION 6** que sigue aceptando v1–v5, storage, dataSource, store,
+  outbox, sync, api, importer y migración SQL aditiva.
+- **Verificación en navegador:** recorrido real completo (lote, venta a crédito
+  vencida, abono que baja el saldo, persistencia tras recargar, joya vendida,
+  cierre cuadrado) sin desbordamiento a 320, 375 ni 1280 px.
+
+**PENDIENTE, y es lo único que bloquea:**
+
+1. **Héctor debe aplicar la migración SQL al servidor de producción** siguiendo
+   `docs/SQL_PRODUCCION_INVENTARIO.md`. Es aditiva, no borra nada y es repetible.
+2. **Después** se publica al enlace nuevo (`Santismagico/emerald-dealer-app`).
+   Al revés no: la app pediría tablas que aún no existen.
+3. Prueba de dos dispositivos con las entidades nuevas, como se hizo en la Fase 2.
+
+`main` y las 7 joyerías del piloto **no fueron tocadas**.
+
 ## Bitácora de etapas (Codex la actualiza)
 
 | Fecha | Etapa | Resultado | Commit |
