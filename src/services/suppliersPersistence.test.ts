@@ -60,6 +60,10 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
         carats: 0.5,
         quantity: 1,
         valueCop: 1500000,
+        buyerId: null,
+        onCredit: false,
+        dueDate: '',
+        payments: [],
         notes: ''
       }
     ],
@@ -195,7 +199,9 @@ describe('respaldo v5 con proveedores', () => {
       quotes: [],
       appointments: [],
       stoneLots: [],
-      suppliers: [proveedor({ id: 'sup-import' })]
+      suppliers: [proveedor({ id: 'sup-import' })],
+      buyers: [],
+      stockJewels: []
     };
 
     await backupService.importBackup(backup);
@@ -213,7 +219,9 @@ describe('respaldo v5 con proveedores', () => {
       quotes: [],
       appointments: [],
       stoneLots: [],
-      suppliers: [proveedor({ id: 'dup' }), proveedor({ id: 'dup' })]
+      suppliers: [proveedor({ id: 'dup' }), proveedor({ id: 'dup' })],
+      buyers: [],
+      stockJewels: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

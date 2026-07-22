@@ -28,6 +28,10 @@ describe('aviso al eliminar un lote', () => {
           carats: 0.5,
           quantity: 1,
           valueCop: 1500000,
+          buyerId: null,
+          onCredit: false,
+          dueDate: '',
+          payments: [],
           notes: ''
         },
         {
@@ -37,6 +41,10 @@ describe('aviso al eliminar un lote', () => {
           carats: 0.5,
           quantity: 1,
           valueCop: 1500000,
+          buyerId: null,
+          onCredit: false,
+          dueDate: '',
+          payments: [],
           notes: ''
         }
       ],

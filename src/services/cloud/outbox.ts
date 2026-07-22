@@ -6,7 +6,9 @@ export type CloudTable =
   | 'quotes'
   | 'appointments'
   | 'stone_lots'
-  | 'suppliers';
+  | 'suppliers'
+  | 'buyers'
+  | 'stock_jewels';
 
 export type CloudOperationType = 'upsert' | 'delete';
 

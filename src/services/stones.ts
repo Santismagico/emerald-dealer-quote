@@ -4,7 +4,7 @@
 // ventas; nunca existe un contador guardado a mano. Todo es interno (COP
 // entero): ninguna piedra ni precio entra en canales de cliente.
 
-import type { StoneLot, StoneSale, SupplierPayment } from '../types';
+import type { BuyerPayment, StoneLot, StoneSale, SupplierPayment } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
@@ -14,6 +14,28 @@ export type LotFilter = 'existencias' | 'agotados' | 'todos';
 /** Redondeo a 3 decimales para que la resta de quilates no acumule ruido flotante. */
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
+}
+
+/** Lo que se puede saber de una venta sin guardar nada: recibido y saldo (D-042). */
+export interface StoneSaleSummary {
+  sale: StoneSale;
+  /** COP realmente recibido: el precio si fue de contado, la suma de abonos si fue a crédito. */
+  receivedCop: number;
+  /** Lo que el comprador aún debe. 0 en una venta de contado. */
+  balanceCop: number;
+  /** true cuando fue a crédito y ya no queda saldo. */
+  settled: boolean;
+}
+
+export function summarizeStoneSale(sale: StoneSale): StoneSaleSummary {
+  const total = toSafeCOP(sale.valueCop);
+  if (!sale.onCredit) {
+    return { sale, receivedCop: total, balanceCop: 0, settled: false };
+  }
+  let receivedCop = 0;
+  for (const payment of sale.payments) receivedCop += toSafeCOP(payment.amount);
+  const balanceCop = Math.max(0, total - receivedCop);
+  return { sale, receivedCop, balanceCop, settled: balanceCop <= 0 };
 }
 
 /** Todo lo que se puede saber de un lote sin guardar nada: vendido, restante y resultado. */
@@ -35,16 +57,27 @@ export interface StoneLotSummary {
   supplierDebt: number;
   /** true cuando fue a crédito y ya no se debe nada. */
   creditSettled: boolean;
+  /** COP ya recibido de los compradores (contado completo + abonos de crédito). */
+  receivedFromBuyers: number;
+  /** COP que los compradores aún deben por las ventas a crédito de este lote. */
+  buyersDebt: number;
 }
 
 export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   let soldCarats = 0;
   let soldQuantity = 0;
   let soldValue = 0;
+  let receivedFromBuyers = 0;
+  let buyersDebt = 0;
   for (const sale of lot.sales) {
     soldCarats += sale.carats;
     soldQuantity += sale.quantity;
+    // `soldValue` es el precio ACORDADO: así el resultado del lote no cambia de
+    // significado por vender a crédito. El dinero real va aparte (D-042).
     soldValue += toSafeCOP(sale.valueCop);
+    const summary = summarizeStoneSale(sale);
+    receivedFromBuyers += summary.receivedCop;
+    buyersDebt += summary.balanceCop;
   }
   soldCarats = round3(soldCarats);
   const remainingCarats = round3(lot.carats - soldCarats);
@@ -68,7 +101,9 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     result: soldValue - purchaseValue,
     paidToSupplier,
     supplierDebt,
-    creditSettled: lot.onCredit && supplierDebt <= 0
+    creditSettled: lot.onCredit && supplierDebt <= 0,
+    receivedFromBuyers,
+    buyersDebt
   };
 }
 
@@ -130,9 +165,14 @@ export function validateStoneLotPurchaseUpdate(
           sale.id !== candidate.id ||
           sale.date !== candidate.date ||
           sale.buyer !== candidate.buyer ||
+          sale.buyerId !== candidate.buyerId ||
           sale.carats !== candidate.carats ||
           sale.quantity !== candidate.quantity ||
           sale.valueCop !== candidate.valueCop ||
+          sale.onCredit !== candidate.onCredit ||
+          sale.dueDate !== candidate.dueDate ||
+          // Los abonos ya recibidos son historial: no se tocan desde la compra.
+          JSON.stringify(sale.payments) !== JSON.stringify(candidate.payments) ||
           sale.notes !== candidate.notes
         );
       });
@@ -338,7 +378,32 @@ export function validateStoneSale(
   if (sale.quantity <= 0 && sale.carats <= 0) {
     return 'Indica cuántas piedras o cuántos quilates se vendieron.';
   }
-  if (toSafeCOP(sale.valueCop) <= 0) return 'Indica el valor recibido por la venta.';
+  if (toSafeCOP(sale.valueCop) <= 0) return 'Indica el valor acordado de la venta.';
+
+  if (sale.onCredit) {
+    if (!isValidISODate(sale.dueDate)) {
+      return 'Una venta a crédito necesita la fecha en que quedaron de pagarte.';
+    }
+    if (sale.dueDate < sale.date) {
+      return 'La fecha de pago no puede ser anterior a la venta.';
+    }
+    let abonado = 0;
+    for (const payment of sale.payments) {
+      if (!isValidISODate(payment.date)) return 'Un abono quedó sin fecha válida.';
+      const amount = toSafeCOP(payment.amount);
+      if (amount <= 0) return 'Un abono quedó sin monto.';
+      abonado += amount;
+    }
+    if (abonado > toSafeCOP(sale.valueCop)) {
+      return `Los abonos suman ${abonado.toLocaleString(
+        'es-CO'
+      )} y superan el valor de la venta.`;
+    }
+  } else if (sale.payments.length > 0) {
+    // Una venta de contado ya cuenta su precio completo como dinero recibido:
+    // conservar abonos duplicaría la plata al calcular la caja.
+    return 'No puedes pasar esta venta a contado porque ya tiene abonos registrados.';
+  }
 
   const others = lot.sales.filter((s) => s.id !== excludeSaleId);
   const summary = summarizeStoneLot({ ...lot, sales: others });
@@ -349,6 +414,50 @@ export function validateStoneSale(
     return `El lote solo tiene ${summary.remainingCarats} ct disponibles.`;
   }
   return null;
+}
+
+/**
+ * Revisa un abono del comprador ANTES de guardarlo. Devuelve el motivo del
+ * rechazo en lenguaje humano, o null si es válido. `excludePaymentId` permite
+ * editar un abono sin que se cuente a sí mismo. Espeja a validateSupplierPayment.
+ */
+export function validateBuyerPayment(
+  sale: StoneSale,
+  payment: BuyerPayment,
+  excludePaymentId?: string
+): string | null {
+  if (!sale.onCredit) return 'Los abonos solo se registran en ventas a crédito.';
+  if (!isValidISODate(payment.date)) return 'El abono necesita una fecha válida.';
+  const amount = toSafeCOP(payment.amount);
+  if (amount <= 0) return 'Indica el monto que te abonaron.';
+
+  const others = sale.payments.filter((p) => p.id !== excludePaymentId);
+  const summary = summarizeStoneSale({ ...sale, payments: others });
+  if (amount > summary.balanceCop) {
+    return `Solo te deben ${summary.balanceCop.toLocaleString('es-CO')} de esta venta.`;
+  }
+  return null;
+}
+
+/** Copia de la venta con un abono del comprador agregado o reemplazado. */
+export function withBuyerPayment(sale: StoneSale, payment: BuyerPayment): StoneSale {
+  const exists = sale.payments.some((p) => p.id === payment.id);
+  return {
+    ...sale,
+    payments: exists
+      ? sale.payments.map((p) => (p.id === payment.id ? payment : p))
+      : [...sale.payments, payment]
+  };
+}
+
+/** Copia de la venta sin el abono indicado. */
+export function withoutBuyerPayment(sale: StoneSale, paymentId: string): StoneSale {
+  return { ...sale, payments: sale.payments.filter((p) => p.id !== paymentId) };
+}
+
+/** Abono del comprador en blanco para el formulario. */
+export function emptyBuyerPayment(today: string): BuyerPayment {
+  return { id: newId(), date: today, amount: 0, notes: '' };
 }
 
 /** Copia del lote con una venta agregada o reemplazada, sin tocar el original. */
@@ -399,9 +508,13 @@ export function emptyStoneSale(today: string): StoneSale {
     id: newId(),
     date: today,
     buyer: '',
+    buyerId: null,
     carats: 0,
     quantity: 1,
     valueCop: 0,
+    onCredit: false,
+    dueDate: '',
+    payments: [],
     notes: ''
   };
 }

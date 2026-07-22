@@ -2,7 +2,16 @@
 // Todo dato leído pasa por services/schema.ts (normalización + migraciones):
 // las vistas siempre reciben la forma actual del tipo, venga de la versión que venga.
 
-import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from '../types';
+import type {
+  Settings,
+  Client,
+  Quote,
+  Appointment,
+  StoneLot,
+  Supplier,
+  Buyer,
+  StockJewel
+} from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate, dbWriteTransaction } from './db';
 import {
@@ -12,10 +21,13 @@ import {
   normalizeClient,
   normalizeAppointment,
   normalizeStoneLot,
-  normalizeSupplier
+  normalizeSupplier,
+  normalizeBuyer,
+  normalizeStockJewel
 } from './schema';
 import { compareAppointments } from './agenda';
 import { compareStoneLots } from './stones';
+import { compareStockJewels } from './stockJewels';
 
 // Re-export para compatibilidad: el resto de la app importa defaultSettings desde aquí.
 export { defaultSettings } from './schema';
@@ -218,6 +230,119 @@ export async function deleteSupplier(id: string): Promise<void> {
       }
     };
   });
+}
+
+export async function listBuyers(): Promise<Buyer[]> {
+  const buyers = await dbGetAll<unknown>('buyers');
+  return buyers.map(normalizeBuyer).sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    return byName || a.id.localeCompare(b.id, 'es');
+  });
+}
+
+/**
+ * Guarda el comprador y propaga su nombre a las ventas que lo apuntan, para que
+ * renombrarlo no deje historial con el nombre viejo (mismo patrón que C3 con
+ * los proveedores). Todo ocurre en una sola transacción.
+ */
+export async function saveBuyer(buyer: Buyer): Promise<void> {
+  const normalizedBuyer = normalizeBuyer(buyer);
+  const updatedAt = new Date().toISOString();
+
+  await dbWriteTransaction(['buyers', 'stoneLots', 'stockJewels'], (getStore) => {
+    getStore('buyers').put(normalizedBuyer);
+
+    const stoneLots = getStore('stoneLots');
+    const lotsRequest = stoneLots.getAll();
+    lotsRequest.onsuccess = () => {
+      for (const stored of lotsRequest.result as unknown[]) {
+        const lot = normalizeStoneLot(stored);
+        const needsRename = lot.sales.some(
+          (sale) => sale.buyerId === normalizedBuyer.id && sale.buyer !== normalizedBuyer.name
+        );
+        if (!needsRename) continue;
+        stoneLots.put({
+          ...lot,
+          sales: lot.sales.map((sale) =>
+            sale.buyerId === normalizedBuyer.id ? { ...sale, buyer: normalizedBuyer.name } : sale
+          ),
+          updatedAt
+        });
+      }
+    };
+
+    const stockJewels = getStore('stockJewels');
+    const jewelsRequest = stockJewels.getAll();
+    jewelsRequest.onsuccess = () => {
+      for (const stored of jewelsRequest.result as unknown[]) {
+        const jewel = normalizeStockJewel(stored);
+        if (
+          !jewel.sale ||
+          jewel.sale.buyerId !== normalizedBuyer.id ||
+          jewel.sale.buyer === normalizedBuyer.name
+        ) {
+          continue;
+        }
+        stockJewels.put({
+          ...jewel,
+          sale: { ...jewel.sale, buyer: normalizedBuyer.name },
+          updatedAt
+        });
+      }
+    };
+  });
+}
+
+/**
+ * Borra el comprador SIN tocar sus ventas: el nombre queda escrito y solo se
+ * suelta el vínculo. El historial de dinero nunca se pierde por borrar una
+ * ficha (D-043, mismo criterio que con proveedores).
+ */
+export async function deleteBuyer(id: string): Promise<void> {
+  const updatedAt = new Date().toISOString();
+
+  await dbWriteTransaction(['buyers', 'stoneLots', 'stockJewels'], (getStore) => {
+    getStore('buyers').delete(id);
+
+    const stoneLots = getStore('stoneLots');
+    const lotsRequest = stoneLots.getAll();
+    lotsRequest.onsuccess = () => {
+      for (const stored of lotsRequest.result as unknown[]) {
+        const lot = normalizeStoneLot(stored);
+        if (!lot.sales.some((sale) => sale.buyerId === id)) continue;
+        stoneLots.put({
+          ...lot,
+          sales: lot.sales.map((sale) =>
+            sale.buyerId === id ? { ...sale, buyerId: null } : sale
+          ),
+          updatedAt
+        });
+      }
+    };
+
+    const stockJewels = getStore('stockJewels');
+    const jewelsRequest = stockJewels.getAll();
+    jewelsRequest.onsuccess = () => {
+      for (const stored of jewelsRequest.result as unknown[]) {
+        const jewel = normalizeStockJewel(stored);
+        if (!jewel.sale || jewel.sale.buyerId !== id) continue;
+        stockJewels.put({ ...jewel, sale: { ...jewel.sale, buyerId: null }, updatedAt });
+      }
+    };
+  });
+}
+
+export async function listStockJewels(): Promise<StockJewel[]> {
+  const jewels = await dbGetAll<unknown>('stockJewels');
+  return jewels.map(normalizeStockJewel).sort(compareStockJewels);
+}
+
+export async function saveStockJewel(jewel: StockJewel): Promise<void> {
+  await dbPut('stockJewels', normalizeStockJewel(jewel));
+}
+
+export async function deleteStockJewel(id: string): Promise<void> {
+  await dbDelete('stockJewels', id);
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */

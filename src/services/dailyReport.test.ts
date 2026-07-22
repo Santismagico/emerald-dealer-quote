@@ -47,8 +47,8 @@ describe('cierre del día: qué entra en el reporte', () => {
         id: 'l-viejo-con-venta-hoy',
         purchaseDate: '2026-07-01',
         sales: [
-          { id: 'v-hoy', date: DAY, buyer: 'Comprador', carats: 1, quantity: 1, valueCop: 2000000, notes: '' },
-          { id: 'v-ayer', date: '2026-07-14', buyer: '', carats: 1, quantity: 1, valueCop: 900000, notes: '' }
+          { id: 'v-hoy', date: DAY, buyer: 'Comprador', carats: 1, quantity: 1, valueCop: 2000000, buyerId: null, onCredit: false, dueDate: '', payments: [], notes: '' },
+          { id: 'v-ayer', date: '2026-07-14', buyer: '', carats: 1, quantity: 1, valueCop: 900000, buyerId: null, onCredit: false, dueDate: '', payments: [], notes: '' }
         ]
       })
     ];
@@ -178,7 +178,7 @@ describe('cierre del día: totales y día vacío', () => {
       lote({
         id: 'l-venta',
         purchaseDate: '2026-07-01',
-        sales: [{ id: 'v-1', date: DAY, buyer: '', carats: 1, quantity: 1, valueCop: 2500000, notes: '' }]
+        sales: [{ id: 'v-1', date: DAY, buyer: '', carats: 1, quantity: 1, valueCop: 2500000, buyerId: null, onCredit: false, dueDate: '', payments: [], notes: '' }]
       })
     ];
     const quote = sampleQuote({
@@ -354,7 +354,7 @@ describe('cierre del mes (C6)', () => {
     lote({
       id: 'l-2',
       purchaseDate: '2026-06-20',
-      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, valueCop: 3000000, notes: '' }]
+      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, valueCop: 3000000, buyerId: null, onCredit: false, dueDate: '', payments: [], notes: '' }]
     })
   ];
 

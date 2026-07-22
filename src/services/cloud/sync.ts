@@ -1,9 +1,11 @@
 import { dbDelete, dbGetAll, dbPut, type StoreName } from '../db';
 import {
   normalizeAppointment,
+  normalizeBuyer,
   normalizeClient,
   normalizeQuote,
   normalizeSettings,
+  normalizeStockJewel,
   normalizeStoneLot,
   normalizeSupplier
 } from '../schema';
@@ -45,7 +47,9 @@ const CLOUD_TABLES: readonly CloudTable[] = [
   'quotes',
   'appointments',
   'stone_lots',
-  'suppliers'
+  'suppliers',
+  'buyers',
+  'stock_jewels'
 ];
 
 const storeByTable: Record<CloudTable, StoreName> = {
@@ -54,7 +58,9 @@ const storeByTable: Record<CloudTable, StoreName> = {
   quotes: 'quotes',
   appointments: 'appointments',
   stone_lots: 'stoneLots',
-  suppliers: 'suppliers'
+  suppliers: 'suppliers',
+  buyers: 'buyers',
+  stock_jewels: 'stockJewels'
 };
 
 function normalized(table: CloudTable, data: unknown): Record<string, unknown> {
@@ -65,6 +71,8 @@ function normalized(table: CloudTable, data: unknown): Record<string, unknown> {
     case 'appointments': return normalizeAppointment(data) as unknown as Record<string, unknown>;
     case 'stone_lots': return normalizeStoneLot(data) as unknown as Record<string, unknown>;
     case 'suppliers': return normalizeSupplier(data) as unknown as Record<string, unknown>;
+    case 'buyers': return normalizeBuyer(data) as unknown as Record<string, unknown>;
+    case 'stock_jewels': return normalizeStockJewel(data) as unknown as Record<string, unknown>;
   }
 }
 

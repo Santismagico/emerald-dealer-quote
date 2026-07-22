@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Appointment, BackupFile, Client, Quote, Settings, StoneLot, Supplier } from '../../types';
+import type {
+  Appointment,
+  BackupFile,
+  Buyer,
+  Client,
+  Quote,
+  Settings,
+  StockJewel,
+  StoneLot,
+  Supplier
+} from '../../types';
 import { sampleQuote, sampleSettings } from '../../test/fixtures';
 import {
   countImportRecords,
@@ -24,7 +34,9 @@ function largeBackup(): BackupFile {
     })),
     appointments: [],
     stoneLots: [],
-    suppliers: []
+    suppliers: [],
+    buyers: [],
+    stockJewels: []
   };
 }
 
@@ -35,7 +47,9 @@ function memoryWriter() {
     quotes: new Map<string, Quote>(),
     appointments: new Map<string, Appointment>(),
     stoneLots: new Map<string, StoneLot>(),
-    suppliers: new Map<string, Supplier>()
+    suppliers: new Map<string, Supplier>(),
+    buyers: new Map<string, Buyer>(),
+    stockJewels: new Map<string, StockJewel>()
   };
   let flushes = 0;
   const writer: CloudImportWriter = {
@@ -45,6 +59,8 @@ function memoryWriter() {
     saveAppointment: async (appointment) => void values.appointments.set(appointment.id, appointment),
     saveStoneLot: async (lot) => void values.stoneLots.set(lot.id, lot),
     saveSupplier: async (supplier) => void values.suppliers.set(supplier.id, supplier),
+    saveBuyer: async (buyer) => void values.buyers.set(buyer.id, buyer),
+    saveStockJewel: async (jewel) => void values.stockJewels.set(jewel.id, jewel),
     flush: async () => { flushes += 1; },
     pendingCount: async () => 0
   };

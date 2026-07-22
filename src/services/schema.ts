@@ -20,9 +20,19 @@ import type {
   StoneLot,
   StoneSale,
   Supplier,
-  SupplierPayment
+  SupplierPayment,
+  Buyer,
+  BuyerPayment,
+  StockJewel,
+  StockJewelSale,
+  StockJewelStatus
 } from '../types';
-import { QUOTE_STATUSES, PIECE_TYPES, APPOINTMENT_STATUSES } from '../types';
+import {
+  QUOTE_STATUSES,
+  PIECE_TYPES,
+  APPOINTMENT_STATUSES,
+  STOCK_JEWEL_STATUSES
+} from '../types';
 import { newId } from '../utils/id';
 
 /** Versión del esquema de settings. Súbela al agregar una migración. */
@@ -232,16 +242,87 @@ function normalizeSupplierPayment(raw: unknown): SupplierPayment {
   };
 }
 
+export function normalizeBuyer(raw: unknown): Buyer {
+  const b = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(b.id, newId()),
+    name: safeString(b.name),
+    phone: safeString(b.phone),
+    city: safeString(b.city),
+    notes: safeString(b.notes),
+    createdAt: safeString(b.createdAt)
+  };
+}
+
+function normalizeBuyerPayment(raw: unknown): BuyerPayment {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(p.id, newId()),
+    date: safeString(p.date),
+    amount: Math.max(0, Math.round(safeNumber(p.amount))),
+    notes: safeString(p.notes)
+  };
+}
+
+/**
+ * Una venta sin las marcas de crédito (D-042) es de CONTADO: así las ventas
+ * anteriores a la decisión conservan exactamente el dinero y el resultado que
+ * ya tenían. Una venta de contado nunca conserva abonos: lo recibido es su
+ * precio, y un abono suelto duplicaría el dinero al calcular la caja.
+ */
 function normalizeStoneSale(raw: unknown): StoneSale {
+  const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const onCredit = s.onCredit === true;
+  return {
+    id: safeString(s.id, newId()),
+    date: safeString(s.date),
+    buyer: safeString(s.buyer),
+    buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
+    carats: Math.max(0, safeNumber(s.carats)),
+    quantity: Math.max(0, safeNumber(s.quantity)),
+    valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    onCredit,
+    dueDate: onCredit ? safeString(s.dueDate) : '',
+    payments: onCredit ? safeArray(s.payments).map(normalizeBuyerPayment) : [],
+    notes: safeString(s.notes)
+  };
+}
+
+function normalizeStockJewelSale(raw: unknown): StockJewelSale {
   const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   return {
     id: safeString(s.id, newId()),
     date: safeString(s.date),
     buyer: safeString(s.buyer),
-    carats: Math.max(0, safeNumber(s.carats)),
-    quantity: Math.max(0, safeNumber(s.quantity)),
-    valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
+    priceCop: Math.max(0, Math.round(safeNumber(s.priceCop))),
     notes: safeString(s.notes)
+  };
+}
+
+/**
+ * Garantiza que una joya en stock tenga la forma exacta del tipo actual.
+ * El estado guardado solo puede ser disponible o apartada: "vendida" se deriva
+ * de tener venta (D-044), así que un dato corrupto jamás puede dejar una pieza
+ * marcada como vendida sin la venta que lo respalde.
+ */
+export function normalizeStockJewel(raw: unknown): StockJewel {
+  const j = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(j.id, newId()),
+    name: safeString(j.name),
+    pieceType: oneOf(j.pieceType, PIECE_TYPES, 'otro'),
+    material: safeString(j.material),
+    photo: safeImageDataUrl(j.photo),
+    acquiredDate: safeString(j.acquiredDate),
+    costCop: Math.max(0, Math.round(safeNumber(j.costCop))),
+    priceCop: Math.max(0, Math.round(safeNumber(j.priceCop))),
+    status: oneOf<StockJewelStatus>(j.status, STOCK_JEWEL_STATUSES, 'disponible'),
+    notes: safeString(j.notes),
+    sale:
+      typeof j.sale === 'object' && j.sale !== null ? normalizeStockJewelSale(j.sale) : null,
+    createdAt: safeString(j.createdAt),
+    updatedAt: safeString(j.updatedAt)
   };
 }
 

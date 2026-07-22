@@ -3,7 +3,16 @@
 // anterior, editado a mano o corrupto nunca puede dejar datos malformados en la
 // base local (hallazgo de la auditoría de seguridad 2026-07-09).
 
-import type { Appointment, BackupFile, Client, Quote, StoneLot, Supplier } from '../types';
+import type {
+  Appointment,
+  BackupFile,
+  Buyer,
+  Client,
+  Quote,
+  StockJewel,
+  StoneLot,
+  Supplier
+} from '../types';
 import { dbWriteTransaction } from './db';
 import {
   loadSettings,
@@ -12,6 +21,8 @@ import {
   listAppointments,
   listStoneLots,
   listSuppliers,
+  listBuyers,
+  listStockJewels,
   SETTINGS_KEY
 } from './storage';
 import {
@@ -20,28 +31,33 @@ import {
   normalizeClient,
   normalizeAppointment,
   normalizeStoneLot,
-  normalizeSupplier
+  normalizeSupplier,
+  normalizeBuyer,
+  normalizeStockJewel
 } from './schema';
 
 /**
- * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 5.
- * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores. Los
- * respaldos más viejos se importan con las listas nuevas vacías y nunca
- * fallan por no traerlas.
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 6.
+ * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores; v6 los
+ * compradores y las joyas en stock. Los respaldos más viejos se importan con
+ * las listas nuevas vacías y nunca fallan por no traerlas.
  */
-export const BACKUP_VERSION = 5;
-const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5];
+export const BACKUP_VERSION = 6;
+const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6];
 export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [settings, clients, quotes, appointments, stoneLots, suppliers] = await Promise.all([
-    loadSettings(),
-    listClients(),
-    listQuotes(),
-    listAppointments(),
-    listStoneLots(),
-    listSuppliers()
-  ]);
+  const [settings, clients, quotes, appointments, stoneLots, suppliers, buyers, stockJewels] =
+    await Promise.all([
+      loadSettings(),
+      listClients(),
+      listQuotes(),
+      listAppointments(),
+      listStoneLots(),
+      listSuppliers(),
+      listBuyers(),
+      listStockJewels()
+    ]);
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -51,7 +67,9 @@ export async function exportBackup(): Promise<BackupFile> {
     quotes,
     appointments,
     stoneLots,
-    suppliers
+    suppliers,
+    buyers,
+    stockJewels
   };
 }
 
@@ -185,6 +203,38 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     supplierIds.add(id);
   }
+  // Los compradores son opcionales (v1–v5 no los traen).
+  const rawBuyers = b.buyers ?? [];
+  if (!Array.isArray(rawBuyers)) {
+    throw new Error('El respaldo contiene compradores inválidos.');
+  }
+  const buyerIds = new Set<string>();
+  for (const bu of rawBuyers) {
+    const id = (bu as Buyer)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene compradores inválidos.');
+    }
+    if (buyerIds.has(id)) {
+      throw new Error('El respaldo contiene compradores duplicados.');
+    }
+    buyerIds.add(id);
+  }
+  // Las joyas en stock son opcionales (v1–v5 no las traen).
+  const rawStockJewels = b.stockJewels ?? [];
+  if (!Array.isArray(rawStockJewels)) {
+    throw new Error('El respaldo contiene joyas en stock inválidas.');
+  }
+  const jewelIds = new Set<string>();
+  for (const j of rawStockJewels) {
+    const id = (j as StockJewel)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene joyas en stock inválidas.');
+    }
+    if (jewelIds.has(id)) {
+      throw new Error('El respaldo contiene joyas en stock duplicadas.');
+    }
+    jewelIds.add(id);
+  }
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -195,7 +245,9 @@ function normalizeBackup(data: unknown): BackupFile {
     quotes: b.quotes.map(normalizeQuote),
     appointments: rawAppointments.map(normalizeAppointment),
     stoneLots: rawStoneLots.map(normalizeStoneLot),
-    suppliers: rawSuppliers.map(normalizeSupplier)
+    suppliers: rawSuppliers.map(normalizeSupplier),
+    buyers: rawBuyers.map(normalizeBuyer),
+    stockJewels: rawStockJewels.map(normalizeStockJewel)
   };
 }
 
@@ -224,7 +276,16 @@ export async function importBackup(backup: BackupFile): Promise<void> {
 
   try {
     await dbWriteTransaction(
-      ['settings', 'clients', 'quotes', 'appointments', 'stoneLots', 'suppliers'],
+      [
+        'settings',
+        'clients',
+        'quotes',
+        'appointments',
+        'stoneLots',
+        'suppliers',
+        'buyers',
+        'stockJewels'
+      ],
       (getStore) => {
         const settingsStore = getStore('settings');
         const clientsStore = getStore('clients');
@@ -232,6 +293,8 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         const appointmentsStore = getStore('appointments');
         const stoneLotsStore = getStore('stoneLots');
         const suppliersStore = getStore('suppliers');
+        const buyersStore = getStore('buyers');
+        const stockJewelsStore = getStore('stockJewels');
 
         settingsStore.clear();
         clientsStore.clear();
@@ -239,6 +302,8 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         appointmentsStore.clear();
         stoneLotsStore.clear();
         suppliersStore.clear();
+        buyersStore.clear();
+        stockJewelsStore.clear();
 
         if (normalized.settings) {
           settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -257,6 +322,12 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         }
         for (const supplier of normalized.suppliers) {
           suppliersStore.put(supplier);
+        }
+        for (const buyer of normalized.buyers) {
+          buyersStore.put(buyer);
+        }
+        for (const jewel of normalized.stockJewels) {
+          stockJewelsStore.put(jewel);
         }
       }
     );

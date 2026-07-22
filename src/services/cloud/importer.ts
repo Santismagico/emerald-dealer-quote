@@ -19,6 +19,8 @@ export interface CloudImportWriter extends Pick<
   | 'saveAppointment'
   | 'saveStoneLot'
   | 'saveSupplier'
+  | 'saveBuyer'
+  | 'saveStockJewel'
 > {
   flush: () => Promise<void>;
   pendingCount: () => Promise<number>;
@@ -43,7 +45,9 @@ export function countImportRecords(backup: BackupFile): number {
     + backup.quotes.length
     + backup.appointments.length
     + backup.stoneLots.length
-    + backup.suppliers.length;
+    + backup.suppliers.length
+    + backup.buyers.length
+    + backup.stockJewels.length;
 }
 
 export function hasLocalDataToImport(backup: BackupFile): boolean {
@@ -53,13 +57,23 @@ export function hasLocalDataToImport(backup: BackupFile): boolean {
     || backup.appointments.length
     || backup.stoneLots.length
     || backup.suppliers.length
+    || backup.buyers.length
+    || backup.stockJewels.length
   ) return true;
   return backup.settings !== null
     && JSON.stringify(backup.settings) !== JSON.stringify(defaultSettings());
 }
 
 export async function isCloudEmpty(remote: Pick<CloudRemote, 'list'> = supabaseCloudRemote): Promise<boolean> {
-  const tables = ['clients', 'quotes', 'appointments', 'stone_lots', 'suppliers'] as const;
+  const tables = [
+    'clients',
+    'quotes',
+    'appointments',
+    'stone_lots',
+    'suppliers',
+    'buyers',
+    'stock_jewels'
+  ] as const;
   const rows = await Promise.all(tables.map((table) => remote.list(table)));
   return rows.every((collection) => collection.length === 0);
 }
@@ -96,6 +110,10 @@ export async function importToCloud(
   for (const supplier of backup.suppliers) {
     tasks.push({ label: 'Proveedores', run: () => writer.saveSupplier(supplier) });
   }
+  // Los compradores van antes que lotes y joyas: sus ventas los referencian.
+  for (const buyer of backup.buyers) {
+    tasks.push({ label: 'Compradores', run: () => writer.saveBuyer(buyer) });
+  }
   for (const client of backup.clients) {
     tasks.push({ label: 'Clientes', run: () => writer.saveClient(client) });
   }
@@ -107,6 +125,9 @@ export async function importToCloud(
   }
   for (const lot of backup.stoneLots) {
     tasks.push({ label: 'Lotes de piedras', run: () => writer.saveStoneLot(lot) });
+  }
+  for (const jewel of backup.stockJewels) {
+    tasks.push({ label: 'Joyas en stock', run: () => writer.saveStockJewel(jewel) });
   }
 
   const total = tasks.length;

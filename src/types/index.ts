@@ -257,6 +257,34 @@ export interface SupplierPayment {
 }
 
 /**
+ * Comprador de piedras o de joyas en stock (SOLO uso interno; decisión D-043).
+ * Lista aparte de los clientes del cotizador: quien compra piedras suele ser
+ * otro joyero o comerciante, no el consumidor final que encarga una pieza.
+ */
+export interface Buyer {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  notes: string;
+  createdAt: string;
+}
+
+/**
+ * Abono recibido DEL COMPRADOR por una venta a crédito (D-042).
+ * Vive dentro de su venta: el saldo siempre es precio − abonos, nunca un
+ * contador guardado a mano.
+ */
+export interface BuyerPayment {
+  id: string;
+  /** Fecha del abono (YYYY-MM-DD). */
+  date: string;
+  /** Monto recibido en COP entero. */
+  amount: number;
+  notes: string;
+}
+
+/**
  * Venta parcial o total de un lote de piedras (SOLO uso interno).
  * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
  * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
@@ -265,14 +293,25 @@ export interface StoneSale {
   id: string;
   /** Fecha de la venta (YYYY-MM-DD). */
   date: string;
-  /** A quién se le vendió (texto libre). */
+  /** A quién se le vendió (nombre visible; copiado del comprador o escrito libre). */
   buyer: string;
+  /** Comprador registrado vinculado, o null si fue texto libre (D-043). */
+  buyerId: string | null;
   /** Quilates vendidos en esta venta. */
   carats: number;
   /** Número de piedras vendidas. */
   quantity: number;
-  /** Valor total recibido en COP entero. */
+  /**
+   * Precio TOTAL acordado de la venta, en COP entero. De contado equivale a lo
+   * recibido; a crédito lo recibido es la suma de `payments` (D-042).
+   */
   valueCop: number;
+  /** true si se vendió a crédito: el comprador debe hasta saldar (D-042). */
+  onCredit: boolean;
+  /** Fecha acordada de pago (YYYY-MM-DD). Vacía cuando es de contado. */
+  dueDate: string;
+  /** Abonos recibidos del comprador (aplican cuando es a crédito). */
+  payments: BuyerPayment[];
   notes: string;
 }
 
@@ -314,6 +353,56 @@ export interface StoneLot {
   updatedAt: string;
 }
 
+/**
+ * Estado GUARDADO de una joya en stock. "Vendida" no está aquí a propósito:
+ * se DERIVA de que la pieza tenga venta (D-044, regla de D-023).
+ */
+export type StockJewelStatus = 'disponible' | 'apartada';
+
+/**
+ * Venta de una joya en stock (SOLO uso interno). Siempre de contado por
+ * decisión de Héctor: la pieza se entrega pagada (D-044).
+ */
+export interface StockJewelSale {
+  id: string;
+  /** Fecha de la venta (YYYY-MM-DD). */
+  date: string;
+  /** A quién se le vendió (nombre visible; copiado del comprador o escrito libre). */
+  buyer: string;
+  /** Comprador registrado vinculado, o null si fue texto libre (D-043). */
+  buyerId: string | null;
+  /** Valor recibido en COP entero. */
+  priceCop: number;
+  notes: string;
+}
+
+/**
+ * Joya YA FABRICADA que está en vitrina para vender (SOLO uso interno).
+ * No es una cotización a la medida: no tiene etapas de taller, ni anticipo, ni
+ * documento de cliente. Área propia por decisión de Héctor (D-044). El costo,
+ * el resultado y las notas jamás salen de la aplicación.
+ */
+export interface StockJewel {
+  id: string;
+  name: string;
+  pieceType: PieceType;
+  material: string;
+  /** Foto en data URL comprimida por la app. Nunca una URL externa. */
+  photo: string;
+  /** Fecha en que la pieza entró al inventario (YYYY-MM-DD). Es cuando salió el dinero. */
+  acquiredDate: string;
+  /** Lo que costó la pieza, en COP entero. INTERNO. */
+  costCop: number;
+  /** Precio de venta que se pide, en COP entero. */
+  priceCop: number;
+  status: StockJewelStatus;
+  notes: string;
+  /** Venta de la pieza. null mientras siga disponible o apartada. */
+  sale: StockJewelSale | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BackupFile {
   app: 'emerald-dealer-quote';
   /** Versión del formato de respaldo. Ver services/backup.ts. */
@@ -328,6 +417,10 @@ export interface BackupFile {
   stoneLots: StoneLot[];
   /** Proveedores. Los respaldos v1–v4 no los traen y se importan vacíos. */
   suppliers: Supplier[];
+  /** Compradores. Los respaldos v1–v5 no los traen y se importan vacíos. */
+  buyers: Buyer[];
+  /** Joyas en stock. Los respaldos v1–v5 no las traen y se importan vacías. */
+  stockJewels: StockJewel[];
 }
 
 export const PIECE_TYPES: PieceType[] = [
@@ -355,3 +448,5 @@ export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
   'cancelada',
   'noAsistio'
 ];
+
+export const STOCK_JEWEL_STATUSES: StockJewelStatus[] = ['disponible', 'apartada'];

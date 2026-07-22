@@ -62,7 +62,9 @@ function makeBackup(
     quotes,
     appointments: [],
     stoneLots: [],
-    suppliers: []
+    suppliers: [],
+    buyers: [],
+    stockJewels: []
   };
 }
 

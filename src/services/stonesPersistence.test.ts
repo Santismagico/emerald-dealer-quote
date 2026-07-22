@@ -65,6 +65,10 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
         carats: 1,
         quantity: 1,
         valueCop: 2000000,
+        buyerId: null,
+        onCredit: false,
+        dueDate: '',
+        payments: [],
         notes: ''
       }
     ],
@@ -213,7 +217,9 @@ describe('respaldo v4 con lotes de piedras', () => {
       quotes: [sampleQuote()],
       appointments: [],
       stoneLots: [lote({ id: 'l-import' })],
-      suppliers: []
+      suppliers: [],
+      buyers: [],
+      stockJewels: []
     };
 
     await backupService.importBackup(backup);
@@ -233,7 +239,9 @@ describe('respaldo v4 con lotes de piedras', () => {
       quotes: [],
       appointments: [],
       stoneLots: [lote({ id: 'l-dup' }), lote({ id: 'l-dup' })],
-      suppliers: []
+      suppliers: [],
+      buyers: [],
+      stockJewels: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

@@ -2,7 +2,16 @@
 // sincronizado con IndexedDB a través de services/storage.
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from './types';
+import type {
+  Settings,
+  Client,
+  Quote,
+  Appointment,
+  StoneLot,
+  Supplier,
+  Buyer,
+  StockJewel
+} from './types';
 import { defaultSettings } from './services/storage';
 import { localDataSource, type StoreDataSource } from './services/dataSource';
 import { CLOUD_DATA_CHANGED_EVENT, cloudDataSource } from './services/cloud/api';
@@ -10,6 +19,7 @@ import type { OutboxStatus } from './services/cloud/outbox';
 import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
+import { sortStockJewels } from './services/stockJewels';
 import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
 import { downloadBackupFile } from './services/backup';
 import {
@@ -25,6 +35,8 @@ interface AppStore {
   appointments: Appointment[];
   stoneLots: StoneLot[];
   suppliers: Supplier[];
+  buyers: Buyer[];
+  stockJewels: StockJewel[];
   toast: string | null;
   backupExporting: boolean;
   cloudSync: OutboxStatus;
@@ -43,6 +55,10 @@ interface AppStore {
   removeStoneLot: (id: string) => Promise<void>;
   upsertSupplier: (supplier: Supplier) => Promise<void>;
   removeSupplier: (id: string) => Promise<void>;
+  upsertBuyer: (buyer: Buyer) => Promise<void>;
+  removeBuyer: (id: string) => Promise<void>;
+  upsertStockJewel: (jewel: StockJewel) => Promise<void>;
+  removeStockJewel: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   retryCloudChanges: (id?: string) => Promise<void>;
   reloadAll: () => Promise<void>;
@@ -78,6 +94,8 @@ export function StoreProvider({
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [stockJewels, setStockJewels] = useState<StockJewel[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
   const [cloudSync, setCloudSync] = useState<OutboxStatus>({ pending: 0, held: 0, operations: [] });
@@ -88,13 +106,15 @@ export function StoreProvider({
   }, [dataSource]);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q, a, sm, sp] = await Promise.all([
+    const [s, c, q, a, sm, sp, bu, jw] = await Promise.all([
       dataSource.loadSettings(),
       dataSource.listClients(),
       dataSource.listQuotes(),
       dataSource.listAppointments(),
       dataSource.listStoneLots(),
-      dataSource.listSuppliers()
+      dataSource.listSuppliers(),
+      dataSource.listBuyers(),
+      dataSource.listStockJewels()
     ]);
     setSettings(s);
     setClients(c);
@@ -102,6 +122,8 @@ export function StoreProvider({
     setAppointments(a);
     setStoneLots(sm);
     setSuppliers(sp);
+    setBuyers(bu);
+    setStockJewels(jw);
   }, [dataSource]);
 
   const refreshGoldPrice = useCallback(async () => {
@@ -241,6 +263,43 @@ export function StoreProvider({
     setStoneLots(nextStoneLots);
   }, [dataSource]);
 
+  // Guardar o borrar un comprador reescribe el nombre o suelta el vínculo en las
+  // ventas que lo apuntan, así que hay que releer también lotes y joyas (D-043).
+  const upsertBuyer = useCallback(async (buyer: Buyer) => {
+    await dataSource.saveBuyer(buyer);
+    const [nextBuyers, nextStoneLots, nextJewels] = await Promise.all([
+      dataSource.listBuyers(),
+      dataSource.listStoneLots(),
+      dataSource.listStockJewels()
+    ]);
+    setBuyers(nextBuyers);
+    setStoneLots(nextStoneLots);
+    setStockJewels(nextJewels);
+  }, [dataSource]);
+
+  const removeBuyer = useCallback(async (id: string) => {
+    await dataSource.deleteBuyer(id);
+    const [nextBuyers, nextStoneLots, nextJewels] = await Promise.all([
+      dataSource.listBuyers(),
+      dataSource.listStoneLots(),
+      dataSource.listStockJewels()
+    ]);
+    setBuyers(nextBuyers);
+    setStoneLots(nextStoneLots);
+    setStockJewels(nextJewels);
+  }, [dataSource]);
+
+  const upsertStockJewel = useCallback(async (jewel: StockJewel) => {
+    // Mismo patrón optimista que lotes y citas: la interfaz responde ya.
+    setStockJewels((prev) => sortStockJewels([jewel, ...prev.filter((j) => j.id !== jewel.id)]));
+    await dataSource.saveStockJewel(jewel);
+  }, [dataSource]);
+
+  const removeStockJewel = useCallback(async (id: string) => {
+    setStockJewels((prev) => prev.filter((j) => j.id !== id));
+    await dataSource.deleteStockJewel(id);
+  }, [dataSource]);
+
   const nextQuoteNumber = useCallback(async () => {
     const number = await dataSource.nextQuoteNumber();
     setSettings(await dataSource.loadSettings());
@@ -263,6 +322,8 @@ export function StoreProvider({
         appointments,
         stoneLots,
         suppliers,
+        buyers,
+        stockJewels,
         toast,
         backupExporting,
         cloudSync,
@@ -281,6 +342,10 @@ export function StoreProvider({
         removeStoneLot,
         upsertSupplier,
         removeSupplier,
+        upsertBuyer,
+        removeBuyer,
+        upsertStockJewel,
+        removeStockJewel,
         nextQuoteNumber,
         retryCloudChanges,
         reloadAll,

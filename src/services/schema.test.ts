@@ -5,6 +5,8 @@ import {
   normalizeQuote,
   normalizeSettings,
   normalizeStoneLot,
+  normalizeBuyer,
+  normalizeStockJewel,
   defaultSettings,
   SETTINGS_VERSION
 } from './schema';
@@ -220,7 +222,19 @@ describe('normalizeStoneLot', () => {
       supplierPayments: [],
       notes: '',
       sales: [
-        { id: 'v-1', date: '2026-07-15', buyer: 'Cliente', carats: 1, quantity: 1, valueCop: 2000000, notes: '' }
+        {
+          id: 'v-1',
+          date: '2026-07-15',
+          buyer: 'Cliente',
+          buyerId: null,
+          carats: 1,
+          quantity: 1,
+          valueCop: 2000000,
+          onCredit: false,
+          dueDate: '',
+          payments: [],
+          notes: ''
+        }
       ],
       createdAt: '2026-07-15T09:00:00.000Z',
       updatedAt: '2026-07-15T09:00:00.000Z'
@@ -247,5 +261,155 @@ describe('normalizeStoneLot', () => {
     expect(l.sales.length).toBe(2);
     expect(l.sales[0].id).toBeTruthy();
     expect(l.sales[0].id).not.toBe(l.sales[1].id);
+  });
+});
+
+describe('normalizeStoneLot: crédito al vender (D-042)', () => {
+  it('una venta anterior a la decisión se lee como de CONTADO', () => {
+    // Es la garantía de no regresión: los datos que ya existen en los teléfonos
+    // no traen ninguna marca de crédito y deben seguir valiendo lo mismo.
+    const l = normalizeStoneLot({
+      sales: [{ id: 'v-vieja', date: '2026-07-01', buyer: 'Pedro', carats: 1, quantity: 1, valueCop: 3000000 }]
+    });
+    expect(l.sales[0].onCredit).toBe(false);
+    expect(l.sales[0].dueDate).toBe('');
+    expect(l.sales[0].payments).toEqual([]);
+    expect(l.sales[0].buyerId).toBeNull();
+    expect(l.sales[0].valueCop).toBe(3000000);
+  });
+
+  it('conserva la fecha acordada y los abonos de una venta a crédito', () => {
+    const l = normalizeStoneLot({
+      sales: [
+        {
+          id: 'v-credito',
+          date: '2026-07-10',
+          buyer: 'Joyería Ejemplo',
+          buyerId: 'buy-1',
+          carats: 2,
+          quantity: 2,
+          valueCop: 5000000,
+          onCredit: true,
+          dueDate: '2026-08-10',
+          payments: [{ id: 'ab-1', date: '2026-07-20', amount: 2000000, notes: 'primer abono' }]
+        }
+      ]
+    });
+    expect(l.sales[0].onCredit).toBe(true);
+    expect(l.sales[0].dueDate).toBe('2026-08-10');
+    expect(l.sales[0].buyerId).toBe('buy-1');
+    expect(l.sales[0].payments).toEqual([
+      { id: 'ab-1', date: '2026-07-20', amount: 2000000, notes: 'primer abono' }
+    ]);
+  });
+
+  it('una venta de contado nunca conserva abonos sueltos', () => {
+    // Si los conservara, el precio completo Y los abonos contarían como dinero
+    // recibido y la caja del día quedaría inflada.
+    const l = normalizeStoneLot({
+      sales: [
+        {
+          id: 'v-1',
+          valueCop: 1000000,
+          onCredit: false,
+          dueDate: '2026-08-01',
+          payments: [{ id: 'ab-1', date: '2026-07-20', amount: 500000, notes: '' }]
+        }
+      ]
+    });
+    expect(l.sales[0].payments).toEqual([]);
+    expect(l.sales[0].dueDate).toBe('');
+  });
+
+  it('lleva a cero un abono negativo o corrupto', () => {
+    const l = normalizeStoneLot({
+      sales: [{ id: 'v-1', valueCop: 100, onCredit: true, payments: [{ id: 'ab-1', amount: -50 }, 'basura'] }]
+    });
+    expect(l.sales[0].payments[0].amount).toBe(0);
+    expect(l.sales[0].payments[1].id).toBeTruthy();
+  });
+});
+
+describe('normalizeBuyer', () => {
+  it('convierte basura en un comprador válido con id propio', () => {
+    const b = normalizeBuyer(null);
+    expect(b.id).toBeTruthy();
+    expect(b.name).toBe('');
+    expect(b.phone).toBe('');
+  });
+
+  it('conserva un comprador bien formado', () => {
+    const valid = {
+      id: 'buy-1',
+      name: 'Joyería Ejemplo',
+      phone: '3000000000',
+      city: 'Ciudad Ejemplo',
+      notes: 'Paga puntual',
+      createdAt: '2026-07-21T09:00:00.000Z'
+    };
+    expect(normalizeBuyer(valid)).toEqual(valid);
+  });
+});
+
+describe('normalizeStockJewel', () => {
+  it('convierte basura en una joya válida con defaults seguros', () => {
+    const j = normalizeStockJewel(null);
+    expect(j.id).toBeTruthy();
+    expect(j.status).toBe('disponible');
+    expect(j.costCop).toBe(0);
+    expect(j.priceCop).toBe(0);
+    expect(j.sale).toBeNull();
+    expect(j.photo).toBe('');
+  });
+
+  it('un estado inventado no puede dejar la pieza fuera de los dos estados guardables', () => {
+    // "vendida" NO es un estado guardado: se deriva de tener venta (D-044).
+    expect(normalizeStockJewel({ status: 'vendida' }).status).toBe('disponible');
+    expect(normalizeStockJewel({ status: 'apartada' }).status).toBe('apartada');
+  });
+
+  it('descarta una foto que no sea data URL de imagen', () => {
+    expect(normalizeStockJewel({ photo: 'https://ejemplo.invalido/foto.jpg' }).photo).toBe('');
+    expect(normalizeStockJewel({ photo: 'data:image/jpeg;base64,abc' }).photo).toBe(
+      'data:image/jpeg;base64,abc'
+    );
+  });
+
+  it('lleva a cero costos y precios negativos o corruptos', () => {
+    const j = normalizeStockJewel({ costCop: -5000, priceCop: 'mucho' });
+    expect(j.costCop).toBe(0);
+    expect(j.priceCop).toBe(0);
+  });
+
+  it('conserva una joya vendida con su venta', () => {
+    const j = normalizeStockJewel({
+      id: 'j-1',
+      name: 'Anillo Ejemplo',
+      pieceType: 'anillo',
+      material: 'Oro',
+      photo: '',
+      acquiredDate: '2026-07-01',
+      costCop: 3000000,
+      priceCop: 5000000,
+      status: 'disponible',
+      notes: '',
+      sale: {
+        id: 's-1',
+        date: '2026-07-20',
+        buyer: 'Comprador Ejemplo',
+        buyerId: 'buy-1',
+        priceCop: 4800000,
+        notes: ''
+      },
+      createdAt: '2026-07-01T09:00:00.000Z',
+      updatedAt: '2026-07-20T09:00:00.000Z'
+    });
+    expect(j.sale?.priceCop).toBe(4800000);
+    expect(j.sale?.buyerId).toBe('buy-1');
+  });
+
+  it('una venta corrupta no deja la joya a medio vender', () => {
+    const j = normalizeStockJewel({ sale: 'vendida ayer' });
+    expect(j.sale).toBeNull();
   });
 });

@@ -1,4 +1,13 @@
-import type { Appointment, Client, Quote, Settings, StoneLot, Supplier } from '../types';
+import type {
+  Appointment,
+  Buyer,
+  Client,
+  Quote,
+  Settings,
+  StockJewel,
+  StoneLot,
+  Supplier
+} from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import * as storage from './storage';
 import type { OutboxStatus } from './cloud/outbox';
@@ -27,6 +36,12 @@ export interface StoreDataSource {
   listSuppliers: () => Promise<Supplier[]>;
   saveSupplier: (supplier: Supplier) => Promise<void>;
   deleteSupplier: (id: string) => Promise<void>;
+  listBuyers: () => Promise<Buyer[]>;
+  saveBuyer: (buyer: Buyer) => Promise<void>;
+  deleteBuyer: (id: string) => Promise<void>;
+  listStockJewels: () => Promise<StockJewel[]>;
+  saveStockJewel: (jewel: StockJewel) => Promise<void>;
+  deleteStockJewel: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   cloudSyncStatus?: () => Promise<OutboxStatus>;
   retryCloudChanges?: (id?: string) => Promise<void>;

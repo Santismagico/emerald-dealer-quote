@@ -1,4 +1,13 @@
-import type { Appointment, Client, Quote, Settings, StoneLot, Supplier } from '../../types';
+import type {
+  Appointment,
+  Buyer,
+  Client,
+  Quote,
+  Settings,
+  StockJewel,
+  StoneLot,
+  Supplier
+} from '../../types';
 import type { StoreDataSource } from '../dataSource';
 import type { GoldPriceBreakdown } from '../goldPrice';
 import * as localStorage from '../storage';
@@ -53,7 +62,9 @@ const functionNames: Record<CloudTable, { upsert: string; delete: string }> = {
   quotes: { upsert: 'upsert_quote', delete: 'delete_quote' },
   appointments: { upsert: 'upsert_appointment', delete: 'delete_appointment' },
   stone_lots: { upsert: 'upsert_stone_lot', delete: 'delete_stone_lot' },
-  suppliers: { upsert: 'upsert_supplier', delete: 'delete_supplier' }
+  suppliers: { upsert: 'upsert_supplier', delete: 'delete_supplier' },
+  buyers: { upsert: 'upsert_buyer', delete: 'delete_buyer' },
+  stock_jewels: { upsert: 'upsert_stock_jewel', delete: 'delete_stock_jewel' }
 };
 
 function resultOrThrow<T>(result: QueryResult<T>, action: string): T {
@@ -116,9 +127,10 @@ export async function prepareCloudOperation(
   return prepared;
 }
 
-function changedLots(before: StoneLot[], after: StoneLot[]): StoneLot[] {
-  const previous = new Map(before.map((lot) => [lot.id, JSON.stringify(lot)]));
-  return after.filter((lot) => previous.get(lot.id) !== JSON.stringify(lot));
+/** Registros que cambiaron entre dos fotos, comparando su contenido completo. */
+function changed<T extends { id: string }>(before: T[], after: T[]): T[] {
+  const previous = new Map(before.map((item) => [item.id, JSON.stringify(item)]));
+  return after.filter((item) => previous.get(item.id) !== JSON.stringify(item));
 }
 
 export function createCloudDataSource(options: {
@@ -241,7 +253,7 @@ export function createCloudDataSource(options: {
       await localStorage.saveSupplier(supplier);
       const after = await localStorage.listStoneLots();
       await cacheAndQueue('suppliers', supplier.id, supplier, nowIso());
-      for (const lot of changedLots(before, after)) {
+      for (const lot of changed(before, after)) {
         await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
       }
     },
@@ -250,9 +262,56 @@ export function createCloudDataSource(options: {
       await localStorage.deleteSupplier(id);
       const after = await localStorage.listStoneLots();
       await enqueue('suppliers', 'delete', id, null, nowIso());
-      for (const lot of changedLots(before, after)) {
+      for (const lot of changed(before, after)) {
         await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
       }
+    },
+    listBuyers: () => pullThen('buyers', localStorage.listBuyers),
+    // Guardar o borrar un comprador reescribe el nombre o suelta el vínculo en
+    // las ventas que lo apuntan: esos lotes y joyas también deben subir (D-043).
+    async saveBuyer(buyer: Buyer) {
+      const [lotsBefore, jewelsBefore] = await Promise.all([
+        localStorage.listStoneLots(),
+        localStorage.listStockJewels()
+      ]);
+      await localStorage.saveBuyer(buyer);
+      const [lotsAfter, jewelsAfter] = await Promise.all([
+        localStorage.listStoneLots(),
+        localStorage.listStockJewels()
+      ]);
+      await cacheAndQueue('buyers', buyer.id, buyer, nowIso());
+      for (const lot of changed(lotsBefore, lotsAfter)) {
+        await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
+      for (const jewel of changed(jewelsBefore, jewelsAfter)) {
+        await cacheAndQueue('stock_jewels', jewel.id, jewel, jewel.updatedAt || nowIso());
+      }
+    },
+    async deleteBuyer(id) {
+      const [lotsBefore, jewelsBefore] = await Promise.all([
+        localStorage.listStoneLots(),
+        localStorage.listStockJewels()
+      ]);
+      await localStorage.deleteBuyer(id);
+      const [lotsAfter, jewelsAfter] = await Promise.all([
+        localStorage.listStoneLots(),
+        localStorage.listStockJewels()
+      ]);
+      await enqueue('buyers', 'delete', id, null, nowIso());
+      for (const lot of changed(lotsBefore, lotsAfter)) {
+        await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
+      for (const jewel of changed(jewelsBefore, jewelsAfter)) {
+        await cacheAndQueue('stock_jewels', jewel.id, jewel, jewel.updatedAt || nowIso());
+      }
+    },
+    listStockJewels: () => pullThen('stock_jewels', localStorage.listStockJewels),
+    async saveStockJewel(jewel: StockJewel) {
+      await cacheAndQueue('stock_jewels', jewel.id, jewel, jewel.updatedAt || nowIso());
+    },
+    async deleteStockJewel(id) {
+      await localStorage.deleteStockJewel(id);
+      await enqueue('stock_jewels', 'delete', id, null, nowIso());
     },
     nextQuoteNumber: options.remote.nextQuoteNumber,
     pullAll: options.sync.pullAll,

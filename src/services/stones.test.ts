@@ -30,6 +30,10 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     carats: 1,
     quantity: 1,
     valueCop: 2000000,
+    buyerId: null,
+    onCredit: false,
+    dueDate: '',
+    payments: [],
     notes: '',
     ...overrides
   };
