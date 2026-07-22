@@ -540,3 +540,94 @@ contienen campos pendientes y no tienen revisión profesional. Esta trazabilidad
 sirve para probar el recorrido técnico, pero no se presenta como evidencia jurídica final:
 antes de mercado se debe decidir con el revisor legal si hace falta un registro inmutable
 con hora del servidor. No se habilita la nube pública ni se modifica `main` con esta decisión.
+
+## D-042 · Crédito al VENDER piedras: una fecha acordada y abonos derivados · 2026-07-21 · Vigente
+
+Un comerciante grande de esmeraldas, cliente real, pidió poder revisar si sus compradores
+ya le pagaron en las fechas acordadas. Hoy `StoneSale` solo guarda `valueCop` y no existe
+ningún rastro de fecha, abonos ni saldo: era el hueco principal del inventario.
+
+Héctor decidió el modelo más simple que resuelve el problema: **una sola fecha límite de
+pago por venta, más abonos libres del comprador**, en lugar de un plan de cuotas con fecha
+y monto cada una. Un plan de cuotas obligaría a llenar varias pantallas por cada venta sin
+responder mejor la pregunta real, que es "¿ya me pagó y hace cuánto se venció?".
+
+`StoneSale` estrena `onCredit`, `dueDate`, `payments[]` y `buyerId`. `valueCop` pasa a
+significar el **precio total acordado** de la venta. Lo recibido, el saldo, el vencimiento
+y los días de atraso se **derivan** siempre, nunca se guardan (regla de D-023, igual que
+la deuda con proveedores de D-025/C4). Una cuota inicial es simplemente un abono con la
+fecha de la venta: no existe un campo aparte para ella.
+
+Las ventas anteriores a esta decisión se normalizan como de contado, sin fecha y sin
+abonos, de modo que su dinero, su resultado por lote y los cierres ya emitidos dan
+exactamente el mismo número que antes. Hay una prueba de no regresión que lo exige.
+
+## D-043 · Compradores como lista propia, separada de Clientes · 2026-07-21 · Vigente
+
+Quien compra piedras o joyas de vitrina suele ser otro joyero o comerciante, no el
+consumidor final que encarga una pieza a la medida. Mezclarlos en la lista de Clientes
+llenaría el selector del cotizador de gente que nunca va a encargar una joya.
+
+Se crea la entidad `Buyer` con la misma forma que `Supplier`, ya probada en producción.
+Es **una sola lista compartida** por las ventas de piedras y las de joyas en stock: una
+tercera lista solo para joyas sería peor, y así la ficha de un comerciante muestra todo lo
+que le compró. Sin comprador registrado, el nombre libre sigue funcionando exactamente
+como hoy.
+
+Borrar un comprador **no borra ni altera sus ventas**: dentro de una sola transacción se
+elimina el comprador y se deja `buyerId` en nulo conservando el nombre escrito, igual que
+se resolvió con los proveedores en C3. Renombrar un comprador actualiza su nombre en las
+ventas que lo apuntan. Ambas operaciones deben encolar hacia la nube también los lotes y
+joyas que cambiaron.
+
+## D-044 · Joyas en stock como área propia, siempre de contado · 2026-07-21 · Vigente
+
+Una joya de vitrina ya está fabricada: no se cotiza, no pasa por etapas de taller y no
+tiene anticipo. Héctor decidió que viva en un área propia, sin mezclarse con el cotizador
+ni con el Taller, por la misma razón por la que Piedras se separó en D-023: no arriesgar
+lo que ya usan las siete joyerías del piloto.
+
+De cada pieza se guarda **solo lo básico**: nombre, tipo, material, una foto, fecha de
+ingreso al inventario, costo, precio de venta y estado. Quedan expresamente **fuera** las
+piedras montadas, el peso en gramos, el código de vitrina y la ubicación; se conserva un
+campo de notas simple porque toda entidad de la app lo tiene.
+
+Las joyas **se venden siempre de contado**, por decisión expresa de Héctor: la pieza se
+entrega pagada. El crédito al vender queda solo para piedras.
+
+El estado "vendida" **no se guarda**: se deriva de que la pieza tenga venta. Solo
+"disponible" y "apartada" son estados escritos. El resultado de la pieza es el precio
+recibido menos su costo, y también se deriva.
+
+La foto reutiliza los límites ya probados de D-033/D-034 (una imagen por pieza, medida
+sobre lo que se guarda y no sobre el archivo original). Ninguna joya en stock genera
+documento de cliente: costo, resultado y notas no salen nunca de la app.
+
+## D-045 · El inventario cuenta en los cierres con la plata real · 2026-07-21 · Vigente
+
+Las ventas y cobros nuevos entran al Cierre del día y al del mes conservando la regla
+honesta de C5/D-025: **el dinero cuenta el día en que se mueve de verdad**.
+
+Una venta de piedras a crédito **no suma a la caja el día de la venta**; se informa aparte
+para que el comerciante la vea, y los abonos del comprador suman el día en que se reciben.
+Una venta de contado sigue sumando completa el día de la venta, como hasta ahora. Una joya
+que entra al inventario resta de la caja el día de su fecha de ingreso, igual que la
+compra de contado de un lote de piedras, y su venta suma el día en que se vende.
+
+Los cierres estrenan además la foto del momento "te deben por piedras", junto a las que ya
+existen de deuda con proveedores y saldos de clientes. Los documentos siguen siendo
+internos y de descarga directa, jamás Web Share ni WhatsApp.
+
+## D-046 · El inventario crece en profundidad, no en botones de menú · 2026-07-21 · Vigente
+
+Héctor pidió que piedras e inventario tengan más protagonismo y estrenó además joyas en
+stock. Un sexto botón en el menú inferior dejaría los nombres ilegibles en teléfonos de
+320 px, un ancho que la app cuida explícitamente desde D-030.
+
+Se elige entonces convertir la pestaña "Piedras" en **"Inventario"**, con tres secciones
+adentro: **Piedras · Joyas · Cobros**. El menú se queda en cinco botones. "Cobros" —la
+lista de quién debe, cuánto y hace cuántos días, con semáforo de color y orden por el más
+atrasado— queda a un solo toque, porque es exactamente lo que pidió el comerciante que
+originó esta ampliación.
+
+Esta ampliación **no agrega ninguna dependencia nueva**.
