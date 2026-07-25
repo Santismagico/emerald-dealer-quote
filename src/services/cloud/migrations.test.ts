@@ -5,6 +5,7 @@ import functionsSource from '../../../supabase/migrations/0003_funciones.sql?raw
 import hardeningSource from '../../../supabase/migrations/20260718200036_harden_cloud_writes.sql?raw'
 import grantClosureSource from '../../../supabase/migrations/20260718212000_close_authenticated_table_grants.sql?raw'
 import inventorySource from '../../../supabase/migrations/20260721210000_inventario_compradores_y_joyas.sql?raw'
+import materialsSource from '../../../supabase/migrations/20260724210000_inventario_materiales.sql?raw'
 
 const schema = schemaSource.toLowerCase()
 const rls = rlsSource.toLowerCase()
@@ -12,6 +13,7 @@ const functions = functionsSource.toLowerCase()
 const hardening = hardeningSource.toLowerCase()
 const grantClosure = grantClosureSource.toLowerCase()
 const inventory = inventorySource.toLowerCase()
+const materials = materialsSource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -167,5 +169,63 @@ describe('migracion de inventario: compradores y joyas en stock', () => {
     // Los abonos del comprador (D-042) tambien son dinero validado en servidor.
     expect(inventory).toContain('function private.assert_stone_lot_payload')
     expect(inventory).toContain("sale->'payments'")
+  })
+})
+
+describe('migracion de inventario de materiales: socios y lotes', () => {
+  const newTables = ['material_partners', 'material_lots']
+
+  it('crea las tablas nuevas sin destruir nada de la base viva', () => {
+    for (const table of newTables) {
+      expect(materials).toContain(`create table if not exists public.${table}`)
+    }
+    expect(materials).not.toMatch(/drop\s+table/)
+    expect(materials).not.toMatch(/drop\s+column/)
+    expect(materials).not.toMatch(/truncate/)
+    expect(materials).not.toMatch(/delete\s+from\s+public\.(clients|quotes|stone_lots|suppliers|buyers|stock_jewels|org_settings)/)
+  })
+
+  it('activa RLS y solo permite LEER directamente cada tabla nueva', () => {
+    for (const table of newTables) {
+      expect(materials).toContain(`alter table public.${table} enable row level security`)
+      expect(materials).toContain(`create policy ${table}_select_member`)
+      expect(materials).not.toContain(`create policy ${table}_insert_member`)
+      expect(materials).not.toContain(`create policy ${table}_update_member`)
+      expect(materials).not.toContain(`create policy ${table}_delete_member`)
+    }
+  })
+
+  it('abre solo la lectura al navegador y cierra el acceso anonimo', () => {
+    expect(materials).toContain('grant select on table public.material_partners, public.material_lots to authenticated')
+    expect(materials).toContain('revoke all on table public.material_partners, public.material_lots from anon')
+    expect(materials).toContain(
+      'revoke insert, update, delete on table public.material_partners, public.material_lots from authenticated'
+    )
+  })
+
+  it('protege las funciones nuevas y resuelve la organizacion en el servidor', () => {
+    const names = [
+      'upsert_material_partner',
+      'upsert_material_lot',
+      'delete_material_partner',
+      'delete_material_lot'
+    ]
+    for (const name of names) {
+      expect(materials).toContain(`function public.${name}`)
+      expect(materials).toContain(`grant execute on function public.${name}`)
+      expect(materials).toContain(`revoke all on function public.${name}`)
+    }
+    expect(materials).toContain("set search_path = ''")
+    expect(materials).toContain('private.current_organization_id_for_roles')
+    expect(materials).not.toContain('p_organization_id')
+  })
+
+  it('valida en la base los gramos, el costo y que mi parte no supere el lote', () => {
+    expect(materials).toContain('function private.assert_material_lot_payload')
+    expect(materials).toContain("p_data->'grams'")
+    expect(materials).toContain("p_data->'mygrams'")
+    expect(materials).toContain("p_data->'costcop'")
+    // Mi parte nunca puede ser mayor que los gramos del lote.
+    expect(materials).toContain("(p_data->>'mygrams')::numeric > (p_data->>'grams')::numeric")
   })
 })
