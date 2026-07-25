@@ -28,11 +28,15 @@ joyerías.
 
 Desde `C:\Dev\emerald-dealer`:
 
+Obtén la clave publicable desde el panel de producción justo antes de compilar y
+reemplaza el marcador. Aunque no es administrativa, no se deja escrita en el
+repositorio.
+
 ```bash
 # a) credenciales de producción (la anon key es PUBLICABLE, no secreta; va en el bundle)
 cat > .env.production.local << 'EOF'
 VITE_SUPABASE_URL=https://wrvokfzrcmmlzekudypu.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable__xmdQ7mav5ao4lAu7EO4qA_ksZaMdJA
+VITE_SUPABASE_ANON_KEY=<PEGAR_AQUI_LA_CLAVE_PUBLICABLE_DE_PRODUCCION>
 EOF
 
 # b) compilar con la base del enlace nuevo

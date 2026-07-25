@@ -70,20 +70,162 @@ function makeBackup(
   };
 }
 
+const BACKUP_ENTITY_STORE_NAMES = [
+  'clients',
+  'quotes',
+  'appointments',
+  'stoneLots',
+  'suppliers',
+  'buyers',
+  'stockJewels',
+  'materialPartners',
+  'materialLots'
+] as const;
+const BACKUP_STORE_NAMES = ['settings', ...BACKUP_ENTITY_STORE_NAMES] as const;
+
+type BackupStoreName = (typeof BACKUP_STORE_NAMES)[number];
+
+function makeFullBackup(prefix: string): BackupFile {
+  const backup = makeBackup(prefix, { clients: 2, quotes: 2, version: 7 });
+  const createdAt = '2026-07-25T12:00:00.000Z';
+  const supplierId = `${prefix}-supplier-1`;
+  const buyerId = `${prefix}-buyer-1`;
+  const partnerId = `${prefix}-material-partner-1`;
+
+  backup.appointments = [{
+    id: `${prefix}-appointment-1`,
+    clientId: backup.clients[0].id,
+    clientName: backup.clients[0].name,
+    date: '2026-07-25',
+    time: '10:00',
+    durationMinutes: 60,
+    reason: 'Asesoría',
+    notes: '',
+    status: 'programada',
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.suppliers = [{
+    id: supplierId,
+    name: `${prefix} Proveedor`,
+    phone: '',
+    city: '',
+    notes: '',
+    createdAt
+  }];
+  backup.buyers = [{
+    id: buyerId,
+    name: `${prefix} Comprador`,
+    phone: '',
+    city: '',
+    notes: '',
+    createdAt
+  }];
+  backup.materialPartners = [{
+    id: partnerId,
+    name: `${prefix} Socio`,
+    phone: '',
+    city: '',
+    notes: '',
+    createdAt
+  }];
+  backup.stoneLots = [{
+    id: `${prefix}-stone-lot-1`,
+    name: `${prefix} Lote de piedras`,
+    stoneType: 'Esmeralda',
+    description: '',
+    purchaseDate: '2026-07-25',
+    supplier: `${prefix} Proveedor`,
+    supplierId,
+    carats: 5,
+    quantity: 1,
+    purchaseValueCop: 1000000,
+    onCredit: false,
+    supplierPayments: [],
+    notes: '',
+    sales: [],
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.stockJewels = [{
+    id: `${prefix}-stock-jewel-1`,
+    name: `${prefix} Anillo`,
+    pieceType: 'anillo',
+    material: 'Oro',
+    photo: '',
+    acquiredDate: '2026-07-25',
+    costCop: 800000,
+    priceCop: 1200000,
+    status: 'disponible',
+    notes: '',
+    sale: null,
+    collectionId: null,
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.materialLots = [{
+    id: `${prefix}-material-lot-1`,
+    name: `${prefix} Oro`,
+    materialType: 'Oro',
+    purity: '18K',
+    purchaseDate: '2026-07-25',
+    grams: 10,
+    costCop: 5000000,
+    partnerId,
+    partnerName: `${prefix} Socio`,
+    myGrams: 6,
+    notes: '',
+    uses: [{
+      id: `${prefix}-material-use-1`,
+      date: '2026-07-25',
+      grams: 2,
+      notes: ''
+    }],
+    createdAt,
+    updatedAt: createdAt
+  }];
+  return backup;
+}
+
 function sortById<T extends { id?: unknown }>(items: T[]): T[] {
   return [...items].sort((a, b) => String(a.id).localeCompare(String(b.id)));
 }
 
 async function rawSnapshot() {
-  const [settings, clients, quotes] = await Promise.all([
+  const [
+    settings,
+    clients,
+    quotes,
+    appointments,
+    stoneLots,
+    suppliers,
+    buyers,
+    stockJewels,
+    materialPartners,
+    materialLots
+  ] = await Promise.all([
     db.dbGetAll<Record<string, unknown>>('settings'),
     db.dbGetAll<Record<string, unknown>>('clients'),
-    db.dbGetAll<Record<string, unknown>>('quotes')
+    db.dbGetAll<Record<string, unknown>>('quotes'),
+    db.dbGetAll<Record<string, unknown>>('appointments'),
+    db.dbGetAll<Record<string, unknown>>('stoneLots'),
+    db.dbGetAll<Record<string, unknown>>('suppliers'),
+    db.dbGetAll<Record<string, unknown>>('buyers'),
+    db.dbGetAll<Record<string, unknown>>('stockJewels'),
+    db.dbGetAll<Record<string, unknown>>('materialPartners'),
+    db.dbGetAll<Record<string, unknown>>('materialLots')
   ]);
   return {
     settings: sortById(settings),
     clients: sortById(clients),
-    quotes: sortById(quotes)
+    quotes: sortById(quotes),
+    appointments: sortById(appointments),
+    stoneLots: sortById(stoneLots),
+    suppliers: sortById(suppliers),
+    buyers: sortById(buyers),
+    stockJewels: sortById(stockJewels),
+    materialPartners: sortById(materialPartners),
+    materialLots: sortById(materialLots)
   };
 }
 
@@ -101,7 +243,7 @@ function trackAtomicTransactions() {
     const scope = Array.from(tx.objectStoreNames);
     if (
       mode === 'readwrite' &&
-      ['settings', 'clients', 'quotes'].every((store) => scope.includes(store))
+      BACKUP_STORE_NAMES.every((store) => scope.includes(store))
     ) {
       counts.writes += 1;
       tx.addEventListener('complete', () => {
@@ -116,7 +258,7 @@ function trackAtomicTransactions() {
   return counts;
 }
 
-function abortAfterSuccessfulPut(target: 'settings' | 'clients' | 'quotes') {
+function abortAfterSuccessfulPut(target: BackupStoreName) {
   let triggers = 0;
   const original = FakeIDBObjectStore.prototype.put;
   const spy = vi.spyOn(FakeIDBObjectStore.prototype, 'put').mockImplementation(function (
@@ -142,21 +284,20 @@ function abortAfterSuccessfulPut(target: 'settings' | 'clients' | 'quotes') {
 }
 
 describe('restauración atómica de respaldos', () => {
-  it('reemplaza ajustes, clientes y cotizaciones en una única confirmación', async () => {
-    await backupService.importBackup(makeBackup('anterior', { clients: 2, quotes: 2 }));
-    const next = makeBackup('nuevo', { clients: 2, quotes: 2 });
+  it('reemplaza las diez colecciones en una única confirmación', async () => {
+    await backupService.importBackup(makeFullBackup('anterior'));
+    const next = makeFullBackup('nuevo');
     const transactions = trackAtomicTransactions();
 
     await backupService.importBackup(next);
 
-    const [settings, clients, quotes] = await Promise.all([
-      storage.loadSettings(),
-      storage.listClients(),
-      storage.listQuotes()
-    ]);
-    expect(settings.jewelryName).toBe('Joyería nuevo');
-    expect(clients.map((client) => client.id).sort()).toEqual(next.clients.map((client) => client.id).sort());
-    expect(quotes.map((quote) => quote.id).sort()).toEqual(next.quotes.map((quote) => quote.id).sort());
+    const snapshot = await rawSnapshot();
+    expect((await storage.loadSettings()).jewelryName).toBe('Joyería nuevo');
+    for (const storeName of BACKUP_ENTITY_STORE_NAMES) {
+      expect(snapshot[storeName].map(({ id }) => id).sort()).toEqual(
+        next[storeName].map(({ id }) => id).sort()
+      );
+    }
     expect(transactions).toEqual({ writes: 1, completes: 1, aborts: 0 });
   });
 
@@ -174,17 +315,17 @@ describe('restauración atómica de respaldos', () => {
     expect(snapshot.quotes.every((quote) => String(quote.id).startsWith('lote-'))).toBe(true);
   });
 
-  it.each(['settings', 'clients', 'quotes'] as const)(
-    'un fallo al escribir %s aborta todo y conserva los tres grupos anteriores',
+  it.each(BACKUP_STORE_NAMES)(
+    'un fallo al escribir %s aborta todo y conserva las diez colecciones anteriores',
     async (target) => {
-      await backupService.importBackup(makeBackup(`base-${target}`, { clients: 2, quotes: 3 }));
+      await backupService.importBackup(makeFullBackup(`base-${target}`));
       const before = await rawSnapshot();
       const transactions = trackAtomicTransactions();
       const aborter = abortAfterSuccessfulPut(target);
       let successReached = false;
 
       try {
-        await backupService.importBackup(makeBackup(`nuevo-${target}`, { clients: 3, quotes: 4 }));
+        await backupService.importBackup(makeFullBackup(`nuevo-${target}`));
         successReached = true;
       } catch (error) {
         expect(error).toEqual(

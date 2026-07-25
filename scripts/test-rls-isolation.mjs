@@ -1,10 +1,34 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const editableTables = ['org_settings', 'clients', 'quotes', 'appointments', 'stone_lots', 'suppliers']
+const evidenceDirectory = resolve(root, 'security-evidence')
+const evidencePath = resolve(evidenceDirectory, 'n6-evidence.json')
+
+export const n6EntitySpecs = Object.freeze([
+  { table: 'clients', upsertRpc: 'upsert_client', deleteRpc: 'delete_client' },
+  { table: 'quotes', upsertRpc: 'upsert_quote', deleteRpc: 'delete_quote' },
+  { table: 'appointments', upsertRpc: 'upsert_appointment', deleteRpc: 'delete_appointment' },
+  { table: 'stone_lots', upsertRpc: 'upsert_stone_lot', deleteRpc: 'delete_stone_lot' },
+  { table: 'suppliers', upsertRpc: 'upsert_supplier', deleteRpc: 'delete_supplier' },
+  { table: 'buyers', upsertRpc: 'upsert_buyer', deleteRpc: 'delete_buyer' },
+  { table: 'stock_jewels', upsertRpc: 'upsert_stock_jewel', deleteRpc: 'delete_stock_jewel' },
+  {
+    table: 'material_partners',
+    upsertRpc: 'upsert_material_partner',
+    deleteRpc: 'delete_material_partner',
+  },
+  { table: 'material_lots', upsertRpc: 'upsert_material_lot', deleteRpc: 'delete_material_lot' },
+])
+
+export const n6EditableTables = Object.freeze([
+  'org_settings',
+  ...n6EntitySpecs.map(({ table }) => table),
+])
 
 export function validateN6Environment(env = process.env) {
   const url = env.SUPABASE_URL?.trim()
@@ -36,6 +60,31 @@ export function validateN6Environment(env = process.env) {
   return { url, publishableKey, secretKey, projectRef: actualRef, projectName }
 }
 
+function gitValue(args) {
+  const result = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  if (result.status !== 0) {
+    throw new Error('N6 no pudo identificar el commit candidato.')
+  }
+  return result.stdout.trim()
+}
+
+function readCandidateGitState() {
+  const commit = gitValue(['rev-parse', 'HEAD'])
+  const branch = gitValue(['branch', '--show-current'])
+  const changes = gitValue(['status', '--porcelain', '--untracked-files=normal'])
+  if (branch !== 'codex/fase2-nube') {
+    throw new Error(`N6 debe ejecutarse desde codex/fase2-nube, no desde ${branch || 'otra rama'}.`)
+  }
+  if (changes) {
+    throw new Error('N6 exige un commit exacto: hay cambios sin guardar en Git.')
+  }
+  return { commit, branch }
+}
+
 function client(url, key) {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
@@ -45,8 +94,46 @@ function assertSuccess(result, label) {
   return result.data
 }
 
-function assertRejected(result, label) {
+export function assertRejectedWithCode(result, label, expectedCode) {
   if (!result.error) throw new Error(`${label}: la operación debía ser rechazada`)
+  if (result.error.code !== expectedCode) {
+    throw new Error(
+      `${label}: se esperaba ${expectedCode}, pero el servidor devolvió `
+      + `${result.error.code || 'un error sin código'} (${result.error.message})`
+    )
+  }
+}
+
+export function assertDeniedOrFiltered(result, label) {
+  if (result.error && result.error.code !== '42501') {
+    throw new Error(
+      `${label}: se esperaba un rechazo de permisos o cero filas, pero el servidor devolvió `
+      + `${result.error.code || 'un error sin código'} (${result.error.message})`
+    )
+  }
+}
+
+export function assertRowUnchanged(before, after, label) {
+  if (!isDeepStrictEqual(after, before)) {
+    throw new Error(`${label}: la escritura directa alteró datos protegidos`)
+  }
+}
+
+function assertNoVisibleRows(result, label) {
+  if (result.error) {
+    assertRejectedWithCode(result, label, '42501')
+    return
+  }
+  if (result.data?.length) throw new Error(`${label}: expuso datos protegidos`)
+}
+
+export function assertAllChecksPassed(checks) {
+  const failed = Object.entries(checks)
+    .filter(([, passed]) => passed !== true)
+    .map(([name]) => name)
+  if (failed.length > 0) {
+    throw new Error(`N6 no aprobó estos controles: ${failed.join(', ')}`)
+  }
 }
 
 function rowFor(table, organizationId, id, now) {
@@ -56,7 +143,7 @@ function rowFor(table, organizationId, id, now) {
   return base
 }
 
-function validPayloads(prefix) {
+export function validPayloads(prefix) {
   return {
     clients: { id: `${prefix}-client`, name: `Cliente ${prefix}` },
     quotes: {
@@ -70,6 +157,30 @@ function validPayloads(prefix) {
       supplierPayments: [], sales: [],
     },
     suppliers: { id: `${prefix}-supplier`, name: `Proveedor ${prefix}` },
+    buyers: { id: `${prefix}-buyer`, name: `Comprador ${prefix}` },
+    stock_jewels: {
+      id: `${prefix}-stock-jewel`,
+      costCop: 800000,
+      priceCop: 1200000,
+      status: 'disponible',
+      sale: null,
+    },
+    material_partners: {
+      id: `${prefix}-material-partner`,
+      name: `Socio ${prefix}`,
+    },
+    material_lots: {
+      id: `${prefix}-material-lot`,
+      grams: 10,
+      myGrams: 6,
+      costCop: 5000000,
+      uses: [{
+        id: `${prefix}-material-use`,
+        date: '2026-07-25',
+        grams: 2,
+        notes: 'Prueba N6',
+      }],
+    },
   }
 }
 
@@ -78,21 +189,17 @@ async function upsertAll(api, payloads, now) {
     p_data: { currency: 'COP', goldPricePerGram: 500000, goldMarkupPerGram: 100000 },
     p_updated_at: now,
   }), 'guardar configuración por RPC')
-  const calls = [
-    ['clients', 'upsert_client'],
-    ['quotes', 'upsert_quote'],
-    ['appointments', 'upsert_appointment'],
-    ['stone_lots', 'upsert_stone_lot'],
-    ['suppliers', 'upsert_supplier'],
-  ]
-  for (const [table, rpc] of calls) {
+  for (const { table, upsertRpc } of n6EntitySpecs) {
     const data = payloads[table]
-    assertSuccess(await api.rpc(rpc, { p_id: data.id, p_data: data, p_updated_at: now }), `${rpc} legítima`)
+    assertSuccess(
+      await api.rpc(upsertRpc, { p_id: data.id, p_data: data, p_updated_at: now }),
+      `${upsertRpc} legítima`
+    )
   }
 }
 
 async function verifyOwnReads(api, organizationId) {
-  for (const table of editableTables) {
+  for (const table of n6EditableTables) {
     const result = await api.from(table).select('organization_id').eq('organization_id', organizationId)
     const rows = assertSuccess(result, `lectura propia ${table}`)
     if (!rows || rows.length === 0) throw new Error(`lectura propia ${table}: no devolvió datos`)
@@ -100,55 +207,276 @@ async function verifyOwnReads(api, organizationId) {
 }
 
 async function verifyCrossTenantReads(api, otherOrganizationId) {
-  for (const table of editableTables) {
+  for (const table of n6EditableTables) {
     const result = await api.from(table).select('organization_id').eq('organization_id', otherOrganizationId)
     const rows = assertSuccess(result, `lectura cruzada ${table}`)
     if (rows?.length !== 0) throw new Error(`lectura cruzada ${table}: expuso datos de otra joyería`)
   }
 }
 
-async function verifyDirectWritesDenied(api, organizationId, prefix, now) {
-  for (const table of editableTables) {
+async function verifyDirectWritesDenied(api, organizationId, payloads, prefix, now) {
+  for (const table of n6EditableTables) {
     const id = `${prefix}-direct-${table}`
-    assertRejected(await api.from(table).insert(rowFor(table, organizationId, id, now)), `insert directo ${table}`)
+    const before = await readEditableRow(
+      api,
+      table,
+      organizationId,
+      payloads,
+      `leer ${table} antes de escritura directa`
+    )
+    if (!before) throw new Error(`${table}: falta el registro protegido antes de la prueba directa`)
 
-    let update = api.from(table).update({ updated_at: now }).eq('organization_id', organizationId)
+    const directCreate = table === 'org_settings'
+      ? api
+        .from(table)
+        .upsert(rowFor(table, organizationId, id, now), { onConflict: 'organization_id' })
+      : api.from(table).insert(rowFor(table, organizationId, id, now))
+    assertRejectedWithCode(await directCreate, `insert/upsert directo ${table}`, '42501')
+
+    const forbiddenTimestamp = '2099-12-31T23:59:59.000Z'
+    let update = api
+      .from(table)
+      .update({
+        data: { n6DirectWriteProbe: `${prefix}:${table}` },
+        updated_at: forbiddenTimestamp,
+      })
+      .eq('organization_id', organizationId)
     let remove = api.from(table).delete().eq('organization_id', organizationId)
     if (table !== 'org_settings') {
-      update = update.eq('id', `${prefix}-${table === 'stone_lots' ? 'stone' : table.slice(0, -1)}`)
-      remove = remove.eq('id', `${prefix}-${table === 'stone_lots' ? 'stone' : table.slice(0, -1)}`)
+      const storedId = payloads[table].id
+      update = update.eq('id', storedId)
+      remove = remove.eq('id', storedId)
     }
-    assertRejected(await update, `update directo ${table}`)
-    assertRejected(await remove, `delete directo ${table}`)
+    assertDeniedOrFiltered(await update, `update directo ${table}`)
+    const afterUpdate = await readEditableRow(
+      api,
+      table,
+      organizationId,
+      payloads,
+      `leer ${table} después de update directo`
+    )
+    assertRowUnchanged(before, afterUpdate, `update directo ${table}`)
+
+    assertDeniedOrFiltered(await remove, `delete directo ${table}`)
+    const afterDelete = await readEditableRow(
+      api,
+      table,
+      organizationId,
+      payloads,
+      `leer ${table} después de delete directo`
+    )
+    assertRowUnchanged(before, afterDelete, `delete directo ${table}`)
   }
 }
 
-async function verifyRpcCannotTargetOtherTenant(api, otherOrganizationId, otherPayloads) {
-  const calls = [
-    ['upsert_client', otherPayloads.clients],
-    ['upsert_quote', otherPayloads.quotes],
-    ['upsert_appointment', otherPayloads.appointments],
-    ['upsert_stone_lot', otherPayloads.stone_lots],
-    ['upsert_supplier', otherPayloads.suppliers],
-  ]
-  for (const [rpc, data] of calls) {
-    const result = await api.rpc(rpc, {
+async function readEntityRow(api, table, organizationId, id, label) {
+  return assertSuccess(
+    await api
+      .from(table)
+      .select('id, organization_id, data, updated_at')
+      .eq('organization_id', organizationId)
+      .eq('id', id)
+      .maybeSingle(),
+    label
+  )
+}
+
+async function readEditableRow(api, table, organizationId, payloads, label) {
+  if (table === 'org_settings') {
+    return assertSuccess(
+      await api
+        .from(table)
+        .select('organization_id, data, updated_at')
+        .eq('organization_id', organizationId)
+        .maybeSingle(),
+      label
+    )
+  }
+  return readEntityRow(api, table, organizationId, payloads[table].id, label)
+}
+
+async function verifyRpcCannotTargetOtherTenant(
+  api,
+  ownOrganizationId,
+  otherApi,
+  otherOrganizationId,
+  otherPayloads
+) {
+  for (const { table, upsertRpc, deleteRpc } of n6EntitySpecs) {
+    const data = otherPayloads[table]
+    const before = await readEntityRow(
+      otherApi,
+      table,
+      otherOrganizationId,
+      data.id,
+      `leer ${table} ajena antes de probar RPC`
+    )
+    if (!before) throw new Error(`${table}: falta el registro de la otra joyería`)
+
+    const result = await api.rpc(upsertRpc, {
       p_id: data.id,
       p_data: data,
       p_updated_at: new Date().toISOString(),
       p_organization_id: otherOrganizationId,
     })
-    assertRejected(result, `${rpc} con joyería ajena`)
+    assertRejectedWithCode(
+      result,
+      `${upsertRpc} con organization_id enviado por el navegador`,
+      'PGRST202'
+    )
+    assertRejectedWithCode(
+      await api.rpc(deleteRpc, { p_id: data.id, p_organization_id: otherOrganizationId }),
+      `${deleteRpc} con organization_id enviado por el navegador`,
+      'PGRST202'
+    )
+
+    const probeData = {
+      ...data,
+      n6IsolationProbe: `${ownOrganizationId}:${otherOrganizationId}`,
+    }
+    assertSuccess(
+      await api.rpc(upsertRpc, {
+        p_id: probeData.id,
+        p_data: probeData,
+        p_updated_at: new Date().toISOString(),
+      }),
+      `${upsertRpc} normal durante prueba de aislamiento`
+    )
+
+    const ownProbe = await readEntityRow(
+      api,
+      table,
+      ownOrganizationId,
+      data.id,
+      `leer ${table} creada en la joyería llamadora`
+    )
+    if (!ownProbe || ownProbe.organization_id !== ownOrganizationId) {
+      throw new Error(`${upsertRpc}: no guardó dentro de la joyería llamadora`)
+    }
+    if (ownProbe.data?.n6IsolationProbe !== probeData.n6IsolationProbe) {
+      throw new Error(`${upsertRpc}: no conservó la marca de aislamiento`)
+    }
+
+    const afterUpsert = await readEntityRow(
+      otherApi,
+      table,
+      otherOrganizationId,
+      data.id,
+      `leer ${table} ajena después de upsert`
+    )
+    if (!isDeepStrictEqual(afterUpsert, before)) {
+      throw new Error(`${upsertRpc}: modificó el registro de otra joyería`)
+    }
+
+    assertSuccess(
+      await api.rpc(deleteRpc, { p_id: data.id }),
+      `${deleteRpc} normal durante prueba de aislamiento`
+    )
+    const ownAfterDelete = await readEntityRow(
+      api,
+      table,
+      ownOrganizationId,
+      data.id,
+      `comprobar borrado propio de ${table}`
+    )
+    if (ownAfterDelete) throw new Error(`${deleteRpc}: no borró el registro propio de prueba`)
+
+    const afterDelete = await readEntityRow(
+      otherApi,
+      table,
+      otherOrganizationId,
+      data.id,
+      `leer ${table} ajena después de delete`
+    )
+    if (!isDeepStrictEqual(afterDelete, before)) {
+      throw new Error(`${deleteRpc}: borró o alteró el registro de otra joyería`)
+    }
   }
 }
 
-async function verifyAnonymous(api, organizationId, now) {
-  for (const table of editableTables) {
+async function verifyAnonymous(api, ownerApi, organizationId, protectedPayloads, now) {
+  for (const table of n6EditableTables) {
     const read = await api.from(table).select('*').limit(1)
-    if (!read.error && read.data?.length) throw new Error(`sesión anónima leyó ${table}`)
-    assertRejected(await api.from(table).insert(rowFor(table, organizationId, `anon-${table}`, now)), `sesión anónima escribió ${table}`)
+    assertNoVisibleRows(read, `lectura anónima ${table}`)
+
+    const before = await readEditableRow(
+      ownerApi,
+      table,
+      organizationId,
+      protectedPayloads,
+      `leer ${table} antes de escritura anónima`
+    )
+    if (!before) throw new Error(`${table}: falta el registro protegido antes de la prueba anónima`)
+
+    const directCreate = table === 'org_settings'
+      ? api
+        .from(table)
+        .upsert(
+          rowFor(table, organizationId, `anon-${table}`, now),
+          { onConflict: 'organization_id' }
+        )
+      : api
+        .from(table)
+        .insert(rowFor(table, organizationId, `anon-${table}`, now))
+    assertRejectedWithCode(
+      await directCreate,
+      `insert/upsert anónimo ${table}`,
+      '42501'
+    )
+
+    let update = api
+      .from(table)
+      .update({
+        data: { n6AnonymousWriteProbe: table },
+        updated_at: '2099-12-31T23:59:59.000Z',
+      })
+      .eq('organization_id', organizationId)
+    let remove = api.from(table).delete().eq('organization_id', organizationId)
+    if (table !== 'org_settings') {
+      const protectedId = protectedPayloads[table].id
+      update = update.eq('id', protectedId)
+      remove = remove.eq('id', protectedId)
+    }
+    assertDeniedOrFiltered(await update, `update anónimo ${table}`)
+    const afterUpdate = await readEditableRow(
+      ownerApi,
+      table,
+      organizationId,
+      protectedPayloads,
+      `leer ${table} después de update anónimo`
+    )
+    assertRowUnchanged(before, afterUpdate, `update anónimo ${table}`)
+
+    assertDeniedOrFiltered(await remove, `delete anónimo ${table}`)
+    const afterDelete = await readEditableRow(
+      ownerApi,
+      table,
+      organizationId,
+      protectedPayloads,
+      `leer ${table} después de delete anónimo`
+    )
+    assertRowUnchanged(before, afterDelete, `delete anónimo ${table}`)
   }
-  assertRejected(await api.rpc('create_organization', { org_name: 'No permitida' }), 'RPC anónima')
+
+  const payloads = validPayloads('n6-anon')
+  for (const { table, upsertRpc, deleteRpc } of n6EntitySpecs) {
+    const data = payloads[table]
+    assertRejectedWithCode(
+      await api.rpc(upsertRpc, { p_id: data.id, p_data: data, p_updated_at: now }),
+      `sesión anónima llamó ${upsertRpc}`,
+      '42501'
+    )
+    assertRejectedWithCode(
+      await api.rpc(deleteRpc, { p_id: data.id }),
+      `sesión anónima llamó ${deleteRpc}`,
+      '42501'
+    )
+  }
+  assertRejectedWithCode(
+    await api.rpc('create_organization', { org_name: 'No permitida' }),
+    'RPC anónima',
+    '42501'
+  )
 }
 
 async function verifyConcurrentNumbers(api) {
@@ -157,25 +485,121 @@ async function verifyConcurrentNumbers(api) {
   if (new Set(numbers).size !== numbers.length) throw new Error('El consecutivo produjo números duplicados.')
 }
 
-async function verifyMalformedPayloads(api, now) {
-  assertRejected(await api.rpc('upsert_quote', {
-    p_id: 'n6-invalid-quote',
-    p_data: {
-      id: 'n6-invalid-quote', number: 'ED-N6-INVALID', status: 'inventado',
-      materialPricePerGram: -1, laborCost: 0, deposit: 0,
-      stones: [], extraCosts: [], production: [], payments: [],
-    },
-    p_updated_at: now,
-  }), 'cotización inválida')
-  assertRejected(await api.rpc('upsert_appointment', {
-    p_id: 'n6-invalid-appointment',
-    p_data: { id: 'n6-invalid-appointment', status: 'inventado', durationMinutes: 0 },
-    p_updated_at: now,
-  }), 'cita inválida')
+async function assertEntityAbsent(api, table, organizationId, id, label) {
+  const row = await readEntityRow(api, table, organizationId, id, label)
+  if (row) throw new Error(`${label}: el servidor guardó un registro rechazado`)
+}
+
+async function verifyMalformedPayloads(api, organizationId, now) {
+  assertRejectedWithCode(
+    await api.rpc('upsert_quote', {
+      p_id: 'n6-invalid-quote',
+      p_data: {
+        id: 'n6-invalid-quote', number: 'ED-N6-INVALID', status: 'inventado',
+        materialPricePerGram: -1, laborCost: 0, deposit: 0,
+        stones: [], extraCosts: [], production: [], payments: [],
+      },
+      p_updated_at: now,
+    }),
+    'cotización inválida',
+    '22023'
+  )
+  assertRejectedWithCode(
+    await api.rpc('upsert_appointment', {
+      p_id: 'n6-invalid-appointment',
+      p_data: { id: 'n6-invalid-appointment', status: 'inventado', durationMinutes: 0 },
+      p_updated_at: now,
+    }),
+    'cita inválida',
+    '22023'
+  )
+
+  const overusedId = 'n6-invalid-material-overuse'
+  assertRejectedWithCode(
+    await api.rpc('upsert_material_lot', {
+      p_id: overusedId,
+      p_data: {
+        id: overusedId,
+        grams: 10,
+        myGrams: 6,
+        costCop: 1000000,
+        uses: [
+          { id: 'n6-use-1', date: '2026-07-25', grams: 7, notes: '' },
+          { id: 'n6-use-2', date: '2026-07-25', grams: 7, notes: '' },
+        ],
+      },
+      p_updated_at: now,
+    }),
+    'lote de 10 g con salidas de 14 g',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api,
+    'material_lots',
+    organizationId,
+    overusedId,
+    'lote con sobreuso'
+  )
+
+  const missingUsesId = 'n6-invalid-material-without-uses'
+  assertRejectedWithCode(
+    await api.rpc('upsert_material_lot', {
+      p_id: missingUsesId,
+      p_data: {
+        id: missingUsesId,
+        grams: 10,
+        myGrams: 10,
+        costCop: 1000000,
+      },
+      p_updated_at: now,
+    }),
+    'lote de material sin arreglo uses',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api,
+    'material_lots',
+    organizationId,
+    missingUsesId,
+    'lote sin uses'
+  )
+}
+
+async function cleanupN6(admin, apis, organizations, users) {
+  const errors = []
+
+  for (const [index, api] of apis.entries()) {
+    const result = await api.auth.signOut({ scope: 'global' })
+    if (result.error) errors.push(`cerrar sesión ${index + 1}: ${result.error.message}`)
+  }
+
+  if (organizations.length > 0) {
+    const deletion = await admin.from('organizations').delete().in('id', organizations)
+    if (deletion.error) errors.push(`borrar joyerías: ${deletion.error.message}`)
+
+    const remaining = await admin.from('organizations').select('id').in('id', organizations)
+    if (remaining.error) {
+      errors.push(`comprobar joyerías borradas: ${remaining.error.message}`)
+    } else if (remaining.data?.length) {
+      errors.push(`quedaron ${remaining.data.length} joyerías de prueba`)
+    }
+  }
+
+  for (const [index, user] of users.entries()) {
+    const result = await admin.auth.admin.deleteUser(user.id)
+    if (result.error) errors.push(`borrar usuario ${index + 1}: ${result.error.message}`)
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Limpieza N6 incompleta: ${errors.join(' | ')}`)
+  }
 }
 
 export async function runN6(env = process.env) {
+  // Una ejecución nueva nunca puede heredar un resultado verde anterior.
+  rmSync(evidencePath, { force: true })
   const config = validateN6Environment(env)
+  const candidate = readCandidateGitState()
   const admin = client(config.url, config.secretKey)
   const anonymous = client(config.url, config.publishableKey)
   const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -184,6 +608,8 @@ export async function runN6(env = process.env) {
   const organizations = []
   const apis = []
   const startedAt = Date.now()
+  let evidence
+  let executionError
 
   try {
     for (const label of ['a', 'b']) {
@@ -195,9 +621,9 @@ export async function runN6(env = process.env) {
     for (const [index, user] of users.entries()) {
       const api = client(config.url, config.publishableKey)
       assertSuccess(await api.auth.signInWithPassword({ email: user.email, password }), `ingreso usuario ${index + 1}`)
+      apis.push(api)
       const organizationId = assertSuccess(await api.rpc('create_organization', { org_name: `N6 ${index + 1} ${nonce}` }), `crear joyería ${index + 1}`)
       organizations.push(organizationId)
-      apis.push(api)
     }
 
     const now = new Date().toISOString()
@@ -209,47 +635,95 @@ export async function runN6(env = process.env) {
     await verifyOwnReads(apis[1], organizations[1])
     await verifyCrossTenantReads(apis[0], organizations[1])
     await verifyCrossTenantReads(apis[1], organizations[0])
-    await verifyDirectWritesDenied(apis[0], organizations[0], 'n6-a', now)
-    await verifyDirectWritesDenied(apis[1], organizations[1], 'n6-b', now)
-    await verifyRpcCannotTargetOtherTenant(apis[0], organizations[1], payloadB)
-    await verifyRpcCannotTargetOtherTenant(apis[1], organizations[0], payloadA)
-    assertRejected(await apis[0].from('memberships').insert({
-      user_id: users[0].id, organization_id: organizations[1], role: 'owner',
-    }), 'membresía ajena')
-    await verifyAnonymous(anonymous, organizations[0], now)
+    await verifyDirectWritesDenied(apis[0], organizations[0], payloadA, 'n6-a', now)
+    await verifyDirectWritesDenied(apis[1], organizations[1], payloadB, 'n6-b', now)
+    await verifyRpcCannotTargetOtherTenant(
+      apis[0],
+      organizations[0],
+      apis[1],
+      organizations[1],
+      payloadB
+    )
+    await verifyRpcCannotTargetOtherTenant(
+      apis[1],
+      organizations[1],
+      apis[0],
+      organizations[0],
+      payloadA
+    )
+    assertRejectedWithCode(
+      await apis[0].from('memberships').insert({
+        user_id: users[0].id, organization_id: organizations[1], role: 'owner',
+      }),
+      'membresía ajena',
+      '42501'
+    )
+    await verifyAnonymous(anonymous, apis[0], organizations[0], payloadA, now)
     await verifyConcurrentNumbers(apis[0])
-    await verifyMalformedPayloads(apis[0], now)
+    await verifyMalformedPayloads(apis[0], organizations[0], now)
 
-    const evidence = {
+    evidence = {
       checkedAt: new Date().toISOString(),
+      commit: candidate.commit,
+      branch: candidate.branch,
       projectRef: config.projectRef,
       projectName: config.projectName,
-      durationMs: Date.now() - startedAt,
+      durationMs: 0,
       checks: {
         twoOrganizations: true,
+        exactCandidateCommit: true,
+        tenEditableTablesCovered: n6EditableTables.length === 10,
         ownReads: true,
         crossTenantReadsBlocked: true,
         directWritesBlocked: true,
         rpcCannotChooseOrganization: true,
+        rpcStaysInCallerOrganization: true,
         foreignMembershipBlocked: true,
         anonymousAccessBlocked: true,
+        anonymousEntityRpcsBlocked: true,
         concurrentNumbersUnique: true,
         malformedPayloadsBlocked: true,
+        materialOveruseBlocked: true,
+        missingMaterialUsesBlocked: true,
       },
     }
-    const directory = resolve(root, 'security-evidence')
-    mkdirSync(directory, { recursive: true })
-    writeFileSync(resolve(directory, 'n6-evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8')
-    return evidence
-  } finally {
-    for (const api of apis) {
-      await api.auth.signOut({ scope: 'global' })
-    }
-    if (organizations.length > 0) {
-      await admin.from('organizations').delete().in('id', organizations)
-    }
-    for (const user of users) await admin.auth.admin.deleteUser(user.id)
+  } catch (error) {
+    executionError = error
   }
+
+  let cleanupError
+  try {
+    await cleanupN6(admin, apis, organizations, users)
+  } catch (error) {
+    cleanupError = error
+  }
+
+  if (executionError && cleanupError) {
+    throw new AggregateError(
+      [executionError, cleanupError],
+      'N6 falló y además no pudo completar la limpieza'
+    )
+  }
+  if (executionError) throw executionError
+  if (cleanupError) throw cleanupError
+
+  evidence.checks.cleanupVerified = true
+  evidence.durationMs = Date.now() - startedAt
+  assertAllChecksPassed(evidence.checks)
+  mkdirSync(evidenceDirectory, { recursive: true })
+  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8')
+  return evidence
+}
+
+function describeError(error) {
+  if (error instanceof AggregateError) {
+    const causes = error.errors.map((cause, index) => {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      return `causa ${index + 1}: ${message}`
+    })
+    return `${error.message}\n${causes.join('\n')}`
+  }
+  return error instanceof Error ? error.message : 'error desconocido'
 }
 
 async function main() {
@@ -259,7 +733,7 @@ async function main() {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((error) => {
-    console.error(`N6 detenido: ${error instanceof Error ? error.message : 'error desconocido'}`)
+    console.error(`N6 detenido: ${describeError(error)}`)
     process.exitCode = 1
   })
 }

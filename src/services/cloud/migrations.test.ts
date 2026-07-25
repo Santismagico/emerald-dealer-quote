@@ -6,6 +6,8 @@ import hardeningSource from '../../../supabase/migrations/20260718200036_harden_
 import grantClosureSource from '../../../supabase/migrations/20260718212000_close_authenticated_table_grants.sql?raw'
 import inventorySource from '../../../supabase/migrations/20260721210000_inventario_compradores_y_joyas.sql?raw'
 import materialsSource from '../../../supabase/migrations/20260724210000_inventario_materiales.sql?raw'
+import materialValidationFixSource from '../../../supabase/migrations/20260725150651_validar_suma_usos_material.sql?raw'
+import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
 const rls = rlsSource.toLowerCase()
@@ -14,6 +16,7 @@ const hardening = hardeningSource.toLowerCase()
 const grantClosure = grantClosureSource.toLowerCase()
 const inventory = inventorySource.toLowerCase()
 const materials = materialsSource.toLowerCase()
+const materialValidationFix = materialValidationFixSource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -227,5 +230,51 @@ describe('migracion de inventario de materiales: socios y lotes', () => {
     expect(materials).toContain("p_data->'costcop'")
     // Mi parte nunca puede ser mayor que los gramos del lote.
     expect(materials).toContain("(p_data->>'mygrams')::numeric > (p_data->>'grams')::numeric")
+  })
+})
+
+describe('migracion correctiva de validacion de materiales', () => {
+  it('reemplaza solo el validador privado sin tocar tablas ni datos', () => {
+    expect(materialValidationFix).toContain(
+      'create or replace function private.assert_material_lot_payload'
+    )
+    expect(materialValidationFix).toContain('security invoker')
+    expect(materialValidationFix).toContain("set search_path = ''")
+    expect(materialValidationFix).toContain(
+      'revoke all on function private.assert_material_lot_payload'
+    )
+    expect(materialValidationFix).not.toMatch(
+      /grant\s+execute\s+on\s+function\s+private\.assert_material_lot_payload/
+    )
+    expect(materialValidationFix).not.toMatch(/drop\s+(table|column)/)
+    expect(materialValidationFix).not.toMatch(/truncate/)
+    expect(materialValidationFix).not.toMatch(/\b(insert|update|delete)\s+(into|from|public\.)/)
+  })
+
+  it('contiene la regla que N6 ejerce con un lote de 10 g y salidas de 14 g', () => {
+    // La suma se hace con numeric en PostgreSQL y se compara contra los gramos
+    // comprados. N6 prueba el caso real uses=[7, 7] contra grams=10.
+    expect(materialValidationFix).toMatch(
+      /coalesce\(sum\(\(item->>'grams'\)::numeric\),\s*0::numeric\)/
+    )
+    expect(materialValidationFix).toMatch(
+      /into\s+v_used_grams\s+from\s+jsonb_array_elements\(p_data->'uses'\)\s+item/
+    )
+    expect(materialValidationFix).toMatch(
+      /if\s+v_used_grams\s*>\s*\(p_data->>'grams'\)::numeric\s+then/
+    )
+    expect(materialValidationFix).toContain('material lot uses exceed available grams')
+    expect(materialValidationFix).toContain("errcode = '22023'")
+  })
+
+  it('tambien rechaza uses ausente, nulo o con una forma distinta de arreglo', () => {
+    expect(materialValidationFix).toContain(
+      "jsonb_typeof(p_data->'uses') is distinct from 'array'"
+    )
+  })
+
+  it('mantiene el texto para SQL Editor identico a la migracion versionada', () => {
+    const sqlBlock = materialValidationInstructionsSource.match(/```sql\s*([\s\S]*?)```/i)
+    expect(sqlBlock?.[1].trim()).toBe(materialValidationFixSource.trim())
   })
 })

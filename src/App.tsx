@@ -442,7 +442,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         {view === 'settings' && (
           <div className="space-y-4">
             <BackRow label="← Más" onClick={() => setView('more')} />
-            <SettingsView />
+            <SettingsView isCloudAccount={Boolean(cloudAccount)} />
           </div>
         )}
         {view === 'account' && cloudAccount && (

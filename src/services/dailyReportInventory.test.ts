@@ -209,6 +209,26 @@ describe('un día sin movimientos sigue siendo un día vacío', () => {
 });
 
 describe('cierre del mes', () => {
+  it('sin crédito, el día y el mes conservan exactamente el neto de contado', () => {
+    const lots = [
+      lote({
+        purchaseDate: DIA,
+        purchaseValueCop: 2000000,
+        sales: [venta({ valueCop: 3000000, onCredit: false, payments: [] })]
+      })
+    ];
+
+    const daily = buildDailyReport(DIA, [], lots);
+    const monthly = buildMonthlyReport(MES, [], lots);
+
+    expect(daily.totals.cashIn).toBe(3000000);
+    expect(daily.totals.cashOut).toBe(2000000);
+    expect(daily.totals.net).toBe(1000000);
+    expect(monthly.totals.cashIn).toBe(daily.totals.cashIn);
+    expect(monthly.totals.cashOut).toBe(daily.totals.cashOut);
+    expect(monthly.totals.net).toBe(daily.totals.net);
+  });
+
   it('suma abonos, ventas de joyas y compras de joyas del mes', () => {
     const lots = [
       lote({

@@ -23,7 +23,56 @@ import {
 type BackupRestoreResult = 'success' | 'restore-failed' | 'reload-failed';
 
 export const BACKUP_RESTORE_WARNING =
-  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas y pagos a proveedores) y proveedores actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
+  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas y pagos a proveedores), proveedores, compradores, joyas en inventario, socios de material y lotes de material actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
+
+export function canReplaceFromLocalBackup(isCloudAccount: boolean): boolean {
+  return !isCloudAccount;
+}
+
+export function BackupImportControls({
+  isCloudAccount,
+  importError,
+  onFile
+}: {
+  isCloudAccount: boolean;
+  importError: string;
+  onFile: (file: File | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  if (isCloudAccount) {
+    return (
+      <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+        Para agregar o actualizar datos en esta cuenta usa Más → Cuenta → Importar datos.
+        Esa ruta no reemplaza ni borra en bloque los registros que ya están en la nube.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        full
+        onClick={() => inputRef.current?.click()}
+      >
+        ⬆ Importar respaldo
+      </Button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/json,.json"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
+        onChange={(event) => {
+          onFile(event.target.files?.[0] ?? null);
+          event.target.value = '';
+        }}
+      />
+      {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
+    </>
+  );
+}
 
 /** Orden comprobable del flujo: restaurar, sincronizar, recargar y recién entonces avisar éxito. */
 export async function runBackupRestoreFlow(actions: {
@@ -49,8 +98,9 @@ export async function runBackupRestoreFlow(actions: {
   return 'success';
 }
 
-export function SettingsView() {
+export function SettingsView({ isCloudAccount = false }: { isCloudAccount?: boolean }) {
   const store = useStore();
+  const allowLocalRestore = canReplaceFromLocalBackup(isCloudAccount);
   const [form, setForm] = useState<Settings>(store.settings);
   const [dirty, setDirty] = useState(false);
   const [importPending, setImportPending] = useState<BackupFile | null>(null);
@@ -58,7 +108,6 @@ export function SettingsView() {
   const [importBusy, setImportBusy] = useState(false);
   const importBusyRef = useRef(false);
   const [goldBusy, setGoldBusy] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
   // En la PWA instalada de Android, un input file con display:none dentro de un
   // label puede no abrir el selector; el clic programático desde un botón sí.
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -361,31 +410,18 @@ export function SettingsView() {
 
       <SectionCard
         title="Respaldo de datos"
-        subtitle="Tus datos viven solo en este dispositivo. Exporta un respaldo con frecuencia."
+        subtitle={isCloudAccount
+          ? 'Exporta una copia de seguridad de tu cuenta con frecuencia.'
+          : 'Tus datos viven solo en este dispositivo. Exporta un respaldo con frecuencia.'}
       >
         <Button variant="secondary" full disabled={store.backupExporting} onClick={handleExport}>
           {store.backupExporting ? 'Preparando respaldo…' : '⬇ Exportar respaldo (JSON)'}
         </Button>
-        <Button
-          variant="secondary"
-          full
-          onClick={() => importInputRef.current?.click()}
-        >
-          ⬆ Importar respaldo
-        </Button>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="application/json,.json"
-          tabIndex={-1}
-          aria-hidden="true"
-          className="sr-only"
-          onChange={(e) => {
-            void handleImportFile(e.target.files?.[0] ?? null);
-            e.target.value = '';
-          }}
+        <BackupImportControls
+          isCloudAccount={isCloudAccount}
+          importError={importError}
+          onFile={(file) => void handleImportFile(file)}
         />
-        {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
       </SectionCard>
 
       <SectionCard title="Instalar la app" subtitle="Emerald Dealer funciona sin internet una vez instalada.">
@@ -405,16 +441,18 @@ export function SettingsView() {
 
       <p className="pb-2 text-center text-xs text-stone-400">Emerald Dealer v{__APP_VERSION__}</p>
 
-      <ConfirmDialog
-        open={importPending !== null}
-        title="Restaurar respaldo"
-        message={BACKUP_RESTORE_WARNING}
-        confirmLabel={importBusy ? 'Restaurando…' : 'Reemplazar todo'}
-        danger
-        busy={importBusy}
-        onCancel={() => setImportPending(null)}
-        onConfirm={() => void confirmImport()}
-      />
+      {allowLocalRestore ? (
+        <ConfirmDialog
+          open={importPending !== null}
+          title="Restaurar respaldo"
+          message={BACKUP_RESTORE_WARNING}
+          confirmLabel={importBusy ? 'Restaurando…' : 'Reemplazar todo'}
+          danger
+          busy={importBusy}
+          onCancel={() => setImportPending(null)}
+          onConfirm={() => void confirmImport()}
+        />
+      ) : null}
     </div>
   );
 }

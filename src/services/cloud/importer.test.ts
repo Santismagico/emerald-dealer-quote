@@ -22,10 +22,11 @@ import {
 } from './importer';
 
 function largeBackup(): BackupFile {
+  const timestamp = '2026-07-18T15:00:00Z';
   return {
     app: 'emerald-dealer-quote',
-    version: 5,
-    exportedAt: '2026-07-18T15:00:00Z',
+    version: 7,
+    exportedAt: timestamp,
     settings: sampleSettings(),
     clients: [],
     quotes: Array.from({ length: 200 }, (_, index) => sampleQuote({
@@ -37,10 +38,59 @@ function largeBackup(): BackupFile {
     appointments: [],
     stoneLots: [],
     suppliers: [],
-    buyers: [],
-    stockJewels: [],
-    materialPartners: [],
-    materialLots: []
+    buyers: [{
+      id: 'buyer-1',
+      name: 'Comprador de prueba',
+      phone: '',
+      city: '',
+      notes: '',
+      createdAt: timestamp
+    }],
+    stockJewels: [{
+      id: 'stock-jewel-1',
+      name: 'Anillo de prueba',
+      pieceType: 'anillo',
+      material: 'Oro',
+      photo: '',
+      acquiredDate: '2026-07-18',
+      costCop: 800000,
+      priceCop: 1200000,
+      status: 'disponible',
+      notes: '',
+      sale: null,
+      collectionId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }],
+    materialPartners: [{
+      id: 'material-partner-1',
+      name: 'Socio de prueba',
+      phone: '',
+      city: '',
+      notes: '',
+      createdAt: timestamp
+    }],
+    materialLots: [{
+      id: 'material-lot-1',
+      name: 'Oro de prueba',
+      materialType: 'Oro',
+      purity: '18K',
+      purchaseDate: '2026-07-18',
+      grams: 10,
+      costCop: 5000000,
+      partnerId: 'material-partner-1',
+      partnerName: 'Socio de prueba',
+      myGrams: 6,
+      notes: '',
+      uses: [{
+        id: 'material-use-1',
+        date: '2026-07-18',
+        grams: 2,
+        notes: ''
+      }],
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }]
   };
 }
 
@@ -83,11 +133,20 @@ describe('importación inicial a la nube', () => {
 
     await importToCloud(backup, { writer: target.writer, batchSize: 25, onProgress: progress });
 
-    expect(countImportRecords(backup)).toBe(201);
+    expect(countImportRecords(backup)).toBe(205);
     expect(target.values.quotes.size).toBe(200);
     expect(target.values.quotes.get('q-199')?.images).toEqual(['data:image/jpeg;base64,imagen-199']);
+    expect([...target.values.buyers.keys()]).toEqual(['buyer-1']);
+    expect([...target.values.stockJewels.keys()]).toEqual(['stock-jewel-1']);
+    expect([...target.values.materialPartners.keys()]).toEqual(['material-partner-1']);
+    expect(target.values.materialLots.get('material-lot-1')).toMatchObject({
+      grams: 10,
+      myGrams: 6,
+      costCop: 5000000,
+      uses: [{ grams: 2 }]
+    });
     expect(target.flushes()).toBe(9);
-    expect(progress.mock.calls.at(-1)?.[0]).toMatchObject({ completed: 201, total: 201, percent: 100 });
+    expect(progress.mock.calls.at(-1)?.[0]).toMatchObject({ completed: 205, total: 205, percent: 100 });
   });
 
   it('repetir la misma importación conserva ids y no duplica registros', async () => {
