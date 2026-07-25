@@ -13,10 +13,11 @@ import { useStore } from '../store';
 import { receivablesTotals } from '../services/receivables';
 import { todayISO } from '../utils/dates';
 import { StonesView } from './StonesView';
+import { MaterialsView } from './MaterialsView';
 import { StockJewelsView } from './StockJewelsView';
 import { ReceivablesView } from './ReceivablesView';
 
-export type InventorySection = 'piedras' | 'joyas' | 'cobros';
+export type InventorySection = 'piedras' | 'materiales' | 'joyas' | 'cobros';
 
 export function InventoryView() {
   const store = useStore();
@@ -30,13 +31,16 @@ export function InventoryView() {
 
   const tabs: Array<{ key: InventorySection; label: string; alert?: boolean }> = [
     { key: 'piedras', label: 'Piedras' },
+    { key: 'materiales', label: 'Material' },
     { key: 'joyas', label: 'Joyas' },
     { key: 'cobros', label: 'Cobros', alert: overdueCount > 0 }
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2" role="tablist" aria-label="Secciones de inventario">
+      {/* Cuatro secciones: en teléfonos angostos se ajustan a dos filas para no
+          cortar ninguna etiqueta (D-046). */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist" aria-label="Secciones de inventario">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -44,7 +48,7 @@ export function InventoryView() {
             role="tab"
             aria-selected={section === tab.key}
             onClick={() => setSection(tab.key)}
-            className={`relative min-h-11 flex-1 rounded-xl border px-2 text-sm font-semibold ${
+            className={`relative min-h-11 rounded-xl border px-2 text-sm font-semibold ${
               section === tab.key
                 ? 'border-brand-600 bg-brand-600 text-white'
                 : 'border-stone-200 bg-white text-stone-600'
@@ -62,6 +66,7 @@ export function InventoryView() {
       </div>
 
       {section === 'piedras' ? <StonesView /> : null}
+      {section === 'materiales' ? <MaterialsView /> : null}
       {section === 'joyas' ? <StockJewelsView /> : null}
       {section === 'cobros' ? <ReceivablesView /> : null}
     </div>

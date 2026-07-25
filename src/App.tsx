@@ -15,6 +15,7 @@ import { DailyCloseView } from './components/DailyCloseView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
 import { BuyersView } from './components/BuyersView';
+import { MaterialPartnersView } from './components/MaterialPartnersView';
 import { SettingsView } from './components/SettingsView';
 import {
   AccountView,
@@ -54,6 +55,7 @@ type ViewName =
   | 'clients'
   | 'suppliers'
   | 'buyers'
+  | 'materialPartners'
   | 'settings'
   | 'account'
   | 'cloudImport';
@@ -402,6 +404,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             onClients={() => setView('clients')}
             onSuppliers={() => setView('suppliers')}
             onBuyers={() => setView('buyers')}
+            onMaterialPartners={() => setView('materialPartners')}
             onSettings={() => setView('settings')}
             onAccount={cloudAccount ? () => setView('account') : undefined}
           />
@@ -428,6 +431,12 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
           <div className="space-y-4">
             <BackRow label="← Más" onClick={() => setView('more')} />
             <BuyersView />
+          </div>
+        )}
+        {view === 'materialPartners' && (
+          <div className="space-y-4">
+            <BackRow label="← Más" onClick={() => setView('more')} />
+            <MaterialPartnersView />
           </div>
         )}
         {view === 'settings' && (
@@ -495,6 +504,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               view === 'clients' ||
               view === 'suppliers' ||
               view === 'buyers' ||
+              view === 'materialPartners' ||
               view === 'settings' ||
               view === 'account' ||
               view === 'cloudImport'
@@ -691,6 +701,7 @@ function MoreView({
   onClients,
   onSuppliers,
   onBuyers,
+  onMaterialPartners,
   onSettings,
   onAccount
 }: {
@@ -698,6 +709,7 @@ function MoreView({
   onClients: () => void;
   onSuppliers: () => void;
   onBuyers: () => void;
+  onMaterialPartners: () => void;
   onSettings: () => void;
   onAccount?: () => void;
 }) {
@@ -726,6 +738,12 @@ function MoreView({
         title="Compradores"
         subtitle="A quiénes les vendes piedras y joyas, y cuánto te deben"
         onClick={onBuyers}
+      />
+      <MoreItem
+        icon={<LineIcon name="supplier" />}
+        title="Socios de material"
+        subtitle="Con quiénes compartes oro u otro material"
+        onClick={onMaterialPartners}
       />
       <MoreItem
         icon={<LineIcon name="settings" />}
