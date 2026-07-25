@@ -2,6 +2,8 @@ import type {
   Appointment,
   Buyer,
   Client,
+  MaterialLot,
+  MaterialPartner,
   Quote,
   Settings,
   StockJewel,
@@ -42,6 +44,12 @@ export interface StoreDataSource {
   listStockJewels: () => Promise<StockJewel[]>;
   saveStockJewel: (jewel: StockJewel) => Promise<void>;
   deleteStockJewel: (id: string) => Promise<void>;
+  listMaterialPartners: () => Promise<MaterialPartner[]>;
+  saveMaterialPartner: (partner: MaterialPartner) => Promise<void>;
+  deleteMaterialPartner: (id: string) => Promise<void>;
+  listMaterialLots: () => Promise<MaterialLot[]>;
+  saveMaterialLot: (lot: MaterialLot) => Promise<void>;
+  deleteMaterialLot: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   cloudSyncStatus?: () => Promise<OutboxStatus>;
   retryCloudChanges?: (id?: string) => Promise<void>;

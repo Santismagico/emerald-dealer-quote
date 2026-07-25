@@ -8,6 +8,8 @@ import type {
   BackupFile,
   Buyer,
   Client,
+  MaterialLot,
+  MaterialPartner,
   Quote,
   StockJewel,
   StoneLot,
@@ -23,6 +25,8 @@ import {
   listSuppliers,
   listBuyers,
   listStockJewels,
+  listMaterialPartners,
+  listMaterialLots,
   SETTINGS_KEY
 } from './storage';
 import {
@@ -33,31 +37,46 @@ import {
   normalizeStoneLot,
   normalizeSupplier,
   normalizeBuyer,
-  normalizeStockJewel
+  normalizeStockJewel,
+  normalizeMaterialPartner,
+  normalizeMaterialLot
 } from './schema';
 
 /**
- * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 6.
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 7.
  * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores; v6 los
- * compradores y las joyas en stock. Los respaldos más viejos se importan con
- * las listas nuevas vacías y nunca fallan por no traerlas.
+ * compradores y las joyas en stock; v7 los socios y lotes de material. Los
+ * respaldos más viejos se importan con las listas nuevas vacías y nunca fallan
+ * por no traerlas.
  */
-export const BACKUP_VERSION = 6;
-const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6];
+export const BACKUP_VERSION = 7;
+const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7];
 export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [settings, clients, quotes, appointments, stoneLots, suppliers, buyers, stockJewels] =
-    await Promise.all([
-      loadSettings(),
-      listClients(),
-      listQuotes(),
-      listAppointments(),
-      listStoneLots(),
-      listSuppliers(),
-      listBuyers(),
-      listStockJewels()
-    ]);
+  const [
+    settings,
+    clients,
+    quotes,
+    appointments,
+    stoneLots,
+    suppliers,
+    buyers,
+    stockJewels,
+    materialPartners,
+    materialLots
+  ] = await Promise.all([
+    loadSettings(),
+    listClients(),
+    listQuotes(),
+    listAppointments(),
+    listStoneLots(),
+    listSuppliers(),
+    listBuyers(),
+    listStockJewels(),
+    listMaterialPartners(),
+    listMaterialLots()
+  ]);
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -69,7 +88,9 @@ export async function exportBackup(): Promise<BackupFile> {
     stoneLots,
     suppliers,
     buyers,
-    stockJewels
+    stockJewels,
+    materialPartners,
+    materialLots
   };
 }
 
@@ -235,6 +256,38 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     jewelIds.add(id);
   }
+  // Los socios de material son opcionales (v1–v6 no los traen).
+  const rawMaterialPartners = b.materialPartners ?? [];
+  if (!Array.isArray(rawMaterialPartners)) {
+    throw new Error('El respaldo contiene socios de material inválidos.');
+  }
+  const partnerIds = new Set<string>();
+  for (const p of rawMaterialPartners) {
+    const id = (p as MaterialPartner)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene socios de material inválidos.');
+    }
+    if (partnerIds.has(id)) {
+      throw new Error('El respaldo contiene socios de material duplicados.');
+    }
+    partnerIds.add(id);
+  }
+  // Los lotes de material son opcionales (v1–v6 no los traen).
+  const rawMaterialLots = b.materialLots ?? [];
+  if (!Array.isArray(rawMaterialLots)) {
+    throw new Error('El respaldo contiene lotes de material inválidos.');
+  }
+  const materialLotIds = new Set<string>();
+  for (const l of rawMaterialLots) {
+    const id = (l as MaterialLot)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene lotes de material inválidos.');
+    }
+    if (materialLotIds.has(id)) {
+      throw new Error('El respaldo contiene lotes de material duplicados.');
+    }
+    materialLotIds.add(id);
+  }
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -247,7 +300,9 @@ function normalizeBackup(data: unknown): BackupFile {
     stoneLots: rawStoneLots.map(normalizeStoneLot),
     suppliers: rawSuppliers.map(normalizeSupplier),
     buyers: rawBuyers.map(normalizeBuyer),
-    stockJewels: rawStockJewels.map(normalizeStockJewel)
+    stockJewels: rawStockJewels.map(normalizeStockJewel),
+    materialPartners: rawMaterialPartners.map(normalizeMaterialPartner),
+    materialLots: rawMaterialLots.map(normalizeMaterialLot)
   };
 }
 
@@ -284,7 +339,9 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         'stoneLots',
         'suppliers',
         'buyers',
-        'stockJewels'
+        'stockJewels',
+        'materialPartners',
+        'materialLots'
       ],
       (getStore) => {
         const settingsStore = getStore('settings');
@@ -295,6 +352,8 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         const suppliersStore = getStore('suppliers');
         const buyersStore = getStore('buyers');
         const stockJewelsStore = getStore('stockJewels');
+        const materialPartnersStore = getStore('materialPartners');
+        const materialLotsStore = getStore('materialLots');
 
         settingsStore.clear();
         clientsStore.clear();
@@ -304,6 +363,8 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         suppliersStore.clear();
         buyersStore.clear();
         stockJewelsStore.clear();
+        materialPartnersStore.clear();
+        materialLotsStore.clear();
 
         if (normalized.settings) {
           settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -328,6 +389,12 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         }
         for (const jewel of normalized.stockJewels) {
           stockJewelsStore.put(jewel);
+        }
+        for (const partner of normalized.materialPartners) {
+          materialPartnersStore.put(partner);
+        }
+        for (const lot of normalized.materialLots) {
+          materialLotsStore.put(lot);
         }
       }
     );

@@ -205,6 +205,7 @@ export function emptyStockJewel(today: string, nowIso: string): StockJewel {
     status: 'disponible',
     notes: '',
     sale: null,
+    collectionId: null,
     createdAt: nowIso,
     updatedAt: nowIso
   };

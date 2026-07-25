@@ -21,6 +21,8 @@ export interface CloudImportWriter extends Pick<
   | 'saveSupplier'
   | 'saveBuyer'
   | 'saveStockJewel'
+  | 'saveMaterialPartner'
+  | 'saveMaterialLot'
 > {
   flush: () => Promise<void>;
   pendingCount: () => Promise<number>;
@@ -47,7 +49,9 @@ export function countImportRecords(backup: BackupFile): number {
     + backup.stoneLots.length
     + backup.suppliers.length
     + backup.buyers.length
-    + backup.stockJewels.length;
+    + backup.stockJewels.length
+    + backup.materialPartners.length
+    + backup.materialLots.length;
 }
 
 export function hasLocalDataToImport(backup: BackupFile): boolean {
@@ -59,6 +63,8 @@ export function hasLocalDataToImport(backup: BackupFile): boolean {
     || backup.suppliers.length
     || backup.buyers.length
     || backup.stockJewels.length
+    || backup.materialPartners.length
+    || backup.materialLots.length
   ) return true;
   return backup.settings !== null
     && JSON.stringify(backup.settings) !== JSON.stringify(defaultSettings());
@@ -72,7 +78,9 @@ export async function isCloudEmpty(remote: Pick<CloudRemote, 'list'> = supabaseC
     'stone_lots',
     'suppliers',
     'buyers',
-    'stock_jewels'
+    'stock_jewels',
+    'material_partners',
+    'material_lots'
   ] as const;
   const rows = await Promise.all(tables.map((table) => remote.list(table)));
   return rows.every((collection) => collection.length === 0);
@@ -114,6 +122,10 @@ export async function importToCloud(
   for (const buyer of backup.buyers) {
     tasks.push({ label: 'Compradores', run: () => writer.saveBuyer(buyer) });
   }
+  // Los socios van antes que los lotes de material: los lotes los referencian.
+  for (const partner of backup.materialPartners) {
+    tasks.push({ label: 'Socios de material', run: () => writer.saveMaterialPartner(partner) });
+  }
   for (const client of backup.clients) {
     tasks.push({ label: 'Clientes', run: () => writer.saveClient(client) });
   }
@@ -128,6 +140,9 @@ export async function importToCloud(
   }
   for (const jewel of backup.stockJewels) {
     tasks.push({ label: 'Joyas en stock', run: () => writer.saveStockJewel(jewel) });
+  }
+  for (const lot of backup.materialLots) {
+    tasks.push({ label: 'Lotes de material', run: () => writer.saveMaterialLot(lot) });
   }
 
   const total = tasks.length;

@@ -219,7 +219,9 @@ describe('respaldo v4 con lotes de piedras', () => {
       stoneLots: [lote({ id: 'l-import' })],
       suppliers: [],
       buyers: [],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
 
     await backupService.importBackup(backup);
@@ -241,7 +243,9 @@ describe('respaldo v4 con lotes de piedras', () => {
       stoneLots: [lote({ id: 'l-dup' }), lote({ id: 'l-dup' })],
       suppliers: [],
       buyers: [],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

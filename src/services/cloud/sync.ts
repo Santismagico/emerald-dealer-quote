@@ -3,6 +3,8 @@ import {
   normalizeAppointment,
   normalizeBuyer,
   normalizeClient,
+  normalizeMaterialLot,
+  normalizeMaterialPartner,
   normalizeQuote,
   normalizeSettings,
   normalizeStockJewel,
@@ -49,7 +51,9 @@ const CLOUD_TABLES: readonly CloudTable[] = [
   'stone_lots',
   'suppliers',
   'buyers',
-  'stock_jewels'
+  'stock_jewels',
+  'material_partners',
+  'material_lots'
 ];
 
 const storeByTable: Record<CloudTable, StoreName> = {
@@ -60,7 +64,9 @@ const storeByTable: Record<CloudTable, StoreName> = {
   stone_lots: 'stoneLots',
   suppliers: 'suppliers',
   buyers: 'buyers',
-  stock_jewels: 'stockJewels'
+  stock_jewels: 'stockJewels',
+  material_partners: 'materialPartners',
+  material_lots: 'materialLots'
 };
 
 function normalized(table: CloudTable, data: unknown): Record<string, unknown> {
@@ -73,6 +79,8 @@ function normalized(table: CloudTable, data: unknown): Record<string, unknown> {
     case 'suppliers': return normalizeSupplier(data) as unknown as Record<string, unknown>;
     case 'buyers': return normalizeBuyer(data) as unknown as Record<string, unknown>;
     case 'stock_jewels': return normalizeStockJewel(data) as unknown as Record<string, unknown>;
+    case 'material_partners': return normalizeMaterialPartner(data) as unknown as Record<string, unknown>;
+    case 'material_lots': return normalizeMaterialLot(data) as unknown as Record<string, unknown>;
   }
 }
 

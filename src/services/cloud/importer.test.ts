@@ -4,6 +4,8 @@ import type {
   BackupFile,
   Buyer,
   Client,
+  MaterialLot,
+  MaterialPartner,
   Quote,
   Settings,
   StockJewel,
@@ -36,7 +38,9 @@ function largeBackup(): BackupFile {
     stoneLots: [],
     suppliers: [],
     buyers: [],
-    stockJewels: []
+    stockJewels: [],
+    materialPartners: [],
+    materialLots: []
   };
 }
 
@@ -49,7 +53,9 @@ function memoryWriter() {
     stoneLots: new Map<string, StoneLot>(),
     suppliers: new Map<string, Supplier>(),
     buyers: new Map<string, Buyer>(),
-    stockJewels: new Map<string, StockJewel>()
+    stockJewels: new Map<string, StockJewel>(),
+    materialPartners: new Map<string, MaterialPartner>(),
+    materialLots: new Map<string, MaterialLot>()
   };
   let flushes = 0;
   const writer: CloudImportWriter = {
@@ -61,6 +67,8 @@ function memoryWriter() {
     saveSupplier: async (supplier) => void values.suppliers.set(supplier.id, supplier),
     saveBuyer: async (buyer) => void values.buyers.set(buyer.id, buyer),
     saveStockJewel: async (jewel) => void values.stockJewels.set(jewel.id, jewel),
+    saveMaterialPartner: async (p) => void values.materialPartners.set(p.id, p),
+    saveMaterialLot: async (l) => void values.materialLots.set(l.id, l),
     flush: async () => { flushes += 1; },
     pendingCount: async () => 0
   };

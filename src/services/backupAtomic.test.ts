@@ -64,7 +64,9 @@ function makeBackup(
     stoneLots: [],
     suppliers: [],
     buyers: [],
-    stockJewels: []
+    stockJewels: [],
+    materialPartners: [],
+    materialLots: []
   };
 }
 

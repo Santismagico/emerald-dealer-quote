@@ -2,6 +2,8 @@ import type {
   Appointment,
   Buyer,
   Client,
+  MaterialLot,
+  MaterialPartner,
   Quote,
   Settings,
   StockJewel,
@@ -64,7 +66,9 @@ const functionNames: Record<CloudTable, { upsert: string; delete: string }> = {
   stone_lots: { upsert: 'upsert_stone_lot', delete: 'delete_stone_lot' },
   suppliers: { upsert: 'upsert_supplier', delete: 'delete_supplier' },
   buyers: { upsert: 'upsert_buyer', delete: 'delete_buyer' },
-  stock_jewels: { upsert: 'upsert_stock_jewel', delete: 'delete_stock_jewel' }
+  stock_jewels: { upsert: 'upsert_stock_jewel', delete: 'delete_stock_jewel' },
+  material_partners: { upsert: 'upsert_material_partner', delete: 'delete_material_partner' },
+  material_lots: { upsert: 'upsert_material_lot', delete: 'delete_material_lot' }
 };
 
 function resultOrThrow<T>(result: QueryResult<T>, action: string): T {
@@ -312,6 +316,35 @@ export function createCloudDataSource(options: {
     async deleteStockJewel(id) {
       await localStorage.deleteStockJewel(id);
       await enqueue('stock_jewels', 'delete', id, null, nowIso());
+    },
+    listMaterialPartners: () => pullThen('material_partners', localStorage.listMaterialPartners),
+    // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en los
+    // lotes que lo apuntan: esos lotes también deben subir (D-049).
+    async saveMaterialPartner(partner: MaterialPartner) {
+      const before = await localStorage.listMaterialLots();
+      await localStorage.saveMaterialPartner(partner);
+      const after = await localStorage.listMaterialLots();
+      await cacheAndQueue('material_partners', partner.id, partner, nowIso());
+      for (const lot of changed(before, after)) {
+        await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
+    },
+    async deleteMaterialPartner(id) {
+      const before = await localStorage.listMaterialLots();
+      await localStorage.deleteMaterialPartner(id);
+      const after = await localStorage.listMaterialLots();
+      await enqueue('material_partners', 'delete', id, null, nowIso());
+      for (const lot of changed(before, after)) {
+        await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
+    },
+    listMaterialLots: () => pullThen('material_lots', localStorage.listMaterialLots),
+    async saveMaterialLot(lot: MaterialLot) {
+      await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
+    },
+    async deleteMaterialLot(id) {
+      await localStorage.deleteMaterialLot(id);
+      await enqueue('material_lots', 'delete', id, null, nowIso());
     },
     nextQuoteNumber: options.remote.nextQuoteNumber,
     pullAll: options.sync.pullAll,

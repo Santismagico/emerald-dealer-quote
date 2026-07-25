@@ -25,7 +25,10 @@ import type {
   BuyerPayment,
   StockJewel,
   StockJewelSale,
-  StockJewelStatus
+  StockJewelStatus,
+  MaterialPartner,
+  MaterialUse,
+  MaterialLot
 } from '../types';
 import {
   QUOTE_STATUSES,
@@ -288,6 +291,55 @@ function normalizeStoneSale(raw: unknown): StoneSale {
   };
 }
 
+export function normalizeMaterialPartner(raw: unknown): MaterialPartner {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(p.id, newId()),
+    name: safeString(p.name),
+    phone: safeString(p.phone),
+    city: safeString(p.city),
+    notes: safeString(p.notes),
+    createdAt: safeString(p.createdAt)
+  };
+}
+
+function normalizeMaterialUse(raw: unknown): MaterialUse {
+  const u = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(u.id, newId()),
+    date: safeString(u.date),
+    grams: Math.max(0, safeNumber(u.grams)),
+    notes: safeString(u.notes)
+  };
+}
+
+/**
+ * Garantiza que un lote de material tenga la forma exacta del tipo actual.
+ * `myGrams` nunca puede superar los gramos del lote ni ser negativo: un dato
+ * corrupto jamás debe hacer que "mi parte" sea más de lo que existe (D-048).
+ */
+export function normalizeMaterialLot(raw: unknown): MaterialLot {
+  const l = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const grams = Math.max(0, safeNumber(l.grams));
+  const rawMine = safeNumber(l.myGrams, grams);
+  return {
+    id: safeString(l.id, newId()),
+    name: safeString(l.name),
+    materialType: safeString(l.materialType),
+    purity: safeString(l.purity),
+    purchaseDate: safeString(l.purchaseDate),
+    grams,
+    costCop: Math.max(0, Math.round(safeNumber(l.costCop))),
+    partnerId: typeof l.partnerId === 'string' ? l.partnerId : null,
+    partnerName: safeString(l.partnerName),
+    myGrams: Math.min(grams, Math.max(0, rawMine)),
+    notes: safeString(l.notes),
+    uses: safeArray(l.uses).map(normalizeMaterialUse),
+    createdAt: safeString(l.createdAt),
+    updatedAt: safeString(l.updatedAt)
+  };
+}
+
 function normalizeStockJewelSale(raw: unknown): StockJewelSale {
   const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   return {
@@ -321,6 +373,7 @@ export function normalizeStockJewel(raw: unknown): StockJewel {
     notes: safeString(j.notes),
     sale:
       typeof j.sale === 'object' && j.sale !== null ? normalizeStockJewelSale(j.sale) : null,
+    collectionId: typeof j.collectionId === 'string' ? j.collectionId : null,
     createdAt: safeString(j.createdAt),
     updatedAt: safeString(j.updatedAt)
   };

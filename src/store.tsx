@@ -10,7 +10,9 @@ import type {
   StoneLot,
   Supplier,
   Buyer,
-  StockJewel
+  StockJewel,
+  MaterialPartner,
+  MaterialLot
 } from './types';
 import { defaultSettings } from './services/storage';
 import { localDataSource, type StoreDataSource } from './services/dataSource';
@@ -20,6 +22,7 @@ import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
 import { sortStockJewels } from './services/stockJewels';
+import { sortMaterialLots } from './services/materials';
 import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
 import { downloadBackupFile } from './services/backup';
 import {
@@ -37,6 +40,8 @@ interface AppStore {
   suppliers: Supplier[];
   buyers: Buyer[];
   stockJewels: StockJewel[];
+  materialPartners: MaterialPartner[];
+  materialLots: MaterialLot[];
   toast: string | null;
   backupExporting: boolean;
   cloudSync: OutboxStatus;
@@ -59,6 +64,10 @@ interface AppStore {
   removeBuyer: (id: string) => Promise<void>;
   upsertStockJewel: (jewel: StockJewel) => Promise<void>;
   removeStockJewel: (id: string) => Promise<void>;
+  upsertMaterialPartner: (partner: MaterialPartner) => Promise<void>;
+  removeMaterialPartner: (id: string) => Promise<void>;
+  upsertMaterialLot: (lot: MaterialLot) => Promise<void>;
+  removeMaterialLot: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   retryCloudChanges: (id?: string) => Promise<void>;
   reloadAll: () => Promise<void>;
@@ -96,6 +105,8 @@ export function StoreProvider({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [stockJewels, setStockJewels] = useState<StockJewel[]>([]);
+  const [materialPartners, setMaterialPartners] = useState<MaterialPartner[]>([]);
+  const [materialLots, setMaterialLots] = useState<MaterialLot[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
   const [cloudSync, setCloudSync] = useState<OutboxStatus>({ pending: 0, held: 0, operations: [] });
@@ -106,7 +117,7 @@ export function StoreProvider({
   }, [dataSource]);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q, a, sm, sp, bu, jw] = await Promise.all([
+    const [s, c, q, a, sm, sp, bu, jw, mp, ml] = await Promise.all([
       dataSource.loadSettings(),
       dataSource.listClients(),
       dataSource.listQuotes(),
@@ -114,7 +125,9 @@ export function StoreProvider({
       dataSource.listStoneLots(),
       dataSource.listSuppliers(),
       dataSource.listBuyers(),
-      dataSource.listStockJewels()
+      dataSource.listStockJewels(),
+      dataSource.listMaterialPartners(),
+      dataSource.listMaterialLots()
     ]);
     setSettings(s);
     setClients(c);
@@ -124,6 +137,8 @@ export function StoreProvider({
     setSuppliers(sp);
     setBuyers(bu);
     setStockJewels(jw);
+    setMaterialPartners(mp);
+    setMaterialLots(ml);
   }, [dataSource]);
 
   const refreshGoldPrice = useCallback(async () => {
@@ -300,6 +315,39 @@ export function StoreProvider({
     await dataSource.deleteStockJewel(id);
   }, [dataSource]);
 
+  // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en los
+  // lotes de material que lo apuntan, así que hay que releer también los lotes.
+  const upsertMaterialPartner = useCallback(async (partner: MaterialPartner) => {
+    await dataSource.saveMaterialPartner(partner);
+    const [nextPartners, nextLots] = await Promise.all([
+      dataSource.listMaterialPartners(),
+      dataSource.listMaterialLots()
+    ]);
+    setMaterialPartners(nextPartners);
+    setMaterialLots(nextLots);
+  }, [dataSource]);
+
+  const removeMaterialPartner = useCallback(async (id: string) => {
+    await dataSource.deleteMaterialPartner(id);
+    const [nextPartners, nextLots] = await Promise.all([
+      dataSource.listMaterialPartners(),
+      dataSource.listMaterialLots()
+    ]);
+    setMaterialPartners(nextPartners);
+    setMaterialLots(nextLots);
+  }, [dataSource]);
+
+  const upsertMaterialLot = useCallback(async (lot: MaterialLot) => {
+    // Mismo patrón optimista que lotes de piedras y joyas: la interfaz responde ya.
+    setMaterialLots((prev) => sortMaterialLots([lot, ...prev.filter((l) => l.id !== lot.id)]));
+    await dataSource.saveMaterialLot(lot);
+  }, [dataSource]);
+
+  const removeMaterialLot = useCallback(async (id: string) => {
+    setMaterialLots((prev) => prev.filter((l) => l.id !== id));
+    await dataSource.deleteMaterialLot(id);
+  }, [dataSource]);
+
   const nextQuoteNumber = useCallback(async () => {
     const number = await dataSource.nextQuoteNumber();
     setSettings(await dataSource.loadSettings());
@@ -324,6 +372,8 @@ export function StoreProvider({
         suppliers,
         buyers,
         stockJewels,
+        materialPartners,
+        materialLots,
         toast,
         backupExporting,
         cloudSync,
@@ -346,6 +396,10 @@ export function StoreProvider({
         removeBuyer,
         upsertStockJewel,
         removeStockJewel,
+        upsertMaterialPartner,
+        removeMaterialPartner,
+        upsertMaterialLot,
+        removeMaterialLot,
         nextQuoteNumber,
         retryCloudChanges,
         reloadAll,

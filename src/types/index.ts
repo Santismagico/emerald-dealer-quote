@@ -285,6 +285,69 @@ export interface BuyerPayment {
 }
 
 /**
+ * Socio con quien Héctor comparte un material (oro, plata…). SOLO uso interno.
+ * Lista aparte de proveedores y compradores: es un CO-DUEÑO del material, no
+ * alguien a quien le compra ni a quien le vende (D-049).
+ */
+export interface MaterialPartner {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  notes: string;
+  createdAt: string;
+}
+
+/** Gramos que salieron de un lote de material al usarlos (SOLO interno; D-048). */
+export interface MaterialUse {
+  id: string;
+  /** Fecha del uso (YYYY-MM-DD). */
+  date: string;
+  /** Gramos usados. */
+  grams: number;
+  /** En qué se usó (texto libre). */
+  notes: string;
+}
+
+/**
+ * Lote de material comprado: oro, plata, etc. (SOLO uso interno; D-048).
+ * Cada compra es un lote rastreable; las existencias se DERIVAN del lote menos
+ * sus salidas, jamás un contador guardado a mano (regla de D-023). El material
+ * es una lista aparte que se ajusta a mano y no toca el cotizador (decisión de
+ * Héctor). Nunca aparece en ningún documento del cliente.
+ */
+export interface MaterialLot {
+  id: string;
+  /** Nombre opcional del lote. Si queda vacío, la app arma material + fecha. */
+  name: string;
+  /** Tipo de material: Oro, Plata, etc. Agrupa el inventario. */
+  materialType: string;
+  /** Pureza o ley: "18K", "24K", "925"… Libre y opcional. */
+  purity: string;
+  /** Fecha de la compra (YYYY-MM-DD). */
+  purchaseDate: string;
+  /** Gramos comprados en este lote. */
+  grams: number;
+  /** Costo total de la compra en COP entero. Referencia; no entra a caja en v1. */
+  costCop: number;
+  /** Socio con quien se comparte el lote, o null si el lote es todo suyo (D-049). */
+  partnerId: string | null;
+  /** Nombre visible del socio (copiado o escrito libre); se conserva al borrar la ficha. */
+  partnerName: string;
+  /**
+   * Cuántos de los `grams` son SUYOS. El resto es del socio. Sin socio,
+   * `myGrams === grams` (todo suyo). Se guarda en gramos (exacto); el
+   * porcentaje se DERIVA para mostrarlo.
+   */
+  myGrams: number;
+  notes: string;
+  /** Salidas del lote, en el orden en que se registraron. */
+  uses: MaterialUse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * Venta parcial o total de un lote de piedras (SOLO uso interno).
  * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
  * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
@@ -399,6 +462,8 @@ export interface StockJewel {
   notes: string;
   /** Venta de la pieza. null mientras siga disponible o apartada. */
   sale: StockJewelSale | null;
+  /** Colección a la que pertenece, o null. Reservado para D-050 (aún sin usar). */
+  collectionId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -421,6 +486,10 @@ export interface BackupFile {
   buyers: Buyer[];
   /** Joyas en stock. Los respaldos v1–v5 no las traen y se importan vacías. */
   stockJewels: StockJewel[];
+  /** Socios de material. Los respaldos v1–v6 no los traen y se importan vacíos. */
+  materialPartners: MaterialPartner[];
+  /** Lotes de material con sus salidas. Los respaldos v1–v6 no los traen y se importan vacíos. */
+  materialLots: MaterialLot[];
 }
 
 export const PIECE_TYPES: PieceType[] = [

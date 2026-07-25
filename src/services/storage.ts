@@ -10,7 +10,9 @@ import type {
   StoneLot,
   Supplier,
   Buyer,
-  StockJewel
+  StockJewel,
+  MaterialPartner,
+  MaterialLot
 } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate, dbWriteTransaction } from './db';
@@ -23,11 +25,14 @@ import {
   normalizeStoneLot,
   normalizeSupplier,
   normalizeBuyer,
-  normalizeStockJewel
+  normalizeStockJewel,
+  normalizeMaterialPartner,
+  normalizeMaterialLot
 } from './schema';
 import { compareAppointments } from './agenda';
 import { compareStoneLots } from './stones';
 import { compareStockJewels } from './stockJewels';
+import { compareMaterialLots } from './materials';
 
 // Re-export para compatibilidad: el resto de la app importa defaultSettings desde aquí.
 export { defaultSettings } from './schema';
@@ -343,6 +348,75 @@ export async function saveStockJewel(jewel: StockJewel): Promise<void> {
 
 export async function deleteStockJewel(id: string): Promise<void> {
   await dbDelete('stockJewels', id);
+}
+
+export async function listMaterialPartners(): Promise<MaterialPartner[]> {
+  const partners = await dbGetAll<unknown>('materialPartners');
+  return partners.map(normalizeMaterialPartner).sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    return byName || a.id.localeCompare(b.id, 'es');
+  });
+}
+
+/**
+ * Guarda el socio y propaga su nombre a los lotes de material que lo apuntan,
+ * para que renombrarlo no deje historial con el nombre viejo (mismo patrón que
+ * proveedores en C3 y compradores en D-043). Todo en una sola transacción.
+ */
+export async function saveMaterialPartner(partner: MaterialPartner): Promise<void> {
+  const normalizedPartner = normalizeMaterialPartner(partner);
+  const updatedAt = new Date().toISOString();
+
+  await dbWriteTransaction(['materialPartners', 'materialLots'], (getStore) => {
+    getStore('materialPartners').put(normalizedPartner);
+
+    const lots = getStore('materialLots');
+    const request = lots.getAll();
+    request.onsuccess = () => {
+      for (const stored of request.result as unknown[]) {
+        const lot = normalizeMaterialLot(stored);
+        if (lot.partnerId === normalizedPartner.id && lot.partnerName !== normalizedPartner.name) {
+          lots.put({ ...lot, partnerName: normalizedPartner.name, updatedAt });
+        }
+      }
+    };
+  });
+}
+
+/**
+ * Borra el socio SIN tocar sus lotes: el nombre queda escrito y solo se suelta
+ * el vínculo (`partnerId` a null). El reparto de gramos se conserva (D-049).
+ */
+export async function deleteMaterialPartner(id: string): Promise<void> {
+  const updatedAt = new Date().toISOString();
+
+  await dbWriteTransaction(['materialPartners', 'materialLots'], (getStore) => {
+    getStore('materialPartners').delete(id);
+
+    const lots = getStore('materialLots');
+    const request = lots.getAll();
+    request.onsuccess = () => {
+      for (const stored of request.result as unknown[]) {
+        const lot = normalizeMaterialLot(stored);
+        if (lot.partnerId === id) {
+          lots.put({ ...lot, partnerId: null, updatedAt });
+        }
+      }
+    };
+  });
+}
+
+export async function listMaterialLots(): Promise<MaterialLot[]> {
+  const lots = await dbGetAll<unknown>('materialLots');
+  return lots.map(normalizeMaterialLot).sort(compareMaterialLots);
+}
+
+export async function saveMaterialLot(lot: MaterialLot): Promise<void> {
+  await dbPut('materialLots', normalizeMaterialLot(lot));
+}
+
+export async function deleteMaterialLot(id: string): Promise<void> {
+  await dbDelete('materialLots', id);
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */

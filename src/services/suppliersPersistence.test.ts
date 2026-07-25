@@ -201,7 +201,9 @@ describe('respaldo v5 con proveedores', () => {
       stoneLots: [],
       suppliers: [proveedor({ id: 'sup-import' })],
       buyers: [],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
 
     await backupService.importBackup(backup);
@@ -221,7 +223,9 @@ describe('respaldo v5 con proveedores', () => {
       stoneLots: [],
       suppliers: [proveedor({ id: 'dup' }), proveedor({ id: 'dup' })],
       buyers: [],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

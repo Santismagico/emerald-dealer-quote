@@ -13,7 +13,9 @@ export type StoreName =
   | 'suppliers'
   | 'cloudOutbox'
   | 'buyers'
-  | 'stockJewels';
+  | 'stockJewels'
+  | 'materialPartners'
+  | 'materialLots';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
 
@@ -58,6 +60,11 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   (db) => {
     createStoreIfMissing(db, 'buyers');
     createStoreIfMissing(db, 'stockJewels');
+  },
+  // v7 — socios y lotes de material (inventario de materiales, D-048/D-049).
+  (db) => {
+    createStoreIfMissing(db, 'materialPartners');
+    createStoreIfMissing(db, 'materialLots');
   }
 ];
 

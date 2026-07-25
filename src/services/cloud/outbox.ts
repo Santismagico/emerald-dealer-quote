@@ -8,7 +8,9 @@ export type CloudTable =
   | 'stone_lots'
   | 'suppliers'
   | 'buyers'
-  | 'stock_jewels';
+  | 'stock_jewels'
+  | 'material_partners'
+  | 'material_lots';
 
 export type CloudOperationType = 'upsert' | 'delete';
 

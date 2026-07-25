@@ -84,10 +84,10 @@ describe('escalera de migraciones', () => {
   }
 
   it('la versión actual coincide con la cantidad de migraciones', () => {
-    expect(db.DB_VERSION).toBe(6);
+    expect(db.DB_VERSION).toBe(7);
   });
 
-  it('una base nueva (v0) crea los nueve almacenes', () => {
+  it('una base nueva (v0) crea los once almacenes', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 0);
     expect(fake.created).toEqual([
@@ -99,7 +99,9 @@ describe('escalera de migraciones', () => {
       'suppliers',
       'cloudOutbox',
       'buyers',
-      'stockJewels'
+      'stockJewels',
+      'materialPartners',
+      'materialLots'
     ]);
   });
 
@@ -112,7 +114,9 @@ describe('escalera de migraciones', () => {
       'suppliers',
       'cloudOutbox',
       'buyers',
-      'stockJewels'
+      'stockJewels',
+      'materialPartners',
+      'materialLots'
     ]);
   });
 
@@ -124,26 +128,52 @@ describe('escalera de migraciones', () => {
       'suppliers',
       'cloudOutbox',
       'buyers',
-      'stockJewels'
+      'stockJewels',
+      'materialPartners',
+      'materialLots'
     ]);
   });
 
   it('una base v3 agrega proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 3);
-    expect(fake.created).toEqual(['suppliers', 'cloudOutbox', 'buyers', 'stockJewels']);
+    expect(fake.created).toEqual([
+      'suppliers',
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots'
+    ]);
   });
 
   it('una base v4 agrega la cola de nube, compradores y joyas', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 4);
-    expect(fake.created).toEqual(['cloudOutbox', 'buyers', 'stockJewels']);
+    expect(fake.created).toEqual([
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots'
+    ]);
   });
 
-  it('una base v5 solo agrega compradores y joyas en stock', () => {
+  it('una base v5 agrega compradores, joyas, socios y lotes de material', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 5);
-    expect(fake.created).toEqual(['buyers', 'stockJewels']);
+    expect(fake.created).toEqual([
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots'
+    ]);
+  });
+
+  it('una base v6 solo agrega socios y lotes de material', () => {
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 6);
+    expect(fake.created).toEqual(['materialPartners', 'materialLots']);
   });
 
   it('los escalones anteriores nunca se modifican al agregar el de v6', () => {
@@ -275,7 +305,9 @@ describe('respaldo v3 con agenda', () => {
       stoneLots: [],
       suppliers: [],
       buyers: [],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
 
     await backupService.importBackup(backup);
@@ -297,7 +329,9 @@ describe('respaldo v3 con agenda', () => {
       stoneLots: [],
       suppliers: [],
       buyers: [],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

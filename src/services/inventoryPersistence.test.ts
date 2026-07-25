@@ -49,6 +49,7 @@ function joya(overrides: Partial<StockJewel> = {}): StockJewel {
     status: 'disponible',
     notes: '',
     sale: null,
+    collectionId: null,
     createdAt: '2026-07-10T09:00:00.000Z',
     updatedAt: '2026-07-10T09:00:00.000Z',
     ...overrides
@@ -332,7 +333,7 @@ describe('respaldo v6', () => {
     await storage.saveStockJewel(joya());
 
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(6);
+    expect(backup.version).toBe(backupService.BACKUP_VERSION);
     expect(backup.buyers.map((b) => b.id)).toEqual(['buy-1']);
     expect(backup.stockJewels.map((j) => j.id)).toEqual(['j-1']);
   });
@@ -352,7 +353,7 @@ describe('respaldo v6', () => {
     const parsed = backupService.parseBackup(JSON.stringify(v5));
     expect(parsed.buyers).toEqual([]);
     expect(parsed.stockJewels).toEqual([]);
-    expect(parsed.version).toBe(6);
+    expect(parsed.version).toBe(backupService.BACKUP_VERSION);
   });
 
   it('restaurar un respaldo v6 reemplaza compradores y joyas', async () => {
@@ -370,7 +371,9 @@ describe('respaldo v6', () => {
       stoneLots: [],
       suppliers: [],
       buyers: [comprador({ id: 'buy-import' })],
-      stockJewels: [joya({ id: 'j-import' })]
+      stockJewels: [joya({ id: 'j-import' })],
+      materialPartners: [],
+      materialLots: []
     };
     await backupService.importBackup(backup);
 
@@ -390,7 +393,9 @@ describe('respaldo v6', () => {
       stoneLots: [],
       suppliers: [],
       buyers: [comprador({ id: 'dup' }), comprador({ id: 'dup' })],
-      stockJewels: []
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 
@@ -410,7 +415,9 @@ describe('respaldo v6', () => {
       stoneLots: [],
       suppliers: [],
       buyers: [],
-      stockJewels: [joya({ id: 'dup' }), joya({ id: 'dup' })]
+      stockJewels: [joya({ id: 'dup' }), joya({ id: 'dup' })],
+      materialPartners: [],
+      materialLots: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

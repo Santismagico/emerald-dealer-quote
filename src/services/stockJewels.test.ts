@@ -29,6 +29,7 @@ function joya(overrides: Partial<StockJewel> = {}): StockJewel {
     status: 'disponible',
     notes: '',
     sale: null,
+    collectionId: null,
     createdAt: '2026-07-01T09:00:00.000Z',
     updatedAt: '2026-07-01T09:00:00.000Z',
     ...overrides
