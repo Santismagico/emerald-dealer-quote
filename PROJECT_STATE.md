@@ -168,6 +168,44 @@ Decisiones de negocio y diseño en `docs/PLAN_PIEDRAS_Y_JOYAS_EN_STOCK.md` y en
 
 `main` y las 7 joyerías del piloto **no fueron tocadas**.
 
+## Segunda ampliación de inventario: materiales y joyas (2026-07-24/25, en curso)
+
+Héctor pidió (2026-07-24) un inventario de materiales (oro) con dueños, y espacio
+propio para joyas pensando en colecciones. Plan en
+`docs/PLAN_MATERIALES_Y_JOYAS.md`; decisiones **D-048 a D-050**.
+
+**Terminado y verificado en `codex/fase2-nube` (720 pruebas y compilación en verde):**
+
+- **Inventario de materiales (D-048).** `MaterialLot`: cada compra de oro/plata es un
+  lote rastreable con salidas embebidas; existencias derivadas. **Propiedad
+  compartida:** por lote se guarda con quién es (`partnerId`/`partnerName`) y cuántos
+  gramos son suyos (`myGrams`); el reparto se mantiene sobre el restante. Lista aparte
+  que se ajusta a mano: no toca el cotizador. En v1 el dinero del material NO entra a
+  los cierres (por ser compartido) y no maneja crédito.
+- **Socios de material (D-049).** Entidad propia, aparte de proveedores y compradores.
+  Borrarlos conserva nombre y reparto en los lotes.
+- **Joyas con espacio propio (D-050).** "Inventario" pasa a cuatro secciones
+  (Piedras · Material · Joyas · Cobros). `StockJewel` estrena `collectionId` (null),
+  reservado para colecciones futuras; colecciones sin construir todavía.
+- **Cadena completa:** tipos, schema, motor `materials.ts`, escalón **v7** de
+  IndexedDB (`materialPartners` + `materialLots`), **BACKUP_VERSION 7** que acepta
+  v1–v6, storage, dataSource, store, outbox, sync, api, importer y migración SQL
+  aditiva.
+- **Verificación en navegador:** lote 60/40 creado, salida de 50 g que mantiene el
+  reparto (30 tuyos/20 del socio), persistencia tras recargar, sobreventa rechazada,
+  alta de socio, sin errores de consola, sin desbordamiento a 320 ni 1280 px.
+
+**PENDIENTE (lo único que bloquea):**
+
+1. **Héctor aplica el SQL a producción** siguiendo `docs/SQL_PRODUCCION_PENDIENTE.md`.
+   Son DOS partes (compradores/joyas + socios/materiales), aditivas, no borran nada.
+   Este documento reemplaza al anterior `SQL_PRODUCCION_INVENTARIO.md` (que solo traía
+   la primera parte y seguía sin aplicarse).
+2. **Después** se publica al enlace nuevo (`Santismagico/emerald-dealer-app`).
+3. Prueba de dos dispositivos con las entidades nuevas.
+
+`main` y las 7 joyerías del piloto **no fueron tocadas**.
+
 ## Bitácora de etapas (Codex la actualiza)
 
 | Fecha | Etapa | Resultado | Commit |
