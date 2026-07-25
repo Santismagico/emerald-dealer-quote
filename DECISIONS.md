@@ -660,3 +660,54 @@ Se agregó además cobertura de la cadena de nube que faltaba: renombrar o borra
 comprador sube también los lotes y las joyas que cambiaron de nombre, no sube lo que no
 cambió, y cada tabla nueva usa su función protegida sin enviar jamás el identificador de
 la organización desde el navegador.
+
+## D-048 · Inventario de materiales por lotes con propiedad compartida · 2026-07-24 · Vigente
+
+Héctor pidió llevar un inventario del material (oro) que tiene, clasificándolo y
+sabiendo de quién es: tiene oro compartido con su socio de Emerald Dealer y otro con
+un joyero amigo. Necesita ver, de cada material, con quién es y qué parte le toca.
+
+Se crea `MaterialLot`: cada compra de material es un lote rastreable (tipo, pureza,
+gramos, costo, fecha) con sus salidas embebidas (`MaterialUse`). Las existencias y lo
+que queda se DERIVAN del lote menos sus salidas, jamás un contador guardado a mano
+(regla de D-023), igual que las piedras.
+
+**Propiedad compartida (decisión de Héctor):** por cada lote se guarda con quién se
+comparte (`partnerId`/`partnerName`) y cuántos de los gramos son suyos (`myGrams`); el
+resto es del socio. Sin socio, el lote es 100% suyo y la interfaz no muestra reparto.
+El porcentaje y la parte del socio se derivan; el reparto se mantiene sobre el
+restante a medida que se usan gramos.
+
+**Alcance de la v1, decidido para que sea simple y seguro:** el material es una lista
+APARTE que Héctor ajusta a mano; no se descuenta solo al aprobar una cotización, no
+toca el cotizador que usan las 7 joyerías (decisión de Héctor). El dinero del material
+NO entra al Cierre del día ni del mes en v1 —porque al ser compartido, cuánto salió de
+su propio bolsillo es ambiguo, y el foco de Héctor fue gramos y dueños—; el costo se
+guarda como referencia. El material tampoco maneja crédito ni pagos en v1. Todo esto
+es ampliable más adelante sin romper nada.
+
+## D-049 · Socios de material como entidad propia · 2026-07-24 · Vigente
+
+Los dueños del material (el socio de Emerald Dealer, el joyero amigo) son un rol
+distinto de los clientes, los proveedores y los compradores: son CO-DUEÑOS del oro, no
+alguien a quien se le compra ni a quien se le vende. Van en una lista propia,
+`MaterialPartner`, con la misma forma probada de `Supplier` y `Buyer`.
+
+Vincularlos permite ver "cuánto oro comparto con Fulano en total" y su historial.
+Borrar la ficha de un socio NO borra sus lotes: se conserva el nombre escrito y solo se
+suelta el vínculo (`partnerId` a null), igual que se resolvió con proveedores (C3) y
+compradores (D-043). Renombrar un socio actualiza su nombre en los lotes que lo
+apuntan; esos lotes también deben subir a la nube.
+
+## D-050 · Joyas en stock con espacio propio y base para colecciones · 2026-07-24 · Vigente
+
+Héctor quiere que las joyas en stock tengan un espacio propio, pensando en armar
+colecciones de joyería a mediano plazo. La pestaña "Inventario" pasa a tener cuatro
+secciones —Piedras · Materiales · Joyas · Cobros—; ahí las joyas tienen su lugar. El
+menú inferior se queda en cinco botones porque un sexto se corta en teléfonos de
+320 px (D-030/D-046).
+
+Las colecciones se diseñan pero se construyen después. Para no tener que migrar datos
+más adelante, `StockJewel` estrena desde ya un campo `collectionId` (null por defecto),
+reservado; no hay entidad ni pantalla de colecciones todavía. Las joyas y respaldos
+anteriores normalizan `collectionId` a null.
