@@ -476,3 +476,44 @@ Constancia de esta actualización:
 - No se reaplicaron migraciones ni se modificó el proyecto de Pruebas.
 - No se tocó `main` ni `.github/workflows/deploy.yml` del repositorio fuente y
   la rama fuente no se empujó a `origin`.
+
+### Trazabilidad de cobros y formulario de venta — 2026-07-26
+
+Santiago autorizó publicar la corrección que vuelve revisables la forma de pago,
+la persona que recibió el dinero y las notas de ventas y abonos. También autorizó
+la mejora del formulario de venta y de los controles Contado/A crédito.
+
+Constancia de esta actualización:
+
+- Árbol fuente compilado: rama `codex/fase2-nube`, commit
+  `0aca89ef2ecb9d64bf5e71fce293b85d0c1d8128`.
+- Bloque funcional incluido:
+  `1772263c4ecc7943fff02f3ea467c8b9630c6dac`.
+- Destino exclusivo: `Santismagico/emerald-dealer-app`, rama `main`.
+- Commit publicado:
+  `762dc7c1e9359da7f942c4f6e5dc8bf676e14655`.
+- Commit anterior del sitio:
+  `653bd8ebe2f8563657be6657dabe897351ea4d42`.
+- Archivo principal verificado antes y después de publicar:
+  `/emerald-dealer-app/assets/index-CIj_IEc_.js`.
+- `npm test`: **751 pruebas aprobadas en 46 archivos**.
+- `npm run build`: **324 módulos compilados**.
+- Los 18 archivos del paquete temporal coincidieron byte a byte con `dist`;
+  `.nojekyll` se conservó.
+- GitHub Pages terminó con estado **built** para el commit publicado.
+- El sitio en vivo respondió con estado 200, mostró **Emerald Dealer**, cargó la
+  pantalla de acceso, sirvió el archivo principal nuevo y no registró errores ni
+  advertencias en la consola del navegador.
+- El paquete servido contiene **Piedras · Material · Joyas · Cobros**, además de
+  **Forma de venta**, el bloqueo de Contado cuando hay abonos y los nuevos datos
+  de quién recibió el dinero.
+- El manifiesto publicado conserva `start_url` y `scope` en
+  `/emerald-dealer-app/`.
+- No se inició sesión ni se usaron cuentas reales de clientes.
+- N6 continuó expresamente omitida según la decisión previa de Santiago como
+  dueño y su aceptación del riesgo.
+- `.env.production.local` no se creó; la clave publicable de Producción se usó
+  únicamente durante la compilación y no quedó escrita en el repositorio.
+- No se reaplicaron migraciones ni se modificó el proyecto de Pruebas.
+- No se tocó `main` ni `.github/workflows/deploy.yml` del repositorio fuente y
+  la rama fuente no se empujó a `origin`.

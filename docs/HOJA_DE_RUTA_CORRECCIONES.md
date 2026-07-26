@@ -225,9 +225,9 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | E6 | E | En Android, devolver Siguiente/Anterior a su posición normal sin perder el desplazamiento corregido | QuoteForm, index.css | publicada | 33d5d53 |
 | E7 | E | En PC, devolver Siguiente/Anterior y Guardar ajustes a su posición normal; ningún botón queda anclado | QuoteForm, SettingsView, index.css | publicada | 877a8cc |
 | C14 | F | Completar el primer acceso legal sin obligar a cambiar una contraseña propia: separar clave temporal y aceptación, exigir términos + autorización de datos + versión vigente, mostrar el aviso y conservar los textos como borradores hasta revisión profesional | cloud/auth, CloudAccountViews, docs/legal | verificada; no publicada | este commit |
-| C15 | F | En las ventas de inventario y cada abono, guardar y volver a mostrar cómo pagaron, quién recibió y las notas; incluirlo también en el cierre interno sin cambiar la caja | types, schema, stones, stockJewels, StonesView, ReceivablesView, DailyClose | verificada; no publicada | este commit |
-| E8 | E | En celular, hacer que “Registrar venta” sea una pantalla clara con encabezado y botones siempre visibles; en computador conservar un diálogo centrado | ui, StonesView, index.css | verificada; no publicada | este commit |
-| E9 | E | Hacer inequívoca la elección Contado/A crédito y mejorar contraste, estado y accesibilidad de todos los interruptores | ui, StonesView, index.css | verificada; no publicada | este commit |
+| C15 | F | En las ventas de inventario y cada abono, guardar y volver a mostrar cómo pagaron, quién recibió y las notas; incluirlo también en el cierre interno sin cambiar la caja | types, schema, stones, stockJewels, StonesView, ReceivablesView, DailyClose | publicada solo en emerald-dealer-app | fuente 1772263; sitio 762dc7c |
+| E8 | E | En celular, hacer que “Registrar venta” sea una pantalla clara con encabezado y botones siempre visibles; en computador conservar un diálogo centrado | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
+| E9 | E | Hacer inequívoca la elección Contado/A crédito y mejorar contraste, estado y accesibilidad de todos los interruptores | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._

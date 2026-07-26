@@ -4,7 +4,7 @@
 
 _Actualizado: 2026-07-26 por Codex al cerrar la trazabilidad de cobros y la corrección visual del formulario de venta. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
 
-> **ESTADO MÁS RECIENTE: corrección local verificada; no publicada.** La ampliación de inventario sí está publicada en el enlace separado `Santismagico/emerald-dealer-app`; el piloto de 7 joyerías permanece separado. La tanda del 2026-07-26 agrega trazabilidad visible para ventas y abonos, mejora la ventana de registrar venta y aclara Contado/A crédito. Esta tanda vive únicamente en `codex/fase2-nube` hasta que Santiago dé una nueva orden expresa de publicación.
+> **ESTADO MÁS RECIENTE: trazabilidad y formulario publicados solo en el enlace nuevo.** `Santismagico/emerald-dealer-app` sirve el commit `762dc7c`, compilado desde `codex/fase2-nube@0aca89e`. El piloto de 7 joyerías permanece separado y no fue modificado.
 
 ## Qué aplicación es
 
@@ -206,7 +206,7 @@ propio para joyas pensando en colecciones. Plan en
 
 `main` y las 7 joyerías del piloto **no fueron tocadas**.
 
-## Trazabilidad de ventas y abonos (2026-07-26, verificada; no publicada)
+## Trazabilidad de ventas y abonos (2026-07-26, publicada solo en emerald-dealer-app)
 
 Santiago pidió poder revisar después, sin depender de la memoria, cómo se recibió
 cada pago, quién lo recibió y qué nota se dejó en la venta.
@@ -229,6 +229,8 @@ cada pago, quién lo recibió y qué nota se dejó en la venta.
 - Verificación: **751 pruebas en 46 archivos**, compilación de **324 módulos** y
   recorrido local sin errores en 320×568, 390×844 y 1280×720. También se comprobó
   Escape, devolución del foco, fondo inmóvil, abono visible y Contado bloqueado.
+- Publicación: fuente `0aca89e`, sitio `762dc7c`, GitHub Pages en estado **built**,
+  archivo vivo `/emerald-dealer-app/assets/index-CIj_IEc_.js` y consola limpia.
 
 No se agregaron dependencias, migraciones ni cambios contables. No se tocó
 `main`, `.github/workflows/deploy.yml`, el proyecto de Pruebas ni el repositorio
@@ -271,4 +273,4 @@ de publicación.
 | 2026-07-18 | **Auditorías independientes de la Fase 2 (Fable)** | Tres pasadas sobre la candidata: 5 hallazgos (H1–H4 y A1, este último una regresión que borraba el historial local) reportados y cerrados; pruebas, compilación pública, CSP, precaché y secretos ejecutados por el auditor; A1 verificada con 5 pruebas propias. Aprobación técnica; bloqueos legales y de operación siguen abiertos | `c789235`, `121df13`, `0111145` |
 | 2026-07-18 | **Prueba real de dos dispositivos superada (Santiago + Fable)** | Santiago probó la nube en PC y celular contra el proyecto de pruebas: sincronización de ida y vuelta, borrado entre dispositivos y cotización sin señal, todo aprobado. Segundo hallazgo suyo: un cambio pendiente quedaba atascado para siempre tras reiniciar — los disparadores solo escuchaban "online"/"visibilitychange" y al arrancar no ocurre ninguno. Arreglo: intento de subida inmediato al arrancar (`startOutboxTriggers`), con prueba que falla sin él; 513 pruebas en verde. Confirmado en su celular: "Todo está al día" | `e46f662` |
 | 2026-07-18 | **Corrección publicada: ventanas emergentes vs. menú inferior (Fable, orden expresa de Santiago)** | Hallazgo de Santiago en su prueba de usuario: en teléfonos, los 9 diálogos (cita, estados, lotes, confirmaciones) quedaban con sus botones incrustados tras el menú fijo y sin desplazamiento; venía de la reorganización C10/E5–E7 y estaba en producción. Regla central de overlays con colchón para el menú + diálogos max-h-full con desplazamiento interno. Verificado en dev (360×640 y 1280), 512 pruebas en la rama nube y 468 en la publicada; cherry-pick a `main` (`0a86e5a`), deploy en verde y sitio en vivo verificado con las medidas correctas. Punto de restauración: tag `punto-seguro-pre-fix-ventanas-2026-07-18` | `8818972` en nube; `0a86e5a` en main |
-| 2026-07-26 | C15 + E8/E9: trazabilidad y formulario de venta (Codex) | Forma de pago, receptor y notas revisables en ventas, abonos y cierres; protección contra borrado accidental; ventana móvil desplazable con acciones fijas; Contado/A crédito e interruptores aclarados. 751 pruebas, 324 módulos y revisión 320/390/1280 en verde; no publicada | dos commits locales en `codex/fase2-nube` |
+| 2026-07-26 | C15 + E8/E9: trazabilidad y formulario de venta (Codex) | Forma de pago, receptor y notas revisables en ventas, abonos y cierres; protección contra borrado accidental; ventana móvil desplazable con acciones fijas; Contado/A crédito e interruptores aclarados. 751 pruebas, 324 módulos, revisión 320/390/1280 y sitio en vivo en verde; publicada solo en emerald-dealer-app | fuente `1772263` + `0aca89e`; sitio `762dc7c` |
