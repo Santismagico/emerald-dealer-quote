@@ -3,7 +3,7 @@
 // Todo es INTERNO (COP entero): ni los lotes ni los precios entran jamás en
 // un documento del cliente. Existencias y resultado se calculan con motor puro.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { StoneLot, StoneSale, SupplierPayment } from '../types';
 import {
@@ -37,8 +37,10 @@ import {
   DecimalInput,
   EmptyState,
   Field,
+  FormDialog,
   MoneyInput,
   SectionCard,
+  SegmentedControl,
   Select,
   SummaryRow,
   TextArea,
@@ -274,6 +276,24 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   const [saleToDelete, setSaleToDelete] = useState<StoneSale | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<SupplierPayment | null>(null);
   const [busy, setBusy] = useState(false);
+  const saleReturnFocus = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (saleForm !== null || saleReturnFocus.current === null) return;
+    const target = saleReturnFocus.current;
+    const frame = window.requestAnimationFrame(() => {
+      const marker = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-sale-trigger]')
+      ).find((element) => element.dataset.saleTrigger === target);
+      const focusable = marker?.matches('button')
+        ? marker
+        : marker?.querySelector<HTMLElement>('button');
+      const fallback = document.querySelector<HTMLElement>('[data-lot-detail-focus]');
+      (focusable ?? fallback)?.focus();
+      saleReturnFocus.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [saleForm]);
 
   const lot = store.stoneLots.find((l) => l.id === lotId);
   if (!lot) return null;
@@ -308,7 +328,13 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
       <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-stone-900">{lotDisplayName(lot)}</h3>
+            <h3
+              data-lot-detail-focus
+              tabIndex={-1}
+              className="truncate text-base font-semibold text-stone-900 outline-none"
+            >
+              {lotDisplayName(lot)}
+            </h3>
             <p className="text-xs text-stone-500">
               {lot.stoneType || 'Sin especificar'} · {formatDateCO(lot.purchaseDate)}
             </p>
@@ -433,8 +459,12 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
+                    data-sale-trigger={sale.id}
                     className="min-h-11 min-w-0 flex-1 text-left"
-                    onClick={() => setSaleForm(sale)}
+                    onClick={() => {
+                      saleReturnFocus.current = sale.id;
+                      setSaleForm(sale);
+                    }}
                   >
                     <p className="text-sm font-medium text-stone-800">
                       {formatCOP(sale.valueCop)}
@@ -514,9 +544,17 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
 
         <div className="mt-4 space-y-2">
           {!summary.exhausted && (
-            <Button full onClick={() => setSaleForm(emptyStoneSale(todayISO()))}>
-              ＋ Registrar venta
-            </Button>
+            <div data-sale-trigger="new">
+              <Button
+                full
+                onClick={() => {
+                  saleReturnFocus.current = 'new';
+                  setSaleForm(emptyStoneSale(todayISO()));
+                }}
+              >
+                ＋ Registrar venta
+              </Button>
+            </div>
           )}
           <div className="flex gap-2">
             <div className="flex-1">
@@ -867,16 +905,29 @@ function SaleForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
-        <h3 className="text-base font-semibold text-stone-900">
-          {isNew ? 'Registrar venta' : 'Editar venta'}
-        </h3>
-        <p className="mt-1 text-sm text-stone-600">
-          {lotDisplayName(lot)} · disponibles {formatCarats(available.remainingCarats)} ·{' '}
-          {available.remainingQuantity} pz
-        </p>
-        <div className="mt-4 space-y-3">
+    <FormDialog
+      title={isNew ? 'Registrar venta' : 'Editar venta'}
+      description={`${lotDisplayName(lot)} · disponibles ${formatCarats(
+        available.remainingCarats
+      )} · ${available.remainingQuantity} pz`}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <Button variant="ghost" full disabled={busy} onClick={onClose}>
+              Cancelar
+            </Button>
+          </div>
+          <div className="flex-1">
+            <Button full disabled={busy} onClick={() => void save()}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quilates vendidos">
               <DecimalInput value={form.carats} onValue={(carats) => patch({ carats })} suffix="ct" />
@@ -918,17 +969,25 @@ function SaleForm({
           </Field>
 
           {/* Crédito al vender (D-042): una fecha acordada y abonos libres. */}
-          <Toggle
-            checked={form.onCredit}
-            label="Se la vendí a crédito"
-            onChange={(onCredit) => setForm(withSaleCredit(form, onCredit, todayISO()))}
+          <SegmentedControl
+            label="Forma de venta"
+            value={form.onCredit ? 'credit' : 'cash'}
+            options={[
+              {
+                value: 'cash',
+                label: 'Contado',
+                disabled: form.payments.length > 0
+              },
+              { value: 'credit', label: 'A crédito' }
+            ]}
+            onChange={(value) =>
+              setForm(withSaleCredit(form, value === 'credit', todayISO()))
+            }
           />
-          {!form.onCredit && form.payments.length > 0 ? (
-            <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700">
-              Esta venta ya tiene {form.payments.length} abono(s) por{' '}
-              {formatCOP(summarizeStoneSale({ ...form, onCredit: true }).receivedCop)}. No se
-              puede pasar a contado sin borrar ese historial de cobro: vuelve a activar el
-              crédito para poder guardar.
+          {form.payments.length > 0 ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              Contado está bloqueado porque esta venta ya tiene {form.payments.length}{' '}
+              abono(s) registrados por {formatCOP(saleSummary.receivedCop)}.
             </p>
           ) : null}
           {!form.onCredit ? (
@@ -1000,20 +1059,7 @@ function SaleForm({
           <Field label="Notas internas">
             <TextArea value={form.notes} onChange={(notes) => patch({ notes })} rows={2} />
           </Field>
-        </div>
-        <div className="mt-5 flex gap-3">
-          <div className="flex-1">
-            <Button variant="ghost" full disabled={busy} onClick={onClose}>
-              Cancelar
-            </Button>
-          </div>
-          <div className="flex-1">
-            <Button full disabled={busy} onClick={() => void save()}>
-              Guardar
-            </Button>
-          </div>
-        </div>
       </div>
-    </div>
+    </FormDialog>
   );
 }

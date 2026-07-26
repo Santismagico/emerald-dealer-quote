@@ -345,6 +345,17 @@ button {
   }
 }
 
+/* Formularios largos: pantalla completa en móvil, centrados en computador.
+   El contenido central se desplaza y las acciones permanecen siempre visibles. */
+.atelier .form-dialog-overlay {
+  background-color: var(--overlay);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.atelier .form-dialog-footer {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
 /* Los documentos para el cliente conservan su papel claro en ambos temas. */
 .atelier .client-document.bg-white,
 .atelier .client-document .bg-white {
