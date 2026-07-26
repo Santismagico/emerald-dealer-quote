@@ -38,6 +38,9 @@ export interface DailyStoneSale {
   onCredit: boolean;
   /** Fecha acordada de pago. Vacía en una venta de contado. */
   dueDate: string;
+  receivedBy: string;
+  method: string;
+  notes: string;
 }
 
 export interface DailySupplierPayment {
@@ -51,6 +54,9 @@ export interface DailyBuyerPayment {
   lotName: string;
   buyer: string;
   amount: number;
+  receivedBy: string;
+  method: string;
+  notes: string;
 }
 
 /** Joya en stock que entró al inventario ese día: el dinero salió de la caja. */
@@ -68,6 +74,9 @@ export interface DailyJewelSale {
   priceCop: number;
   /** Recibido − costo de la pieza. */
   resultCop: number;
+  receivedBy: string;
+  method: string;
+  notes: string;
 }
 
 export interface DailyPayment {
@@ -219,7 +228,10 @@ function buildBusinessReport(
           quantity: sale.quantity,
           valueCop: sale.valueCop,
           onCredit: sale.onCredit,
-          dueDate: sale.dueDate
+          dueDate: sale.dueDate,
+          receivedBy: sale.receivedBy,
+          method: sale.method,
+          notes: sale.notes
         });
       }
       // Los abonos del comprador entran a caja el día en que se reciben, no el
@@ -229,7 +241,10 @@ function buildBusinessReport(
           buyerPayments.push({
             lotName: lotDisplayName(lot),
             buyer: sale.buyer,
-            amount: payment.amount
+            amount: payment.amount,
+            receivedBy: payment.receivedBy,
+            method: payment.method,
+            notes: payment.notes
           });
         }
       }
@@ -263,7 +278,10 @@ function buildBusinessReport(
         pieceType: jewel.pieceType,
         buyer: jewel.sale.buyer,
         priceCop: jewel.sale.priceCop,
-        resultCop: summarizeStockJewel(jewel).resultCop
+        resultCop: summarizeStockJewel(jewel).resultCop,
+        receivedBy: jewel.sale.receivedBy,
+        method: jewel.sale.method,
+        notes: jewel.sale.notes
       });
     }
   }
@@ -503,6 +521,16 @@ function formatCarats(carats: number): string {
   return `${carats.toLocaleString('es-CO', { maximumFractionDigits: 3 })} ct`;
 }
 
+/** Detalle trazable de un movimiento de caja. Solo se usa en documentos internos. */
+function paymentTrace(receivedBy: string, method: string, notes: string): string {
+  const parts = [
+    `medio: ${(method ?? '').trim() || 'Sin registrar'}`,
+    `recibió: ${(receivedBy ?? '').trim() || 'Sin registrar'}`
+  ];
+  if ((notes ?? '').trim()) parts.push(`nota: ${notes.trim()}`);
+  return ` · ${parts.join(' · ')}`;
+}
+
 /** Secciones del PDF separadas por negocio: primero Joyería, luego Piedras (C5). */
 function businessSections(report: BusinessReport): PdfSection[] {
   const sections: PdfSection[] = [];
@@ -567,7 +595,12 @@ function businessSections(report: BusinessReport): PdfSection[] {
         const credit = s.onCredit
           ? ` — A CRÉDITO (no entró a caja; pagan el ${formatDateCO(s.dueDate)})`
           : '';
-        return `• ${s.lotName}: ${formatCarats(s.carats)} · ${s.quantity} pz${buyer} — ${formatCOP(s.valueCop)}${credit}`;
+        const trace = s.onCredit
+          ? (s.notes ?? '').trim()
+            ? ` · nota: ${s.notes.trim()}`
+            : ''
+          : paymentTrace(s.receivedBy, s.method, s.notes);
+        return `• ${s.lotName}: ${formatCarats(s.carats)} · ${s.quantity} pz${buyer} — ${formatCOP(s.valueCop)}${credit}${trace}`;
       })
     });
   }
@@ -577,7 +610,11 @@ function businessSections(report: BusinessReport): PdfSection[] {
       title: 'Piedras · Abonos de compradores',
       paragraphs: report.buyerPayments.map((p) => {
         const buyer = p.buyer ? ` de ${p.buyer}` : '';
-        return `• ${p.lotName}${buyer} — ${formatCOP(p.amount)}`;
+        return `• ${p.lotName}${buyer} — ${formatCOP(p.amount)}${paymentTrace(
+          p.receivedBy,
+          p.method,
+          p.notes
+        )}`;
       })
     });
   }
@@ -606,7 +643,13 @@ function businessSections(report: BusinessReport): PdfSection[] {
       title: 'Joyas en stock · Ventas',
       paragraphs: report.jewelSales.map((j) => {
         const buyer = j.buyer ? ` a ${j.buyer}` : '';
-        return `• ${j.jewelName} (${j.pieceType})${buyer} — ${formatCOP(j.priceCop)} · resultado ${formatCOP(j.resultCop)}`;
+        return `• ${j.jewelName} (${j.pieceType})${buyer} — ${formatCOP(
+          j.priceCop
+        )} · resultado ${formatCOP(j.resultCop)}${paymentTrace(
+          j.receivedBy,
+          j.method,
+          j.notes
+        )}`;
       })
     });
   }

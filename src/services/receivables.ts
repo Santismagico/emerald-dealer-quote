@@ -6,7 +6,7 @@
 // saldo, semáforo y días de atraso se DERIVAN en el momento de mostrarlos, y
 // `today` entra siempre como parámetro para que el motor no lea el reloj.
 
-import type { StoneLot, StoneSale } from '../types';
+import type { BuyerPayment, StoneLot, StoneSale } from '../types';
 import { isValidISODate, parseISODate } from '../utils/dates';
 import { lotDisplayName, summarizeStoneSale } from './stones';
 
@@ -30,6 +30,10 @@ export interface Receivable {
   totalCop: number;
   paidCop: number;
   balanceCop: number;
+  /** Historial de abonos de esta venta, incluso si algunos datos antiguos están vacíos. */
+  payments: BuyerPayment[];
+  /** Nota interna escrita al registrar la venta. */
+  notes: string;
   status: ReceivableStatus;
   /** Días transcurridos desde la fecha acordada. 0 si aún no se vence. */
   daysOverdue: number;
@@ -110,6 +114,8 @@ export function listReceivables(lots: readonly StoneLot[], today: string): Recei
         totalCop: summary.receivedCop + summary.balanceCop,
         paidCop: summary.receivedCop,
         balanceCop: summary.balanceCop,
+        payments: sale.payments,
+        notes: sale.notes,
         status,
         daysOverdue: valid && status === 'vencido' ? daysBetween(sale.dueDate, today) : 0,
         daysUntilDue: valid && status !== 'vencido' ? Math.max(0, daysBetween(today, sale.dueDate)) : 0

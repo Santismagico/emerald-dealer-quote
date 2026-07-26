@@ -233,6 +233,8 @@ describe('normalizeStoneLot', () => {
           onCredit: false,
           dueDate: '',
           payments: [],
+          method: 'Transferencia',
+          receivedBy: 'Santiago',
           notes: ''
         }
       ],
@@ -276,9 +278,11 @@ describe('normalizeStoneLot: crédito al vender (D-042)', () => {
     expect(l.sales[0].payments).toEqual([]);
     expect(l.sales[0].buyerId).toBeNull();
     expect(l.sales[0].valueCop).toBe(3000000);
+    expect(l.sales[0].method).toBe('');
+    expect(l.sales[0].receivedBy).toBe('');
   });
 
-  it('conserva la fecha acordada y los abonos de una venta a crédito', () => {
+  it('conserva la trazabilidad de una venta y sus abonos', () => {
     const l = normalizeStoneLot({
       sales: [
         {
@@ -291,7 +295,16 @@ describe('normalizeStoneLot: crédito al vender (D-042)', () => {
           valueCop: 5000000,
           onCredit: true,
           dueDate: '2026-08-10',
-          payments: [{ id: 'ab-1', date: '2026-07-20', amount: 2000000, notes: 'primer abono' }]
+          method: '',
+          receivedBy: '',
+          payments: [{
+            id: 'ab-1',
+            date: '2026-07-20',
+            amount: 2000000,
+            method: 'Transferencia',
+            receivedBy: 'Santiago',
+            notes: 'primer abono'
+          }]
         }
       ]
     });
@@ -299,8 +312,48 @@ describe('normalizeStoneLot: crédito al vender (D-042)', () => {
     expect(l.sales[0].dueDate).toBe('2026-08-10');
     expect(l.sales[0].buyerId).toBe('buy-1');
     expect(l.sales[0].payments).toEqual([
-      { id: 'ab-1', date: '2026-07-20', amount: 2000000, notes: 'primer abono' }
+      {
+        id: 'ab-1',
+        date: '2026-07-20',
+        amount: 2000000,
+        method: 'Transferencia',
+        receivedBy: 'Santiago',
+        notes: 'primer abono'
+      }
     ]);
+  });
+
+  it('los datos anteriores reciben trazabilidad vacía sin perder sus notas', () => {
+    const l = normalizeStoneLot({
+      sales: [{
+        id: 'v-legada',
+        date: '2026-07-01',
+        buyer: 'Pedro',
+        carats: 1,
+        quantity: 1,
+        valueCop: 3000000,
+        onCredit: true,
+        dueDate: '2026-08-01',
+        notes: 'Venta recibida antes de la ampliación',
+        payments: [{
+          id: 'ab-legado',
+          date: '2026-07-15',
+          amount: 1000000,
+          notes: 'El medio quedó escrito aquí'
+        }]
+      }]
+    });
+
+    expect(l.sales[0]).toMatchObject({
+      method: '',
+      receivedBy: '',
+      notes: 'Venta recibida antes de la ampliación'
+    });
+    expect(l.sales[0].payments[0]).toMatchObject({
+      method: '',
+      receivedBy: '',
+      notes: 'El medio quedó escrito aquí'
+    });
   });
 
   it('una venta de contado nunca conserva abonos sueltos', () => {
@@ -399,13 +452,38 @@ describe('normalizeStockJewel', () => {
         buyer: 'Comprador Ejemplo',
         buyerId: 'buy-1',
         priceCop: 4800000,
-        notes: ''
+        method: 'Efectivo',
+        receivedBy: 'Laura',
+        notes: 'Entregada en vitrina'
       },
       createdAt: '2026-07-01T09:00:00.000Z',
       updatedAt: '2026-07-20T09:00:00.000Z'
     });
     expect(j.sale?.priceCop).toBe(4800000);
     expect(j.sale?.buyerId).toBe('buy-1');
+    expect(j.sale).toMatchObject({
+      method: 'Efectivo',
+      receivedBy: 'Laura',
+      notes: 'Entregada en vitrina'
+    });
+  });
+
+  it('una venta antigua de joya recibe trazabilidad vacía y conserva la nota', () => {
+    const j = normalizeStockJewel({
+      sale: {
+        id: 's-antigua',
+        date: '2026-07-20',
+        buyer: 'Comprador antiguo',
+        priceCop: 4800000,
+        notes: 'Pago anotado antes del cambio'
+      }
+    });
+
+    expect(j.sale).toMatchObject({
+      method: '',
+      receivedBy: '',
+      notes: 'Pago anotado antes del cambio'
+    });
   });
 
   it('una venta corrupta no deja la joya a medio vender', () => {

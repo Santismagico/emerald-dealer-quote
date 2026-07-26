@@ -16,7 +16,15 @@ import {
 } from './stones';
 
 function abono(overrides: Partial<BuyerPayment> = {}): BuyerPayment {
-  return { id: 'ab-1', date: '2026-07-16', amount: 500000, notes: '', ...overrides };
+  return {
+    id: 'ab-1',
+    date: '2026-07-16',
+    amount: 500000,
+    method: 'Transferencia',
+    receivedBy: 'Santiago',
+    notes: '',
+    ...overrides
+  };
 }
 
 function venta(overrides: Partial<StoneSale> = {}): StoneSale {
@@ -31,13 +39,21 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     onCredit: false,
     dueDate: '',
     payments: [],
+    method: 'Efectivo',
+    receivedBy: 'Santiago',
     notes: '',
     ...overrides
   };
 }
 
 function aCredito(overrides: Partial<StoneSale> = {}): StoneSale {
-  return venta({ onCredit: true, dueDate: '2026-08-15', ...overrides });
+  return venta({
+    onCredit: true,
+    dueDate: '2026-08-15',
+    method: '',
+    receivedBy: '',
+    ...overrides
+  });
 }
 
 function lote(overrides: Partial<StoneLot> = {}): StoneLot {
@@ -140,6 +156,28 @@ describe('el lote separa el resultado del dinero real', () => {
 });
 
 describe('validación de una venta a crédito', () => {
+  it('una venta nueva de contado exige método y quién recibió', () => {
+    expect(validateStoneSale(lote(), venta({ method: '' }))).toMatch(/cómo te pagaron/i);
+    expect(validateStoneSale(lote(), venta({ receivedBy: '' }))).toMatch(/quién recibió/i);
+  });
+
+  it('una venta heredada de contado puede seguir vacía al editarse', () => {
+    const heredada = venta({ method: '', receivedBy: '' });
+    const conHistorial = lote({ sales: [heredada] });
+    expect(validateStoneSale(conHistorial, heredada, heredada.id)).toBeNull();
+  });
+
+  it('una venta trazable no puede perder método ni receptor al editarse', () => {
+    const registrada = venta();
+    const conHistorial = lote({ sales: [registrada] });
+    expect(
+      validateStoneSale(conHistorial, { ...registrada, method: '' }, registrada.id)
+    ).toMatch(/cómo te pagaron/i);
+    expect(
+      validateStoneSale(conHistorial, { ...registrada, receivedBy: '' }, registrada.id)
+    ).toMatch(/quién recibió/i);
+  });
+
   it('rechaza una venta a crédito sin fecha acordada', () => {
     expect(validateStoneSale(lote(), aCredito({ dueDate: '' }))).toMatch(
       /fecha en que quedaron de pagarte/
@@ -202,6 +240,28 @@ describe('abonos del comprador', () => {
     );
   });
 
+  it('un abono nuevo exige método y quién recibió', () => {
+    expect(validateBuyerPayment(conSaldo, abono({ method: '' }))).toMatch(/cómo te pagaron/i);
+    expect(validateBuyerPayment(conSaldo, abono({ receivedBy: '' }))).toMatch(/quién recibió/i);
+  });
+
+  it('un abono heredado puede seguir vacío al editarse', () => {
+    const heredado = abono({ method: '', receivedBy: '' });
+    const conHeredado = aCredito({ valueCop: 2000000, payments: [heredado] });
+    expect(validateBuyerPayment(conHeredado, heredado, heredado.id)).toBeNull();
+  });
+
+  it('un abono trazable no puede perder método ni receptor al editarse', () => {
+    const registrado = abono();
+    const conRegistrado = aCredito({ valueCop: 2000000, payments: [registrado] });
+    expect(
+      validateBuyerPayment(conRegistrado, { ...registrado, method: '' }, registrado.id)
+    ).toMatch(/cómo te pagaron/i);
+    expect(
+      validateBuyerPayment(conRegistrado, { ...registrado, receivedBy: '' }, registrado.id)
+    ).toMatch(/quién recibió/i);
+  });
+
   it('rechaza un abono mayor al saldo', () => {
     expect(validateBuyerPayment(conSaldo, abono({ amount: 3000000 }))).toMatch(/Solo te deben/);
   });
@@ -229,13 +289,20 @@ describe('abonos del comprador', () => {
     const conAbono = withBuyerPayment(conSaldo, abono({ amount: 500000 }));
     const editado = withBuyerPayment(conAbono, abono({ amount: 700000, notes: 'corregido' }));
     expect(editado.payments).toHaveLength(1);
-    expect(editado.payments[0].amount).toBe(700000);
+    expect(editado.payments[0]).toMatchObject({
+      amount: 700000,
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: 'corregido'
+    });
   });
 
   it('un abono en blanco nace con id propio y la fecha de hoy', () => {
     const p = emptyBuyerPayment('2026-07-21');
     expect(p.date).toBe('2026-07-21');
     expect(p.amount).toBe(0);
+    expect(p.method).toBe('');
+    expect(p.receivedBy).toBe('');
     expect(p.id).not.toBe(emptyBuyerPayment('2026-07-21').id);
   });
 });
@@ -270,5 +337,7 @@ describe('venta en blanco', () => {
     expect(s.dueDate).toBe('');
     expect(s.payments).toEqual([]);
     expect(s.buyerId).toBeNull();
+    expect(s.method).toBe('');
+    expect(s.receivedBy).toBe('');
   });
 });

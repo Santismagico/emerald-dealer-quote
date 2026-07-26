@@ -146,6 +146,22 @@ export function ReceivablesView() {
                 onValue={(amount) => setPaying({ receivable, payment: { ...payment, amount } })}
               />
             </Field>
+            <Field label="¿Cómo le pagaron? *">
+              <TextInput
+                value={payment.method}
+                onChange={(method) => setPaying({ receivable, payment: { ...payment, method } })}
+                placeholder="Efectivo, transferencia, Nequi…"
+              />
+            </Field>
+            <Field label="¿Quién recibió el dinero? *">
+              <TextInput
+                value={payment.receivedBy}
+                onChange={(receivedBy) =>
+                  setPaying({ receivable, payment: { ...payment, receivedBy } })
+                }
+                placeholder="Nombre de quien recibió"
+              />
+            </Field>
             <Field label="Notas">
               <TextArea
                 value={payment.notes}
@@ -249,6 +265,41 @@ export function ReceivablesView() {
                   valueClass={r.status === 'vencido' ? 'text-red-600' : 'text-brand-800'}
                 />
               </div>
+              {r.notes ? (
+                <p className="mt-3 break-words rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
+                  <span className="font-semibold">Nota de la venta:</span> {r.notes}
+                </p>
+              ) : null}
+              {r.payments.length > 0 ? (
+                <div className="mt-3 border-t border-stone-100 pt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Abonos registrados
+                  </p>
+                  <ul className="space-y-2">
+                    {r.payments.map((payment) => (
+                      <li key={payment.id} className="rounded-xl bg-stone-50 p-3">
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="font-medium text-stone-800">
+                            {formatCOP(payment.amount)}
+                          </span>
+                          <span className="text-xs text-stone-500">
+                            {formatDateCO(payment.date)}
+                          </span>
+                        </div>
+                        <p className="mt-1 break-words text-xs text-stone-500">
+                          {payment.method || 'Medio sin registrar'} · Recibió:{' '}
+                          {payment.receivedBy || 'Sin registrar'}
+                        </p>
+                        {payment.notes ? (
+                          <p className="mt-1 break-words text-xs text-stone-600">
+                            Nota: {payment.notes}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="mt-3 border-t border-stone-100 pt-3">
                 <Button
                   full

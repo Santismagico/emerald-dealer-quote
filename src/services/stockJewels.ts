@@ -114,11 +114,20 @@ export function validateStockJewelSale(
   sale: StockJewelSale
 ): string | null {
   if (jewel.sale && jewel.sale.id !== sale.id) return 'Esta pieza ya está vendida.';
+  const previousSale = jewel.sale?.id === sale.id ? jewel.sale : null;
   if (!isValidISODate(sale.date)) return 'La venta necesita una fecha válida.';
   if (sale.date < jewel.acquiredDate) {
     return 'No puedes vender la pieza antes de que entrara al inventario.';
   }
   if (toSafeCOP(sale.priceCop) <= 0) return 'Indica el valor recibido por la venta.';
+  const methodMayStayBlank = previousSale && !(previousSale.method ?? '').trim();
+  const receiverMayStayBlank = previousSale && !(previousSale.receivedBy ?? '').trim();
+  if (!methodMayStayBlank && !(sale.method ?? '').trim()) {
+    return 'Indica cómo te pagaron esta venta.';
+  }
+  if (!receiverMayStayBlank && !(sale.receivedBy ?? '').trim()) {
+    return 'Indica quién recibió el dinero de esta venta.';
+  }
   return null;
 }
 
@@ -213,5 +222,14 @@ export function emptyStockJewel(today: string, nowIso: string): StockJewel {
 
 /** Venta en blanco para el formulario de vender una pieza. */
 export function emptyStockJewelSale(today: string): StockJewelSale {
-  return { id: newId(), date: today, buyer: '', buyerId: null, priceCop: 0, notes: '' };
+  return {
+    id: newId(),
+    date: today,
+    buyer: '',
+    buyerId: null,
+    priceCop: 0,
+    receivedBy: '',
+    method: '',
+    notes: ''
+  };
 }

@@ -390,6 +390,20 @@ export function validateStoneSale(
     return 'Indica cuántas piedras o cuántos quilates se vendieron.';
   }
   if (toSafeCOP(sale.valueCop) <= 0) return 'Indica el valor acordado de la venta.';
+  if (!sale.onCredit) {
+    const previousSale = excludeSaleId
+      ? lot.sales.find((candidate) => candidate.id === excludeSaleId)
+      : undefined;
+    const legacyCashSale = previousSale?.onCredit === false;
+    const methodMayStayBlank = legacyCashSale && !(previousSale.method ?? '').trim();
+    const receiverMayStayBlank = legacyCashSale && !(previousSale.receivedBy ?? '').trim();
+    if (!methodMayStayBlank && !(sale.method ?? '').trim()) {
+      return 'Indica cómo te pagaron esta venta.';
+    }
+    if (!receiverMayStayBlank && !(sale.receivedBy ?? '').trim()) {
+      return 'Indica quién recibió el dinero de esta venta.';
+    }
+  }
 
   if (sale.onCredit) {
     if (!isValidISODate(sale.dueDate)) {
@@ -441,6 +455,17 @@ export function validateBuyerPayment(
   if (!isValidISODate(payment.date)) return 'El abono necesita una fecha válida.';
   const amount = toSafeCOP(payment.amount);
   if (amount <= 0) return 'Indica el monto que te abonaron.';
+  const previousPayment = excludePaymentId
+    ? sale.payments.find((candidate) => candidate.id === excludePaymentId)
+    : undefined;
+  const methodMayStayBlank = previousPayment && !(previousPayment.method ?? '').trim();
+  const receiverMayStayBlank = previousPayment && !(previousPayment.receivedBy ?? '').trim();
+  if (!methodMayStayBlank && !(payment.method ?? '').trim()) {
+    return 'Indica cómo te pagaron este abono.';
+  }
+  if (!receiverMayStayBlank && !(payment.receivedBy ?? '').trim()) {
+    return 'Indica quién recibió este abono.';
+  }
 
   const others = sale.payments.filter((p) => p.id !== excludePaymentId);
   const summary = summarizeStoneSale({ ...sale, payments: others });
@@ -468,7 +493,7 @@ export function withoutBuyerPayment(sale: StoneSale, paymentId: string): StoneSa
 
 /** Abono del comprador en blanco para el formulario. */
 export function emptyBuyerPayment(today: string): BuyerPayment {
-  return { id: newId(), date: today, amount: 0, notes: '' };
+  return { id: newId(), date: today, amount: 0, receivedBy: '', method: '', notes: '' };
 }
 
 /**
@@ -545,6 +570,8 @@ export function emptyStoneSale(today: string): StoneSale {
     carats: 0,
     quantity: 1,
     valueCop: 0,
+    receivedBy: '',
+    method: '',
     onCredit: false,
     dueDate: '',
     payments: [],

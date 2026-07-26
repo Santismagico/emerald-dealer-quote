@@ -12,7 +12,15 @@ import { summarizeStoneSale, validateStoneSale, withSaleCredit } from './stones'
 import type { StoneLot } from '../types';
 
 function abono(overrides: Partial<BuyerPayment> = {}): BuyerPayment {
-  return { id: 'ab-1', date: '2026-07-16', amount: 500000, notes: '', ...overrides };
+  return {
+    id: 'ab-1',
+    date: '2026-07-16',
+    amount: 500000,
+    method: 'Transferencia',
+    receivedBy: 'Santiago',
+    notes: 'Comprobante 123',
+    ...overrides
+  };
 }
 
 function venta(overrides: Partial<StoneSale> = {}): StoneSale {
@@ -27,6 +35,8 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     onCredit: false,
     dueDate: '',
     payments: [],
+    method: 'Efectivo',
+    receivedBy: 'Santiago',
     notes: '',
     ...overrides
   };
@@ -66,6 +76,11 @@ describe('cambiar una venta entre contado y crédito', () => {
 
     expect(aContado.onCredit).toBe(false);
     expect(aContado.payments).toHaveLength(2);
+    expect(aContado.payments[0]).toMatchObject({
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: 'Comprobante 123'
+    });
     expect(summarizeStoneSale({ ...aContado, onCredit: true }).receivedCop).toBe(800000);
   });
 

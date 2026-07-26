@@ -43,6 +43,8 @@ function venta(overrides: Partial<StockJewelSale> = {}): StockJewelSale {
     buyer: 'Comprador Ejemplo',
     buyerId: null,
     priceCop: 4800000,
+    method: 'Transferencia',
+    receivedBy: 'Santiago',
     notes: '',
     ...overrides
   };
@@ -142,6 +144,28 @@ describe('validación de una pieza', () => {
 });
 
 describe('validación de la venta de una pieza', () => {
+  it('una venta nueva exige método y quién recibió', () => {
+    expect(validateStockJewelSale(joya(), venta({ method: '' }))).toMatch(/cómo te pagaron/i);
+    expect(validateStockJewelSale(joya(), venta({ receivedBy: '' }))).toMatch(/quién recibió/i);
+  });
+
+  it('una venta heredada puede seguir vacía al editarse', () => {
+    const heredada = venta({ method: '', receivedBy: '' });
+    const vendida = joya({ sale: heredada });
+    expect(validateStockJewelSale(vendida, heredada)).toBeNull();
+  });
+
+  it('una venta trazable no puede perder método ni receptor al editarse', () => {
+    const registrada = venta();
+    const vendida = joya({ sale: registrada });
+    expect(validateStockJewelSale(vendida, { ...registrada, method: '' })).toMatch(
+      /cómo te pagaron/i
+    );
+    expect(validateStockJewelSale(vendida, { ...registrada, receivedBy: '' })).toMatch(
+      /quién recibió/i
+    );
+  });
+
   it('no se puede vender una pieza ya vendida', () => {
     const vendida = joya({ sale: venta({ id: 's-1' }) });
     expect(validateStockJewelSale(vendida, venta({ id: 's-2' }))).toMatch(/ya está vendida/);
@@ -251,5 +275,7 @@ describe('formularios en blanco', () => {
     expect(s.date).toBe('2026-07-21');
     expect(s.buyerId).toBeNull();
     expect(s.priceCop).toBe(0);
+    expect(s.method).toBe('');
+    expect(s.receivedBy).toBe('');
   });
 });

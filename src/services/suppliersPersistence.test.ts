@@ -64,6 +64,8 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
         onCredit: false,
         dueDate: '',
         payments: [],
+        method: 'Efectivo',
+        receivedBy: 'Santiago',
         notes: ''
       }
     ],

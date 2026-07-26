@@ -281,6 +281,10 @@ export interface BuyerPayment {
   date: string;
   /** Monto recibido en COP entero. */
   amount: number;
+  /** Quién recibió el dinero en la joyería. */
+  receivedBy: string;
+  /** Medio: efectivo, transferencia, etc. */
+  method: string;
   notes: string;
 }
 
@@ -369,6 +373,10 @@ export interface StoneSale {
    * recibido; a crédito lo recibido es la suma de `payments` (D-042).
    */
   valueCop: number;
+  /** Quién recibió el dinero cuando la venta fue de contado (D-051). */
+  receivedBy: string;
+  /** Medio de pago de la venta de contado. En crédito vive en cada abono. */
+  method: string;
   /** true si se vendió a crédito: el comprador debe hasta saldar (D-042). */
   onCredit: boolean;
   /** Fecha acordada de pago (YYYY-MM-DD). Vacía cuando es de contado. */
@@ -436,6 +444,10 @@ export interface StockJewelSale {
   buyerId: string | null;
   /** Valor recibido en COP entero. */
   priceCop: number;
+  /** Quién recibió el dinero en la joyería (D-051). */
+  receivedBy: string;
+  /** Medio: efectivo, transferencia, etc. */
+  method: string;
   notes: string;
 }
 

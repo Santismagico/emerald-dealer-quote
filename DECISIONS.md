@@ -711,3 +711,29 @@ Las colecciones se diseñan pero se construyen después. Para no tener que migra
 más adelante, `StockJewel` estrena desde ya un campo `collectionId` (null por defecto),
 reservado; no hay entidad ni pantalla de colecciones todavía. Las joyas y respaldos
 anteriores normalizan `collectionId` a null.
+
+## D-051 · Todo dinero recibido del inventario queda trazable · 2026-07-26 · Vigente en candidata
+
+Santiago encontró que las notas de una venta sí quedaban guardadas, pero no siempre
+podían volver a consultarse, y que el inventario no separaba dos datos indispensables:
+**cómo pagaron** y **quién recibió el dinero**.
+
+Desde esta decisión, toda venta nueva de piedras de contado, toda venta nueva de una
+joya en stock y cada abono nuevo de un comprador registran `method` y `receivedBy`,
+además de la nota interna que ya existía. En una venta de piedras a crédito esos datos
+pertenecen a cada abono, porque el comprador puede pagar en días y medios distintos;
+la cabecera de la venta no inventa un pago que todavía no ocurrió.
+
+Los registros antiguos se conservan sin cambios ni datos inventados. Cuando no tengan
+forma de pago o receptor, la app los presenta como **“Sin registrar”** y permite
+revisarlos. No se intenta extraer esos datos de notas escritas anteriormente.
+
+La ficha de la venta, el historial de abonos y el Cierre del día o del mes vuelven a
+mostrar forma de pago, receptor y nota. Todo sigue siendo **exclusivamente interno**:
+ninguna nota, costo, resultado ni dato de cobro del inventario llega a documentos del
+cliente, Web Share o WhatsApp.
+
+Esta ampliación no cambia ningún total, saldo ni fecha contable: D-045 sigue contando
+el dinero únicamente el día en que se movió. Tampoco requiere migraciones nuevas: los
+lotes y joyas ya se guardan completos y los campos nuevos son compatibles con los datos
+anteriores. No se agrega ninguna dependencia.

@@ -83,8 +83,17 @@ function loteConCredito(overrides: Partial<StoneLot> = {}): StoneLot {
         valueCop: 3000000,
         onCredit: true,
         dueDate: '2026-08-15',
-        payments: [{ id: 'ab-1', date: '2026-07-20', amount: 1000000, notes: '' }],
-        notes: ''
+        payments: [{
+          id: 'ab-1',
+          date: '2026-07-20',
+          amount: 1000000,
+          method: 'Transferencia',
+          receivedBy: 'Santiago',
+          notes: 'Comprobante 123'
+        }],
+        method: '',
+        receivedBy: '',
+        notes: 'Venta financiada'
       }
     ],
     createdAt: '2026-07-10T09:00:00.000Z',
@@ -211,6 +220,8 @@ describe('migración real v5 → v6', () => {
     expect(sale.payments).toEqual([]);
     expect(sale.buyerId).toBeNull();
     expect(sale.buyer).toBe('Comprador de la v5');
+    expect(sale.method).toBe('');
+    expect(sale.receivedBy).toBe('');
   });
 
   it('la cola de sincronización pendiente sobrevive a la migración', async () => {
@@ -267,7 +278,9 @@ describe('el historial nunca se pierde por borrar un comprador (D-043)', () => {
           buyer: 'Joyería Ejemplo',
           buyerId: 'buy-1',
           priceCop: 4800000,
-          notes: ''
+          method: 'Efectivo',
+          receivedBy: 'Laura',
+          notes: 'Venta de mostrador'
         }
       })
     );
@@ -313,6 +326,8 @@ describe('el historial nunca se pierde por borrar un comprador (D-043)', () => {
             onCredit: true,
             dueDate: '2026-08-15',
             payments: [],
+            method: '',
+            receivedBy: '',
             notes: ''
           }
         ]
@@ -435,6 +450,63 @@ describe('respaldo v6', () => {
     expect(sale.onCredit).toBe(true);
     expect(sale.dueDate).toBe('2026-08-15');
     expect(sale.buyerId).toBe('buy-1');
-    expect(sale.payments).toEqual([{ id: 'ab-1', date: '2026-07-20', amount: 1000000, notes: '' }]);
+    expect(sale).toMatchObject({
+      method: '',
+      receivedBy: '',
+      notes: 'Venta financiada'
+    });
+    expect(sale.payments).toEqual([{
+      id: 'ab-1',
+      date: '2026-07-20',
+      amount: 1000000,
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: 'Comprobante 123'
+    }]);
+  });
+
+  it('preserva trazabilidad de ventas de contado y joyas en un respaldo', async () => {
+    const cashSale = {
+      id: 'sale-contado',
+      date: '2026-07-21',
+      buyer: 'Comprador contado',
+      buyerId: null,
+      carats: 1,
+      quantity: 1,
+      valueCop: 2000000,
+      onCredit: false,
+      dueDate: '',
+      payments: [],
+      method: 'Efectivo',
+      receivedBy: 'Camila',
+      notes: 'VENTA_CONTADO'
+    };
+    await storage.saveStoneLot(loteConCredito({ id: 'lot-contado', sales: [cashSale] }));
+    await storage.saveStockJewel(joya({
+      id: 'j-vendida',
+      sale: {
+        id: 's-joya',
+        date: '2026-07-21',
+        buyer: 'Comprador joya',
+        buyerId: null,
+        priceCop: 4800000,
+        method: 'Transferencia',
+        receivedBy: 'Laura',
+        notes: 'VENTA_JOYA'
+      }
+    }));
+
+    const exported = await backupService.exportBackup();
+    const parsed = backupService.parseBackup(backupService.serializeBackup(exported));
+    expect(parsed.stoneLots[0].sales[0]).toMatchObject({
+      method: 'Efectivo',
+      receivedBy: 'Camila',
+      notes: 'VENTA_CONTADO'
+    });
+    expect(parsed.stockJewels[0].sale).toMatchObject({
+      method: 'Transferencia',
+      receivedBy: 'Laura',
+      notes: 'VENTA_JOYA'
+    });
   });
 });

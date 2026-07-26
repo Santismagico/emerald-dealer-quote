@@ -18,11 +18,19 @@ let storage: typeof import('../storage');
 /** Cola en memoria: registra lo que la app habría subido, sin red ni servidor. */
 function fakeOutbox() {
   const enqueued: Array<{ table: CloudTable; type: string; entityId: string }> = [];
+  const payloads: Array<unknown> = [];
   return {
     enqueued,
+    payloads,
     outbox: {
-      enqueue: async (op: { table: CloudTable; type: string; entityId: string }) => {
+      enqueue: async (op: {
+        table: CloudTable;
+        type: string;
+        entityId: string;
+        data?: unknown;
+      }) => {
         enqueued.push({ table: op.table, type: op.type, entityId: op.entityId });
+        payloads.push(op.data);
         return op as unknown as CloudOutboxOperation;
       },
       flush: async () => ({ processed: 0, pending: 0 }),
@@ -78,8 +86,17 @@ function loteConVentaDelComprador(): StoneLot {
         valueCop: 3000000,
         onCredit: true,
         dueDate: '2026-08-15',
-        payments: [{ id: 'ab-1', date: '2026-07-20', amount: 1000000, notes: '' }],
-        notes: ''
+        payments: [{
+          id: 'ab-1',
+          date: '2026-07-20',
+          amount: 1000000,
+          method: 'Transferencia',
+          receivedBy: 'Santiago',
+          notes: 'Comprobante 123'
+        }],
+        method: '',
+        receivedBy: '',
+        notes: 'Venta a crédito'
       }
     ],
     createdAt: '2026-07-10T09:00:00.000Z',
@@ -105,7 +122,9 @@ function joyaVendidaAlComprador(): StockJewel {
       buyer: 'Joyería Ejemplo',
       buyerId: 'buy-1',
       priceCop: 1900000,
-      notes: ''
+      method: 'Efectivo',
+      receivedBy: 'Laura',
+      notes: 'Venta de mostrador'
     },
     collectionId: null,
     createdAt: '2026-07-05T09:00:00.000Z',
@@ -203,6 +222,36 @@ describe('borrar un comprador arrastra sus ventas a la nube', () => {
 });
 
 describe('joyas en stock viajan por su propia tabla protegida', () => {
+  it('la cola conserva la trazabilidad anidada de piedras, abonos y joyas', async () => {
+    const { payloads, outbox } = fakeOutbox();
+    const source = api.createCloudDataSource({
+      remote: noopRemote,
+      outbox,
+      sync: noopSync
+    });
+
+    await source.saveStoneLot(loteConVentaDelComprador());
+    await source.saveStockJewel(joyaVendidaAlComprador());
+
+    const lot = payloads[0] as StoneLot;
+    const jewel = payloads[1] as StockJewel;
+    expect(lot.sales[0]).toMatchObject({
+      method: '',
+      receivedBy: '',
+      notes: 'Venta a crédito'
+    });
+    expect(lot.sales[0].payments[0]).toMatchObject({
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: 'Comprobante 123'
+    });
+    expect(jewel.sale).toMatchObject({
+      method: 'Efectivo',
+      receivedBy: 'Laura',
+      notes: 'Venta de mostrador'
+    });
+  });
+
   it('guardar una joya la encola en stock_jewels', async () => {
     const { enqueued, outbox } = fakeOutbox();
     const source = api.createCloudDataSource({

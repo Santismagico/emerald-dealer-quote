@@ -12,7 +12,15 @@ import {
 const HOY = '2026-07-21';
 
 function abono(overrides: Partial<BuyerPayment> = {}): BuyerPayment {
-  return { id: 'ab-1', date: '2026-07-15', amount: 1000000, notes: '', ...overrides };
+  return {
+    id: 'ab-1',
+    date: '2026-07-15',
+    amount: 1000000,
+    method: 'Transferencia',
+    receivedBy: 'Santiago',
+    notes: '',
+    ...overrides
+  };
 }
 
 function venta(overrides: Partial<StoneSale> = {}): StoneSale {
@@ -27,6 +35,8 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     onCredit: true,
     dueDate: '2026-08-01',
     payments: [],
+    method: '',
+    receivedBy: '',
     notes: '',
     ...overrides
   };
@@ -103,6 +113,22 @@ describe('listReceivables', () => {
     const [r] = listReceivables(lots, HOY);
     expect(r.paidCop).toBe(1500000);
     expect(r.balanceCop).toBe(1500000);
+  });
+
+  it('expone los abonos y la nota de la venta sin alterar el saldo', () => {
+    const payment = abono({
+      method: 'Efectivo',
+      receivedBy: 'Laura',
+      notes: 'Recibo 18'
+    });
+    const [r] = listReceivables([
+      lote([venta({ payments: [payment], notes: 'Entregar certificado' })])
+    ], HOY);
+
+    expect(r.payments).toEqual([payment]);
+    expect(r.notes).toBe('Entregar certificado');
+    expect(r.paidCop).toBe(1000000);
+    expect(r.balanceCop).toBe(2000000);
   });
 
   it('una venta ya saldada desaparece aunque su fecha esté vencida', () => {

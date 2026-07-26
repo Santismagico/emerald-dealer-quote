@@ -263,13 +263,7 @@ export function DailyCloseView() {
                 <ReportLine
                   key={i}
                   main={`${s.lotName} · ${s.quantity} pz${s.onCredit ? ' · A CRÉDITO' : ''}`}
-                  detail={
-                    s.onCredit
-                      ? `${s.buyer ? `a ${s.buyer} · ` : ''}pagan el ${formatDateCO(s.dueDate)}`
-                      : s.buyer
-                        ? `a ${s.buyer}`
-                        : ''
-                  }
+                  detail={stoneSaleDetail(s)}
                   value={formatCOP(s.valueCop)}
                 />
               ))}
@@ -282,7 +276,7 @@ export function DailyCloseView() {
                 <ReportLine
                   key={i}
                   main={p.buyer || 'Sin nombre'}
-                  detail={p.lotName}
+                  detail={buyerPaymentDetail(p)}
                   value={formatCOP(p.amount)}
                 />
               ))}
@@ -308,7 +302,7 @@ export function DailyCloseView() {
                 <ReportLine
                   key={i}
                   main={j.jewelName}
-                  detail={j.buyer ? `a ${j.buyer}` : j.pieceType}
+                  detail={jewelSaleDetail(j)}
                   value={formatCOP(j.priceCop)}
                 />
               ))}
@@ -382,12 +376,45 @@ export function DailyCloseView() {
   );
 }
 
+function stoneSaleDetail(sale: BusinessReport['stoneSales'][number]): string {
+  const parts: string[] = [];
+  if (sale.buyer) parts.push(`a ${sale.buyer}`);
+  if (sale.onCredit) {
+    parts.push(`pagan el ${formatDateCO(sale.dueDate)}`);
+  } else {
+    parts.push(`Medio: ${sale.method || 'Sin registrar'}`);
+    parts.push(`recibió: ${sale.receivedBy || 'Sin registrar'}`);
+  }
+  if (sale.notes) parts.push(`Nota: ${sale.notes}`);
+  return parts.join(' · ');
+}
+
+function buyerPaymentDetail(payment: BusinessReport['buyerPayments'][number]): string {
+  const parts = [
+    payment.lotName,
+    `Medio: ${payment.method || 'Sin registrar'}`,
+    `recibió: ${payment.receivedBy || 'Sin registrar'}`
+  ];
+  if (payment.notes) parts.push(`Nota: ${payment.notes}`);
+  return parts.join(' · ');
+}
+
+function jewelSaleDetail(sale: BusinessReport['jewelSales'][number]): string {
+  const parts = [
+    sale.buyer ? `a ${sale.buyer}` : sale.pieceType,
+    `Medio: ${sale.method || 'Sin registrar'}`,
+    `recibió: ${sale.receivedBy || 'Sin registrar'}`
+  ];
+  if (sale.notes) parts.push(`Nota: ${sale.notes}`);
+  return parts.join(' · ');
+}
+
 function ReportLine({ main, detail, value }: { main: string; detail: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm">
       <div className="min-w-0">
         <p className="truncate text-stone-800">{main}</p>
-        {detail ? <p className="truncate text-xs text-stone-500">{detail}</p> : null}
+        {detail ? <p className="break-words text-xs text-stone-500">{detail}</p> : null}
       </div>
       <span className="shrink-0 font-medium text-stone-900">{value}</span>
     </div>

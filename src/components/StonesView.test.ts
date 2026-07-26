@@ -32,6 +32,8 @@ describe('aviso al eliminar un lote', () => {
           onCredit: false,
           dueDate: '',
           payments: [],
+          method: 'Efectivo',
+          receivedBy: 'Santiago',
           notes: ''
         },
         {
@@ -45,6 +47,8 @@ describe('aviso al eliminar un lote', () => {
           onCredit: false,
           dueDate: '',
           payments: [],
+          method: 'Efectivo',
+          receivedBy: 'Santiago',
           notes: ''
         }
       ],
@@ -106,7 +110,18 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     valueCop: 3000000,
     onCredit: true,
     dueDate: '2026-08-15',
-    payments: [{ id: 'ab-1', date: '2026-07-20', amount: 1200000, notes: '' }],
+    payments: [
+      {
+        id: 'ab-1',
+        date: '2026-07-20',
+        amount: 1200000,
+        method: 'Transferencia',
+        receivedBy: 'Santiago',
+        notes: ''
+      }
+    ],
+    method: '',
+    receivedBy: '',
     notes: '',
     ...overrides
   };

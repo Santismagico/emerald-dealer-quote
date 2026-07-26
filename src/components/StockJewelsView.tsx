@@ -283,6 +283,20 @@ export function StockJewelsView() {
               onValue={(priceCop) => setSelling({ jewel, sale: { ...sale, priceCop } })}
             />
           </Field>
+          <Field label="¿Cómo le pagaron? *">
+            <TextInput
+              value={sale.method}
+              onChange={(method) => setSelling({ jewel, sale: { ...sale, method } })}
+              placeholder="Efectivo, transferencia, Nequi…"
+            />
+          </Field>
+          <Field label="¿Quién recibió el dinero? *">
+            <TextInput
+              value={sale.receivedBy}
+              onChange={(receivedBy) => setSelling({ jewel, sale: { ...sale, receivedBy } })}
+              placeholder="Nombre de quien recibió"
+            />
+          </Field>
           <Field label="Notas">
             <TextArea
               value={sale.notes}
@@ -433,11 +447,25 @@ export function StockJewelsView() {
                           <SummaryRow label="Comprador" value={jewel.sale.buyer} />
                         ) : null}
                         <SummaryRow
+                          label="Medio de pago"
+                          value={jewel.sale.method || 'Sin registrar'}
+                        />
+                        <SummaryRow
+                          label="Recibió"
+                          value={jewel.sale.receivedBy || 'Sin registrar'}
+                        />
+                        <SummaryRow
                           label="Resultado"
                           value={formatCOP(summary.resultCop)}
                           bold
                           valueClass={summary.resultCop < 0 ? 'text-red-600' : 'text-brand-800'}
                         />
+                        {jewel.sale.notes ? (
+                          <p className="break-words rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
+                            <span className="font-semibold">Nota de la venta:</span>{' '}
+                            {jewel.sale.notes}
+                          </p>
+                        ) : null}
                       </>
                     ) : (
                       <>
@@ -448,14 +476,26 @@ export function StockJewelsView() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
-                    {summary.sold ? (
-                      <button
-                        type="button"
-                        className="min-h-10 flex-1 rounded-lg text-sm font-medium text-stone-600 active:bg-stone-100"
-                        onClick={() => setToUndoSale(jewel)}
-                      >
-                        Deshacer venta
-                      </button>
+                    {summary.sold && jewel.sale ? (
+                      <>
+                        <button
+                          type="button"
+                          className="min-h-10 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
+                          onClick={() => {
+                            setError('');
+                            setSelling({ jewel, sale: jewel.sale! });
+                          }}
+                        >
+                          Editar venta
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-10 flex-1 rounded-lg text-sm font-medium text-stone-600 active:bg-stone-100"
+                          onClick={() => setToUndoSale(jewel)}
+                        >
+                          Deshacer venta
+                        </button>
+                      </>
                     ) : (
                       <button
                         type="button"
@@ -479,7 +519,7 @@ export function StockJewelsView() {
                         setEditing(jewel);
                       }}
                     >
-                      Editar
+                      {summary.sold ? 'Editar pieza' : 'Editar'}
                     </button>
                     <button
                       type="button"

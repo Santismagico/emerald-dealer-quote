@@ -263,6 +263,8 @@ function normalizeBuyerPayment(raw: unknown): BuyerPayment {
     id: safeString(p.id, newId()),
     date: safeString(p.date),
     amount: Math.max(0, Math.round(safeNumber(p.amount))),
+    receivedBy: safeString(p.receivedBy),
+    method: safeString(p.method),
     notes: safeString(p.notes)
   };
 }
@@ -284,6 +286,8 @@ function normalizeStoneSale(raw: unknown): StoneSale {
     carats: Math.max(0, safeNumber(s.carats)),
     quantity: Math.max(0, safeNumber(s.quantity)),
     valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    receivedBy: safeString(s.receivedBy),
+    method: safeString(s.method),
     onCredit,
     dueDate: onCredit ? safeString(s.dueDate) : '',
     payments: onCredit ? safeArray(s.payments).map(normalizeBuyerPayment) : [],
@@ -348,6 +352,8 @@ function normalizeStockJewelSale(raw: unknown): StockJewelSale {
     buyer: safeString(s.buyer),
     buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
     priceCop: Math.max(0, Math.round(safeNumber(s.priceCop))),
+    receivedBy: safeString(s.receivedBy),
+    method: safeString(s.method),
     notes: safeString(s.notes)
   };
 }

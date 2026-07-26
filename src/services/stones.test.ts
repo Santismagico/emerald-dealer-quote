@@ -34,6 +34,8 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     onCredit: false,
     dueDate: '',
     payments: [],
+    method: 'Efectivo',
+    receivedBy: 'Santiago',
     notes: '',
     ...overrides
   };

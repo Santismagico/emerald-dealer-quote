@@ -461,6 +461,17 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                           : 'Crédito ya pagado ✓'}
                       </p>
                     ) : null}
+                    {!sale.onCredit ? (
+                      <p className="mt-1 break-words text-xs text-stone-600">
+                        {sale.method || 'Medio sin registrar'} · Recibió:{' '}
+                        {sale.receivedBy || 'Sin registrar'}
+                      </p>
+                    ) : null}
+                    {sale.notes ? (
+                      <p className="mt-1 break-words text-xs text-stone-600">
+                        Nota: {sale.notes}
+                      </p>
+                    ) : null}
                   </button>
                   <button
                     type="button"
@@ -471,6 +482,31 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                     ✕
                   </button>
                 </div>
+                {sale.onCredit && sale.payments.length > 0 ? (
+                  <div className="mt-2 border-t border-stone-200 pt-2">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                      Abonos
+                    </p>
+                    <div className="space-y-2">
+                      {sale.payments.map((payment) => (
+                        <div key={payment.id} className="rounded-lg bg-white/60 p-2">
+                          <p className="text-xs font-medium text-stone-700">
+                            {formatCOP(payment.amount)} · {formatDateCO(payment.date)}
+                          </p>
+                          <p className="break-words text-[11px] text-stone-500">
+                            {payment.method || 'Medio sin registrar'} · Recibió:{' '}
+                            {payment.receivedBy || 'Sin registrar'}
+                          </p>
+                          {payment.notes ? (
+                            <p className="break-words text-[11px] text-stone-600">
+                              Nota: {payment.notes}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -895,6 +931,24 @@ function SaleForm({
               crédito para poder guardar.
             </p>
           ) : null}
+          {!form.onCredit ? (
+            <>
+              <Field label="¿Cómo te pagaron? *">
+                <TextInput
+                  value={form.method}
+                  onChange={(method) => patch({ method })}
+                  placeholder="Efectivo, transferencia, Nequi…"
+                />
+              </Field>
+              <Field label="¿Quién recibió el dinero? *">
+                <TextInput
+                  value={form.receivedBy}
+                  onChange={(receivedBy) => patch({ receivedBy })}
+                  placeholder="Nombre de quien recibió"
+                />
+              </Field>
+            </>
+          ) : null}
           {form.onCredit ? (
             <>
               <Field label="¿Cuándo quedaron de pagarte?">
@@ -916,6 +970,24 @@ function SaleForm({
                   <p className="pt-1 text-xs text-stone-500">
                     Los abonos se registran desde Cobros.
                   </p>
+                  <div className="mt-2 space-y-2 border-t border-stone-200 pt-2">
+                    {form.payments.map((payment) => (
+                      <div key={payment.id} className="rounded-lg bg-white/60 p-2">
+                        <p className="text-xs font-medium text-stone-700">
+                          {formatCOP(payment.amount)} · {formatDateCO(payment.date)}
+                        </p>
+                        <p className="break-words text-[11px] text-stone-500">
+                          {payment.method || 'Medio sin registrar'} · Recibió:{' '}
+                          {payment.receivedBy || 'Sin registrar'}
+                        </p>
+                        {payment.notes ? (
+                          <p className="break-words text-[11px] text-stone-600">
+                            Nota: {payment.notes}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <p className="rounded-xl bg-stone-50 p-3 text-xs text-stone-500">

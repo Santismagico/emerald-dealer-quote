@@ -4,7 +4,14 @@
 
 import { describe, expect, it } from 'vitest';
 import type { StockJewel, StoneLot, StoneSale } from '../types';
-import { buildDailyReport, buildMonthlyReport, listMonthlySummaries } from './dailyReport';
+import {
+  buildDailyReport,
+  buildDailyReportPdfContent,
+  buildMonthlyReport,
+  listMonthlySummaries
+} from './dailyReport';
+import { contentToPlainText } from './pdfContent';
+import { defaultSettings } from './schema';
 
 const DIA = '2026-07-21';
 const MES = '2026-07';
@@ -21,6 +28,8 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     onCredit: false,
     dueDate: '',
     payments: [],
+    method: 'Efectivo',
+    receivedBy: 'Santiago',
     notes: '',
     ...overrides
   };
@@ -96,7 +105,14 @@ describe('una venta a crédito no infla la caja del día', () => {
             date: '2026-07-10',
             onCredit: true,
             dueDate: '2026-08-10',
-            payments: [{ id: 'ab-1', date: DIA, amount: 1200000, notes: '' }]
+            payments: [{
+              id: 'ab-1',
+              date: DIA,
+              amount: 1200000,
+              method: 'Transferencia',
+              receivedBy: 'Santiago',
+              notes: ''
+            }]
           })
         ]
       })
@@ -121,7 +137,14 @@ describe('una venta a crédito no infla la caja del día', () => {
             onCredit: true,
             dueDate: '2026-08-21',
             valueCop: 3000000,
-            payments: [{ id: 'ab-1', date: DIA, amount: 1000000, notes: '' }]
+            payments: [{
+              id: 'ab-1',
+              date: DIA,
+              amount: 1000000,
+              method: 'Efectivo',
+              receivedBy: 'Laura',
+              notes: ''
+            }]
           })
         ]
       })
@@ -159,6 +182,8 @@ describe('joyas en stock en el cierre', () => {
         buyer: 'Comprador Ejemplo',
         buyerId: null,
         priceCop: 3200000,
+        method: 'Transferencia',
+        receivedBy: 'Santiago',
         notes: ''
       }
     });
@@ -176,7 +201,16 @@ describe('joyas en stock en el cierre', () => {
     const mismoDia = joya({
       acquiredDate: DIA,
       costCop: 2000000,
-      sale: { id: 's-1', date: DIA, buyer: '', buyerId: null, priceCop: 3000000, notes: '' }
+      sale: {
+        id: 's-1',
+        date: DIA,
+        buyer: '',
+        buyerId: null,
+        priceCop: 3000000,
+        method: 'Efectivo',
+        receivedBy: 'Laura',
+        notes: ''
+      }
     });
     const report = buildDailyReport(DIA, [], [], [mismoDia]);
     expect(report.totals.cashIn).toBe(3000000);
@@ -199,7 +233,14 @@ describe('un día sin movimientos sigue siendo un día vacío', () => {
             date: '2026-07-01',
             onCredit: true,
             dueDate: '2026-08-01',
-            payments: [{ id: 'ab-1', date: DIA, amount: 100000, notes: '' }]
+            payments: [{
+              id: 'ab-1',
+              date: DIA,
+              amount: 100000,
+              method: 'Transferencia',
+              receivedBy: 'Santiago',
+              notes: ''
+            }]
           })
         ]
       })
@@ -239,8 +280,22 @@ describe('cierre del mes', () => {
             dueDate: '2026-08-05',
             valueCop: 4000000,
             payments: [
-              { id: 'ab-1', date: '2026-07-10', amount: 1000000, notes: '' },
-              { id: 'ab-2', date: '2026-08-02', amount: 1000000, notes: '' }
+              {
+                id: 'ab-1',
+                date: '2026-07-10',
+                amount: 1000000,
+                method: 'Transferencia',
+                receivedBy: 'Santiago',
+                notes: ''
+              },
+              {
+                id: 'ab-2',
+                date: '2026-08-02',
+                amount: 1000000,
+                method: 'Efectivo',
+                receivedBy: 'Laura',
+                notes: ''
+              }
             ]
           })
         ]
@@ -250,7 +305,16 @@ describe('cierre del mes', () => {
       joya({
         acquiredDate: '2026-07-02',
         costCop: 1500000,
-        sale: { id: 's-1', date: '2026-07-25', buyer: '', buyerId: null, priceCop: 2500000, notes: '' }
+        sale: {
+          id: 's-1',
+          date: '2026-07-25',
+          buyer: '',
+          buyerId: null,
+          priceCop: 2500000,
+          method: 'Transferencia',
+          receivedBy: 'Santiago',
+          notes: ''
+        }
       })
     ];
 
@@ -273,7 +337,14 @@ describe('cierre del mes', () => {
             date: '2026-06-01',
             onCredit: true,
             dueDate: '2026-07-01',
-            payments: [{ id: 'ab-1', date: '2026-09-15', amount: 500000, notes: '' }]
+            payments: [{
+              id: 'ab-1',
+              date: '2026-09-15',
+              amount: 500000,
+              method: 'Efectivo',
+              receivedBy: 'Laura',
+              notes: ''
+            }]
           })
         ]
       })
@@ -288,6 +359,90 @@ describe('cierre del mes', () => {
 });
 
 describe('el PDF interno no cambia de naturaleza', () => {
+  it('conserva método, receptor y notas sin alterar los totales', () => {
+    const lots = [
+      lote({
+        sales: [
+          venta({
+            id: 'v-contado',
+            valueCop: 3000000,
+            method: 'Transferencia',
+            receivedBy: 'Santiago',
+            notes: 'VENTA_PIEDRAS_TRAZABLE'
+          }),
+          venta({
+            id: 'v-credito',
+            date: '2026-07-01',
+            valueCop: 2000000,
+            onCredit: true,
+            dueDate: '2026-08-01',
+            method: '',
+            receivedBy: '',
+            notes: 'VENTA_CREDITO_TRAZABLE',
+            payments: [{
+              id: 'ab-trazable',
+              date: DIA,
+              amount: 500000,
+              method: 'Efectivo',
+              receivedBy: 'Laura',
+              notes: 'ABONO_TRAZABLE'
+            }]
+          })
+        ]
+      })
+    ];
+    const jewels = [
+      joya({
+        acquiredDate: '2026-07-01',
+        costCop: 1000000,
+        sale: {
+          id: 's-trazable',
+          date: DIA,
+          buyer: 'Comprador Ejemplo',
+          buyerId: null,
+          priceCop: 2500000,
+          method: 'Tarjeta',
+          receivedBy: 'Camila',
+          notes: 'JOYA_TRAZABLE'
+        }
+      })
+    ];
+
+    const report = buildDailyReport(DIA, [], lots, jewels);
+    expect(report.stoneSales[0]).toMatchObject({
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: 'VENTA_PIEDRAS_TRAZABLE'
+    });
+    expect(report.buyerPayments[0]).toMatchObject({
+      method: 'Efectivo',
+      receivedBy: 'Laura',
+      notes: 'ABONO_TRAZABLE'
+    });
+    expect(report.jewelSales[0]).toMatchObject({
+      method: 'Tarjeta',
+      receivedBy: 'Camila',
+      notes: 'JOYA_TRAZABLE'
+    });
+    expect(report.totals.cashIn).toBe(6000000);
+    expect(report.totals.net).toBe(6000000);
+
+    const text = contentToPlainText(buildDailyReportPdfContent(report, defaultSettings()));
+    for (const expected of [
+      'Transferencia',
+      'Santiago',
+      'VENTA_PIEDRAS_TRAZABLE',
+      'Efectivo',
+      'Laura',
+      'ABONO_TRAZABLE',
+      'Tarjeta',
+      'Camila',
+      'JOYA_TRAZABLE'
+    ]) {
+      expect(text).toContain(expected);
+    }
+  });
+
   it('sin nada del inventario nuevo, los totales quedan en cero y no rompen el neto', () => {
     const report = buildDailyReport(DIA, [], []);
     expect(report.totals.buyerPaymentsReceived).toBe(0);
