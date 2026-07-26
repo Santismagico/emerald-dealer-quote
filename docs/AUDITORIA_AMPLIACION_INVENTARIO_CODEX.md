@@ -374,3 +374,105 @@ Solo después de esos pasos se puede cambiar este veredicto a
 `docs/AMPLIACION_INVENTARIO_ORDEN_PUBLICACION_CODEX.md`.
 
 Hasta entonces: **NO PUBLICAR**.
+
+---
+
+## 8. Publicación final autorizada por Santiago — 2026-07-25
+
+### Estado final: PUBLICADO
+
+Santiago, como dueño, anuló expresamente el bloqueo anterior únicamente respecto
+de la prueba en vivo N6 y aceptó ese riesgo. La omisión de N6 fue una decisión
+directa del dueño; no se interpretó como una aprobación técnica de esa prueba.
+
+Santiago también confirmó que las tres migraciones ya estaban aplicadas en
+Producción con resultado **Success**. No se reaplicaron migraciones y no se tocó
+el proyecto de Pruebas.
+
+Constancia de publicación:
+
+- Árbol fuente compilado: rama `codex/fase2-nube`, commit
+  `e4b40929e20bb33a411edd4d557b9fb2331255b4`.
+- Destino exclusivo: `Santismagico/emerald-dealer-app`, rama `main`.
+- Commit publicado:
+  `b280c07de07875701963b99ba62ea57906410d7b`.
+- Commit anterior del sitio:
+  `3a4f95a5c8c1d1c94741cd1d82fce559a71b78d2`.
+- Resultado de la verificación de base:
+  `/emerald-dealer-app/assets/index-D4Tnzyvh.js`.
+- GitHub Pages terminó con estado **built** para el commit publicado.
+- El sitio en vivo respondió correctamente y cargó sin errores ni advertencias
+  en la consola del navegador.
+- La versión servida en vivo contiene `Inventario` con las secciones
+  **Piedras · Material · Joyas · Cobros**.
+- No se inició sesión con cuentas reales de clientes.
+- `.env.production.local` fue eliminado inmediatamente después de compilar y se
+  confirmó que no existe.
+- No se tocó `main` ni `.github/workflows/deploy.yml` del repositorio fuente.
+
+### Corrección de la clave pública de Producción — 2026-07-25
+
+Después de la publicación inicial, Santiago reportó que la creación de cuenta
+era rechazada. La comprobación confirmó que el primer build había combinado la
+dirección de Producción con una clave publicable perteneciente al proyecto de
+Pruebas. La solicitud llegaba a Producción, pero era rechazada con estado 401.
+
+Se recompiló exactamente el mismo árbol fuente, sin cambios de código, usando
+la clave publicable confirmada del proyecto de Producción.
+
+Constancia de la corrección:
+
+- Árbol fuente: rama `codex/fase2-nube`, commit
+  `e4b40929e20bb33a411edd4d557b9fb2331255b4`.
+- Destino exclusivo: `Santismagico/emerald-dealer-app`, rama `main`.
+- Commit corregido publicado:
+  `6f9690ec7faddb30cbf0078eeec55383963fbbf0`.
+- Commit reemplazado:
+  `b280c07de07875701963b99ba62ea57906410d7b`.
+- Resultado de la verificación de base:
+  `/emerald-dealer-app/assets/index-DiqLeqsP.js`.
+- `npm test`: **733 pruebas aprobadas**.
+- `npm run build`: **324 módulos compilados**.
+- GitHub Pages completó correctamente la publicación del commit corregido.
+- El sitio en vivo sirve `assets/index-DiqLeqsP.js`, carga la pantalla de acceso
+  y abre la pantalla de creación de cuenta.
+- La clave publicada fue aceptada por el servicio de Producción con estado 200,
+  sin crear una cuenta ni usar cuentas reales de clientes.
+- El paquete servido en vivo contiene **Piedras · Material · Joyas · Cobros**,
+  además de **Compradores** y **Socios de material**.
+- `.env.production.local` no se creó; la clave se usó únicamente durante el
+  proceso de compilación y se confirmó que el archivo sigue ausente.
+- No se reaplicaron migraciones ni se modificó el proyecto de Pruebas.
+- No se tocó `main` ni `.github/workflows/deploy.yml` del repositorio fuente.
+
+### Actualización de nombres de clientes — 2026-07-25
+
+Santiago autorizó registrar y publicar un ajuste exclusivamente de textos para
+distinguir las dos listas de clientes en la pestaña **Más**. No se modificaron
+datos, flujos ni reglas de negocio.
+
+Constancia de esta actualización:
+
+- Árbol fuente compilado: rama `codex/fase2-nube`, commit
+  `e6ecae61bac492247866a4fedcdd8194baff28e6`.
+- Cambio publicado:
+  - **Clientes por encargo** — “Cotizaciones, agenda y piezas a medida”.
+  - **Clientes de inventario** — “Piedras, joyas disponibles, saldos y cobros”.
+- Destino exclusivo: `Santismagico/emerald-dealer-app`, rama `main`.
+- Commit publicado:
+  `653bd8ebe2f8563657be6657dabe897351ea4d42`.
+- Commit anterior del sitio:
+  `6f9690ec7faddb30cbf0078eeec55383963fbbf0`.
+- Resultado de la verificación de base:
+  `/emerald-dealer-app/assets/index-D9YATZ-D.js`.
+- `npm test`: **733 pruebas aprobadas**.
+- `npm run build`: **324 módulos compilados**.
+- El sitio en vivo respondió con estado 200, mostró **Emerald Dealer** y no
+  registró errores ni advertencias en la consola del navegador.
+- El archivo servido en vivo contiene los dos nombres nuevos, las secciones
+  **Piedras · Material · Joyas · Cobros** y **Socios de material**.
+- `.env.production.local` no se creó; la clave publicable de Producción se usó
+  únicamente durante la compilación y no quedó guardada.
+- No se reaplicaron migraciones ni se modificó el proyecto de Pruebas.
+- No se tocó `main` ni `.github/workflows/deploy.yml` del repositorio fuente y
+  la rama fuente no se empujó a `origin`.
