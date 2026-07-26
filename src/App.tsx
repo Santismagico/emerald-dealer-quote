@@ -723,8 +723,8 @@ function MoreView({
       />
       <MoreItem
         icon={<LineIcon name="client" />}
-        title="Clientes"
-        subtitle="Datos de contacto y notas de tus clientes"
+        title="Clientes por encargo"
+        subtitle="Cotizaciones, agenda y piezas a medida"
         onClick={onClients}
       />
       <MoreItem
@@ -735,8 +735,8 @@ function MoreView({
       />
       <MoreItem
         icon={<LineIcon name="client" />}
-        title="Compradores"
-        subtitle="A quiénes les vendes piedras y joyas, y cuánto te deben"
+        title="Clientes de inventario"
+        subtitle="Piedras, joyas disponibles, saldos y cobros"
         onClick={onBuyers}
       />
       <MoreItem
