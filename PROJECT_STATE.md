@@ -544,10 +544,34 @@ de D1 quedó intacta (47 líneas añadidas, ninguna eliminada).
 (no está disponible en el entorno). Conviene que Santiago descargue uno y lo abra
 una vez.
 
-**SIGUIENTE Y ÚLTIMA: Fase F — el catálogo en PDF.** Es **la única salida al
-cliente de todo el plan v2** y exige auditoría de privacidad aparte: será la
-primera vez desde que empezó esta tanda que algo construido aquí sale de los
-dispositivos de Santiago.
+**Fase F entregada a Codex (última del plan v2):**
+`docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_F.md`, un commit. Es **la única salida al
+cliente de todo el plan v2**: un error aquí no es un número mal sumado, es el costo
+de una pieza en manos de quien se la estás vendiendo, y el archivo ya fue enviado.
+
+**Decisión nueva — D-065:** el catálogo lleva precio **solo si Santiago lo decide al
+generarlo**, no por configuración fija. A un cliente de confianza le manda con
+precios; a un desconocido, sin ellos. Cuando va sin precios, el precio no puede
+quedar en **ninguna** parte del archivo: omitirlo de la vista pero dejarlo en el
+documento sería peor, porque nadie lo revisaría.
+
+**Regla de diseño propia de esta fase:** el catálogo se construye **por lista
+blanca, nunca por lista negra**. No se arma desde la joya quitándole lo
+confidencial; se arma desde una lista explícita de campos permitidos, de modo que un
+campo nuevo que alguien agregue mañana a `StockJewel` **no pueda** aparecer solo.
+Nada de `{...jewel}` ni de recorrer claves.
+
+**Las dos capas, y por qué hacen falta las dos:** la lista blanca es la que protege
+de verdad; el detector de `pdfContent.ts` es la segunda capa. El detector busca
+*palabras* como "costo" o "margen" y **no puede** notar que se imprimió `1200000` en
+vez de `1800000`. Contra eso solo protege la estructura.
+
+Prueba obligatoria marcada: **el número delator** — una joya con `costCop` único
+(`987654`) cuyo valor no debe aparecer en ninguna parte del documento, con precios y
+sin ellos.
+
+Al terminar, Claude hará una **auditoría de privacidad aparte** antes de que
+Santiago considere publicar cualquier cosa.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre

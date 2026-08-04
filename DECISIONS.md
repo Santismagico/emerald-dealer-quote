@@ -1119,3 +1119,20 @@ tarjeta señala la mayor ganancia en COP y otra la mayor rentabilidad sobre su i
 las dos muestran monto y porcentaje juntos. El Excel conserva los filtros y el detalle
 del resultado, y omite la caja porque no puede atribuirse honestamente a esos filtros.
 Todo se deriva al consultar: no se agregó ningún campo guardado ni una decisión nueva.
+
+## D-065 · El catálogo lleva precio solo si Santiago lo decide al generarlo · 2026-08-04 · Vigente
+
+El catálogo se arma solo desde el inventario real y se entrega en PDF. Santiago decidió
+que **el precio es opcional y se elige en cada generación**, no una configuración fija.
+
+La razón es comercial: a un cliente de confianza le manda el catálogo con precios para
+que decida solo; a un desconocido prefiere mandarlo sin precios y cotizar aparte según
+el caso. Fijar la decisión de una vez lo encerraría en uno de los dos usos.
+
+Cuando el catálogo se genera sin precios, **el precio no debe aparecer en ninguna parte
+del archivo**, ni siquiera en un pie, un resumen o un total. Omitirlo de la vista pero
+dejarlo en el documento sería peor que mostrarlo, porque nadie lo revisaría.
+
+El costo, el margen, los socios, el reparto y las notas internas **nunca** aparecen, con
+precios o sin ellos. Eso no es una opción configurable: es la regla de privacidad que
+protege `src/services/pdfContent.test.ts` desde el primer día del proyecto.
