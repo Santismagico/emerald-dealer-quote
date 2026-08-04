@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StoneLot, StoneSale } from '../types';
+import { normalizeStoneLot } from './schema';
 import {
   countStoneLots,
   emptyStoneLot,
@@ -10,9 +11,12 @@ import {
   lotDisplayName,
   matchesLotSearch,
   sortStoneLots,
+  stonesByPartner,
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
+  summarizeStonePartnership,
+  validateStoneLotOwnership,
   validateStoneLotPurchaseUpdate,
   validateStoneSale,
   validateSupplierPayment,
@@ -53,6 +57,9 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: false,
     supplierPayments: [],
     notes: '',
@@ -137,6 +144,119 @@ describe('resumen de un lote', () => {
     for (const value of [s.soldValue, s.paidToSupplier, s.supplierDebt, s.result]) {
       expect(Number.isInteger(value)).toBe(true);
     }
+  });
+});
+
+describe('sociedades en lotes de piedras (D-053)', () => {
+  const compartido = (overrides: Partial<StoneLot> = {}) =>
+    lote({
+      partnerId: 'soc-1',
+      partnerName: 'Socio Emerald',
+      myPercent: 60,
+      ...overrides
+    });
+
+  it('un lote anterior a B2 conserva exactamente ventas, abonos y dinero', () => {
+    const legacyRaw: Record<string, unknown> = {
+      ...lote({
+        purchaseValueCop: 100,
+        sales: [venta({
+          valueCop: 201,
+          onCredit: true,
+          dueDate: '2026-08-15',
+          payments: [{
+            id: 'ab-legacy',
+            date: '2026-07-16',
+            amount: 151,
+            method: 'Transferencia',
+            receivedBy: 'Santiago',
+            notes: ''
+          }]
+        })]
+      })
+    };
+    delete legacyRaw.partnerId;
+    delete legacyRaw.partnerName;
+    delete legacyRaw.myPercent;
+
+    const beforeB2 = summarizeStoneLot(legacyRaw as unknown as StoneLot);
+    const normalized = normalizeStoneLot(legacyRaw);
+    const afterB2 = summarizeStoneLot(normalized);
+    expect(normalized).toMatchObject({ partnerId: null, partnerName: '', myPercent: 100 });
+    expect({
+      soldValue: afterB2.soldValue,
+      result: afterB2.result,
+      receivedFromBuyers: afterB2.receivedFromBuyers,
+      buyersDebt: afterB2.buyersDebt
+    }).toEqual({
+      soldValue: beforeB2.soldValue,
+      result: beforeB2.result,
+      receivedFromBuyers: beforeB2.receivedFromBuyers,
+      buyersDebt: beforeB2.buyersDebt
+    });
+    expect(afterB2).toMatchObject({
+      soldValue: 201,
+      result: 101,
+      receivedFromBuyers: 151,
+      buyersDebt: 50
+    });
+    expect(summarizeStonePartnership(normalized)).toMatchObject({
+      shared: false, realResult: 51, myResult: 51, partnerResult: 0
+    });
+  });
+
+  it('reparte un resultado positivo impar y deja siempre el residuo del lado propio', () => {
+    const split = summarizeStonePartnership(
+      compartido({ purchaseValueCop: 100, sales: [venta({ valueCop: 201 })] })
+    );
+    expect(split).toMatchObject({ realResult: 101, myResult: 61, partnerResult: 40 });
+    expect(split.myResult + split.partnerResult).toBe(split.realResult);
+  });
+
+  it('reparte también una pérdida impar sin crear ni perder dinero', () => {
+    const split = summarizeStonePartnership(
+      compartido({ purchaseValueCop: 201, sales: [venta({ valueCop: 100 })] })
+    );
+    expect(split).toMatchObject({ realResult: -101, myResult: -61, partnerResult: -40 });
+    expect(split.myResult + split.partnerResult).toBe(split.realResult);
+  });
+
+  it('usa solo lo recibido: una venta a crédito sin abono no crea ganancia repartible', () => {
+    const pending = compartido({
+      purchaseValueCop: 100,
+      sales: [venta({ valueCop: 201, onCredit: true, dueDate: '2026-08-15', payments: [] })]
+    });
+    expect(summarizeStonePartnership(pending).realResult).toBe(-100);
+    const paid = {
+      ...pending,
+      sales: [{
+        ...pending.sales[0],
+        payments: [{
+          id: 'ab-1', date: '2026-07-16', amount: 201,
+          method: 'Transferencia', receivedBy: 'Santiago', notes: ''
+        }]
+      }]
+    };
+    expect(summarizeStonePartnership(paid).realResult).toBe(101);
+  });
+
+  it('rechaza porcentajes fuera de rango o no enteros antes de normalizar', () => {
+    for (const myPercent of [-1, 101, 60.5]) {
+      expect(validateStoneLotOwnership(compartido({ myPercent }))).toMatch(/entero entre 0 y 100/);
+    }
+    expect(validateStoneLotOwnership(compartido({ myPercent: 0 }))).toBeNull();
+    expect(validateStoneLotOwnership(compartido({ myPercent: 100 }))).toBeNull();
+    expect(validateStoneLotOwnership({ id: 'legacy' })).toBeNull();
+  });
+
+  it('acumula por socio las partes de varios lotes', () => {
+    const shares = stonesByPartner([
+      compartido({ id: 'a', purchaseValueCop: 100, sales: [venta({ valueCop: 201 })] }),
+      compartido({ id: 'b', purchaseValueCop: 201, sales: [venta({ valueCop: 100 })] })
+    ]);
+    expect(shares).toEqual([expect.objectContaining({
+      partnerId: 'soc-1', realResult: 0, myResult: 0, partnerResult: 0, lotCount: 2
+    })]);
   });
 });
 

@@ -1,12 +1,13 @@
-// Socios de material (D-049): con quién comparte el oro (u otro material).
-// Lista aparte de clientes, proveedores y compradores: son co-dueños del
-// material, no alguien a quien se le compra ni a quien se le vende.
+// Socios del negocio (D-049/D-053): una sola lista para material, gastos y piedras.
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import type { MaterialPartner } from '../types';
 import { materialsByPartner } from '../services/materials';
+import { expensesByPartner } from '../services/expenses';
+import { stonesByPartner } from '../services/stones';
 import { newId } from '../utils/id';
+import { formatCOP } from '../utils/money';
 import { Button, Field, TextInput, TextArea, SectionCard, ConfirmDialog, EmptyState } from './ui';
 
 function emptyPartner(): MaterialPartner {
@@ -30,9 +31,10 @@ export function MaterialPartnersView() {
   const [toDelete, setToDelete] = useState<MaterialPartner | null>(null);
   const [error, setError] = useState('');
 
-  // Cuánto material comparto con cada socio: derivado, nunca guardado (D-023).
-  const shares = useMemo(() => materialsByPartner(store.materialLots), [store.materialLots]);
-  const shareOf = (partnerId: string) => shares.find((s) => s.partnerId === partnerId);
+  // Todos los resúmenes se derivan del historial; nunca son contadores guardados.
+  const materialShares = useMemo(() => materialsByPartner(store.materialLots), [store.materialLots]);
+  const stoneShares = useMemo(() => stonesByPartner(store.stoneLots), [store.stoneLots]);
+  const expenseShares = useMemo(() => expensesByPartner(store.expenses), [store.expenses]);
 
   if (editing) {
     return (
@@ -41,9 +43,9 @@ export function MaterialPartnersView() {
           title={
             store.materialPartners.some((p) => p.id === editing.id)
               ? 'Editar socio'
-              : 'Nuevo socio de material'
+              : 'Nuevo socio'
           }
-          subtitle="Con quién comparte oro u otro material. Es una lista aparte de sus proveedores y compradores."
+          subtitle="Con quién compartes material, gastos o lotes de piedras. Es una lista aparte de proveedores y compradores."
         >
           <Field label="Nombre *">
             <TextInput
@@ -106,18 +108,20 @@ export function MaterialPartnersView() {
   return (
     <div className="space-y-4">
       <Button full onClick={() => setEditing(emptyPartner())}>
-        ＋ Nuevo socio de material
+        ＋ Nuevo socio
       </Button>
 
       {store.materialPartners.length === 0 ? (
         <EmptyState
           title="Sin socios"
-          message="Registra con quién compartes oro u otro material para ver cuánto comparten en total."
+          message="Registra con quién compartes material, gastos o lotes de piedras para ver cada sociedad por separado."
         />
       ) : (
         <ul className="space-y-3">
           {store.materialPartners.map((partner) => {
-            const share = shareOf(partner.id);
+            const materialShare = materialShares.find((share) => share.partnerId === partner.id);
+            const stoneShare = stoneShares.find((share) => share.partnerId === partner.id);
+            const expenseShare = expenseShares.find((share) => share.partnerId === partner.id);
             return (
               <li key={partner.id} className="rounded-2xl bg-white p-4 shadow-sm">
                 <p className="font-semibold text-stone-900">{partner.name}</p>
@@ -125,23 +129,41 @@ export function MaterialPartnersView() {
                   {[partner.phone, partner.city].filter(Boolean).join(' · ') ||
                     'Sin datos de contacto'}
                 </p>
-                {share ? (
+                {materialShare ? (
                   <p className="mt-1 text-sm text-stone-700">
-                    Comparten {formatGrams(share.sharedGrams)} · suyos{' '}
-                    {formatGrams(share.myGrams)} · del socio {formatGrams(share.partnerGrams)}
+                    Material: comparten {formatGrams(materialShare.sharedGrams)} · tuyos{' '}
+                    {formatGrams(materialShare.myGrams)} · del socio {formatGrams(materialShare.partnerGrams)}
+                  </p>
+                ) : null}
+                {stoneShare ? (
+                  <div className="mt-2 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">
+                    <p className="font-medium text-stone-800">
+                      Piedras · {stoneShare.lotCount} lote{stoneShare.lotCount === 1 ? '' : 's'}
+                    </p>
+                    <p>Resultado real: {formatCOP(stoneShare.realResult)}</p>
+                    <p>
+                      Tu parte {formatCOP(stoneShare.myResult)} · socio{' '}
+                      {formatCOP(stoneShare.partnerResult)}
+                    </p>
+                  </div>
+                ) : null}
+                {expenseShare ? (
+                  <p className="mt-2 text-sm text-stone-700">
+                    Gastos compartidos: {formatCOP(expenseShare.totalAmountCop)} · tu parte{' '}
+                    {formatCOP(expenseShare.myAmountCop)} · socio {formatCOP(expenseShare.partnerAmountCop)}
                   </p>
                 ) : null}
                 <div className="mt-3 flex gap-2 border-t border-stone-100 pt-3">
                   <button
                     type="button"
-                    className="min-h-10 flex-1 rounded-lg text-sm font-medium text-brand-800 active:bg-brand-50"
+                    className="min-h-11 flex-1 rounded-lg text-sm font-medium text-brand-800 active:bg-brand-50"
                     onClick={() => setEditing(partner)}
                   >
                     Editar
                   </button>
                   <button
                     type="button"
-                    className="min-h-10 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50"
+                    className="min-h-11 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50"
                     onClick={() => setToDelete(partner)}
                   >
                     Eliminar
@@ -156,7 +178,7 @@ export function MaterialPartnersView() {
       <ConfirmDialog
         open={toDelete !== null}
         title="Eliminar socio"
-        message={`¿Eliminar a ${toDelete?.name} de la lista? Los lotes de material conservan el nombre y el reparto de gramos; los gastos compartidos conservan el nombre y el porcentaje. Solo se quita el vínculo con esta ficha.`}
+        message={`¿Eliminar a ${toDelete?.name} de la lista? Material, gastos y lotes de piedras conservan el nombre y su reparto histórico. Solo se quita el vínculo con esta ficha.`}
         confirmLabel="Eliminar"
         danger
         onCancel={() => setToDelete(null)}

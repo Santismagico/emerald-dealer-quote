@@ -70,6 +70,45 @@ export function expenseSplit(expense: Expense): { myAmountCop: number; partnerAm
   return { myAmountCop, partnerAmountCop: total - myAmountCop };
 }
 
+export interface PartnerExpenseShare {
+  partnerId: string | null;
+  partnerName: string;
+  totalAmountCop: number;
+  myAmountCop: number;
+  partnerAmountCop: number;
+  expenseCount: number;
+}
+
+function expensePartnerKey(expense: Expense): string {
+  if (expense.partnerId) return `id:${expense.partnerId}`;
+  return `name:${expense.partnerName.trim().toLocaleLowerCase('es')}`;
+}
+
+/** Gastos compartidos acumulados por socio, derivados del historial guardado. */
+export function expensesByPartner(expenses: readonly Expense[]): PartnerExpenseShare[] {
+  const byPartner = new Map<string, PartnerExpenseShare>();
+  for (const expense of expenses) {
+    const shared = expense.partnerId !== null || expense.partnerName.trim().length > 0;
+    if (!shared) continue;
+    const split = expenseSplit(expense);
+    const key = expensePartnerKey(expense);
+    const current = byPartner.get(key) ?? {
+      partnerId: expense.partnerId,
+      partnerName: expense.partnerName.trim() || 'Sin nombre',
+      totalAmountCop: 0,
+      myAmountCop: 0,
+      partnerAmountCop: 0,
+      expenseCount: 0
+    };
+    current.totalAmountCop += toSafeCOP(expense.amountCop);
+    current.myAmountCop += split.myAmountCop;
+    current.partnerAmountCop += split.partnerAmountCop;
+    current.expenseCount += 1;
+    byPartner.set(key, current);
+  }
+  return [...byPartner.values()].sort((a, b) => b.totalAmountCop - a.totalAmountCop);
+}
+
 export function activeExpenseCategories(options: readonly ExpenseCategoryOption[]): string[] {
   return options.filter((option) => option.active).map((option) => option.name);
 }

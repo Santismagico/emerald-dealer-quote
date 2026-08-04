@@ -47,6 +47,9 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 2,
     quantity: 2,
     purchaseValueCop: 4000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: true,
     supplierPayments: [
       { id: 'pay-1', date: '2026-07-16', amount: 1000000, notes: 'Transferencia' }

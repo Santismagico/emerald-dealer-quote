@@ -15,6 +15,9 @@ describe('aviso al eliminar un lote', () => {
       carats: 3,
       quantity: 3,
       purchaseValueCop: 6000000,
+      partnerId: null,
+      partnerName: '',
+      myPercent: 100,
       onCredit: true,
       supplierPayments: [
         { id: 'pay-1', date: '2026-07-16', amount: 2000000, notes: '' }
@@ -139,6 +142,9 @@ function loteConCobro(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 5,
     quantity: 5,
     purchaseValueCop: 2000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: false,
     supplierPayments: [],
     notes: '',

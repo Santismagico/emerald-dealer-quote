@@ -5,8 +5,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
-import type { BackupFile, MaterialLot, MaterialPartner } from '../types';
+import type { BackupFile, Expense, MaterialLot, MaterialPartner, StoneLot } from '../types';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
+import { emptyExpense } from './expenses';
+import { emptyStoneLot } from './stones';
 
 let storage: typeof import('./storage');
 let backupService: typeof import('./backup');
@@ -52,6 +54,37 @@ function loteCompartido(overrides: Partial<MaterialLot> = {}): MaterialLot {
     uses: [{ id: 'u-1', date: '2026-07-22', grams: 10, notes: 'argolla' }],
     createdAt: '2026-07-20T09:00:00.000Z',
     updatedAt: '2026-07-20T09:00:00.000Z',
+    ...overrides
+  };
+}
+
+function gastoCompartido(overrides: Partial<Expense> = {}): Expense {
+  return {
+    ...emptyExpense('2026-07-20', '2026-07-20T09:00:00.000Z'),
+    id: 'g-1',
+    concept: 'Feria',
+    category: 'Publicidad',
+    amountCop: 300000,
+    method: 'Transferencia',
+    paidBy: 'Santiago',
+    partnerId: 'soc-1',
+    partnerName: 'Socio Emerald',
+    myPercent: 60,
+    ...overrides
+  };
+}
+
+function piedrasCompartidas(overrides: Partial<StoneLot> = {}): StoneLot {
+  return {
+    ...emptyStoneLot('2026-07-20', '2026-07-20T09:00:00.000Z'),
+    id: 'p-1',
+    name: 'Lote compartido',
+    stoneType: 'Esmeralda',
+    quantity: 1,
+    purchaseValueCop: 1000000,
+    partnerId: 'soc-1',
+    partnerName: 'Socio Emerald',
+    myPercent: 60,
     ...overrides
   };
 }
@@ -163,6 +196,8 @@ describe('el historial no se pierde por borrar un socio (D-049)', () => {
   it('renombrar el socio actualiza sus lotes sin tocar los gramos', async () => {
     await storage.saveMaterialPartner(socio());
     await storage.saveMaterialLot(loteCompartido());
+    await storage.saveExpense(gastoCompartido());
+    await storage.saveStoneLot(piedrasCompartidas());
 
     await storage.saveMaterialPartner(socio({ name: 'Socio Renombrado' }));
 
@@ -171,11 +206,19 @@ describe('el historial no se pierde por borrar un socio (D-049)', () => {
     expect(lot.partnerName).toBe('Socio Renombrado');
     expect(lot.myGrams).toBe(60);
     expect(lot.uses.map((u) => u.id)).toEqual(['u-1']);
+    expect((await storage.listExpenses())[0]).toMatchObject({
+      partnerId: 'soc-1', partnerName: 'Socio Renombrado', myPercent: 60
+    });
+    expect((await storage.listStoneLots())[0]).toMatchObject({
+      partnerId: 'soc-1', partnerName: 'Socio Renombrado', myPercent: 60
+    });
   });
 
   it('borrar el socio conserva el nombre escrito y el reparto', async () => {
     await storage.saveMaterialPartner(socio());
     await storage.saveMaterialLot(loteCompartido());
+    await storage.saveExpense(gastoCompartido());
+    await storage.saveStoneLot(piedrasCompartidas());
 
     await storage.deleteMaterialPartner('soc-1');
 
@@ -185,6 +228,12 @@ describe('el historial no se pierde por borrar un socio (D-049)', () => {
     expect(lot.partnerName).toBe('Socio Emerald');
     expect(lot.myGrams).toBe(60);
     expect(lot.grams).toBe(100);
+    expect((await storage.listExpenses())[0]).toMatchObject({
+      partnerId: null, partnerName: 'Socio Emerald', myPercent: 60
+    });
+    expect((await storage.listStoneLots())[0]).toMatchObject({
+      partnerId: null, partnerName: 'Socio Emerald', myPercent: 60
+    });
   });
 
   it('borrar un socio no toca los lotes de otro socio', async () => {

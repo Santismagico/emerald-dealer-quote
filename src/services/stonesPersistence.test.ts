@@ -54,6 +54,9 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: false,
     supplierPayments: [],
     notes: '',
@@ -170,6 +173,33 @@ describe('persistencia de los lotes', () => {
     expect(restored.purchaseValueCop).toBe(0);
     expect(restored.sales.length).toBe(3);
     expect(restored.sales.every((s) => s.valueCop >= 0 && typeof s.id === 'string')).toBe(true);
+    expect(restored.partnerId).toBeNull();
+    expect(restored.partnerName).toBe('');
+    expect(restored.myPercent).toBe(100);
+  });
+
+  it('guarda y recupera intacta una sociedad 60/40', async () => {
+    await storage.saveStoneLot(lote({
+      partnerId: 'soc-1',
+      partnerName: 'Socio Emerald',
+      myPercent: 60
+    }));
+
+    const [restored] = await storage.listStoneLots();
+    expect(restored).toMatchObject({
+      partnerId: 'soc-1',
+      partnerName: 'Socio Emerald',
+      myPercent: 60
+    });
+  });
+
+  it.each([-1, 101, 60.5])('rechaza el porcentaje original %s sin corregirlo en silencio', async (myPercent) => {
+    await expect(storage.saveStoneLot(lote({
+      partnerId: 'soc-1',
+      partnerName: 'Socio Emerald',
+      myPercent
+    }))).rejects.toThrow(/porcentaje/);
+    expect(await storage.listStoneLots()).toEqual([]);
   });
 
   it('eliminar un lote no toca los demás', async () => {
@@ -181,13 +211,57 @@ describe('persistencia de los lotes', () => {
   });
 });
 
-describe('respaldo v4 con lotes de piedras', () => {
-  it('la exportación incluye los lotes y declara la versión 4', async () => {
-    await storage.saveStoneLot(lote());
+describe('respaldo v8 con sociedades en lotes de piedras', () => {
+  it('la exportación incluye los lotes y mantiene la versión 8', async () => {
+    await storage.saveStoneLot(lote({
+      partnerId: 'soc-1',
+      partnerName: 'Socio Emerald',
+      myPercent: 60
+    }));
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(backupService.BACKUP_VERSION);
+    expect(backup.version).toBe(8);
+    expect(backupService.BACKUP_VERSION).toBe(8);
     expect(backup.stoneLots.map((l) => l.id)).toEqual(['l-1']);
     expect(backup.stoneLots[0].sales.length).toBe(1);
+    expect(backup.stoneLots[0]).toMatchObject({
+      partnerId: 'soc-1', partnerName: 'Socio Emerald', myPercent: 60
+    });
+  });
+
+  it('un respaldo v8 anterior a B2 estrena lote propio sin perder ventas', () => {
+    const oldLot: Record<string, unknown> = { ...lote({ id: 'l-v8-antiguo' }) };
+    delete oldLot.partnerId;
+    delete oldLot.partnerName;
+    delete oldLot.myPercent;
+    const parsed = backupService.parseBackup(JSON.stringify({
+      app: 'emerald-dealer-quote',
+      version: 8,
+      exportedAt: '2026-08-03T12:00:00.000Z',
+      settings: sampleSettings(),
+      clients: [], quotes: [], appointments: [], stoneLots: [oldLot],
+      suppliers: [], buyers: [], stockJewels: [], materialPartners: [],
+      materialLots: [], expenses: []
+    }));
+
+    expect(parsed.version).toBe(8);
+    expect(parsed.stoneLots[0]).toMatchObject({
+      id: 'l-v8-antiguo', partnerId: null, partnerName: '', myPercent: 100
+    });
+    expect(parsed.stoneLots[0].sales).toHaveLength(1);
+  });
+
+  it.each([-1, 101, 60.5])('rechaza un respaldo con porcentaje de piedras %s', (myPercent) => {
+    const invalid = {
+      app: 'emerald-dealer-quote',
+      version: 8,
+      exportedAt: '2026-08-03T12:00:00.000Z',
+      settings: sampleSettings(),
+      clients: [], quotes: [], appointments: [],
+      stoneLots: [lote({ partnerId: 'soc-1', partnerName: 'Socio', myPercent })],
+      suppliers: [], buyers: [], stockJewels: [], materialPartners: [],
+      materialLots: [], expenses: []
+    };
+    expect(() => backupService.parseBackup(JSON.stringify(invalid))).toThrow(/porcentaje/);
   });
 
   it('importar un respaldo v3 (sin lotes) funciona y deja los lotes vacíos', async () => {

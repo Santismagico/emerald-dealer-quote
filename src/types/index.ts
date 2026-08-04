@@ -297,9 +297,9 @@ export interface BuyerPayment {
 }
 
 /**
- * Socio con quien Héctor comparte un material (oro, plata…). SOLO uso interno.
- * Lista aparte de proveedores y compradores: es un CO-DUEÑO del material, no
- * alguien a quien le compra ni a quien le vende (D-049).
+ * Socio con quien se comparte material, gastos o lotes de piedras. SOLO uso interno.
+ * Lista aparte de proveedores y compradores: es un CO-DUEÑO del negocio, no
+ * alguien a quien se le compra ni a quien se le vende (D-049/D-053).
  */
 export interface MaterialPartner {
   id: string;
@@ -446,6 +446,12 @@ export interface StoneLot {
   quantity: number;
   /** Costo total de la compra en COP entero. */
   purchaseValueCop: number;
+  /** Socio vinculado; null si es propio o si luego se borró la ficha. */
+  partnerId: string | null;
+  /** Nombre histórico del socio; se conserva al borrar la ficha. */
+  partnerName: string;
+  /** Porcentaje propio, entero 0..100. La parte del socio es 100 - myPercent. */
+  myPercent: number;
   /** true si la compra fue a crédito: se debe al proveedor hasta saldar (C4). */
   onCredit: boolean;
   /** Pagos hechos al proveedor de este lote (aplican cuando es a crédito). */

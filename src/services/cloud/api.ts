@@ -14,6 +14,7 @@ import type {
 import type { StoreDataSource } from '../dataSource';
 import type { GoldPriceBreakdown } from '../goldPrice';
 import { validateExpense } from '../expenses';
+import { validateStoneLotOwnership } from '../stones';
 import * as localStorage from '../storage';
 import { getSupabase } from './config';
 import {
@@ -248,6 +249,8 @@ export function createCloudDataSource(options: {
     },
     listStoneLots: () => pullThen('stone_lots', localStorage.listStoneLots),
     async saveStoneLot(lot: StoneLot) {
+      const error = validateStoneLotOwnership(lot);
+      if (error) throw new Error(error);
       await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
     },
     async deleteStoneLot(id) {
@@ -321,17 +324,19 @@ export function createCloudDataSource(options: {
       await enqueue('stock_jewels', 'delete', id, null, nowIso());
     },
     listMaterialPartners: () => pullThen('material_partners', localStorage.listMaterialPartners),
-    // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en los
-    // lotes que lo apuntan: esos lotes también deben subir (D-049).
+    // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en
+    // material, gastos y piedras: todos los registros cambiados deben subir.
     async saveMaterialPartner(partner: MaterialPartner) {
-      const [lotsBefore, expensesBefore] = await Promise.all([
+      const [lotsBefore, expensesBefore, stoneLotsBefore] = await Promise.all([
         localStorage.listMaterialLots(),
-        localStorage.listExpenses()
+        localStorage.listExpenses(),
+        localStorage.listStoneLots()
       ]);
       await localStorage.saveMaterialPartner(partner);
-      const [lotsAfter, expensesAfter] = await Promise.all([
+      const [lotsAfter, expensesAfter, stoneLotsAfter] = await Promise.all([
         localStorage.listMaterialLots(),
-        localStorage.listExpenses()
+        localStorage.listExpenses(),
+        localStorage.listStoneLots()
       ]);
       await cacheAndQueue('material_partners', partner.id, partner, nowIso());
       for (const lot of changed(lotsBefore, lotsAfter)) {
@@ -340,16 +345,21 @@ export function createCloudDataSource(options: {
       for (const expense of changed(expensesBefore, expensesAfter)) {
         await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
       }
+      for (const lot of changed(stoneLotsBefore, stoneLotsAfter)) {
+        await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
     },
     async deleteMaterialPartner(id) {
-      const [lotsBefore, expensesBefore] = await Promise.all([
+      const [lotsBefore, expensesBefore, stoneLotsBefore] = await Promise.all([
         localStorage.listMaterialLots(),
-        localStorage.listExpenses()
+        localStorage.listExpenses(),
+        localStorage.listStoneLots()
       ]);
       await localStorage.deleteMaterialPartner(id);
-      const [lotsAfter, expensesAfter] = await Promise.all([
+      const [lotsAfter, expensesAfter, stoneLotsAfter] = await Promise.all([
         localStorage.listMaterialLots(),
-        localStorage.listExpenses()
+        localStorage.listExpenses(),
+        localStorage.listStoneLots()
       ]);
       await enqueue('material_partners', 'delete', id, null, nowIso());
       for (const lot of changed(lotsBefore, lotsAfter)) {
@@ -357,6 +367,9 @@ export function createCloudDataSource(options: {
       }
       for (const expense of changed(expensesBefore, expensesAfter)) {
         await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
+      }
+      for (const lot of changed(stoneLotsBefore, stoneLotsAfter)) {
+        await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
       }
     },
     listMaterialLots: () => pullThen('material_lots', localStorage.listMaterialLots),

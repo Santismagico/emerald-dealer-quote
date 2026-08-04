@@ -8,6 +8,7 @@ import inventorySource from '../../../supabase/migrations/20260721210000_inventa
 import materialsSource from '../../../supabase/migrations/20260724210000_inventario_materiales.sql?raw'
 import materialValidationFixSource from '../../../supabase/migrations/20260725150651_validar_suma_usos_material.sql?raw'
 import expensesSource from '../../../supabase/migrations/20260803205711_gastos_negocio.sql?raw'
+import stonePartnershipsSource from '../../../supabase/migrations/20260803220000_sociedades_lotes_piedras.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -19,6 +20,7 @@ const inventory = inventorySource.toLowerCase()
 const materials = materialsSource.toLowerCase()
 const materialValidationFix = materialValidationFixSource.toLowerCase()
 const expenses = expensesSource.toLowerCase()
+const stonePartnerships = stonePartnershipsSource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -334,5 +336,45 @@ describe('migracion de gastos del negocio (B1)', () => {
     expect(expenses).toContain("p_data->'expensecategories'")
     expect(expenses).toContain("item->'active'")
     expect(expenses).toContain("group by lower(btrim(item->>'name'))")
+  })
+})
+
+describe('migracion de sociedades en lotes de piedras (B2)', () => {
+  it('reemplaza solo el validador privado sin tocar tablas, RLS ni datos', () => {
+    expect(stonePartnerships).toContain(
+      'create or replace function private.assert_stone_lot_payload'
+    )
+    expect(stonePartnerships).toContain('security invoker')
+    expect(stonePartnerships).toContain("set search_path = ''")
+    expect(stonePartnerships).toContain(
+      'revoke all on function private.assert_stone_lot_payload'
+    )
+    expect(stonePartnerships).not.toMatch(/create\s+table/)
+    expect(stonePartnerships).not.toMatch(/drop\s+(table|column|policy)/)
+    expect(stonePartnerships).not.toMatch(/truncate/)
+    expect(stonePartnerships).not.toMatch(/\b(insert|update|delete)\s+(into|from|public\.)/)
+    expect(stonePartnerships).not.toMatch(/create\s+policy/)
+  })
+
+  it('mantiene las validaciones existentes de costo, ventas, credito y pagos', () => {
+    expect(stonePartnerships).toContain("p_data->'purchasevaluecop'")
+    expect(stonePartnerships).toContain("p_data->'quantity'")
+    expect(stonePartnerships).toContain("p_data->'supplierpayments'")
+    expect(stonePartnerships).toContain("p_data->'sales'")
+    expect(stonePartnerships).toContain("item->'amount'")
+    expect(stonePartnerships).toContain("item->'valuecop'")
+    expect(stonePartnerships).toContain("sale->'payments'")
+  })
+
+  it('acepta lotes antiguos y valida sin corregir porcentajes nuevos', () => {
+    expect(stonePartnerships).toContain("p_data ? 'partnerid'")
+    expect(stonePartnerships).toContain("p_data ? 'partnername'")
+    expect(stonePartnerships).toContain("p_data ? 'mypercent'")
+    expect(stonePartnerships).toContain(
+      "private.is_nonnegative_integer(p_data->'mypercent')"
+    )
+    expect(stonePartnerships).toContain('v_my_percent > 100')
+    expect(stonePartnerships).toContain('v_my_percent <> 100')
+    expect(stonePartnerships).toContain("errcode = '22023'")
   })
 })

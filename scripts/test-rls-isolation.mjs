@@ -155,6 +155,7 @@ export function validPayloads(prefix) {
     appointments: { id: `${prefix}-appointment`, status: 'programada', durationMinutes: 60 },
     stone_lots: {
       id: `${prefix}-stone`, purchaseValueCop: 1000000, quantity: 1,
+      partnerId: null, partnerName: '', myPercent: 100,
       supplierPayments: [], sales: [],
     },
     suppliers: { id: `${prefix}-supplier`, name: `Proveedor ${prefix}` },
@@ -614,6 +615,53 @@ async function verifyMalformedPayloads(api, organizationId, now) {
     '22023'
   )
   await assertEntityAbsent(api, 'expenses', organizationId, invalidShareId, 'gasto con porcentaje invalido')
+
+  const protectedStone = {
+    ...validPayloads('n6-protected-stone-share').stone_lots,
+    partnerId: 'soc-n6',
+    partnerName: 'Socio N6',
+    myPercent: 60,
+  }
+  assertSuccess(
+    await api.rpc('upsert_stone_lot', {
+      p_id: protectedStone.id,
+      p_data: protectedStone,
+      p_updated_at: now,
+    }),
+    'lote compartido valido antes de probar porcentajes'
+  )
+  const stoneBefore = await readEntityRow(
+    api,
+    'stone_lots',
+    organizationId,
+    protectedStone.id,
+    'leer lote compartido antes de porcentajes invalidos'
+  )
+  if (!stoneBefore) throw new Error('falta el lote compartido protegido')
+
+  for (const invalidPercent of [-1, 101, 60.5]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_stone_lot', {
+        p_id: protectedStone.id,
+        p_data: { ...protectedStone, myPercent: invalidPercent },
+        p_updated_at: now,
+      }),
+      `lote de piedras con porcentaje invalido ${invalidPercent}`,
+      '22023'
+    )
+    const stoneAfter = await readEntityRow(
+      api,
+      'stone_lots',
+      organizationId,
+      protectedStone.id,
+      `leer lote despues de porcentaje invalido ${invalidPercent}`
+    )
+    assertRowUnchanged(
+      stoneBefore,
+      stoneAfter,
+      `porcentaje invalido de piedras ${invalidPercent}`
+    )
+  }
 }
 
 async function cleanupN6(admin, apis, organizations, users) {
@@ -736,6 +784,7 @@ export async function runN6(env = process.env) {
         malformedPayloadsBlocked: true,
         materialOveruseBlocked: true,
         missingMaterialUsesBlocked: true,
+        invalidStoneSharesBlocked: true,
       },
     }
   } catch (error) {

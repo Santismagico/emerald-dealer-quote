@@ -107,6 +107,101 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   };
 }
 
+/** Reparto de una sociedad sobre dinero real recibido, nunca sobre el precio acordado (D-053). */
+export interface StonePartnershipSummary {
+  shared: boolean;
+  realResult: number;
+  myResult: number;
+  partnerResult: number;
+}
+
+export function summarizeStonePartnership(lot: StoneLot): StonePartnershipSummary {
+  const summary = summarizeStoneLot(lot);
+  const shared = lot.partnerId !== null || lot.partnerName.trim().length > 0;
+  const realResult = summary.receivedFromBuyers - toSafeCOP(lot.purchaseValueCop);
+  const myPercent = shared ? lot.myPercent : 100;
+  // El socio recibe la parte truncada y el peso residual queda siempre del lado
+  // propio. Esto conserva la suma exacta tanto en ganancias como en pérdidas.
+  const partnerResult = Math.trunc((realResult * (100 - myPercent)) / 100);
+  const myResult = realResult - partnerResult;
+  return { shared, realResult, myResult, partnerResult };
+}
+
+export interface PartnerStoneResult {
+  partnerId: string | null;
+  partnerName: string;
+  realResult: number;
+  myResult: number;
+  partnerResult: number;
+  lotCount: number;
+}
+
+function stonePartnerKey(lot: StoneLot): string {
+  if (lot.partnerId) return `id:${lot.partnerId}`;
+  return `name:${lot.partnerName.trim().toLocaleLowerCase('es')}`;
+}
+
+/** Resultado real acumulado de los lotes compartidos con cada socio. */
+export function stonesByPartner(lots: readonly StoneLot[]): PartnerStoneResult[] {
+  const byPartner = new Map<string, PartnerStoneResult>();
+  for (const lot of lots) {
+    const split = summarizeStonePartnership(lot);
+    if (!split.shared) continue;
+    const key = stonePartnerKey(lot);
+    const current = byPartner.get(key) ?? {
+      partnerId: lot.partnerId,
+      partnerName: lot.partnerName.trim() || 'Sin nombre',
+      realResult: 0,
+      myResult: 0,
+      partnerResult: 0,
+      lotCount: 0
+    };
+    current.realResult += split.realResult;
+    current.myResult += split.myResult;
+    current.partnerResult += split.partnerResult;
+    current.lotCount += 1;
+    byPartner.set(key, current);
+  }
+  return [...byPartner.values()].sort((a, b) => b.realResult - a.realResult);
+}
+
+/** Valida la forma del reparto antes de normalizar para no corregirlo en silencio. */
+export function validateStoneLotOwnership(raw: unknown): string | null {
+  const lot = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const hasPartnerId = Object.prototype.hasOwnProperty.call(lot, 'partnerId');
+  const hasPartnerName = Object.prototype.hasOwnProperty.call(lot, 'partnerName');
+  const hasMyPercent = Object.prototype.hasOwnProperty.call(lot, 'myPercent');
+
+  if (
+    hasPartnerId &&
+    lot.partnerId !== null &&
+    (typeof lot.partnerId !== 'string' || !lot.partnerId.trim())
+  ) {
+    return 'El socio vinculado no es válido.';
+  }
+  if (hasPartnerName && typeof lot.partnerName !== 'string') {
+    return 'El nombre del socio no es válido.';
+  }
+
+  const partnerId = typeof lot.partnerId === 'string' && lot.partnerId.trim() ? lot.partnerId : null;
+  const partnerName = typeof lot.partnerName === 'string' ? lot.partnerName.trim() : '';
+  const myPercent = hasMyPercent ? lot.myPercent : 100;
+  if (
+    typeof myPercent !== 'number' ||
+    !Number.isFinite(myPercent) ||
+    !Number.isInteger(myPercent) ||
+    myPercent < 0 ||
+    myPercent > 100
+  ) {
+    return 'Tu porcentaje debe ser un número entero entre 0 y 100.';
+  }
+
+  const shared = partnerId !== null || partnerName.length > 0;
+  if (partnerId !== null && !partnerName) return 'Elige el socio del lote.';
+  if (!shared && myPercent !== 100) return 'Un lote sin socio debe ser 100% propio.';
+  return null;
+}
+
 /**
  * Revisa un pago al proveedor ANTES de guardarlo. Devuelve el motivo del
  * rechazo en lenguaje humano, o null si es válido. `excludePaymentId`
@@ -139,6 +234,8 @@ export function validateStoneLotPurchaseUpdate(
   previous: StoneLot | null,
   next: StoneLot
 ): string | null {
+  const ownershipError = validateStoneLotOwnership(next);
+  if (ownershipError) return ownershipError;
   if (previous) {
     const paymentsChanged =
       previous.supplierPayments.length !== next.supplierPayments.length ||
@@ -326,12 +423,12 @@ export function lotDisplayName(lot: Pick<StoneLot, 'name' | 'stoneType'>): strin
 }
 
 export function matchesLotSearch(
-  lot: Pick<StoneLot, 'name' | 'stoneType' | 'description' | 'supplier'>,
+  lot: Pick<StoneLot, 'name' | 'stoneType' | 'description' | 'supplier' | 'partnerName'>,
   search: string
 ): boolean {
   const term = search.trim().toLowerCase();
   if (!term) return true;
-  return `${lot.name} ${lot.stoneType} ${lot.description} ${lot.supplier}`
+  return `${lot.name} ${lot.stoneType} ${lot.description} ${lot.supplier} ${lot.partnerName}`
     .toLowerCase()
     .includes(term);
 }
@@ -551,6 +648,9 @@ export function emptyStoneLot(today: string, nowIso: string): StoneLot {
     carats: 0,
     quantity: 1,
     purchaseValueCop: 0,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: false,
     supplierPayments: [],
     notes: '',

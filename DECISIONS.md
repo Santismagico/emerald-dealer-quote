@@ -903,3 +903,27 @@ para saber qué parte corresponde a Santiago y cuál al socio; no reduce la sali
 caja. Todo se calcula en COP enteros: la parte de Santiago se redondea y el residuo queda
 de forma determinista en la parte del socio, de modo que las dos partes siempre suman
 exactamente el gasto.
+
+## D-060 · Las sociedades de piedras se reparten sobre dinero realmente recibido · 2026-08-03 · Vigente
+
+Los socios de Material pasan a ser la lista general de **Socios** del negocio. La misma
+ficha puede vincularse a material, gastos y lotes de piedras. Renombrarla actualiza el
+nombre en los registros vinculados; eliminarla suelta el vínculo, pero conserva en cada
+registro la foto del nombre y el reparto histórico.
+
+Cada lote de piedras guarda el socio, su nombre histórico y el porcentaje de Santiago.
+Un lote anterior, o uno sin socio, se lee como 100% propio. Los porcentajes válidos son
+enteros entre 0 y 100; un valor inválido se rechaza antes de guardar y nunca se corrige
+silenciosamente.
+
+El resultado histórico del lote sigue significando **precio acordado menos costo** y no
+cambia. Para una sociedad se muestra además un resultado separado basado únicamente en
+dinero real: **recibido de compradores menos costo del lote**. La parte del socio es
+`Math.trunc(resultado real × (100 − porcentaje de Santiago) / 100)`; la parte de
+Santiago es el residuo exacto. Así las dos partes siempre suman el resultado real,
+también cuando es negativo o no divide exactamente.
+
+La ampliación no crea otra lista de socios ni cambia versiones: IndexedDB y respaldo
+permanecen en v8, y Ajustes en v4. La nube conserva la tabla y las operaciones protegidas
+de lotes de piedras; una migración aditiva amplía únicamente su validación para aceptar
+los campos nuevos y seguir admitiendo clientes anteriores a B2.

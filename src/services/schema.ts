@@ -447,6 +447,9 @@ export function normalizeStockJewel(raw: unknown): StockJewel {
  */
 export function normalizeStoneLot(raw: unknown): StoneLot {
   const l = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const partnerId = typeof l.partnerId === 'string' && l.partnerId.trim() ? l.partnerId : null;
+  const partnerName = safeString(l.partnerName).trim();
+  const shared = partnerId !== null || partnerName.length > 0;
   return {
     id: safeString(l.id, newId()),
     name: safeString(l.name),
@@ -458,6 +461,11 @@ export function normalizeStoneLot(raw: unknown): StoneLot {
     carats: Math.max(0, safeNumber(l.carats)),
     quantity: Math.max(0, safeNumber(l.quantity)),
     purchaseValueCop: Math.max(0, Math.round(safeNumber(l.purchaseValueCop))),
+    partnerId,
+    partnerName,
+    myPercent: shared
+      ? Math.min(100, Math.max(0, Math.round(safeNumber(l.myPercent, 100))))
+      : 100,
     onCredit: l.onCredit === true,
     supplierPayments: safeArray(l.supplierPayments).map(normalizeSupplierPayment),
     notes: safeString(l.notes),

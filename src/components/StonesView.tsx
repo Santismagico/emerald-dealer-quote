@@ -17,8 +17,10 @@ import {
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
+  summarizeStonePartnership,
   summarizeStoneSale,
   validateStoneSale,
+  validateStoneLotOwnership,
   validateStoneLotPurchaseUpdate,
   validateSupplierPayment,
   withLotSale,
@@ -221,6 +223,7 @@ export function StonesView() {
 
 function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
   const summary = summarizeStoneLot(lot);
+  const partnership = summarizeStonePartnership(lot);
   return (
     <button type="button" className="block w-full rounded-2xl bg-white p-4 text-left shadow-sm" onClick={onOpen}>
       <div className="flex items-start justify-between gap-2">
@@ -239,6 +242,11 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
           {summary.exhausted ? 'Agotado' : 'Con existencias'}
         </span>
       </div>
+      {partnership.shared ? (
+        <p className="mt-1 text-xs font-medium text-brand-800">
+          Sociedad con {lot.partnerName || 'socio'} · tu parte {lot.myPercent}%
+        </p>
+      ) : null}
       <div className="mt-2 flex items-center justify-between text-xs text-stone-500">
         <span>
           {summary.exhausted
@@ -298,6 +306,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   const lot = store.stoneLots.find((l) => l.id === lotId);
   if (!lot) return null;
   const summary = summarizeStoneLot(lot);
+  const partnership = summarizeStonePartnership(lot);
 
   if (editingLot) {
     return <LotForm key={lot.id} initial={lot} isNew={false} onClose={() => setEditingLot(false)} />;
@@ -362,7 +371,15 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
           />
           <div className="border-t border-stone-200 pt-1">
             <SummaryRow
-              label={summary.exhausted ? 'Resultado del lote' : 'Resultado parcial'}
+              label={
+                partnership.shared
+                  ? summary.exhausted
+                    ? 'Resultado por valor acordado'
+                    : 'Parcial por valor acordado'
+                  : summary.exhausted
+                    ? 'Resultado del lote'
+                    : 'Resultado parcial'
+              }
               value={formatCOP(summary.result)}
               bold
               valueClass={summary.result < 0 ? 'text-red-600' : 'text-brand-800'}
@@ -372,6 +389,27 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
             <p className="text-[11px] text-stone-400">
               Parcial: aún quedan piedras por vender de este lote.
             </p>
+          ) : null}
+          {partnership.shared ? (
+            <div className="mt-2 space-y-1 border-t border-stone-200 pt-2">
+              <SummaryRow
+                label="Resultado real para repartir"
+                value={formatCOP(partnership.realResult)}
+                bold
+                valueClass={partnership.realResult < 0 ? 'text-red-600' : 'text-brand-800'}
+              />
+              <SummaryRow
+                label={`Tu parte (${lot.myPercent}%)`}
+                value={formatCOP(partnership.myResult)}
+              />
+              <SummaryRow
+                label={`Parte de ${lot.partnerName || 'el socio'} (${100 - lot.myPercent}%)`}
+                value={formatCOP(partnership.partnerResult)}
+              />
+              <p className="text-[11px] text-stone-500">
+                Se reparte lo recibido de verdad menos el costo del lote, no el precio pendiente por cobrar.
+              </p>
+            </div>
           ) : null}
         </div>
 
@@ -422,7 +460,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                     <button
                       type="button"
                       aria-label="Eliminar pago"
-                      className="min-h-10 min-w-10 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
                       onClick={() => setPaymentToDelete(payment)}
                     >
                       ✕
@@ -506,7 +544,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                   <button
                     type="button"
                     aria-label="Eliminar venta"
-                    className="min-h-10 min-w-10 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                    className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
                     onClick={() => setSaleToDelete(sale)}
                   >
                     ✕
@@ -665,6 +703,8 @@ function LotForm({
   const [busy, setBusy] = useState(false);
 
   const patch = (partial: Partial<StoneLot>) => setForm((current) => ({ ...current, ...partial }));
+  const historicalPartner = !form.partnerId && form.partnerName.trim().length > 0;
+  const partnerValue = form.partnerId ?? (historicalPartner ? '__historical__' : '');
 
   const selectSupplier = (supplierId: string) => {
     if (!supplierId) {
@@ -675,7 +715,23 @@ function LotForm({
     patch({ supplierId, supplier: supplier ? supplier.name : form.supplier });
   };
 
+  const selectPartner = (partnerId: string) => {
+    const partner = store.materialPartners.find((item) => item.id === partnerId);
+    if (partner) {
+      patch({ partnerId: partner.id, partnerName: partner.name });
+      return;
+    }
+    if (partnerId !== '__historical__') {
+      patch({ partnerId: null, partnerName: '', myPercent: 100 });
+    }
+  };
+
   const save = async () => {
+    const ownershipError = validateStoneLotOwnership(form);
+    if (ownershipError) {
+      store.showToast(ownershipError);
+      return;
+    }
     if (!isStoneLotValid(form)) {
       store.showToast('El lote necesita fecha de compra y tipo de piedra.');
       return;
@@ -697,8 +753,8 @@ function LotForm({
       await store.upsertStoneLot({ ...form, updatedAt: new Date().toISOString() });
       store.showToast(isNew ? 'Lote registrado' : 'Compra actualizada');
       onClose();
-    } catch {
-      store.showToast('No se pudo guardar el lote. Intenta de nuevo.');
+    } catch (error) {
+      store.showToast(error instanceof Error ? error.message : 'No se pudo guardar el lote. Intenta de nuevo.');
     } finally {
       setBusy(false);
     }
@@ -739,6 +795,35 @@ function LotForm({
           <Field label="Costo total del lote">
             <MoneyInput value={form.purchaseValueCop} onValue={(purchaseValueCop) => patch({ purchaseValueCop })} />
           </Field>
+          <Field label="Sociedad" hint="Sin socio, el lote queda 100% como propio.">
+            <Select
+              value={partnerValue}
+              onChange={selectPartner}
+              options={[
+                { value: '', label: 'Sin socio · 100% propio' },
+                ...(historicalPartner
+                  ? [{ value: '__historical__', label: `${form.partnerName} · ficha eliminada` }]
+                  : []),
+                ...store.materialPartners.map((partner) => ({ value: partner.id, label: partner.name }))
+              ]}
+            />
+          </Field>
+          {form.partnerId !== null || form.partnerName.trim() ? (
+            <Field
+              label="Tu porcentaje"
+              hint={
+                Number.isInteger(form.myPercent) && form.myPercent >= 0 && form.myPercent <= 100
+                  ? `Parte del socio: ${100 - form.myPercent}%`
+                  : 'Debe ser un número entero entre 0 y 100.'
+              }
+            >
+              <DecimalInput
+                value={form.myPercent}
+                onValue={(myPercent) => patch({ myPercent })}
+                suffix="%"
+              />
+            </Field>
+          ) : null}
           <Toggle
             checked={form.onCredit}
             onChange={(onCredit) => patch({ onCredit })}

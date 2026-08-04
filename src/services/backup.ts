@@ -45,6 +45,7 @@ import {
   normalizeExpense
 } from './schema';
 import { validateExpense } from './expenses';
+import { validateStoneLotOwnership } from './stones';
 
 /**
  * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 8.
@@ -212,6 +213,10 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     if (stoneLotIds.has(id)) {
       throw new Error('El respaldo contiene lotes de piedras duplicados.');
+    }
+    const ownershipError = validateStoneLotOwnership(l);
+    if (ownershipError) {
+      throw new Error(`El respaldo contiene un reparto de piedras inválido: ${ownershipError}`);
     }
     stoneLotIds.add(id);
   }

@@ -128,7 +128,7 @@ export async function importToCloud(
   }
   // Los socios van antes que los lotes de material: los lotes los referencian.
   for (const partner of backup.materialPartners) {
-    tasks.push({ label: 'Socios de material', run: () => writer.saveMaterialPartner(partner) });
+    tasks.push({ label: 'Socios', run: () => writer.saveMaterialPartner(partner) });
   }
   // Los gastos con sociedad van después de los socios que referencian.
   for (const expense of backup.expenses) {

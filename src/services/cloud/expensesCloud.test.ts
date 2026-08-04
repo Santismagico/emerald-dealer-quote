@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
-import type { Expense, MaterialPartner } from '../../types';
+import type { Expense, MaterialPartner, StoneLot } from '../../types';
+import { emptyStoneLot } from '../stones';
 import { createSupabaseCloudRemote } from './api';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
 
@@ -43,6 +44,19 @@ function partner(overrides: Partial<MaterialPartner> = {}): MaterialPartner {
   return {
     id: 'soc-1', name: 'Socio Emerald', phone: '', city: '', notes: '',
     createdAt: '2026-08-03T09:00:00.000Z', ...overrides
+  };
+}
+
+function stoneLot(overrides: Partial<StoneLot> = {}): StoneLot {
+  return {
+    ...emptyStoneLot('2026-08-03', '2026-08-03T10:00:00.000Z'),
+    id: 'p-1',
+    stoneType: 'Esmeralda',
+    purchaseValueCop: 1000000,
+    partnerId: 'soc-1',
+    partnerName: 'Socio Emerald',
+    myPercent: 60,
+    ...overrides
   };
 }
 
@@ -89,22 +103,47 @@ describe('cambios de socio arrastran sus gastos a la nube', () => {
   it('renombrar y borrar encola el gasto cambiado y conserva su reparto', async () => {
     await storage.saveMaterialPartner(partner());
     await storage.saveExpense(expense());
+    await storage.saveStoneLot(stoneLot());
     const { enqueued, outbox } = fakeOutbox();
     const source = api.createCloudDataSource({ remote: noopRemote, outbox, sync: noopSync });
 
     await source.saveMaterialPartner(partner({ name: 'Socio Renombrado' }));
     expect(enqueued).toEqual(expect.arrayContaining([
-      expect.objectContaining({ table: 'expenses', type: 'upsert', entityId: 'g-1' })
+      expect.objectContaining({ table: 'expenses', type: 'upsert', entityId: 'g-1' }),
+      expect.objectContaining({ table: 'stone_lots', type: 'upsert', entityId: 'p-1' })
     ]));
     enqueued.length = 0;
 
     await source.deleteMaterialPartner('soc-1');
     expect(enqueued).toEqual(expect.arrayContaining([
-      expect.objectContaining({ table: 'expenses', type: 'upsert', entityId: 'g-1' })
+      expect.objectContaining({ table: 'expenses', type: 'upsert', entityId: 'g-1' }),
+      expect.objectContaining({ table: 'stone_lots', type: 'upsert', entityId: 'p-1' })
     ]));
     expect((await storage.listExpenses())[0]).toMatchObject({
       partnerId: null, partnerName: 'Socio Renombrado', myPercent: 60
     });
+    expect((await storage.listStoneLots())[0]).toMatchObject({
+      partnerId: null, partnerName: 'Socio Renombrado', myPercent: 60
+    });
+  });
+});
+
+describe('sociedades de piedras viajan por stone_lots', () => {
+  it('guarda el reparto y rechaza porcentajes invalidos antes de encolar', async () => {
+    const { enqueued, outbox } = fakeOutbox();
+    const source = api.createCloudDataSource({ remote: noopRemote, outbox, sync: noopSync });
+
+    await source.saveStoneLot(stoneLot());
+    expect(enqueued[0]).toMatchObject({
+      table: 'stone_lots', type: 'upsert', entityId: 'p-1',
+      data: { partnerId: 'soc-1', partnerName: 'Socio Emerald', myPercent: 60 }
+    });
+
+    for (const myPercent of [-1, 101, 60.5]) {
+      await expect(source.saveStoneLot(stoneLot({ id: `p-${myPercent}`, myPercent })))
+        .rejects.toThrow(/porcentaje/);
+    }
+    expect(enqueued).toHaveLength(1);
   });
 });
 

@@ -338,30 +338,33 @@ export function StoreProvider({
     await dataSource.deleteStockJewel(id);
   }, [dataSource]);
 
-  // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en los
-  // lotes de material y gastos que lo apuntan, así que hay que releer ambos.
+  // Guardar o borrar un socio propaga el historial de material, gastos y piedras.
   const upsertMaterialPartner = useCallback(async (partner: MaterialPartner) => {
     await dataSource.saveMaterialPartner(partner);
-    const [nextPartners, nextLots, nextExpenses] = await Promise.all([
+    const [nextPartners, nextLots, nextExpenses, nextStoneLots] = await Promise.all([
       dataSource.listMaterialPartners(),
       dataSource.listMaterialLots(),
-      dataSource.listExpenses()
+      dataSource.listExpenses(),
+      dataSource.listStoneLots()
     ]);
     setMaterialPartners(nextPartners);
     setMaterialLots(nextLots);
     setExpenses(nextExpenses);
+    setStoneLots(nextStoneLots);
   }, [dataSource]);
 
   const removeMaterialPartner = useCallback(async (id: string) => {
     await dataSource.deleteMaterialPartner(id);
-    const [nextPartners, nextLots, nextExpenses] = await Promise.all([
+    const [nextPartners, nextLots, nextExpenses, nextStoneLots] = await Promise.all([
       dataSource.listMaterialPartners(),
       dataSource.listMaterialLots(),
-      dataSource.listExpenses()
+      dataSource.listExpenses(),
+      dataSource.listStoneLots()
     ]);
     setMaterialPartners(nextPartners);
     setMaterialLots(nextLots);
     setExpenses(nextExpenses);
+    setStoneLots(nextStoneLots);
   }, [dataSource]);
 
   const upsertMaterialLot = useCallback(async (lot: MaterialLot) => {

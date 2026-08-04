@@ -5,6 +5,7 @@ import {
   addExpenseCategory,
   expenseCategoryHistory,
   expenseSplit,
+  expensesByPartner,
   filterExpenses,
   setExpenseCategoryActive,
   sortExpenses,
@@ -57,6 +58,20 @@ describe('gastos del negocio', () => {
     expect(
       validateExpense(expense({ partnerId: 'soc-1', partnerName: '', myPercent: 60 }))
     ).toMatch(/socio/);
+  });
+
+  it('resume por socio los gastos compartidos sin alterar su historial', () => {
+    const result = expensesByPartner([
+      expense({ partnerId: 'soc-1', partnerName: 'Socio', myPercent: 60, amountCop: 100001 }),
+      expense({ id: 'g-2', partnerId: 'soc-1', partnerName: 'Socio', myPercent: 50, amountCop: 100 })
+    ]);
+    expect(result).toEqual([expect.objectContaining({
+      partnerId: 'soc-1',
+      totalAmountCop: 100101,
+      myAmountCop: 60051,
+      partnerAmountCop: 40050,
+      expenseCount: 2
+    })]);
   });
 
   it('ordena y filtra por fecha, categoría y texto', () => {

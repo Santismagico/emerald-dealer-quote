@@ -234,6 +234,9 @@ describe('normalizeStoneLot', () => {
     expect(l.id).toBeTruthy();
     expect(l.carats).toBe(0);
     expect(l.purchaseValueCop).toBe(0);
+    expect(l.partnerId).toBeNull();
+    expect(l.partnerName).toBe('');
+    expect(l.myPercent).toBe(100);
     expect(l.sales).toEqual([]);
   });
 
@@ -249,6 +252,9 @@ describe('normalizeStoneLot', () => {
       carats: 5,
       quantity: 4,
       purchaseValueCop: 6000000,
+      partnerId: 'soc-1',
+      partnerName: 'Socio Emerald',
+      myPercent: 60,
       onCredit: false,
       supplierPayments: [],
       notes: '',
@@ -273,6 +279,24 @@ describe('normalizeStoneLot', () => {
       updatedAt: '2026-07-15T09:00:00.000Z'
     };
     expect(normalizeStoneLot(valid)).toEqual(valid);
+  });
+
+  it('un lote anterior a B2 estrena sociedad vacía y queda 100% propio', () => {
+    const legacy = normalizeStoneLot({
+      id: 'l-v8',
+      purchaseValueCop: 1000000,
+      supplierPayments: [],
+      sales: [{ id: 'v-1', valueCop: 1500000, payments: [] }]
+    });
+    expect(legacy).toMatchObject({ partnerId: null, partnerName: '', myPercent: 100 });
+    expect(legacy.purchaseValueCop).toBe(1000000);
+    expect(legacy.sales).toHaveLength(1);
+  });
+
+  it('sanea al leer un porcentaje corrupto, sin que eso autorice guardarlo', () => {
+    expect(normalizeStoneLot({ partnerName: 'Socio', myPercent: 101 }).myPercent).toBe(100);
+    expect(normalizeStoneLot({ partnerName: 'Socio', myPercent: -1 }).myPercent).toBe(0);
+    expect(normalizeStoneLot({ partnerName: 'Socio', myPercent: 60.5 }).myPercent).toBe(61);
   });
 
   it('lleva a cero los números negativos o corruptos del lote y sus ventas', () => {

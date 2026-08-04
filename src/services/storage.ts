@@ -32,7 +32,7 @@ import {
   normalizeExpense
 } from './schema';
 import { compareAppointments } from './agenda';
-import { compareStoneLots } from './stones';
+import { compareStoneLots, validateStoneLotOwnership } from './stones';
 import { compareStockJewels } from './stockJewels';
 import { compareMaterialLots } from './materials';
 import { compareExpenses, validateExpense } from './expenses';
@@ -187,6 +187,8 @@ export async function listStoneLots(): Promise<StoneLot[]> {
 }
 
 export async function saveStoneLot(lot: StoneLot): Promise<void> {
+  const error = validateStoneLotOwnership(lot);
+  if (error) throw new Error(error);
   await dbPut('stoneLots', normalizeStoneLot(lot));
 }
 
@@ -363,7 +365,7 @@ export async function listMaterialPartners(): Promise<MaterialPartner[]> {
 }
 
 /**
- * Guarda el socio y propaga su nombre a los lotes de material que lo apuntan,
+ * Guarda el socio y propaga su nombre a material, gastos y piedras vinculados,
  * para que renombrarlo no deje historial con el nombre viejo (mismo patrón que
  * proveedores en C3 y compradores en D-043). Todo en una sola transacción.
  */
@@ -371,7 +373,7 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
   const normalizedPartner = normalizeMaterialPartner(partner);
   const updatedAt = new Date().toISOString();
 
-  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses'], (getStore) => {
+  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses', 'stoneLots'], (getStore) => {
     getStore('materialPartners').put(normalizedPartner);
 
     const lots = getStore('materialLots');
@@ -398,17 +400,28 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
         }
       }
     };
+
+    const stoneLots = getStore('stoneLots');
+    const stoneLotsRequest = stoneLots.getAll();
+    stoneLotsRequest.onsuccess = () => {
+      for (const stored of stoneLotsRequest.result as unknown[]) {
+        const lot = normalizeStoneLot(stored);
+        if (lot.partnerId === normalizedPartner.id && lot.partnerName !== normalizedPartner.name) {
+          stoneLots.put({ ...lot, partnerName: normalizedPartner.name, updatedAt });
+        }
+      }
+    };
   });
 }
 
 /**
- * Borra el socio SIN tocar sus lotes: el nombre queda escrito y solo se suelta
- * el vínculo (`partnerId` a null). El reparto de gramos se conserva (D-049).
+ * Borra el socio sin borrar historia: solo suelta `partnerId`; nombres y repartos
+ * permanecen en material, gastos y piedras (D-049/D-053).
  */
 export async function deleteMaterialPartner(id: string): Promise<void> {
   const updatedAt = new Date().toISOString();
 
-  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses'], (getStore) => {
+  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses', 'stoneLots'], (getStore) => {
     getStore('materialPartners').delete(id);
 
     const lots = getStore('materialLots');
@@ -429,6 +442,17 @@ export async function deleteMaterialPartner(id: string): Promise<void> {
         const expense = normalizeExpense(stored);
         if (expense.partnerId === id) {
           expenses.put({ ...expense, partnerId: null, updatedAt });
+        }
+      }
+    };
+
+    const stoneLots = getStore('stoneLots');
+    const stoneLotsRequest = stoneLots.getAll();
+    stoneLotsRequest.onsuccess = () => {
+      for (const stored of stoneLotsRequest.result as unknown[]) {
+        const lot = normalizeStoneLot(stored);
+        if (lot.partnerId === id) {
+          stoneLots.put({ ...lot, partnerId: null, updatedAt });
         }
       }
     };

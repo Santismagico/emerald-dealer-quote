@@ -23,7 +23,8 @@ describe('flujo visible de restauración', () => {
       'proveedores',
       'compradores',
       'joyas en inventario',
-      'socios de material',
+      'socios',
+      'sociedades',
       'lotes de material',
       'gastos'
     ]) {
