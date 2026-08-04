@@ -834,3 +834,36 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · E2: Excel editable (Codex) | Cierres diario/mensual y panel exportan CSV local con punto y coma, BOM UTF-8, tildes y números editables; PDF conservado; prueba física en Excel español confirmó columnas y fórmula sobre monto; 953 pruebas en 65 archivos, 337 módulos y revisión 320/390/1280 en verde; sin dependencias, datos, nube ni publicación; E3 no iniciada | E2 (este commit) |
 | 2026-08-04 | Plan v2 · E3: Consolidado con filtros (Codex) | Día/semana/mes/año; filtros combinables por sociedad y producto, incluido “Sin registrar”; comparación lado a lado por ganancia propia y rentabilidad; Excel interno sin mezclar caja; 957 pruebas en 65 archivos, 338 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; Fase F no iniciada | E3 (este commit) |
 | 2026-08-04 | Plan v2 · F1: Catálogo PDF para clientes (Codex) | Lista blanca de campos, piezas disponibles por clase, precios elegibles en cada generación, fotos reducidas, bloqueo de privacidad y peso, descarga y compartir; 970 pruebas en 66 archivos, 340 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; **plan v2 completo** | F1 (este commit) |
+
+## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
+
+Santiago probó la aplicación tras completarse el plan v2 y encontró **cuatro cosas**.
+Orden en `docs/V2_ORDEN_CORRECCIONES_SANTIAGO_R1.md`, cuatro commits.
+Decisiones **D-066 a D-069**.
+
+**Dos de los cuatro no son errores de código, son decisiones de diseño de Claude que en
+la práctica no funcionan.** Mismo antecedente de siempre: sus pruebas encuentran lo que
+las revisiones técnicas no ven.
+
+- **C1 · Excel sin formato (D-066).** Rechazó el archivo: quería una hoja presentable.
+  El CSV es texto plano y **no admite formato**; no es mejorable dentro de ese formato.
+  Se pasa a `.xlsx` real. **Se acepta la primera dependencia del proyecto**,
+  `write-excel-file`, elegida entre tres candidatas por ser la más liviana (1,8 MB frente
+  a 21,8 MB de `exceljs`), con una sola dependencia interna, MIT y pensada para el
+  navegador. Condiciones: versión exacta, **carga diferida** con el patrón que ya usa
+  Supabase, sin cambios de CSP. Se descartó escribir el generador a mano porque **ningún
+  agente puede abrir Excel** para comprobar el archivo.
+- **C2 · Todo lote se asumía comprado en bruto (D-067).** Vacío del modelo de D-055:
+  comprar piedras ya talladas obligaba a inventar una tanda con 0% de merma. Se agrega
+  `purchaseOrigin: 'bruto' | 'tallado'`. Los lotes existentes normalizan a `'bruto'` y no
+  cambian en nada.
+- **C3 · La joya vendida se pierde de vista (D-068).** `Editar venta` **sí existe**; el
+  problema es que al vender la pieza sale del filtro "En vitrina" —el puesto por
+  defecto— y la lista queda en "Sin piezas". Reproducido por Claude. Además las acciones
+  de la ficha se ven **sin borde ni fondo**: parecen texto, no botones.
+- **C4 · No se podía borrar un lote (D-069).** El bloqueo sobraba: la joya **guarda su
+  propio costo** al transformarse (`stoneJewelTransformation.ts:245`), así que borrar el
+  lote no cambia ni un peso. Se permite borrar conservando el nombre histórico del lote
+  en la joya, igual que con proveedores, compradores y socios.
+
+`main`, el piloto y el workflow **sin tocar**. Nada publicado.

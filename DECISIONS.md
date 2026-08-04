@@ -1144,3 +1144,90 @@ la opción está activa, `priceCop`. `status` y `sale` solo se consultan para ex
 apartadas y vendidas y no llegan al documento. El contenido final pasa por el detector
 sin posibilidad de continuar ante un hallazgo. No se agregó otra decisión: esta es la
 ejecución literal de D-065.
+
+## D-066 · El Excel se entrega con formato real, y por eso se acepta la primera dependencia · 2026-08-04 · Vigente
+
+Santiago probó la exportación y **rechazó el resultado**: quería una hoja presentable y
+recibió un archivo sin formato.
+
+La causa no es corregible dentro del formato elegido. El archivo actual es un **CSV**,
+que es texto plano: no admite negritas, colores, anchos de columna, formato de moneda ni
+encabezados fijos. Mejorarlo "un poco" no es posible; o se cambia de formato o se queda
+como está.
+
+Desde esta decisión los cierres, el panel y el consolidado se exportan como un
+**archivo Excel real (.xlsx)** con: dinero formateado como dinero, negativos en rojo,
+anchos de columna calculados, encabezados fijos al desplazarse, secciones distinguibles
+y totales resaltados. **Sigue siendo editable**, que era el motivo original de pedir
+Excel en vez de PDF.
+
+**Se acepta la primera dependencia de todo el proyecto**, conforme a la exigencia de
+`AGENTS.md` de justificarla por escrito. Se evaluaron tres candidatas y se eligió
+`write-excel-file` por ser la más liviana con diferencia (1,8 MB desempaquetada frente a
+21,8 MB de `exceljs`), tener **una sola dependencia interna**, licencia MIT, mantenimiento
+al día y estar pensada para el navegador. Se descartó `xlsx-js-style` por arrastrar diez
+dependencias y derivar de una base con antecedentes de vulnerabilidades.
+
+Condiciones de la aceptación, que forman parte de la decisión:
+
+- **Carga diferida**, con el mismo patrón que ya usa Supabase: la herramienta solo se
+  descarga cuando el dueño exporta, así la aplicación no se vuelve más pesada de abrir
+  ni de instalar.
+- **Versión exacta fijada**, sin rango.
+- Sin cambios en la política de seguridad del navegador ni destinos de red nuevos.
+
+Se consideró escribir el generador a mano para no depender de nadie. Se descartó por una
+razón concreta: **ningún agente puede abrir Excel para comprobar el archivo**, y un
+`.xlsx` mal formado se manifiesta como un aviso de archivo dañado. Con una librería
+probada, la corrección del contenedor deja de ser responsabilidad nuestra.
+
+## D-067 · Un lote se compra en bruto o ya tallado, y se elige al registrarlo · 2026-08-04 · Vigente
+
+Santiago encontró que la aplicación **da por hecho que todo lote se compra en bruto**.
+Comprar piedras ya talladas obligaba a inventar una tanda de talla con 0% de merma para
+que las existencias cuadraran. Es un vacío del modelo de D-055, no un error de
+implementación.
+
+Desde esta decisión, al registrar la compra se elige si el lote entró **en bruto** o **ya
+tallado**. Un lote comprado tallado entra directo a la existencia de talladas, no admite
+tandas de talla y no muestra merma, porque no la tuvo.
+
+Los lotes anteriores se normalizan como comprados **en bruto**, así que conservan
+exactamente las mismas existencias, el mismo dinero y el mismo resultado que hoy.
+
+## D-068 · Ningún registro queda fuera de alcance por un filtro · 2026-08-04 · Vigente
+
+Santiago reportó que **no podía editar la venta de una joya**. La revisión mostró que la
+función existía: el problema es que, al vender, la pieza sale del filtro "En vitrina"
+—que es el que está puesto por defecto— y **desaparece de la vista**. Desde el lado del
+dueño, una función que no se puede alcanzar es una función que no existe.
+
+Desde esta decisión, **registrar algo nunca hace que ese algo se pierda de vista**. Tras
+una venta, la aplicación deja visible la pieza recién vendida y ofrece llegar a ella, en
+vez de devolver una lista vacía.
+
+Además, las acciones sobre un registro —editar, deshacer, eliminar— **deben verse como
+acciones**. Las de la ficha de joya se presentaban como texto sin borde ni fondo, lo que
+para el dueño no se lee como algo que se pueda tocar.
+
+## D-069 · Un lote se puede borrar; su historia se conserva en la joya · 2026-08-04 · Vigente
+
+Santiago no pudo eliminar un lote porque una de sus piedras estaba en una joya ya
+vendida. El bloqueo pretendía proteger la historia, pero dejaba al dueño sin salida ante
+un lote creado por error.
+
+La protección resulta innecesaria: cuando una piedra pasa a una joya, **la joya guarda su
+propio costo** (`jewel.costCop` se incrementa al transformar). Borrar el lote no cambia
+ni un peso del costo, del resultado ni de ningún cierre.
+
+Desde esta decisión, un lote **se puede eliminar** aunque respalde piedras usadas en
+joyas. Al hacerlo:
+
+- El aviso dice con claridad qué se pierde: la trazabilidad hacia ese lote.
+- La joya **conserva el nombre histórico del lote** y su costo, exactamente como ya
+  ocurre al borrar un proveedor, un comprador o un socio (D-043, D-049).
+- **Ningún dinero cambia** en ninguna pantalla ni en ningún cierre.
+
+Sigue vigente la protección que sí tiene sentido: no se pueden alterar los datos físicos
+de una tanda ya regresada cuyo producto se vendió (Fase C). Proteger un dato es distinto
+de impedir borrar un registro completo con aviso.
