@@ -296,12 +296,12 @@ recorrido real en navegador a 320/375/1280 px. **Veredicto: APROBADO.** Informe 
 **D-059** (la tasa del dólar se reutiliza de la fuente del oro en vez de
 duplicarla).
 
-**Riesgo residual declarado, decisión de Santiago:** la prueba N6 real entre dos
-cuentas no se pudo ejecutar (exige credenciales que un agente no debe manejar). El
-aislamiento de las tablas y campos nuevos está verificado **por revisión de
-código**, no de extremo a extremo. Es el mismo riesgo que Santiago aceptó en la
-ampliación de inventario anterior; una aceptación previa no se extiende sola a un
-lote nuevo.
+**Riesgo residual declarado:** la prueba N6 real entre dos cuentas no se pudo
+ejecutar (exige credenciales que un agente no debe manejar). El aislamiento de las
+tablas y campos nuevos está verificado **por revisión de código**, no de extremo a
+extremo. **Santiago decidió el 2026-08-04 resolverlo en el momento de publicar**,
+no ahora: no bloquea la construcción y se decide con todo terminado. Sigue abierto
+y debe volver a plantearse antes de cualquier publicación.
 
 **Fase C entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_C.md`, dos
 etapas en dos commits. Es la de **riesgo alto**: cambia el comportamiento del

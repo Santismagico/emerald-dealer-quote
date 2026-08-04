@@ -110,6 +110,14 @@ muestra una merma inventada: se muestra que todavía no hay dato.
 
 ### 2.6 El dinero
 
+Santiago subrayó (2026-08-04) que **el costo del proceso de talla es
+indispensable para costear**, no un dato opcional. Trátalo como parte central de
+la etapa, no como un campo más del formulario.
+
+**Terminología:** tallar es el único proceso que se cobra. Santiago confirmó que
+lo que llamó "cooking" es exactamente tallar; **no existe un segundo proceso
+aparte** que haya que modelar.
+
 - **El costo de la talla sale de caja el día en que se pagó** (`cuttingPaidDate`),
   no el día en que se envió. Coherente con D-045. Si aún no se ha pagado, no sale
   de caja.
@@ -118,6 +126,11 @@ muestra una merma inventada: se muestra que todavía no hay dato.
 - **El reparto con el socio (D-053) se calcula sobre ese resultado nuevo.** El
   costo de talla es parte del negocio compartido. Verifica que la suma de las
   partes siga siendo exactamente igual al total.
+- **Debe verse, no solo guardarse.** En la ficha del lote tiene que quedar
+  visible: cuánto costó cada tanda, cuánto llevas invertido en total en ese lote
+  (compra + tallas pagadas) y cómo eso cambia el resultado. Un costo guardado que
+  el dueño no puede leer no sirve para costear.
+- El costo de talla es **interno**: nunca llega a un documento del cliente.
 
 ### 2.7 Verificación de C1
 
