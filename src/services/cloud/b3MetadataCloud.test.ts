@@ -63,6 +63,7 @@ function stoneLot(usdRate: number | null = 4100): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [{
       id: 'sale-b3',
@@ -71,6 +72,7 @@ function stoneLot(usdRate: number | null = 4100): StoneLot {
       buyerId: null,
       carats: 1,
       quantity: 1,
+      origin: 'bruto',
       valueCop: 2000000,
       productType: usdRate === null ? '' : 'Esmeralda tallada',
       usdRate,

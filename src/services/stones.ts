@@ -4,7 +4,7 @@
 // ventas; nunca existe un contador guardado a mano. Todo es interno (COP
 // entero): ninguna piedra ni precio entra en canales de cliente.
 
-import type { BuyerPayment, StoneLot, StoneSale, SupplierPayment } from '../types';
+import type { BuyerPayment, CuttingBatch, StoneLot, StoneSale, SupplierPayment } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
@@ -44,8 +44,29 @@ export interface StoneLotSummary {
   lot: StoneLot;
   soldCarats: number;
   soldQuantity: number;
+  soldRawCarats: number;
+  soldRawQuantity: number;
+  soldCutCarats: number;
+  soldCutQuantity: number;
   /** COP recibido por las ventas del lote. */
   soldValue: number;
+  sentToCutCarats: number;
+  sentToCutQuantity: number;
+  inCuttingCarats: number;
+  inCuttingQuantity: number;
+  returnedCutCarats: number;
+  returnedCutQuantity: number;
+  rawAvailableCarats: number;
+  rawAvailableQuantity: number;
+  cutAvailableCarats: number;
+  cutAvailableQuantity: number;
+  /** Merma ponderada de las tandas regresadas. null mientras no haya dato real. */
+  cuttingLossRatio: number | null;
+  totalCuttingCost: number;
+  paidCuttingCost: number;
+  unpaidCuttingCost: number;
+  /** Compra + tallas que ya salieron de caja. */
+  totalInvested: number;
   remainingCarats: number;
   remainingQuantity: number;
   /** true cuando ya no quedan piedras ni quilates por vender. */
@@ -67,12 +88,23 @@ export interface StoneLotSummary {
 export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   let soldCarats = 0;
   let soldQuantity = 0;
+  let soldRawCarats = 0;
+  let soldRawQuantity = 0;
+  let soldCutCarats = 0;
+  let soldCutQuantity = 0;
   let soldValue = 0;
   let receivedFromBuyers = 0;
   let buyersDebt = 0;
   for (const sale of lot.sales) {
     soldCarats += sale.carats;
     soldQuantity += sale.quantity;
+    if (sale.origin === 'tallado') {
+      soldCutCarats += sale.carats;
+      soldCutQuantity += sale.quantity;
+    } else {
+      soldRawCarats += sale.carats;
+      soldRawQuantity += sale.quantity;
+    }
     // `soldValue` es el precio ACORDADO: así el resultado del lote no cambia de
     // significado por vender a crédito. El dinero real va aparte (D-042).
     soldValue += toSafeCOP(sale.valueCop);
@@ -81,25 +113,83 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     buyersDebt += summary.balanceCop;
   }
   soldCarats = round3(soldCarats);
-  const remainingCarats = round3(lot.carats - soldCarats);
-  const remainingQuantity = lot.quantity - soldQuantity;
+  soldRawCarats = round3(soldRawCarats);
+  soldCutCarats = round3(soldCutCarats);
+
+  let sentToCutCarats = 0;
+  let sentToCutQuantity = 0;
+  let inCuttingCarats = 0;
+  let inCuttingQuantity = 0;
+  let returnedCutCarats = 0;
+  let returnedCutQuantity = 0;
+  let returnedSentCarats = 0;
+  let totalCuttingCost = 0;
+  let paidCuttingCost = 0;
+  for (const batch of lot.cuttingBatches ?? []) {
+    sentToCutCarats += batch.sentCarats;
+    sentToCutQuantity += batch.sentQuantity;
+    totalCuttingCost += toSafeCOP(batch.cuttingCostCop);
+    if (batch.cuttingPaidDate) paidCuttingCost += toSafeCOP(batch.cuttingCostCop);
+    if (batch.returnedDate) {
+      returnedSentCarats += batch.sentCarats;
+      returnedCutCarats += batch.returnedCarats;
+      returnedCutQuantity += batch.returnedQuantity;
+    } else {
+      inCuttingCarats += batch.sentCarats;
+      inCuttingQuantity += batch.sentQuantity;
+    }
+  }
+  sentToCutCarats = round3(sentToCutCarats);
+  inCuttingCarats = round3(inCuttingCarats);
+  returnedCutCarats = round3(returnedCutCarats);
+  returnedSentCarats = round3(returnedSentCarats);
+
+  const rawAvailableCarats = round3(lot.carats - sentToCutCarats - soldRawCarats);
+  const rawAvailableQuantity = lot.quantity - sentToCutQuantity - soldRawQuantity;
+  const cutAvailableCarats = round3(returnedCutCarats - soldCutCarats);
+  const cutAvailableQuantity = returnedCutQuantity - soldCutQuantity;
+  const remainingCarats = round3(rawAvailableCarats + inCuttingCarats + cutAvailableCarats);
+  const remainingQuantity = rawAvailableQuantity + inCuttingQuantity + cutAvailableQuantity;
 
   let paidToSupplier = 0;
   for (const payment of lot.supplierPayments) {
     paidToSupplier += toSafeCOP(payment.amount);
   }
   const purchaseValue = toSafeCOP(lot.purchaseValueCop);
+  const totalInvested = purchaseValue + paidCuttingCost;
   const supplierDebt = lot.onCredit ? Math.max(0, purchaseValue - paidToSupplier) : 0;
 
   return {
     lot,
     soldCarats,
     soldQuantity,
+    soldRawCarats,
+    soldRawQuantity,
+    soldCutCarats,
+    soldCutQuantity,
     soldValue,
+    sentToCutCarats,
+    sentToCutQuantity,
+    inCuttingCarats,
+    inCuttingQuantity,
+    returnedCutCarats,
+    returnedCutQuantity,
+    rawAvailableCarats,
+    rawAvailableQuantity,
+    cutAvailableCarats,
+    cutAvailableQuantity,
+    cuttingLossRatio:
+      returnedSentCarats > 0
+        ? (returnedSentCarats - returnedCutCarats) / returnedSentCarats
+        : null,
+    totalCuttingCost,
+    paidCuttingCost,
+    unpaidCuttingCost: Math.max(0, totalCuttingCost - paidCuttingCost),
+    totalInvested,
     remainingCarats,
     remainingQuantity,
     exhausted: remainingCarats <= 0 && remainingQuantity <= 0,
-    result: soldValue - purchaseValue,
+    result: soldValue - totalInvested,
     paidToSupplier,
     supplierDebt,
     creditSettled: lot.onCredit && supplierDebt <= 0,
@@ -119,7 +209,7 @@ export interface StonePartnershipSummary {
 export function summarizeStonePartnership(lot: StoneLot): StonePartnershipSummary {
   const summary = summarizeStoneLot(lot);
   const shared = lot.partnerId !== null || lot.partnerName.trim().length > 0;
-  const realResult = summary.receivedFromBuyers - toSafeCOP(lot.purchaseValueCop);
+  const realResult = summary.receivedFromBuyers - summary.totalInvested;
   const myPercent = shared ? lot.myPercent : 100;
   // El socio recibe la parte truncada y el peso residual queda siempre del lado
   // propio. Esto conserva la suma exacta tanto en ganancias como en pérdidas.
@@ -213,6 +303,42 @@ export function validateStoneLotSalesMetadata(
 ): string | null {
   const lot = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   if (!Array.isArray(lot.sales)) return 'Las ventas del lote no son válidas.';
+  const hasCuttingBatches = Object.prototype.hasOwnProperty.call(lot, 'cuttingBatches');
+  if (hasCuttingBatches && !Array.isArray(lot.cuttingBatches)) {
+    return 'Las tandas de talla del lote no son válidas.';
+  }
+  if (!hasCuttingBatches && (previous?.cuttingBatches.length ?? 0) > 0) {
+    return 'Esta versión no conserva las tandas de talla ya registradas.';
+  }
+  const rawBatches = Array.isArray(lot.cuttingBatches) ? lot.cuttingBatches : [];
+  const batchIds = new Set<string>();
+  for (const value of rawBatches) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return 'El lote contiene una tanda de talla inválida.';
+    }
+    const batch = value as Record<string, unknown>;
+    const id = typeof batch.id === 'string' ? batch.id.trim() : '';
+    if (!id || batchIds.has(id)) return 'El lote contiene tandas de talla repetidas o sin identificar.';
+    batchIds.add(id);
+    if (
+      typeof batch.sentDate !== 'string' ||
+      typeof batch.sentCarats !== 'number' ||
+      !Number.isFinite(batch.sentCarats) ||
+      typeof batch.sentQuantity !== 'number' ||
+      !Number.isInteger(batch.sentQuantity) ||
+      typeof batch.returnedDate !== 'string' ||
+      typeof batch.returnedCarats !== 'number' ||
+      !Number.isFinite(batch.returnedCarats) ||
+      typeof batch.returnedQuantity !== 'number' ||
+      !Number.isInteger(batch.returnedQuantity) ||
+      typeof batch.cuttingCostCop !== 'number' ||
+      !Number.isInteger(batch.cuttingCostCop) ||
+      typeof batch.cuttingPaidDate !== 'string' ||
+      typeof batch.notes !== 'string'
+    ) {
+      return 'El lote contiene datos inválidos en una tanda de talla.';
+    }
+  }
   const sales = lot.sales;
   for (const value of sales) {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -221,6 +347,19 @@ export function validateStoneLotSalesMetadata(
     const sale = value as Record<string, unknown>;
     const id = typeof sale.id === 'string' ? sale.id : '';
     const previousSale = previous?.sales.find((candidate) => candidate.id === id);
+    if (
+      previousSale?.origin === 'tallado' &&
+      !Object.prototype.hasOwnProperty.call(sale, 'origin')
+    ) {
+      return 'Esta versión no conserva el origen tallado de una venta existente.';
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(sale, 'origin') &&
+      sale.origin !== 'bruto' &&
+      sale.origin !== 'tallado'
+    ) {
+      return 'El origen de la venta no es válido.';
+    }
     if (
       Object.prototype.hasOwnProperty.call(sale, 'productType') &&
       typeof sale.productType !== 'string'
@@ -266,6 +405,165 @@ export function validateStoneLotSalesMetadata(
     }
   }
   return null;
+}
+
+/** Valida una tanda antes de agregarla o reemplazarla dentro de su lote. */
+export function validateCuttingBatch(
+  lot: StoneLot,
+  batch: CuttingBatch,
+  excludeBatchId?: string
+): string | null {
+  if (!isValidISODate(batch.sentDate)) return 'La tanda necesita una fecha de envío válida.';
+  if (batch.sentDate < lot.purchaseDate) {
+    return 'No puedes enviar a talla antes de la compra del lote.';
+  }
+  if (!Number.isFinite(batch.sentCarats) || batch.sentCarats < 0) {
+    return 'Los quilates enviados no son válidos.';
+  }
+  if (!Number.isInteger(batch.sentQuantity) || batch.sentQuantity < 0) {
+    return 'El número de piedras enviadas debe ser un entero válido.';
+  }
+  if (batch.sentCarats <= 0) return 'Indica cuántos quilates enviaste a talla.';
+  if (batch.sentQuantity <= 0) return 'Indica cuántas piedras enviaste a talla.';
+  if (!Number.isFinite(batch.returnedCarats) || batch.returnedCarats < 0) {
+    return 'Los quilates que regresaron no son válidos.';
+  }
+  if (!Number.isInteger(batch.returnedQuantity) || batch.returnedQuantity < 0) {
+    return 'El número de piezas que regresaron debe ser un entero válido.';
+  }
+  if (!Number.isInteger(batch.cuttingCostCop) || batch.cuttingCostCop < 0) {
+    return 'El costo de talla debe guardarse en pesos enteros.';
+  }
+  if (!batch.returnedDate) {
+    if (batch.returnedCarats > 0 || batch.returnedQuantity > 0) {
+      return 'Una tanda pendiente no puede tener resultado de regreso.';
+    }
+  } else {
+    if (!isValidISODate(batch.returnedDate)) return 'La fecha de regreso no es válida.';
+    if (batch.returnedDate < batch.sentDate) {
+      return 'La tanda no puede regresar antes de haber sido enviada.';
+    }
+    if (batch.returnedCarats > batch.sentCarats) {
+      return 'La talla nunca puede devolver más quilates de los enviados.';
+    }
+  }
+  if (batch.cuttingPaidDate) {
+    if (!isValidISODate(batch.cuttingPaidDate)) return 'La fecha de pago de la talla no es válida.';
+    if (batch.cuttingPaidDate < batch.sentDate) {
+      return 'La talla no puede pagarse antes de enviar la tanda.';
+    }
+    if (batch.cuttingCostCop <= 0) return 'Indica el costo antes de marcar la talla como pagada.';
+  }
+
+  const others = lot.cuttingBatches.filter((candidate) => candidate.id !== excludeBatchId);
+  const available = summarizeStoneLot({ ...lot, cuttingBatches: others });
+  if (round3(batch.sentCarats) > round3(available.rawAvailableCarats)) {
+    return `El lote solo tiene ${available.rawAvailableCarats} ct en bruto disponibles.`;
+  }
+  if (batch.sentQuantity > available.rawAvailableQuantity) {
+    return `El lote solo tiene ${available.rawAvailableQuantity} piedra(s) en bruto disponibles.`;
+  }
+  return null;
+}
+
+function returnedBatchInventoryChanged(
+  previous: CuttingBatch,
+  next: CuttingBatch | undefined
+): boolean {
+  return (
+    !next ||
+    previous.sentDate !== next.sentDate ||
+    previous.sentCarats !== next.sentCarats ||
+    previous.sentQuantity !== next.sentQuantity ||
+    previous.returnedDate !== next.returnedDate ||
+    previous.returnedCarats !== next.returnedCarats ||
+    previous.returnedQuantity !== next.returnedQuantity
+  );
+}
+
+/**
+ * Defensa completa de existencias para almacenamiento, nube e importaciones.
+ * La pantalla usa validaciones específicas, pero ninguna escritura puede
+ * confiar únicamente en la pantalla (regla 6.4.14).
+ */
+export function validateStoneLotInventory(
+  lot: StoneLot,
+  previous?: StoneLot | null
+): string | null {
+  if (!Array.isArray(lot.cuttingBatches)) return 'Las tandas de talla no son válidas.';
+  if (!Array.isArray(lot.sales)) return 'Las ventas del lote no son válidas.';
+  if (new Set(lot.cuttingBatches.map((batch) => batch.id)).size !== lot.cuttingBatches.length) {
+    return 'El lote contiene tandas de talla repetidas.';
+  }
+  for (const sale of lot.sales) {
+    if (sale.origin !== 'bruto' && sale.origin !== 'tallado') {
+      return 'El origen de una venta de piedras no es válido.';
+    }
+  }
+  for (const batch of lot.cuttingBatches) {
+    const error = validateCuttingBatch(lot, batch, batch.id);
+    if (error) return error;
+  }
+
+  const summary = summarizeStoneLot(lot);
+  if (summary.rawAvailableCarats < 0 || summary.rawAvailableQuantity < 0) {
+    return 'Las salidas en bruto superan las existencias compradas del lote.';
+  }
+  if (summary.cutAvailableCarats < 0 || summary.cutAvailableQuantity < 0) {
+    return 'Las ventas talladas superan lo que ya regresó de talla.';
+  }
+
+  if (previous) {
+    const talladoAlreadyUsed =
+      previous.sales.some((sale) => sale.origin === 'tallado') ||
+      lot.sales.some((sale) => sale.origin === 'tallado');
+    if (talladoAlreadyUsed) {
+      for (const oldBatch of previous.cuttingBatches) {
+        if (!oldBatch.returnedDate) continue;
+        const nextBatch = lot.cuttingBatches.find((candidate) => candidate.id === oldBatch.id);
+        if (returnedBatchInventoryChanged(oldBatch, nextBatch)) {
+          return 'Esta tanda ya regresó y parte de lo tallado ya se vendió; cambiar sus datos físicos borraría el origen de esas ventas.';
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Copia del lote con una tanda agregada o reemplazada. */
+export function withCuttingBatch(lot: StoneLot, batch: CuttingBatch, nowIso: string): StoneLot {
+  const exists = lot.cuttingBatches.some((candidate) => candidate.id === batch.id);
+  return {
+    ...lot,
+    cuttingBatches: exists
+      ? lot.cuttingBatches.map((candidate) => (candidate.id === batch.id ? batch : candidate))
+      : [...lot.cuttingBatches, batch],
+    updatedAt: nowIso
+  };
+}
+
+/** Copia del lote sin una tanda. La validación decide si el historial permite borrarla. */
+export function withoutCuttingBatch(lot: StoneLot, batchId: string, nowIso: string): StoneLot {
+  return {
+    ...lot,
+    cuttingBatches: lot.cuttingBatches.filter((batch) => batch.id !== batchId),
+    updatedAt: nowIso
+  };
+}
+
+export function emptyCuttingBatch(today: string): CuttingBatch {
+  return {
+    id: newId(),
+    sentDate: today,
+    sentCarats: 0,
+    sentQuantity: 1,
+    returnedDate: '',
+    returnedCarats: 0,
+    returnedQuantity: 0,
+    cuttingCostCop: 0,
+    cuttingPaidDate: '',
+    notes: ''
+  };
 }
 
 /**
@@ -331,6 +629,7 @@ export function validateStoneLotPurchaseUpdate(
           sale.buyerId !== candidate.buyerId ||
           sale.carats !== candidate.carats ||
           sale.quantity !== candidate.quantity ||
+          sale.origin !== candidate.origin ||
           sale.valueCop !== candidate.valueCop ||
           sale.productType !== candidate.productType ||
           sale.usdRate !== candidate.usdRate ||
@@ -343,6 +642,9 @@ export function validateStoneLotPurchaseUpdate(
       });
     if (salesChanged) {
       return 'Las ventas existentes no se pueden borrar ni cambiar desde la edición de la compra.';
+    }
+    if (JSON.stringify(previous.cuttingBatches) !== JSON.stringify(next.cuttingBatches)) {
+      return 'Las tandas de talla no se pueden cambiar desde la edición de la compra.';
     }
   }
 
@@ -407,6 +709,12 @@ export interface StoneInventoryEntry {
   activeLots: number;
   remainingCarats: number;
   remainingQuantity: number;
+  rawAvailableCarats: number;
+  rawAvailableQuantity: number;
+  inCuttingCarats: number;
+  inCuttingQuantity: number;
+  cutAvailableCarats: number;
+  cutAvailableQuantity: number;
 }
 
 function typeKey(stoneType: string): string {
@@ -425,11 +733,27 @@ export function stonesInventory(lots: readonly StoneLot[]): StoneInventoryEntry[
         stoneType: lot.stoneType.trim() || 'Sin especificar',
         activeLots: 0,
         remainingCarats: 0,
-        remainingQuantity: 0
+        remainingQuantity: 0,
+        rawAvailableCarats: 0,
+        rawAvailableQuantity: 0,
+        inCuttingCarats: 0,
+        inCuttingQuantity: 0,
+        cutAvailableCarats: 0,
+        cutAvailableQuantity: 0
       };
     entry.activeLots += 1;
     entry.remainingCarats = round3(entry.remainingCarats + Math.max(0, summary.remainingCarats));
     entry.remainingQuantity += Math.max(0, summary.remainingQuantity);
+    entry.rawAvailableCarats = round3(
+      entry.rawAvailableCarats + Math.max(0, summary.rawAvailableCarats)
+    );
+    entry.rawAvailableQuantity += Math.max(0, summary.rawAvailableQuantity);
+    entry.inCuttingCarats = round3(entry.inCuttingCarats + Math.max(0, summary.inCuttingCarats));
+    entry.inCuttingQuantity += Math.max(0, summary.inCuttingQuantity);
+    entry.cutAvailableCarats = round3(
+      entry.cutAvailableCarats + Math.max(0, summary.cutAvailableCarats)
+    );
+    entry.cutAvailableQuantity += Math.max(0, summary.cutAvailableQuantity);
     byType.set(key, entry);
   }
   return [...byType.values()].sort((a, b) =>
@@ -441,6 +765,8 @@ export function stonesInventory(lots: readonly StoneLot[]): StoneInventoryEntry[
 export interface StonesFlow {
   /** COP invertido comprando lotes (contado + crédito). */
   totalSpent: number;
+  /** COP pagado por tandas de talla. Ya está incluido en totalSpent. */
+  totalCuttingPaid: number;
   /** COP vendido al PRECIO ACORDADO, haya entrado o no (D-042). */
   totalEarned: number;
   /** COP realmente recibido: contado completo + abonos de las ventas a crédito. */
@@ -457,14 +783,16 @@ export interface StonesFlow {
 
 export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   let totalSpent = 0;
+  let totalCuttingPaid = 0;
   let totalEarned = 0;
   let totalReceived = 0;
   let totalDebt = 0;
   let totalReceivable = 0;
   let saleCount = 0;
   for (const lot of lots) {
-    totalSpent += toSafeCOP(lot.purchaseValueCop);
     const summary = summarizeStoneLot(lot);
+    totalSpent += summary.totalInvested;
+    totalCuttingPaid += summary.paidCuttingCost;
     totalDebt += summary.supplierDebt;
     totalReceived += summary.receivedFromBuyers;
     totalReceivable += summary.buyersDebt;
@@ -475,6 +803,7 @@ export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   }
   return {
     totalSpent,
+    totalCuttingPaid,
     totalEarned,
     totalReceived,
     balance: totalEarned - totalSpent,
@@ -553,6 +882,9 @@ export function validateStoneSale(
   const previousSale = excludeSaleId
     ? lot.sales.find((candidate) => candidate.id === excludeSaleId)
     : undefined;
+  if (sale.origin !== 'bruto' && sale.origin !== 'tallado') {
+    return 'Elige si la venta sale de piedra en bruto o tallada.';
+  }
   if (!previousSale && !sale.productType.trim()) return 'Elige el tipo de producto.';
   const rateError = validateOptionalUsdRate(sale.usdRate);
   if (rateError) return rateError;
@@ -604,11 +936,16 @@ export function validateStoneSale(
 
   const others = lot.sales.filter((s) => s.id !== excludeSaleId);
   const summary = summarizeStoneLot({ ...lot, sales: others });
-  if (sale.quantity > summary.remainingQuantity) {
-    return `El lote solo tiene ${summary.remainingQuantity} piedra(s) disponible(s).`;
+  const availableQuantity =
+    sale.origin === 'tallado' ? summary.cutAvailableQuantity : summary.rawAvailableQuantity;
+  const availableCarats =
+    sale.origin === 'tallado' ? summary.cutAvailableCarats : summary.rawAvailableCarats;
+  const label = sale.origin === 'tallado' ? 'tallada(s)' : 'en bruto';
+  if (sale.quantity > availableQuantity) {
+    return `El lote solo tiene ${availableQuantity} piedra(s) ${label} disponible(s).`;
   }
-  if (round3(sale.carats) > round3(summary.remainingCarats)) {
-    return `El lote solo tiene ${summary.remainingCarats} ct disponibles.`;
+  if (round3(sale.carats) > round3(availableCarats)) {
+    return `El lote solo tiene ${availableCarats} ct ${label} disponibles.`;
   }
   return null;
 }
@@ -734,6 +1071,7 @@ export function emptyStoneLot(today: string, nowIso: string): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [],
     createdAt: nowIso,
@@ -750,6 +1088,7 @@ export function emptyStoneSale(today: string, usdRate: number | null = null): St
     buyerId: null,
     carats: 0,
     quantity: 1,
+    origin: 'bruto',
     valueCop: 0,
     productType: '',
     usdRate,

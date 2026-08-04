@@ -45,7 +45,11 @@ import {
   normalizeExpense
 } from './schema';
 import { validateExpense } from './expenses';
-import { validateStoneLotOwnership, validateStoneLotSalesMetadata } from './stones';
+import {
+  validateStoneLotInventory,
+  validateStoneLotOwnership,
+  validateStoneLotSalesMetadata
+} from './stones';
 import { validateStockJewelSaleMetadata } from './stockJewels';
 import { validateOptionalUsdRate } from './currency';
 import { validateSettingsMetadata } from './settingsMetadata';
@@ -230,6 +234,10 @@ function normalizeBackup(data: unknown): BackupFile {
     const metadataError = validateStoneLotSalesMetadata(l);
     if (metadataError) {
       throw new Error(`El respaldo contiene ventas de piedras inválidas: ${metadataError}`);
+    }
+    const inventoryError = validateStoneLotInventory(normalizeStoneLot(l));
+    if (inventoryError) {
+      throw new Error(`El respaldo contiene existencias de piedras inválidas: ${inventoryError}`);
     }
     stoneLotIds.add(id);
   }

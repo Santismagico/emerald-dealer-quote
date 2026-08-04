@@ -407,6 +407,23 @@ export interface MaterialLot {
  * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
  * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
  */
+/** Tanda parcial enviada a talla dentro de un lote de piedras (D-055). */
+export interface CuttingBatch {
+  id: string;
+  sentDate: string;
+  sentCarats: number;
+  sentQuantity: number;
+  returnedDate: string;
+  returnedCarats: number;
+  /** Puede superar sentQuantity si una piedra se divide durante la talla. */
+  returnedQuantity: number;
+  /** Costo total de esta talla, COP entero. */
+  cuttingCostCop: number;
+  /** Fecha en que el costo salió de caja; vacía mientras no se pague. */
+  cuttingPaidDate: string;
+  notes: string;
+}
+
 export interface StoneSale {
   id: string;
   /** Fecha de la venta (YYYY-MM-DD). */
@@ -419,6 +436,8 @@ export interface StoneSale {
   carats: number;
   /** Número de piedras vendidas. */
   quantity: number;
+  /** Existencia física de la que salió la venta (D-055). */
+  origin: 'bruto' | 'tallado';
   /**
    * Precio TOTAL acordado de la venta, en COP entero. De contado equivale a lo
    * recibido; a crédito lo recibido es la suma de `payments` (D-042).
@@ -478,6 +497,8 @@ export interface StoneLot {
   onCredit: boolean;
   /** Pagos hechos al proveedor de este lote (aplican cuando es a crédito). */
   supplierPayments: SupplierPayment[];
+  /** Envíos parciales a talla, en el orden en que se registraron. */
+  cuttingBatches: CuttingBatch[];
   notes: string;
   /** Ventas del lote, en el orden en que se registraron. */
   sales: StoneSale[];

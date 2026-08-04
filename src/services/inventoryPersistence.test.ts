@@ -74,6 +74,7 @@ function loteConCredito(overrides: Partial<StoneLot> = {}): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [
       {
@@ -83,6 +84,7 @@ function loteConCredito(overrides: Partial<StoneLot> = {}): StoneLot {
         buyerId: 'buy-1',
         carats: 1,
         quantity: 1,
+        origin: 'bruto',
         valueCop: 3000000,
         productType: '',
         usdRate: null,
@@ -330,6 +332,7 @@ describe('el historial nunca se pierde por borrar un comprador (D-043)', () => {
             buyerId: 'buy-2',
             carats: 1,
             quantity: 1,
+            origin: 'bruto',
             valueCop: 1000000,
             productType: '',
             usdRate: null,
@@ -487,6 +490,7 @@ describe('respaldo v6', () => {
       buyerId: null,
       carats: 1,
       quantity: 1,
+      origin: 'bruto' as const,
       valueCop: 2000000,
       productType: '',
       usdRate: null,

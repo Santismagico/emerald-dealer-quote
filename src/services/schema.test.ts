@@ -261,6 +261,7 @@ describe('normalizeStoneLot', () => {
       myPercent: 60,
       onCredit: false,
       supplierPayments: [],
+      cuttingBatches: [],
       notes: '',
       sales: [
         {
@@ -270,6 +271,7 @@ describe('normalizeStoneLot', () => {
           buyerId: null,
           carats: 1,
           quantity: 1,
+          origin: 'bruto',
           valueCop: 2000000,
           productType: '',
           usdRate: null,

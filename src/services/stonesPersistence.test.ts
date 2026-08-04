@@ -59,6 +59,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [
       {
@@ -67,6 +68,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
         buyer: 'Comprador Ciudad Ejemplo',
         carats: 1,
         quantity: 1,
+        origin: 'bruto',
         valueCop: 2000000,
         productType: '',
         usdRate: null,

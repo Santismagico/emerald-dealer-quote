@@ -34,6 +34,7 @@ import {
 import { compareAppointments } from './agenda';
 import {
   compareStoneLots,
+  validateStoneLotInventory,
   validateStoneLotOwnership,
   validateStoneLotSalesMetadata
 } from './stones';
@@ -203,7 +204,10 @@ export async function saveStoneLot(lot: StoneLot): Promise<void> {
   const previous = stored === undefined ? null : normalizeStoneLot(stored);
   const metadataError = validateStoneLotSalesMetadata(lot, previous);
   if (metadataError) throw new Error(metadataError);
-  await dbPut('stoneLots', normalizeStoneLot(lot));
+  const normalized = normalizeStoneLot(lot);
+  const inventoryError = validateStoneLotInventory(normalized, previous);
+  if (inventoryError) throw new Error(inventoryError);
+  await dbPut('stoneLots', normalized);
 }
 
 export async function deleteStoneLot(id: string): Promise<void> {

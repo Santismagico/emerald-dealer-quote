@@ -870,6 +870,19 @@ El lote pasa a tener dos existencias —lo que sigue en bruto y lo ya tallado y
 disponible—, y cada venta declara de cuál sale. Un lote sin tandas se comporta
 exactamente como hoy.
 
+Implementación C1 (2026-08-04): además se muestra por separado lo que está **en
+talla**. La merma promedio del lote se pondera por los quilates enviados, para
+que una tanda pequeña no pese lo mismo que una grande. El costo de talla queda
+pendiente hasta registrar su fecha de pago; solo entonces aumenta la inversión
+del lote y sale en el cierre de caja.
+
+Cuando ya existe una venta tallada, quedan congelados los datos físicos de toda
+tanda que ya regresó —fechas, piedras y quilates enviados/devueltos— y tampoco
+puede borrarse. El costo, su fecha de pago y las notas sí pueden completarse
+después: bloquearlos impediría pagar una talla que se vendió antes de saldar al
+tallador. Esta excepción no cambia existencias y queda protegida por pruebas en
+el dispositivo y por la migración de la nube.
+
 ## D-056 · Cambiar fantasía por natural descuenta del inventario de piedras · 2026-08-03 · Vigente
 
 Es práctica común del negocio comprar una joya terminada con **piedra de fantasía** y

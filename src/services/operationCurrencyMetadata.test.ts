@@ -12,6 +12,7 @@ function stoneSale(overrides: Partial<StoneSale> = {}): StoneSale {
     buyerId: null,
     carats: 1,
     quantity: 1,
+    origin: 'bruto',
     valueCop: 2_000_000,
     productType: 'Esmeralda tallada',
     usdRate: 4_000,

@@ -54,6 +54,7 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
     supplierPayments: [
       { id: 'pay-1', date: '2026-07-16', amount: 1000000, notes: 'Transferencia' }
     ],
+    cuttingBatches: [],
     notes: '',
     sales: [
       {
@@ -62,6 +63,7 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
         buyer: 'Cliente interno',
         carats: 0.5,
         quantity: 1,
+        origin: 'bruto',
         valueCop: 1500000,
         productType: '',
         usdRate: null,

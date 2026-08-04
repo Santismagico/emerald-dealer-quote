@@ -275,8 +275,8 @@ arriba. **Inicio reemplaza a "Más"** en la barra inferior, que queda en Inicio 
 Cotizador · Taller · Agenda · Inventario (siguen siendo cinco, D-046). Registrado
 en D-052.
 
-**No quedan decisiones abiertas.** A1, B1, B2 y B3 ya fueron implementadas. La
-Fase C no se inició y conserva su orden independiente de riesgo alto.
+**No quedan decisiones abiertas.** A1, B1, B2, B3 y C1 ya fueron implementadas.
+C2 es la única etapa pendiente de la Fase C y conserva su riesgo alto.
 
 **Orden de trabajo entregada a Codex:**
 `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
@@ -396,7 +396,23 @@ Recorrido visual B3 completado en 320, 390 y 1280 px: sin desbordamiento,
 botones de al menos 44 px, tipos largos conservados, tasa manual fija después de
 guardar, conversión individual a USD y regreso a COP tras recargar. Sin errores
 visibles ni errores de consola.
-No se inició la Fase C. `main`, el enlace del piloto y el workflow de despliegue no
+
+**C1 implementada el 2026-08-04 (Codex):** cada lote admite tandas parciales de
+talla, con envío, regreso real, merma derivada, costo pendiente o pagado y notas.
+Las existencias separan bruto, en talla y tallado; cada venta elige su origen y
+los datos físicos que ya respaldan ventas talladas quedan protegidos. Lotes y
+ventas anteriores conservan exactamente su comportamiento histórico.
+
+El costo de talla solo aumenta la inversión y sale de caja cuando tiene fecha de
+pago. Resultado y reparto incluyen ese costo sin perder un peso. La cadena local,
+respaldo v8 y sincronización validan antes de normalizar; la migración SQL aditiva
+preparada conserva el aislamiento por organización y rechaza sobreenvíos,
+sobreventas y cambios físicos incompatibles. No fue aplicada a producción.
+
+Verificación C1: **858 pruebas en 58 archivos**, comprobación PWA, compilación de
+**332 módulos** y recorrido real en 320, 390 y 1280 px. Sin desbordamiento,
+controles táctiles mínimos de 44 px, inputs móviles de 16 px ni errores de consola.
+C2 sigue pendiente. `main`, el enlace del piloto y el workflow de despliegue no
 fueron tocados.
 
 ## Bitácora de etapas (Codex la actualiza)
@@ -441,3 +457,4 @@ fueron tocados.
 | 2026-08-03 | Plan v2 · B1: Gastos del negocio (Codex) | Registro y filtros, categorías administrables con historial, reparto opcional con socio, cierres, respaldo v8 y nube protegida; 786 pruebas, guard N6, 328 módulos y revisión 320/390/1280 en verde; no publicado | B1 (este commit) |
 | 2026-08-03 | Plan v2 · B2: Sociedades en piedras (Codex) | Reparto sobre resultado real recibido, comparación por socio, historial al renombrar/borrar, respaldo v8 y validación de nube aditiva; 807 pruebas, guard N6, 328 módulos y revisión 320/390/1280 en verde; no publicado | B2 (este commit) |
 | 2026-08-03 | Plan v2 · B3: Tipo de producto + moneda (Codex) | Tipos administrables sin inferencias, tasa fija por operación, vista COP/USD sin escrituras, fallback offline, respaldo v8 y nube protegida en ambas direcciones y entre versiones; 846 pruebas en 56 archivos, 18 controles locales, 332 módulos y revisión visual 320/390/1280 en verde; no publicado | B3 (este commit) |
+| 2026-08-04 | Plan v2 · C1: Talla por tandas (Codex) | Bruto, en talla y tallado derivados; merma, costos y pagos por tanda; historial físico protegido; compatibilidad anterior, respaldo v8 y migración de nube aditiva; 858 pruebas en 58 archivos, 332 módulos y revisión 320/390/1280 en verde; no publicado | C1 (este commit) |

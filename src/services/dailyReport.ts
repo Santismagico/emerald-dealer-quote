@@ -50,6 +50,15 @@ export interface DailySupplierPayment {
   amount: number;
 }
 
+/** Pago de una tanda de talla. Sale de caja únicamente en cuttingPaidDate. */
+export interface DailyCuttingPayment {
+  lotName: string;
+  sentDate: string;
+  returnedDate: string;
+  amount: number;
+  notes: string;
+}
+
 /** Abono que un comprador entregó ese día por una venta a crédito (D-042). */
 export interface DailyBuyerPayment {
   lotName: string;
@@ -136,6 +145,8 @@ export interface BusinessTotals {
   stonesPurchasedCredit: number;
   /** COP pagado a proveedores por créditos (Piedras, sale). */
   supplierPaymentsPaid: number;
+  /** COP pagado por tandas de talla (Piedras, sale). */
+  cuttingPaid: number;
   /** COP invertido en joyas que entraron al inventario (Joyas, sale). */
   jewelsAcquiredCost: number;
   /** COP recibido por joyas en stock vendidas (Joyas, entra). */
@@ -161,6 +172,7 @@ export interface BusinessReport {
   stonePurchases: DailyStonePurchase[];
   stoneSales: DailyStoneSale[];
   supplierPayments: DailySupplierPayment[];
+  cuttingPayments: DailyCuttingPayment[];
   buyerPayments: DailyBuyerPayment[];
   jewelPurchases: DailyJewelPurchase[];
   jewelSales: DailyJewelSale[];
@@ -219,6 +231,7 @@ function buildBusinessReport(
   const stonePurchases: DailyStonePurchase[] = [];
   const stoneSales: DailyStoneSale[] = [];
   const supplierPayments: DailySupplierPayment[] = [];
+  const cuttingPayments: DailyCuttingPayment[] = [];
   const buyerPayments: DailyBuyerPayment[] = [];
   let supplierDebt = 0;
   let buyersOwe = 0;
@@ -274,6 +287,17 @@ function buildBusinessReport(
           lotName: lotDisplayName(lot),
           supplier: lot.supplier,
           amount: payment.amount
+        });
+      }
+    }
+    for (const batch of lot.cuttingBatches ?? []) {
+      if (batch.cuttingPaidDate && matchDate(batch.cuttingPaidDate)) {
+        cuttingPayments.push({
+          lotName: lotDisplayName(lot),
+          sentDate: batch.sentDate,
+          returnedDate: batch.returnedDate,
+          amount: batch.cuttingCostCop,
+          notes: batch.notes
         });
       }
     }
@@ -392,18 +416,20 @@ function buildBusinessReport(
   const stonesPurchasedCash = sum(stonePurchases.filter((p) => !p.onCredit).map((p) => p.valueCop));
   const stonesPurchasedCredit = sum(stonePurchases.filter((p) => p.onCredit).map((p) => p.valueCop));
   const supplierPaymentsPaid = sum(supplierPayments.map((p) => p.amount));
+  const cuttingPaid = sum(cuttingPayments.map((payment) => payment.amount));
   const jewelsAcquiredCost = sum(jewelPurchases.map((j) => j.costCop));
   const jewelsSold = sum(jewelSales.map((j) => j.priceCop));
   const jewelsResult = sum(jewelSales.map((j) => j.resultCop));
   const expensesPaid = sum(expenses.map((expense) => expense.amountCop));
   const cashIn = stonesSold + buyerPaymentsReceived + jewelsSold + paymentsReceived;
   const cashOut =
-    stonesPurchasedCash + supplierPaymentsPaid + jewelsAcquiredCost + workshopPaid + expensesPaid;
+    stonesPurchasedCash + supplierPaymentsPaid + cuttingPaid + jewelsAcquiredCost + workshopPaid + expensesPaid;
 
   return {
     stonePurchases,
     stoneSales,
     supplierPayments,
+    cuttingPayments,
     buyerPayments,
     jewelPurchases,
     jewelSales,
@@ -421,6 +447,7 @@ function buildBusinessReport(
       stonesPurchasedCash,
       stonesPurchasedCredit,
       supplierPaymentsPaid,
+      cuttingPaid,
       jewelsAcquiredCost,
       jewelsSold,
       jewelsResult,
@@ -436,6 +463,7 @@ function buildBusinessReport(
       stonePurchases.length === 0 &&
       stoneSales.length === 0 &&
       supplierPayments.length === 0 &&
+      cuttingPayments.length === 0 &&
       buyerPayments.length === 0 &&
       jewelPurchases.length === 0 &&
       jewelSales.length === 0 &&
@@ -521,6 +549,9 @@ export function listMonthlySummaries(
       for (const payment of sale.payments) addDate(payment.date);
     }
     for (const payment of lot.supplierPayments) addDate(payment.date);
+    for (const batch of lot.cuttingBatches ?? []) {
+      if (batch.cuttingPaidDate) addDate(batch.cuttingPaidDate);
+    }
   }
   for (const jewel of stockJewels) {
     if (jewel.costCop > 0) addDate(jewel.acquiredDate);
@@ -677,6 +708,19 @@ function businessSections(report: BusinessReport): PdfSection[] {
     });
   }
 
+  if (report.cuttingPayments.length > 0) {
+    sections.push({
+      title: 'Piedras · Pagos de talla',
+      paragraphs: report.cuttingPayments.map((payment) => {
+        const returned = payment.returnedDate
+          ? ` · regresó ${formatDateCO(payment.returnedDate)}`
+          : ' · sigue en talla';
+        const notes = payment.notes.trim() ? ` · ${payment.notes.trim()}` : '';
+        return `• ${payment.lotName} · enviada ${formatDateCO(payment.sentDate)}${returned} — ${formatCOP(payment.amount)}${notes}`;
+      })
+    });
+  }
+
   if (report.jewelPurchases.length > 0) {
     sections.push({
       title: 'Joyas en stock · Entradas al inventario',
@@ -726,7 +770,8 @@ function businessTotalsRows(totals: BusinessTotals): Array<[string, string]> {
     ['Piedras · entró por ventas de contado', formatCOP(totals.stonesSold)],
     ['Piedras · entró por abonos de compradores', formatCOP(totals.buyerPaymentsReceived)],
     ['Piedras · salió en compras de contado', `- ${formatCOP(totals.stonesPurchasedCash)}`],
-    ['Piedras · salió a proveedores', `- ${formatCOP(totals.supplierPaymentsPaid)}`]
+    ['Piedras · salió a proveedores', `- ${formatCOP(totals.supplierPaymentsPaid)}`],
+    ['Piedras · salió en tallas', `- ${formatCOP(totals.cuttingPaid)}`]
   ];
   if (totals.jewelsSold > 0) {
     rows.push(['Joyas en stock · entró por ventas', formatCOP(totals.jewelsSold)]);
@@ -797,7 +842,7 @@ export function buildMonthlyReportPdfContent(
       paragraphs: [
         `Cotizaciones creadas: ${report.quotesCreated.length} · aprobadas: ${report.quotesApproved.length}`,
         `Pagos de clientes: ${report.payments.length} · pagos del taller: ${report.workshopPayments.length}`,
-        `Lotes comprados: ${report.stonePurchases.length} · ventas de piedras: ${report.stoneSales.length} · abonos de compradores: ${report.buyerPayments.length} · pagos a proveedores: ${report.supplierPayments.length}`,
+        `Lotes comprados: ${report.stonePurchases.length} · ventas de piedras: ${report.stoneSales.length} · abonos de compradores: ${report.buyerPayments.length} · pagos a proveedores: ${report.supplierPayments.length} · pagos de talla: ${report.cuttingPayments.length}`,
         `Joyas que entraron al inventario: ${report.jewelPurchases.length} · joyas vendidas: ${report.jewelSales.length}`,
         `Gastos del negocio: ${report.expenses.length}`
       ]

@@ -33,6 +33,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [],
     createdAt: '2026-07-15T09:00:00.000Z',
@@ -50,8 +51,8 @@ describe('cierre del día: qué entra en el reporte', () => {
         id: 'l-viejo-con-venta-hoy',
         purchaseDate: '2026-07-01',
         sales: [
-          { id: 'v-hoy', date: DAY, buyer: 'Comprador', carats: 1, quantity: 1, valueCop: 2000000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' },
-          { id: 'v-ayer', date: '2026-07-14', buyer: '', carats: 1, quantity: 1, valueCop: 900000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }
+          { id: 'v-hoy', date: DAY, buyer: 'Comprador', carats: 1, quantity: 1, origin: 'bruto', valueCop: 2000000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' },
+          { id: 'v-ayer', date: '2026-07-14', buyer: '', carats: 1, quantity: 1, origin: 'bruto', valueCop: 900000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }
         ]
       })
     ];
@@ -243,7 +244,7 @@ describe('cierre del día: totales y día vacío', () => {
       lote({
         id: 'l-venta',
         purchaseDate: '2026-07-01',
-        sales: [{ id: 'v-1', date: DAY, buyer: '', carats: 1, quantity: 1, valueCop: 2500000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }]
+        sales: [{ id: 'v-1', date: DAY, buyer: '', carats: 1, quantity: 1, origin: 'bruto', valueCop: 2500000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }]
       })
     ];
     const quote = sampleQuote({
@@ -419,7 +420,7 @@ describe('cierre del mes (C6)', () => {
     lote({
       id: 'l-2',
       purchaseDate: '2026-06-20',
-      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, valueCop: 3000000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }]
+      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, origin: 'bruto', valueCop: 3000000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }]
     })
   ];
 

@@ -16,7 +16,7 @@ import { SETTINGS_KEY } from '../storage';
 import { validateExpenseRateMetadata } from '../expenses';
 import { validateSettingsMetadata } from '../settingsMetadata';
 import { validateStockJewelSaleMetadata } from '../stockJewels';
-import { validateStoneLotSalesMetadata } from '../stones';
+import { validateStoneLotInventory, validateStoneLotSalesMetadata } from '../stones';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
 
 export interface CloudRow {
@@ -113,10 +113,12 @@ function b3MetadataError(
     case 'org_settings':
       return validateSettingsMetadata(remoteData);
     case 'stone_lots':
-      return validateStoneLotSalesMetadata(
-        remoteData,
-        localData === undefined ? null : normalizeStoneLot(localData)
-      );
+      {
+        const previous = localData === undefined ? null : normalizeStoneLot(localData);
+        const metadataError = validateStoneLotSalesMetadata(remoteData, previous);
+        if (metadataError) return metadataError;
+        return validateStoneLotInventory(normalizeStoneLot(remoteData), previous);
+      }
     case 'stock_jewels':
       return validateStockJewelSaleMetadata(
         remoteData,

@@ -15,8 +15,13 @@ import type { StoreDataSource } from '../dataSource';
 import type { GoldPriceBreakdown } from '../goldPrice';
 import { validateExpense } from '../expenses';
 import { validateSettingsMetadata } from '../settingsMetadata';
+import { normalizeStoneLot } from '../schema';
 import { validateStockJewelSaleMetadata } from '../stockJewels';
-import { validateStoneLotOwnership, validateStoneLotSalesMetadata } from '../stones';
+import {
+  validateStoneLotInventory,
+  validateStoneLotOwnership,
+  validateStoneLotSalesMetadata
+} from '../stones';
 import * as localStorage from '../storage';
 import { getSupabase } from './config';
 import {
@@ -258,7 +263,10 @@ export function createCloudDataSource(options: {
       const previous = (await localStorage.listStoneLots()).find((item) => item.id === lot.id) ?? null;
       const metadataError = validateStoneLotSalesMetadata(lot, previous);
       if (metadataError) throw new Error(metadataError);
-      await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
+      const normalized = normalizeStoneLot(lot);
+      const inventoryError = validateStoneLotInventory(normalized, previous);
+      if (inventoryError) throw new Error(inventoryError);
+      await cacheAndQueue('stone_lots', lot.id, normalized, normalized.updatedAt || nowIso());
     },
     async deleteStoneLot(id) {
       await localStorage.deleteStoneLot(id);

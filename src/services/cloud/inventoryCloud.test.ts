@@ -77,6 +77,7 @@ function loteConVentaDelComprador(): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [
       {
@@ -86,6 +87,7 @@ function loteConVentaDelComprador(): StoneLot {
         buyerId: 'buy-1',
         carats: 1,
         quantity: 1,
+        origin: 'bruto',
         valueCop: 3000000,
         productType: '',
         usdRate: null,

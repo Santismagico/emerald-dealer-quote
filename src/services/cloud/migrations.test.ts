@@ -10,6 +10,7 @@ import materialValidationFixSource from '../../../supabase/migrations/2026072515
 import expensesSource from '../../../supabase/migrations/20260803205711_gastos_negocio.sql?raw'
 import stonePartnershipsSource from '../../../supabase/migrations/20260803220000_sociedades_lotes_piedras.sql?raw'
 import productCurrencySource from '../../../supabase/migrations/20260803233000_tipo_producto_moneda.sql?raw'
+import cuttingBatchesSource from '../../../supabase/migrations/20260804144748_fase_c1_tandas_talla.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -23,6 +24,7 @@ const materialValidationFix = materialValidationFixSource.toLowerCase()
 const expenses = expensesSource.toLowerCase()
 const stonePartnerships = stonePartnershipsSource.toLowerCase()
 const productCurrency = productCurrencySource.toLowerCase()
+const cuttingBatches = cuttingBatchesSource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -39,6 +41,33 @@ const tables = [
 const editableTables = ['org_settings', 'clients', 'quotes', 'appointments', 'stone_lots', 'suppliers']
 
 describe('migraciones de nube', () => {
+  it('C1 protege tandas, orígenes e inventarios sin reescribir tablas ni datos', () => {
+    expect(cuttingBatches).toContain('function private.assert_stone_lot_cutting_payload')
+    expect(cuttingBatches).toContain("set search_path = ''")
+    expect(cuttingBatches).toContain("':stone_lots:' || p_id")
+    expect(cuttingBatches).toContain('for update')
+    expect(cuttingBatches).toContain("p_data ? 'cuttingbatches'")
+    expect(cuttingBatches).toContain('stone cutting cannot predate purchase')
+    expect(cuttingBatches).toContain("batch->>'sentdate') < (p_data->>'purchasedate")
+    expect(cuttingBatches).toContain("coalesce(sale->>'origin', 'bruto')")
+    expect(cuttingBatches).toContain("not in ('bruto', 'tallado')")
+    expect(cuttingBatches).toContain('raw stone inventory exceeded')
+    expect(cuttingBatches).toContain('cut stone inventory exceeded')
+    expect(cuttingBatches).toContain('round(v_sent_carats, 3)')
+    expect(cuttingBatches).toContain('returned cutting inventory is immutable')
+    expect(cuttingBatches).toContain("batch->>'returnedcarats'")
+    expect(cuttingBatches).not.toContain("returnedquantity')::numeric > (batch->>'sentquantity")
+    expect(cuttingBatches).toContain(
+      'revoke all on function private.assert_stone_lot_cutting_payload'
+    )
+    expect(cuttingBatches).toContain(
+      'grant execute on function public.upsert_stone_lot(text, jsonb, timestamptz) to authenticated'
+    )
+    expect(cuttingBatches).not.toMatch(/\b(create|alter|drop)\s+table\b/)
+    expect(cuttingBatches).not.toContain('create policy')
+    expect(cuttingBatches).not.toContain('p_organization_id')
+  })
+
   it('crea todas las tablas y activa RLS en cada una', () => {
     for (const table of tables) {
       expect(schema).toContain(`create table public.${table}`)

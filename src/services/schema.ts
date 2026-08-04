@@ -19,6 +19,7 @@ import type {
   AppointmentStatus,
   StoneLot,
   StoneSale,
+  CuttingBatch,
   Supplier,
   SupplierPayment,
   Buyer,
@@ -342,6 +343,23 @@ function normalizeBuyerPayment(raw: unknown): BuyerPayment {
   };
 }
 
+function normalizeCuttingBatch(raw: unknown): CuttingBatch {
+  const b = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const returnedDate = safeString(b.returnedDate);
+  return {
+    id: safeString(b.id, newId()),
+    sentDate: safeString(b.sentDate),
+    sentCarats: Math.max(0, safeNumber(b.sentCarats)),
+    sentQuantity: Math.max(0, safeNumber(b.sentQuantity)),
+    returnedDate,
+    returnedCarats: returnedDate ? Math.max(0, safeNumber(b.returnedCarats)) : 0,
+    returnedQuantity: returnedDate ? Math.max(0, safeNumber(b.returnedQuantity)) : 0,
+    cuttingCostCop: Math.max(0, Math.round(safeNumber(b.cuttingCostCop))),
+    cuttingPaidDate: safeString(b.cuttingPaidDate),
+    notes: safeString(b.notes)
+  };
+}
+
 /**
  * Una venta sin las marcas de crédito (D-042) es de CONTADO: así las ventas
  * anteriores a la decisión conservan exactamente el dinero y el resultado que
@@ -358,6 +376,7 @@ function normalizeStoneSale(raw: unknown): StoneSale {
     buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
     carats: Math.max(0, safeNumber(s.carats)),
     quantity: Math.max(0, safeNumber(s.quantity)),
+    origin: oneOf(s.origin, ['bruto', 'tallado'] as const, 'bruto'),
     valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
     productType: safeString(s.productType).trim(),
     usdRate: normalizeUsdRate(s.usdRate),
@@ -516,6 +535,7 @@ export function normalizeStoneLot(raw: unknown): StoneLot {
       : 100,
     onCredit: l.onCredit === true,
     supplierPayments: safeArray(l.supplierPayments).map(normalizeSupplierPayment),
+    cuttingBatches: safeArray(l.cuttingBatches).map(normalizeCuttingBatch),
     notes: safeString(l.notes),
     sales: safeArray(l.sales).map(normalizeStoneSale),
     createdAt: safeString(l.createdAt),

@@ -238,6 +238,10 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
               label="Salió a proveedores (créditos)"
               value={`- ${formatCOP(report.totals.supplierPaymentsPaid)}`}
             />
+            <SummaryRow
+              label="Salió en tallas"
+              value={`- ${formatCOP(report.totals.cuttingPaid)}`}
+            />
             {report.totals.stonesSoldCredit > 0 && (
               <p className="text-[11px] text-stone-400">
                 Vendiste {formatCOP(report.totals.stonesSoldCredit)} a crédito. Ese dinero no entró
@@ -339,6 +343,19 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
                   main={p.lotName}
                   detail={p.supplier ? `a ${p.supplier}` : ''}
                   value={`- ${formatCOP(p.amount)}`}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.cuttingPayments.length > 0 && (
+            <SectionCard title={`Pagos de talla (${report.cuttingPayments.length})`}>
+              {report.cuttingPayments.map((payment, index) => (
+                <ReportLine
+                  key={index}
+                  main={payment.lotName}
+                  detail={payment.returnedDate ? 'Tanda ya regresó' : 'Tanda todavía en talla'}
+                  value={`- ${formatCOP(payment.amount)}`}
                 />
               ))}
             </SectionCard>

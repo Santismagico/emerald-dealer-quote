@@ -5,9 +5,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { StoneLot, StoneSale, SupplierPayment } from '../types';
+import type { CuttingBatch, StoneLot, StoneSale, SupplierPayment } from '../types';
 import {
   countStoneLots,
+  emptyCuttingBatch,
   emptyStoneLot,
   emptyStoneSale,
   emptySupplierPayment,
@@ -19,11 +20,15 @@ import {
   summarizeStoneLot,
   summarizeStonePartnership,
   summarizeStoneSale,
+  validateCuttingBatch,
   validateStoneSale,
+  validateStoneLotInventory,
   validateStoneLotOwnership,
   validateStoneLotPurchaseUpdate,
   validateSupplierPayment,
   withLotSale,
+  withCuttingBatch,
+  withoutCuttingBatch,
   withoutLotSale,
   withSaleCredit,
   withSupplierPayment,
@@ -70,6 +75,10 @@ function formatCarats(carats: number): string {
   return `${carats.toLocaleString('es-CO', { maximumFractionDigits: 3 })} ct`;
 }
 
+function formatLoss(ratio: number): string {
+  return `${(ratio * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })}%`;
+}
+
 export function stoneLotDeletionWarning(lot: StoneLot): string {
   const summary = summarizeStoneLot(lot);
   // Si el lote tiene ventas a crédito sin saldar, borrarlo también borra ese
@@ -81,7 +90,9 @@ export function stoneLotDeletionWarning(lot: StoneLot): string {
       : '';
   return `¿Eliminar el lote "${lotDisplayName(lot)}"? Se borrará la compra y todo su historial: ${
     lot.sales.length
-  } venta(s), ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
+  } venta(s), ${lot.cuttingBatches.length} tanda(s) de talla, ${formatCOP(
+    summary.paidCuttingCost
+  )} pagados en tallas, ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
     summary.supplierDebt
   )}.${cobro} Esta acción no se puede deshacer.`;
 }
@@ -100,6 +111,21 @@ export function stoneSaleDeletionWarning(sale: StoneSale): string {
   )} que ya te había pagado${sale.buyer ? ` ${sale.buyer}` : ''}, y el saldo de ${formatCOP(
     summary.balanceCop
   )} desaparecerá de Cobros.`;
+}
+
+/** Aviso explícito: borrar una tanda elimina también su costo y su trazabilidad. */
+export function cuttingBatchDeletionWarning(batch: CuttingBatch): string {
+  const status = batch.returnedDate
+    ? `${formatCarats(batch.returnedCarats)} y ${batch.returnedQuantity} pieza(s) regresadas`
+    : `${formatCarats(batch.sentCarats)} y ${batch.sentQuantity} pieza(s) todavía en talla`;
+  const payment = batch.cuttingPaidDate
+    ? ` También desaparecerá el pago de talla por ${formatCOP(batch.cuttingCostCop)} del ${formatDateCO(
+        batch.cuttingPaidDate
+      )}.`
+    : batch.cuttingCostCop > 0
+      ? ` También desaparecerá el costo pendiente de ${formatCOP(batch.cuttingCostCop)}.`
+      : '';
+  return `¿Eliminar esta tanda? Se perderá el registro de ${status}.${payment} Las piedras enviadas volverán a quedar en bruto. Esta acción no se puede deshacer.`;
 }
 
 export function StonesView() {
@@ -122,7 +148,10 @@ export function StonesView() {
       </Button>
 
       <SectionCard title="Negocio de piedras">
-        <SummaryRow label="Invertido comprando lotes" value={formatCOP(flow.totalSpent)} />
+        <SummaryRow label="Invertido en lotes y tallas pagadas" value={formatCOP(flow.totalSpent)} />
+        {flow.totalCuttingPaid > 0 ? (
+          <SummaryRow label="De eso, pagado en tallas" value={formatCOP(flow.totalCuttingPaid)} />
+        ) : null}
         <SummaryRow label="Vendido (valor acordado)" value={formatCOP(flow.totalEarned)} />
         <SummaryRow label="Ya recibido de verdad" value={formatCOP(flow.totalReceived)} />
         {flow.totalReceivable > 0 && (
@@ -169,6 +198,11 @@ export function StonesView() {
                   {entry.remainingQuantity} piedra(s) en {entry.activeLots}{' '}
                   {entry.activeLots === 1 ? 'lote' : 'lotes'}
                 </p>
+                <div className="mt-2 grid gap-1 text-xs text-stone-600 sm:grid-cols-3">
+                  <span>Bruto: {formatCarats(entry.rawAvailableCarats)} · {entry.rawAvailableQuantity} pz</span>
+                  <span>En talla: {formatCarats(entry.inCuttingCarats)} · {entry.inCuttingQuantity} pz</span>
+                  <span>Tallado: {formatCarats(entry.cutAvailableCarats)} · {entry.cutAvailableQuantity} pz</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -272,6 +306,11 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
           <span>Sin ventas aún</span>
         )}
       </div>
+      {lot.cuttingBatches.length > 0 ? (
+        <p className="mt-1 break-words text-xs text-stone-500">
+          Bruto {formatCarats(summary.rawAvailableCarats)} · en talla {formatCarats(summary.inCuttingCarats)} · tallado {formatCarats(summary.cutAvailableCarats)}
+        </p>
+      ) : null}
       {lot.onCredit && summary.supplierDebt > 0 && (
         <p className="mt-1 text-xs font-medium text-red-600">
           Crédito: debes {formatCOP(summary.supplierDebt)} al proveedor
@@ -288,10 +327,12 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
 function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   const store = useStore();
   const [saleForm, setSaleForm] = useState<StoneSale | null>(null);
+  const [cuttingForm, setCuttingForm] = useState<CuttingBatch | null>(null);
   const [paymentForm, setPaymentForm] = useState<SupplierPayment | null>(null);
   const [editingLot, setEditingLot] = useState(false);
   const [confirmDeleteLot, setConfirmDeleteLot] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<StoneSale | null>(null);
+  const [cuttingToDelete, setCuttingToDelete] = useState<CuttingBatch | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<SupplierPayment | null>(null);
   const [busy, setBusy] = useState(false);
   const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
@@ -329,6 +370,16 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         lot={lot}
         initial={saleForm}
         onClose={() => setSaleForm(null)}
+      />
+    );
+  }
+  if (cuttingForm !== null) {
+    return (
+      <CuttingBatchForm
+        key={cuttingForm.id}
+        lot={lot}
+        initial={cuttingForm}
+        onClose={() => setCuttingForm(null)}
       />
     );
   }
@@ -371,14 +422,35 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         <div className="mt-3 space-y-1 rounded-xl bg-stone-50 p-3">
           <SummaryRow label="Comprado" value={`${formatCarats(lot.carats)} · ${lot.quantity} pz`} />
           <SummaryRow label="Costo del lote" value={formatCOP(lot.purchaseValueCop)} />
+          <SummaryRow
+            label="Bruto disponible"
+            value={`${formatCarats(summary.rawAvailableCarats)} · ${summary.rawAvailableQuantity} pz`}
+          />
+          <SummaryRow
+            label="En talla"
+            value={`${formatCarats(summary.inCuttingCarats)} · ${summary.inCuttingQuantity} pz`}
+          />
+          <SummaryRow
+            label="Tallado disponible"
+            value={`${formatCarats(summary.cutAvailableCarats)} · ${summary.cutAvailableQuantity} pz`}
+          />
           {lot.supplier ? <SummaryRow label="Proveedor" value={lot.supplier} /> : null}
           <SummaryRow
             label="Vendido"
             value={`${formatCarats(summary.soldCarats)} · ${summary.soldQuantity} pz · ${formatCOP(summary.soldValue)}`}
           />
+          <SummaryRow label="Tallas pagadas" value={formatCOP(summary.paidCuttingCost)} />
+          {summary.unpaidCuttingCost > 0 ? (
+            <SummaryRow
+              label="Tallas pendientes de pago"
+              value={formatCOP(summary.unpaidCuttingCost)}
+              valueClass="text-amber-700"
+            />
+          ) : null}
+          <SummaryRow label="Inversión registrada" value={formatCOP(summary.totalInvested)} bold />
           <SummaryRow
-            label="Queda"
-            value={`${formatCarats(summary.remainingCarats)} · ${summary.remainingQuantity} pz`}
+            label="Merma promedio de talla"
+            value={summary.cuttingLossRatio === null ? 'Sin dato' : formatLoss(summary.cuttingLossRatio)}
           />
           <div className="border-t border-stone-200 pt-1">
             <SummaryRow
@@ -418,7 +490,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                 value={formatCOP(partnership.partnerResult)}
               />
               <p className="text-[11px] text-stone-500">
-                Se reparte lo recibido de verdad menos el costo del lote, no el precio pendiente por cobrar.
+                Se reparte lo recibido de verdad menos la compra y las tallas pagadas, no el precio pendiente por cobrar.
               </p>
             </div>
           ) : null}
@@ -433,6 +505,81 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
 
         {lot.description ? <p className="mt-2 text-sm text-stone-600">{lot.description}</p> : null}
         {lot.notes ? <p className="mt-1 text-xs text-stone-500">{lot.notes}</p> : null}
+
+        <div className="mt-4 rounded-xl border border-stone-200 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Tandas de talla ({lot.cuttingBatches.length})
+            </p>
+            <button
+              type="button"
+              className="min-h-11 rounded-lg px-2 text-xs font-semibold text-brand-700 active:bg-brand-50"
+              onClick={() => setCuttingForm(emptyCuttingBatch(todayISO()))}
+            >
+              ＋ Enviar tanda
+            </button>
+          </div>
+          {lot.cuttingBatches.length === 0 ? (
+            <p className="mt-1 text-xs text-stone-500">
+              Todavía no has enviado piedras de este lote a talla.
+            </p>
+          ) : (
+            <ul className="mt-1 space-y-2">
+              {lot.cuttingBatches.map((batch) => {
+                const loss = batch.returnedDate
+                  ? batch.sentCarats > 0
+                    ? (batch.sentCarats - batch.returnedCarats) / batch.sentCarats
+                    : null
+                  : null;
+                return (
+                  <li key={batch.id} className="flex items-start gap-2 rounded-xl bg-stone-50 p-2">
+                    <button
+                      type="button"
+                      className="min-h-11 min-w-0 flex-1 text-left"
+                      onClick={() => setCuttingForm(batch)}
+                    >
+                      <p className="text-sm font-medium text-stone-800">
+                        {batch.returnedDate ? 'Regresó de talla' : 'En talla'} · {formatDateCO(batch.sentDate)}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        Enviado: {formatCarats(batch.sentCarats)} · {batch.sentQuantity} pz
+                      </p>
+                      {batch.returnedDate ? (
+                        <p className="text-xs text-stone-500">
+                          Regresó: {formatCarats(batch.returnedCarats)} · {batch.returnedQuantity} pz
+                          {loss !== null ? ` · merma ${formatLoss(loss)}` : ''}
+                        </p>
+                      ) : null}
+                      {batch.cuttingCostCop > 0 ? (
+                        <p className="text-xs text-stone-500">
+                          Talla: {formatCOP(batch.cuttingCostCop)} ·{' '}
+                          {batch.cuttingPaidDate
+                            ? `pagada el ${formatDateCO(batch.cuttingPaidDate)}`
+                            : 'pendiente de pago'}
+                        </p>
+                      ) : null}
+                      {batch.notes ? <p className="text-xs text-stone-500">{batch.notes}</p> : null}
+                      {batch.returnedDate &&
+                      lot.sales.some((sale) => sale.origin === 'tallado') ? (
+                        <p className="text-xs font-medium text-amber-700">
+                          Historial protegido por ventas talladas
+                        </p>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Eliminar tanda de talla"
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                      onClick={() => setCuttingToDelete(batch)}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
 
         {lot.onCredit && (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
@@ -534,6 +681,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                       {sale.buyer ? ` · ${sale.buyer}` : ''}
                     </p>
                     <p className="break-words text-xs text-stone-500">
+                      {sale.origin === 'tallado' ? 'Tallado' : 'Bruto'} ·{' '}
                       {sale.productType || 'Sin registrar'} · {usdRateLabel(sale.usdRate)}
                     </p>
                     {sale.onCredit ? (
@@ -602,17 +750,23 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         )}
 
         <div className="mt-4 space-y-2">
-          {!summary.exhausted && (
+          {(summary.rawAvailableCarats > 0 ||
+            summary.rawAvailableQuantity > 0 ||
+            summary.cutAvailableCarats > 0 ||
+            summary.cutAvailableQuantity > 0) && (
             <div data-sale-trigger="new">
               <Button
                 full
                 onClick={() => {
                   saleReturnFocus.current = 'new';
+                  const sale = emptyStoneSale(
+                    todayISO(),
+                    newOperationUsdRate(store.settings.lastKnownUsdRate)
+                  );
                   setSaleForm(
-                    emptyStoneSale(
-                      todayISO(),
-                      newOperationUsdRate(store.settings.lastKnownUsdRate)
-                    )
+                    summary.rawAvailableCarats > 0 || summary.rawAvailableQuantity > 0
+                      ? sale
+                      : { ...sale, origin: 'tallado' }
                   );
                 }}
               >
@@ -654,6 +808,38 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               onClose();
             } catch {
               store.showToast('No se pudo eliminar el lote. Intenta de nuevo.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+
+        <ConfirmDialog
+          open={cuttingToDelete !== null}
+          title="Eliminar tanda de talla"
+          message={cuttingToDelete ? cuttingBatchDeletionWarning(cuttingToDelete) : ''}
+          confirmLabel="Eliminar"
+          danger
+          busy={busy}
+          onCancel={() => setCuttingToDelete(null)}
+          onConfirm={async () => {
+            if (!cuttingToDelete) return;
+            const next = withoutCuttingBatch(lot, cuttingToDelete.id, new Date().toISOString());
+            const validationError = validateStoneLotInventory(next, lot);
+            if (validationError) {
+              store.showToast(validationError);
+              setCuttingToDelete(null);
+              return;
+            }
+            setBusy(true);
+            try {
+              await store.upsertStoneLot(next);
+              store.showToast('Tanda eliminada');
+              setCuttingToDelete(null);
+            } catch (error) {
+              store.showToast(
+                error instanceof Error ? error.message : 'No se pudo eliminar la tanda. Intenta de nuevo.'
+              );
             } finally {
               setBusy(false);
             }
@@ -898,6 +1084,226 @@ function LotForm({
   );
 }
 
+/** Formulario de una tanda enviada a talla y de su regreso posterior. */
+function CuttingBatchForm({
+  lot,
+  initial,
+  onClose
+}: {
+  lot: StoneLot;
+  initial: CuttingBatch;
+  onClose: () => void;
+}) {
+  const store = useStore();
+  const [form, setForm] = useState<CuttingBatch>(initial);
+  const [busy, setBusy] = useState(false);
+  const isNew = !lot.cuttingBatches.some((batch) => batch.id === initial.id);
+  const physicalLocked =
+    !isNew &&
+    Boolean(initial.returnedDate) &&
+    lot.sales.some((sale) => sale.origin === 'tallado');
+  const otherBatches = lot.cuttingBatches.filter((batch) => batch.id !== initial.id);
+  const available = summarizeStoneLot({ ...lot, cuttingBatches: otherBatches });
+
+  const patch = (partial: Partial<CuttingBatch>) =>
+    setForm((current) => ({ ...current, ...partial }));
+
+  const save = async () => {
+    const error = validateCuttingBatch(lot, form, isNew ? undefined : initial.id);
+    if (error) {
+      store.showToast(error);
+      return;
+    }
+    const next = withCuttingBatch(lot, form, new Date().toISOString());
+    const inventoryError = validateStoneLotInventory(next, lot);
+    if (inventoryError) {
+      store.showToast(inventoryError);
+      return;
+    }
+    setBusy(true);
+    try {
+      await store.upsertStoneLot(next);
+      store.showToast(isNew ? 'Tanda enviada a talla' : 'Tanda actualizada');
+      onClose();
+    } catch (error) {
+      store.showToast(
+        error instanceof Error ? error.message : 'No se pudo guardar la tanda. Intenta de nuevo.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <FormDialog
+      title={isNew ? 'Enviar tanda a talla' : 'Actualizar tanda de talla'}
+      description={`${lotDisplayName(lot)} · bruto disponible ${formatCarats(
+        available.rawAvailableCarats
+      )} · ${available.rawAvailableQuantity} pz`}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <Button variant="ghost" full disabled={busy} onClick={onClose}>
+              Cancelar
+            </Button>
+          </div>
+          <div className="flex-1">
+            <Button full disabled={busy} onClick={() => void save()}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        {physicalLocked ? (
+          <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+            Los datos físicos están protegidos porque esta talla ya respalda ventas. Sí puedes
+            completar el costo, el pago y las notas.
+          </p>
+        ) : null}
+        <Field label="Fecha de envío">
+          {physicalLocked ? (
+            <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+              {formatDateCO(form.sentDate)}
+            </p>
+          ) : (
+            <TextInput
+              type="date"
+              value={form.sentDate}
+              onChange={(sentDate) => patch({ sentDate })}
+            />
+          )}
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quilates enviados">
+            {physicalLocked ? (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {formatCarats(form.sentCarats)}
+              </p>
+            ) : (
+              <DecimalInput
+                value={form.sentCarats}
+                onValue={(sentCarats) => patch({ sentCarats })}
+                suffix="ct"
+              />
+            )}
+          </Field>
+          <Field label="N.º de piedras">
+            {physicalLocked ? (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {form.sentQuantity}
+              </p>
+            ) : (
+              <DecimalInput
+                value={form.sentQuantity}
+                onValue={(sentQuantity) => patch({ sentQuantity })}
+              />
+            )}
+          </Field>
+        </div>
+
+        {!physicalLocked ? (
+          <Toggle
+            checked={Boolean(form.returnedDate)}
+            onChange={(returned) =>
+              patch(
+                returned
+                  ? { returnedDate: form.returnedDate || todayISO() }
+                  : { returnedDate: '', returnedCarats: 0, returnedQuantity: 0 }
+              )
+            }
+            label="Esta tanda ya regresó"
+          />
+        ) : null}
+        {form.returnedDate ? (
+          <div className="space-y-3 rounded-xl bg-stone-50 p-3">
+            <Field label="Fecha de regreso">
+              {physicalLocked ? (
+                <p className="min-h-11 rounded-xl bg-white px-3 py-3 text-sm text-stone-700">
+                  {formatDateCO(form.returnedDate)}
+                </p>
+              ) : (
+                <TextInput
+                  type="date"
+                  value={form.returnedDate}
+                  onChange={(returnedDate) => patch({ returnedDate })}
+                />
+              )}
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Quilates que regresaron">
+                {physicalLocked ? (
+                  <p className="min-h-11 rounded-xl bg-white px-3 py-3 text-sm text-stone-700">
+                    {formatCarats(form.returnedCarats)}
+                  </p>
+                ) : (
+                  <DecimalInput
+                    value={form.returnedCarats}
+                    onValue={(returnedCarats) => patch({ returnedCarats })}
+                    suffix="ct"
+                  />
+                )}
+              </Field>
+              <Field label="Piezas que regresaron" hint="Puede aumentar si una piedra se dividió.">
+                {physicalLocked ? (
+                  <p className="min-h-11 rounded-xl bg-white px-3 py-3 text-sm text-stone-700">
+                    {form.returnedQuantity}
+                  </p>
+                ) : (
+                  <DecimalInput
+                    value={form.returnedQuantity}
+                    onValue={(returnedQuantity) => patch({ returnedQuantity })}
+                  />
+                )}
+              </Field>
+            </div>
+            <p className="text-xs text-stone-500">
+              Merma estimada:{' '}
+              {form.sentCarats > 0
+                ? formatLoss((form.sentCarats - form.returnedCarats) / form.sentCarats)
+                : 'Sin dato'}
+            </p>
+          </div>
+        ) : null}
+
+        <Field label="Costo total de la talla">
+          <MoneyInput
+            value={form.cuttingCostCop}
+            onValue={(cuttingCostCop) => patch({ cuttingCostCop })}
+          />
+        </Field>
+        <Toggle
+          checked={Boolean(form.cuttingPaidDate)}
+          onChange={(paid) =>
+            patch({ cuttingPaidDate: paid ? form.cuttingPaidDate || todayISO() : '' })
+          }
+          label="La talla ya fue pagada"
+        />
+        {form.cuttingPaidDate ? (
+          <Field label="Fecha del pago">
+            <TextInput
+              type="date"
+              value={form.cuttingPaidDate}
+              onChange={(cuttingPaidDate) => patch({ cuttingPaidDate })}
+            />
+          </Field>
+        ) : null}
+        <Field label="Notas internas">
+          <TextArea
+            value={form.notes}
+            onChange={(notes) => patch({ notes })}
+            rows={2}
+            placeholder="Tallador, forma de corte u observaciones"
+          />
+        </Field>
+      </div>
+    </FormDialog>
+  );
+}
+
 /** Formulario de registrar/editar un pago al proveedor, con validación de la deuda. */
 function SupplierPaymentForm({
   lot,
@@ -1064,9 +1470,17 @@ function SaleForm({
   return (
     <FormDialog
       title={isNew ? 'Registrar venta' : 'Editar venta'}
-      description={`${lotDisplayName(lot)} · disponibles ${formatCarats(
-        available.remainingCarats
-      )} · ${available.remainingQuantity} pz`}
+      description={`${lotDisplayName(lot)} · ${
+        form.origin === 'tallado' ? 'tallado' : 'bruto'
+      } disponible ${formatCarats(
+        form.origin === 'tallado'
+          ? available.cutAvailableCarats
+          : available.rawAvailableCarats
+      )} · ${
+        form.origin === 'tallado'
+          ? available.cutAvailableQuantity
+          : available.rawAvailableQuantity
+      } pz`}
       busy={busy}
       onClose={onClose}
       footer={
@@ -1085,6 +1499,29 @@ function SaleForm({
       }
     >
       <div className="space-y-3">
+          <SegmentedControl
+            label="Origen de la piedra"
+            value={form.origin}
+            options={[
+              {
+                value: 'bruto',
+                label: 'En bruto',
+                disabled:
+                  isNew &&
+                  available.rawAvailableCarats <= 0 &&
+                  available.rawAvailableQuantity <= 0
+              },
+              {
+                value: 'tallado',
+                label: 'Tallada',
+                disabled:
+                  isNew &&
+                  available.cutAvailableCarats <= 0 &&
+                  available.cutAvailableQuantity <= 0
+              }
+            ]}
+            onChange={(origin) => patch({ origin: origin as StoneSale['origin'] })}
+          />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quilates vendidos">
               <DecimalInput value={form.carats} onValue={(carats) => patch({ carats })} suffix="ct" />

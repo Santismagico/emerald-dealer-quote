@@ -22,6 +22,7 @@ describe('aviso al eliminar un lote', () => {
       supplierPayments: [
         { id: 'pay-1', date: '2026-07-16', amount: 2000000, notes: '' }
       ],
+      cuttingBatches: [],
       notes: '',
       sales: [
         {
@@ -30,6 +31,7 @@ describe('aviso al eliminar un lote', () => {
           buyer: '',
           carats: 0.5,
           quantity: 1,
+          origin: 'bruto',
           valueCop: 1500000,
           productType: '',
           usdRate: null,
@@ -47,6 +49,7 @@ describe('aviso al eliminar un lote', () => {
           buyer: '',
           carats: 0.5,
           quantity: 1,
+          origin: 'bruto',
           valueCop: 1500000,
           productType: '',
           usdRate: null,
@@ -114,6 +117,7 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     buyerId: null,
     carats: 1,
     quantity: 1,
+    origin: 'bruto',
     valueCop: 3000000,
     productType: '',
     usdRate: null,
@@ -154,6 +158,7 @@ function loteConCobro(overrides: Partial<StoneLot> = {}): StoneLot {
     myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
     notes: '',
     sales: [venta()],
     createdAt: '2026-07-10T09:00:00.000Z',

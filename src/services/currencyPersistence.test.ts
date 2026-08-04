@@ -31,6 +31,8 @@ describe('el cambio visual de moneda no escribe datos', () => {
       id: 'lot-currency-view',
       name: 'Lote moneda',
       purchaseDate: '2026-08-03',
+      carats: 1,
+      quantity: 1,
       sales: [{
         id: 'sale-currency-view',
         date: '2026-08-03',
