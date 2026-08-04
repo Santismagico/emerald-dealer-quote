@@ -2,6 +2,7 @@ import type { BackupFile } from '../../types';
 import { exportBackup, parseBackup } from '../backup';
 import type { StoreDataSource } from '../dataSource';
 import { defaultSettings } from '../storage';
+import { stockJewelAcquisitionCostCop } from '../stockJewels';
 import { cloudDataSource, supabaseCloudRemote, type CloudRemote } from './api';
 
 export interface CloudImportProgress {
@@ -25,8 +26,40 @@ export interface CloudImportWriter extends Pick<
   | 'saveMaterialLot'
   | 'saveExpense'
 > {
+  authorizeImport: () => Promise<void>;
+  seedStoneLotForImport: (
+    baseline: BackupFile['stoneLots'][number],
+    finalLot: BackupFile['stoneLots'][number],
+    importUpdatedAt: string
+  ) => Promise<void>;
+  seedStockJewelForImport: (
+    baseline: BackupFile['stockJewels'][number],
+    finalJewel: BackupFile['stockJewels'][number],
+    importUpdatedAt: string
+  ) => Promise<void>;
+  finalizeStoneLotForImport: (
+    lot: BackupFile['stoneLots'][number],
+    importUpdatedAt: string
+  ) => Promise<void>;
+  finalizeStockJewelForImport: (
+    jewel: BackupFile['stockJewels'][number],
+    importUpdatedAt: string
+  ) => Promise<void>;
+  restoreStockJewelTransformationForImport: (input: {
+    id: string;
+    date: string;
+    lotId: string;
+    jewelId: string;
+    origin: 'bruto' | 'tallado';
+    carats: number;
+    quantity: number;
+    notes: string;
+    costCop: number;
+    updatedAt: string;
+  }) => Promise<void>;
   flush: () => Promise<void>;
   pendingCount: () => Promise<number>;
+  pullAll: () => Promise<void>;
 }
 
 interface ImportTask {
@@ -43,6 +76,9 @@ export async function readBackupImportSource(file: File): Promise<BackupFile> {
 }
 
 export function countImportRecords(backup: BackupFile): number {
+  const transformations = backup.stockJewels.flatMap((jewel) => jewel.stoneTransformations ?? []);
+  const transformedLotIds = new Set(transformations.map((item) => item.lotId));
+  const transformedJewelIds = new Set(transformations.map((item) => item.jewelId));
   return (backup.settings ? 1 : 0)
     + backup.clients.length
     + backup.quotes.length
@@ -53,7 +89,10 @@ export function countImportRecords(backup: BackupFile): number {
     + backup.stockJewels.length
     + backup.materialPartners.length
     + backup.materialLots.length
-    + backup.expenses.length;
+    + backup.expenses.length
+    + transformations.length
+    + transformedLotIds.size
+    + transformedJewelIds.size;
 }
 
 export function hasLocalDataToImport(backup: BackupFile): boolean {
@@ -104,6 +143,18 @@ async function flushCompletely(writer: CloudImportWriter): Promise<void> {
   );
 }
 
+async function ensureImportQueueIsClear(writer: CloudImportWriter): Promise<void> {
+  try {
+    await writer.flush();
+    if (await writer.pendingCount() === 0) return;
+  } catch {
+    // No se empieza a escribir si la cola anterior no pudo confirmarse.
+  }
+  throw new Error(
+    'Antes de importar, resuelve los cambios pendientes de la nube y vuelve a intentar.'
+  );
+}
+
 export async function importToCloud(
   backup: BackupFile,
   options: {
@@ -113,61 +164,164 @@ export async function importToCloud(
   } = {}
 ): Promise<void> {
   const writer = options.writer ?? cloudDataSource;
+  await writer.authorizeImport();
+  await ensureImportQueueIsClear(writer);
   const batchSize = Math.max(1, Math.round(options.batchSize ?? 20));
-  const tasks: ImportTask[] = [];
+  const baseTasks: ImportTask[] = [];
+  const transformationTasks: ImportTask[] = [];
+  const finalizationTasks: ImportTask[] = [];
 
   if (backup.settings) {
-    tasks.push({ label: 'Ajustes', run: () => writer.saveSettings(backup.settings!) });
+    baseTasks.push({ label: 'Ajustes', run: () => writer.saveSettings(backup.settings!) });
   }
   for (const supplier of backup.suppliers) {
-    tasks.push({ label: 'Proveedores', run: () => writer.saveSupplier(supplier) });
+    baseTasks.push({ label: 'Proveedores', run: () => writer.saveSupplier(supplier) });
   }
   // Los compradores van antes que lotes y joyas: sus ventas los referencian.
   for (const buyer of backup.buyers) {
-    tasks.push({ label: 'Compradores', run: () => writer.saveBuyer(buyer) });
+    baseTasks.push({ label: 'Compradores', run: () => writer.saveBuyer(buyer) });
   }
   // Los socios van antes que los lotes de material: los lotes los referencian.
   for (const partner of backup.materialPartners) {
-    tasks.push({ label: 'Socios', run: () => writer.saveMaterialPartner(partner) });
+    baseTasks.push({ label: 'Socios', run: () => writer.saveMaterialPartner(partner) });
   }
   // Los gastos con sociedad van después de los socios que referencian.
   for (const expense of backup.expenses) {
-    tasks.push({ label: 'Gastos', run: () => writer.saveExpense(expense) });
+    baseTasks.push({ label: 'Gastos', run: () => writer.saveExpense(expense) });
   }
   for (const client of backup.clients) {
-    tasks.push({ label: 'Clientes', run: () => writer.saveClient(client) });
+    baseTasks.push({ label: 'Clientes', run: () => writer.saveClient(client) });
   }
   for (const quote of backup.quotes) {
-    tasks.push({ label: 'Cotizaciones', run: () => writer.saveQuote(quote) });
+    baseTasks.push({ label: 'Cotizaciones', run: () => writer.saveQuote(quote) });
   }
   for (const appointment of backup.appointments) {
-    tasks.push({ label: 'Agenda', run: () => writer.saveAppointment(appointment) });
+    baseTasks.push({ label: 'Agenda', run: () => writer.saveAppointment(appointment) });
   }
+  const transformedLotIds = new Set(
+    backup.stockJewels.flatMap((jewel) =>
+      (jewel.stoneTransformations ?? []).map((transformation) => transformation.lotId)
+    )
+  );
+  const transformedJewelIds = new Set(
+    backup.stockJewels.flatMap((jewel) =>
+      (jewel.stoneTransformations ?? []).map((transformation) => transformation.jewelId)
+    )
+  );
+  const transformationTimestamps = [
+    ...backup.stoneLots
+      .filter((lot) => transformedLotIds.has(lot.id))
+      .map((lot) => Date.parse(lot.updatedAt)),
+    ...backup.stockJewels
+      .filter((jewel) => transformedJewelIds.has(jewel.id))
+      .map((jewel) => Date.parse(jewel.updatedAt))
+  ];
+  if (transformationTimestamps.some((timestamp) => !Number.isFinite(timestamp))) {
+    throw new Error('La importacion tiene una fecha de transformacion invalida.');
+  }
+  const transformationImportUpdatedAt = transformationTimestamps.length > 0
+    ? new Date(Math.max(...transformationTimestamps)).toISOString()
+    : '';
   for (const lot of backup.stoneLots) {
-    tasks.push({ label: 'Lotes de piedras', run: () => writer.saveStoneLot(lot) });
+    const baseline = transformedLotIds.has(lot.id) ? { ...lot, internalUses: [] } : lot;
+    baseTasks.push({
+      label: 'Lotes de piedras',
+      run: () => transformedLotIds.has(lot.id)
+        ? writer.seedStoneLotForImport(baseline, lot, transformationImportUpdatedAt)
+        : writer.saveStoneLot(baseline)
+    });
   }
   for (const jewel of backup.stockJewels) {
-    tasks.push({ label: 'Joyas en stock', run: () => writer.saveStockJewel(jewel) });
+    const baseline = transformedJewelIds.has(jewel.id)
+      ? {
+          ...jewel,
+          stoneKind: 'fantasia' as const,
+          costCop: stockJewelAcquisitionCostCop(jewel),
+          sale: null,
+          stoneTransformations: []
+        }
+      : jewel;
+    baseTasks.push({
+      label: 'Joyas en stock',
+      run: () => transformedJewelIds.has(jewel.id)
+        ? writer.seedStockJewelForImport(baseline, jewel, transformationImportUpdatedAt)
+        : writer.saveStockJewel(baseline)
+    });
   }
   for (const lot of backup.materialLots) {
-    tasks.push({ label: 'Lotes de material', run: () => writer.saveMaterialLot(lot) });
+    baseTasks.push({ label: 'Lotes de material', run: () => writer.saveMaterialLot(lot) });
   }
 
-  const total = tasks.length;
-  options.onProgress?.({ completed: 0, total, percent: total ? 0 : 100, current: '' });
-  for (let offset = 0; offset < tasks.length; offset += batchSize) {
-    const batch = tasks.slice(offset, offset + batchSize);
-    for (let index = 0; index < batch.length; index += 1) {
-      const task = batch[index];
-      await task.run();
-      const completed = offset + index + 1;
-      options.onProgress?.({
-        completed,
-        total,
-        percent: Math.round((completed / total) * 100),
-        current: task.label
+  const transformationById = new Map(
+    backup.stockJewels.flatMap((jewel) =>
+      (jewel.stoneTransformations ?? []).map((transformation) => [
+        transformation.id,
+        { jewel, transformation }
+      ] as const)
+    )
+  );
+  for (const lot of backup.stoneLots) {
+    for (const use of lot.internalUses ?? []) {
+      const linked = transformationById.get(use.id);
+      if (!linked || linked.transformation.lotId !== lot.id) {
+        throw new Error('La importación no cuadra entre Piedras y Joyas. Revisa el respaldo.');
+      }
+      const { transformation } = linked;
+      transformationTasks.push({
+        label: 'Transformaciones de joyas',
+        run: () => writer.restoreStockJewelTransformationForImport({
+          id: transformation.id,
+          date: transformation.date,
+          lotId: transformation.lotId,
+          jewelId: transformation.jewelId,
+          origin: transformation.origin,
+          carats: transformation.carats,
+          quantity: transformation.quantity,
+          notes: transformation.notes,
+          costCop: transformation.costCop,
+          updatedAt: transformationImportUpdatedAt
+        })
       });
     }
-    await flushCompletely(writer);
   }
+  for (const lot of backup.stoneLots) {
+    if (transformedLotIds.has(lot.id)) {
+      finalizationTasks.push({
+        label: 'Finalizar lotes transformados',
+        run: () => writer.finalizeStoneLotForImport(lot, transformationImportUpdatedAt)
+      });
+    }
+  }
+  for (const jewel of backup.stockJewels) {
+    if (transformedJewelIds.has(jewel.id)) {
+      finalizationTasks.push({
+        label: 'Finalizar joyas transformadas',
+        run: () => writer.finalizeStockJewelForImport(jewel, transformationImportUpdatedAt)
+      });
+    }
+  }
+
+  const phases = [baseTasks, transformationTasks, finalizationTasks].filter(
+    (phase) => phase.length > 0
+  );
+  const total = phases.reduce((sum, phase) => sum + phase.length, 0);
+  options.onProgress?.({ completed: 0, total, percent: total ? 0 : 100, current: '' });
+  let completed = 0;
+  for (const phase of phases) {
+    for (let offset = 0; offset < phase.length; offset += batchSize) {
+      const batch = phase.slice(offset, offset + batchSize);
+      for (const task of batch) {
+        await task.run();
+        completed += 1;
+        options.onProgress?.({
+          completed,
+          total,
+          percent: Math.round((completed / total) * 100),
+          current: task.label
+        });
+      }
+      await flushCompletely(writer);
+    }
+  }
+  await writer.pullAll();
 }

@@ -12,6 +12,7 @@ import {
   summarizeStockJewel,
   validateStockJewel,
   validateStockJewelSale,
+  validateStockJewelStoneHistory,
   withJewelSale,
   withoutJewelSale
 } from './stockJewels';
@@ -24,12 +25,17 @@ function joya(overrides: Partial<StockJewel> = {}): StockJewel {
     material: 'Oro',
     photo: '',
     acquiredDate: '2026-07-01',
+    weightGrams: 0,
+    size: '',
+    stoneCount: 0,
+    stoneKind: '',
     costCop: 3000000,
     priceCop: 5000000,
     status: 'disponible',
     notes: '',
     sale: null,
     collectionId: null,
+    stoneTransformations: [],
     createdAt: '2026-07-01T09:00:00.000Z',
     updatedAt: '2026-07-01T09:00:00.000Z',
     ...overrides
@@ -50,6 +56,28 @@ function venta(overrides: Partial<StockJewelSale> = {}): StockJewelSale {
     notes: '',
     ...overrides
   };
+}
+
+function joyaTransformada(overrides: Partial<StockJewel> = {}): StockJewel {
+  return joya({
+    stoneCount: 1,
+    stoneKind: 'natural',
+    costCop: 3_100_000,
+    stoneTransformations: [{
+      id: 'transform-1',
+      date: '2026-07-10',
+      lotId: 'lot-1',
+      jewelId: 'j-1',
+      origin: 'bruto',
+      carats: 1,
+      quantity: 1,
+      costCop: 100_000,
+      notes: '',
+      fromStoneKind: 'fantasia',
+      toStoneKind: 'natural'
+    }],
+    ...overrides
+  });
 }
 
 describe('estado derivado de una joya (D-044)', () => {
@@ -143,6 +171,20 @@ describe('validación de una pieza', () => {
     // Puede ser una pieza heredada o recibida: el costo no es obligatorio.
     expect(validateStockJewel(joya({ costCop: 0 }))).toBeNull();
   });
+
+  it('rechaza costos C2 que JavaScript no puede conservar exactamente', () => {
+    const unsafe = Number.MAX_SAFE_INTEGER + 1;
+    expect(validateStockJewelStoneHistory(joyaTransformada({
+      costCop: unsafe,
+      stoneTransformations: [{
+        ...joyaTransformada().stoneTransformations[0],
+        costCop: unsafe
+      }]
+    }))).toMatch(/pesos enteros/i);
+    expect(validateStockJewelStoneHistory(joyaTransformada({
+      costCop: unsafe
+    }))).toMatch(/pesos enteros seguros/i);
+  });
 });
 
 describe('validación de la venta de una pieza', () => {
@@ -182,6 +224,17 @@ describe('validación de la venta de una pieza', () => {
     expect(
       validateStockJewelSale(joya({ acquiredDate: '2026-07-10' }), venta({ date: '2026-07-01' }))
     ).toMatch(/antes de que entrara/);
+  });
+
+  it('no permite fechar una venta antes de la transformación registrada', () => {
+    expect(
+      validateStockJewelSale(joyaTransformada(), venta({ date: '2026-07-05' }))
+    ).toMatch(/antes de la transformacion/i);
+    expect(
+      validateStockJewelStoneHistory(
+        joyaTransformada({ sale: venta({ date: '2026-07-05' }) })
+      )
+    ).toMatch(/despues de la fecha de venta/i);
   });
 
   it('exige un valor recibido', () => {

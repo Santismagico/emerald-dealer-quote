@@ -241,6 +241,7 @@ describe('normalizeStoneLot', () => {
     expect(l.partnerId).toBeNull();
     expect(l.partnerName).toBe('');
     expect(l.myPercent).toBe(100);
+    expect(l.internalUses).toEqual([]);
     expect(l.sales).toEqual([]);
   });
 
@@ -262,6 +263,7 @@ describe('normalizeStoneLot', () => {
       onCredit: false,
       supplierPayments: [],
       cuttingBatches: [],
+      internalUses: [],
       notes: '',
       sales: [
         {
@@ -502,6 +504,13 @@ describe('normalizeStockJewel', () => {
     expect(j.priceCop).toBe(0);
     expect(j.sale).toBeNull();
     expect(j.photo).toBe('');
+    expect(j).toMatchObject({
+      weightGrams: 0,
+      size: '',
+      stoneCount: 0,
+      stoneKind: '',
+      stoneTransformations: []
+    });
   });
 
   it('un estado inventado no puede dejar la pieza fuera de los dos estados guardables', () => {

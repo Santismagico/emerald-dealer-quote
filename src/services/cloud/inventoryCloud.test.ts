@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
 import type { Buyer, StockJewel, StoneLot } from '../../types';
+import { transformStockJewelToNatural } from '../stoneJewelTransformation';
 import { createSupabaseCloudRemote } from './api';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
 
@@ -41,7 +42,9 @@ function fakeOutbox() {
   };
 }
 
-const noopSync = { pullTable: async () => {}, pullAll: async () => {} };
+const noopSync = {
+  pullTable: async () => {}, pullStoneJewelPair: async () => {}, pullAll: async () => {}
+};
 const noopRemote = {
   list: async () => [],
   execute: async () => {},
@@ -78,6 +81,7 @@ function loteConVentaDelComprador(): StoneLot {
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [
       {
@@ -120,6 +124,10 @@ function joyaVendidaAlComprador(): StockJewel {
     material: 'Oro',
     photo: '',
     acquiredDate: '2026-07-05',
+    weightGrams: 0,
+    size: '',
+    stoneCount: 0,
+    stoneKind: '',
     costCop: 1000000,
     priceCop: 2000000,
     status: 'disponible',
@@ -137,6 +145,7 @@ function joyaVendidaAlComprador(): StockJewel {
       notes: 'Venta de mostrador'
     },
     collectionId: null,
+    stoneTransformations: [],
     createdAt: '2026-07-05T09:00:00.000Z',
     updatedAt: '2026-07-05T09:00:00.000Z'
   };
@@ -232,6 +241,295 @@ describe('borrar un comprador arrastra sus ventas a la nube', () => {
 });
 
 describe('joyas en stock viajan por su propia tabla protegida', () => {
+  it('confirma la transformación en el servidor antes de guardar ambos lados locales', async () => {
+    const lot = loteConVentaDelComprador();
+    const jewel: StockJewel = {
+      ...joyaVendidaAlComprador(),
+      sale: null,
+      stoneKind: 'fantasia',
+      stoneCount: 1
+    };
+    await storage.saveStoneLot(lot);
+    await storage.saveStockJewel(jewel);
+    const { enqueued, outbox } = fakeOutbox();
+    const input = {
+      id: 'event-cloud-c2',
+      date: '2026-08-04',
+      lotId: lot.id,
+      jewelId: jewel.id,
+      origin: 'bruto' as const,
+      carats: 1,
+      quantity: 1,
+      notes: 'Cambio de vitrina'
+    };
+    const updatedAt = '2026-08-04T15:00:00.000Z';
+    const authoritative = transformStockJewelToNatural(lot, jewel, input, updatedAt);
+    const remote = createSupabaseCloudRemote(async () => ({
+      from: () => ({ select: async () => ({ data: [], error: null }) }),
+      rpc: async () => ({ data: authoritative, error: null })
+    }));
+    const source = api.createCloudDataSource({
+      remote,
+      outbox,
+      sync: noopSync,
+      now: () => new Date(updatedAt)
+    });
+
+    const result = await source.transformStockJewelToNatural(input);
+
+    expect(enqueued).toEqual([]);
+    expect(result.attributedCostCop).toBe(400_000);
+    expect((await storage.listStoneLots())[0].internalUses).toEqual([result.internalUse]);
+    expect((await storage.listStockJewels())[0].stoneTransformations).toEqual([
+      result.transformation
+    ]);
+  });
+
+  it('si la respuesta necesita otra joya, vuelve a traer Piedras y Joyas juntas', async () => {
+    const lot = loteConVentaDelComprador();
+    const jewel: StockJewel = {
+      ...joyaVendidaAlComprador(),
+      sale: null,
+      stoneKind: 'fantasia',
+      stoneCount: 1
+    };
+    await storage.saveStoneLot(lot);
+    await storage.saveStockJewel(jewel);
+    const input = {
+      id: 'event-race-c2',
+      date: '2026-08-04',
+      lotId: lot.id,
+      jewelId: jewel.id,
+      origin: 'bruto' as const,
+      carats: 1,
+      quantity: 1,
+      notes: ''
+    };
+    const authoritative = transformStockJewelToNatural(
+      lot,
+      jewel,
+      input,
+      '2026-08-04T15:00:00.000Z'
+    );
+    const reconcile = vi.spyOn(storage, 'reconcileAuthoritativeStoneJewelTransformation')
+      .mockRejectedValueOnce(new Error('Falta otra mitad remota.'))
+      .mockResolvedValueOnce(authoritative);
+    let pulls = 0;
+    const execute = vi.fn(async () => authoritative);
+    const { outbox } = fakeOutbox();
+    const source = api.createCloudDataSource({
+      remote: { ...noopRemote, execute },
+      outbox,
+      sync: {
+        ...noopSync,
+        pullStoneJewelPair: async () => { pulls += 1; }
+      }
+    });
+
+    const result = await source.transformStockJewelToNatural(input);
+
+    expect(result).toEqual(authoritative);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(reconcile).toHaveBeenCalledTimes(2);
+    expect(pulls).toBe(2);
+  });
+
+  it('sin conexión no deja una transformación falsa en el dispositivo', async () => {
+    const lot = loteConVentaDelComprador();
+    const jewel: StockJewel = {
+      ...joyaVendidaAlComprador(),
+      sale: null,
+      stoneKind: 'fantasia',
+      stoneCount: 1
+    };
+    await storage.saveStoneLot(lot);
+    await storage.saveStockJewel(jewel);
+    const { outbox } = fakeOutbox();
+    const source = api.createCloudDataSource({
+      remote: {
+        ...noopRemote,
+        execute: async () => { throw new Error('Sin conexión'); }
+      },
+      outbox,
+      sync: noopSync
+    });
+
+    await expect(source.transformStockJewelToNatural({
+      id: 'event-offline',
+      date: '2026-08-04',
+      lotId: lot.id,
+      jewelId: jewel.id,
+      origin: 'bruto',
+      carats: 1,
+      quantity: 1,
+      notes: ''
+    })).rejects.toThrow(/necesitas conexion/i);
+
+    expect((await storage.listStoneLots())[0].internalUses).toEqual([]);
+    expect((await storage.listStockJewels())[0]).toMatchObject({
+      stoneKind: 'fantasia',
+      costCop: jewel.costCop,
+      stoneTransformations: []
+    });
+  });
+
+  it('rechaza en el dispositivo un consumo mayor a la existencia antes de llamar al servidor', async () => {
+    const lot = loteConVentaDelComprador();
+    const jewel: StockJewel = {
+      ...joyaVendidaAlComprador(),
+      sale: null,
+      stoneKind: 'fantasia',
+      stoneCount: 1
+    };
+    await storage.saveStoneLot(lot);
+    await storage.saveStockJewel(jewel);
+    const execute = vi.fn(async () => ({}));
+    const { outbox } = fakeOutbox();
+    const source = api.createCloudDataSource({
+      remote: { ...noopRemote, execute },
+      outbox,
+      sync: noopSync
+    });
+
+    await expect(source.transformStockJewelToNatural({
+      id: 'event-overuse',
+      date: '2026-08-04',
+      lotId: lot.id,
+      jewelId: jewel.id,
+      origin: 'bruto',
+      carats: 5,
+      quantity: 1,
+      notes: ''
+    })).rejects.toThrow(/solo tiene 4 ct/i);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect((await storage.listStoneLots())[0].internalUses).toEqual([]);
+    expect((await storage.listStockJewels())[0].stoneTransformations).toEqual([]);
+  });
+
+  it('no transforma mientras el lote tenga un cambio pendiente de subir', async () => {
+    const lot = loteConVentaDelComprador();
+    const jewel: StockJewel = {
+      ...joyaVendidaAlComprador(),
+      sale: null,
+      stoneKind: 'fantasia',
+      stoneCount: 1
+    };
+    await storage.saveStoneLot(lot);
+    await storage.saveStockJewel(jewel);
+    const execute = vi.fn(async () => ({}));
+    const pending: CloudOutboxOperation = {
+      id: 'pending-lot',
+      table: 'stone_lots',
+      type: 'upsert',
+      entityId: lot.id,
+      data: lot,
+      updatedAt: lot.updatedAt,
+      queuedAt: 1,
+      attempts: 1,
+      nextAttemptAt: 0,
+      state: 'held'
+    };
+    const source = api.createCloudDataSource({
+      remote: { ...noopRemote, execute },
+      outbox: {
+        enqueue: async () => pending,
+        flush: async () => ({ processed: 0, pending: 1 }),
+        list: async () => [pending],
+        status: async () => ({ pending: 0, held: 1, operations: [pending] }),
+        retryHeld: async () => ({ processed: 0, pending: 1 })
+      },
+      sync: noopSync
+    });
+
+    await expect(source.transformStockJewelToNatural({
+      id: 'event-blocked',
+      date: '2026-08-04',
+      lotId: lot.id,
+      jewelId: jewel.id,
+      origin: 'bruto',
+      carats: 1,
+      quantity: 1,
+      notes: ''
+    })).rejects.toThrow(/cambio pendiente/i);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect((await storage.listStoneLots())[0].internalUses).toEqual([]);
+    expect((await storage.listStockJewels())[0].stoneTransformations).toEqual([]);
+  });
+
+  it('no encola un costo histórico que no se pueda conservar exactamente', async () => {
+    const { payloads, outbox } = fakeOutbox();
+    const source = api.createCloudDataSource({
+      remote: noopRemote,
+      outbox,
+      sync: noopSync
+    });
+
+    await expect(source.restoreStockJewelTransformationForImport({
+      id: 'event-unsafe-cost',
+      date: '2026-08-04',
+      lotId: 'lot-1',
+      jewelId: 'jewel-1',
+      origin: 'bruto',
+      carats: 1,
+      quantity: 1,
+      notes: '',
+      costCop: Number.MAX_SAFE_INTEGER + 1,
+      updatedAt: '2026-08-04T15:00:00.000Z'
+    })).rejects.toThrow(/costo histórico/i);
+
+    expect(payloads).toEqual([]);
+  });
+
+  it('permite abandonar una importación C2 retenida y traer la pareja de la nube', async () => {
+    const held: CloudOutboxOperation = {
+      id: 'held-restore-c2',
+      table: 'stock_jewels',
+      type: 'restore_stock_jewel',
+      entityId: 'jewel-1',
+      data: { lotId: 'lot-1', jewelId: 'jewel-1' },
+      updatedAt: '2026-08-04T15:00:00.000Z',
+      queuedAt: 1,
+      attempts: 5,
+      nextAttemptAt: 0,
+      state: 'held'
+    };
+    const pending: CloudOutboxOperation = {
+      ...held,
+      id: 'pending-lot-c2',
+      table: 'stone_lots',
+      type: 'upsert',
+      entityId: 'lot-1',
+      state: 'pending'
+    };
+    const resolveTableChanges = vi.fn(async (
+      tables: readonly CloudTable[],
+      resolve: (operations: readonly CloudOutboxOperation[]) => Promise<void>
+    ) => {
+      expect(tables).toEqual(['stone_lots', 'stock_jewels']);
+      await resolve([held, pending]);
+    });
+    const replaceStoneJewelPairFromCloud = vi.fn(async (ids: readonly string[]) => {
+      expect(ids).toEqual([held.id, pending.id]);
+    });
+    const base = fakeOutbox().outbox;
+    const source = api.createCloudDataSource({
+      remote: noopRemote,
+      outbox: {
+        ...base,
+        list: async () => [held, pending],
+        resolveTableChanges
+      },
+      sync: { ...noopSync, replaceStoneJewelPairFromCloud }
+    });
+
+    await source.useCloudInventoryVersion();
+
+    expect(resolveTableChanges).toHaveBeenCalledTimes(1);
+    expect(replaceStoneJewelPairFromCloud).toHaveBeenCalledTimes(1);
+  });
+
   it('la cola conserva la trazabilidad anidada de piedras, abonos y joyas', async () => {
     const { payloads, outbox } = fakeOutbox();
     const source = api.createCloudDataSource({

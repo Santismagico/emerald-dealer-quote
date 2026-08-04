@@ -20,6 +20,7 @@ import type {
   StoneLot,
   StoneSale,
   CuttingBatch,
+  StoneInternalUse,
   Supplier,
   SupplierPayment,
   Buyer,
@@ -27,6 +28,8 @@ import type {
   StockJewel,
   StockJewelSale,
   StockJewelStatus,
+  StockJewelStoneKind,
+  StockJewelStoneTransformation,
   MaterialPartner,
   MaterialUse,
   MaterialLot,
@@ -360,6 +363,20 @@ function normalizeCuttingBatch(raw: unknown): CuttingBatch {
   };
 }
 
+function normalizeStoneInternalUse(raw: unknown): StoneInternalUse {
+  const use = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(use.id, newId()),
+    date: safeString(use.date),
+    carats: Math.max(0, safeNumber(use.carats)),
+    quantity: Math.max(0, Math.round(safeNumber(use.quantity))),
+    origin: oneOf(use.origin, ['bruto', 'tallado'] as const, 'bruto'),
+    jewelId: safeString(use.jewelId),
+    costCop: Math.max(0, Math.round(safeNumber(use.costCop))),
+    notes: safeString(use.notes)
+  };
+}
+
 /**
  * Una venta sin las marcas de crédito (D-042) es de CONTADO: así las ventas
  * anteriores a la decisión conservan exactamente el dinero y el resultado que
@@ -454,6 +471,27 @@ function normalizeStockJewelSale(raw: unknown): StockJewelSale {
   };
 }
 
+function normalizeStockJewelStoneTransformation(
+  raw: unknown
+): StockJewelStoneTransformation {
+  const transformation = (
+    typeof raw === 'object' && raw !== null ? raw : {}
+  ) as Record<string, unknown>;
+  return {
+    id: safeString(transformation.id, newId()),
+    date: safeString(transformation.date),
+    lotId: safeString(transformation.lotId),
+    jewelId: safeString(transformation.jewelId),
+    origin: oneOf(transformation.origin, ['bruto', 'tallado'] as const, 'bruto'),
+    carats: Math.max(0, safeNumber(transformation.carats)),
+    quantity: Math.max(0, Math.round(safeNumber(transformation.quantity))),
+    costCop: Math.max(0, Math.round(safeNumber(transformation.costCop))),
+    notes: safeString(transformation.notes),
+    fromStoneKind: 'fantasia',
+    toStoneKind: 'natural'
+  };
+}
+
 /** Garantiza COP entero y un reparto que siempre suma 100% (D-059). */
 export function normalizeExpense(raw: unknown): Expense {
   const e = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
@@ -495,6 +533,14 @@ export function normalizeStockJewel(raw: unknown): StockJewel {
     material: safeString(j.material),
     photo: safeImageDataUrl(j.photo),
     acquiredDate: safeString(j.acquiredDate),
+    weightGrams: Math.max(0, safeNumber(j.weightGrams)),
+    size: safeString(j.size),
+    stoneCount: Math.max(0, Math.round(safeNumber(j.stoneCount))),
+    stoneKind: oneOf<StockJewelStoneKind>(
+      j.stoneKind,
+      ['fantasia', 'natural', ''] as const,
+      ''
+    ),
     costCop: Math.max(0, Math.round(safeNumber(j.costCop))),
     priceCop: Math.max(0, Math.round(safeNumber(j.priceCop))),
     status: oneOf<StockJewelStatus>(j.status, STOCK_JEWEL_STATUSES, 'disponible'),
@@ -502,6 +548,9 @@ export function normalizeStockJewel(raw: unknown): StockJewel {
     sale:
       typeof j.sale === 'object' && j.sale !== null ? normalizeStockJewelSale(j.sale) : null,
     collectionId: typeof j.collectionId === 'string' ? j.collectionId : null,
+    stoneTransformations: safeArray(j.stoneTransformations).map(
+      normalizeStockJewelStoneTransformation
+    ),
     createdAt: safeString(j.createdAt),
     updatedAt: safeString(j.updatedAt)
   };
@@ -536,6 +585,7 @@ export function normalizeStoneLot(raw: unknown): StoneLot {
     onCredit: l.onCredit === true,
     supplierPayments: safeArray(l.supplierPayments).map(normalizeSupplierPayment),
     cuttingBatches: safeArray(l.cuttingBatches).map(normalizeCuttingBatch),
+    internalUses: safeArray(l.internalUses).map(normalizeStoneInternalUse),
     notes: safeString(l.notes),
     sales: safeArray(l.sales).map(normalizeStoneSale),
     createdAt: safeString(l.createdAt),

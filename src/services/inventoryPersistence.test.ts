@@ -44,12 +44,17 @@ function joya(overrides: Partial<StockJewel> = {}): StockJewel {
     material: 'Oro',
     photo: '',
     acquiredDate: '2026-07-10',
+    weightGrams: 0,
+    size: '',
+    stoneCount: 0,
+    stoneKind: '',
     costCop: 3000000,
     priceCop: 5000000,
     status: 'disponible',
     notes: '',
     sale: null,
     collectionId: null,
+    stoneTransformations: [],
     createdAt: '2026-07-10T09:00:00.000Z',
     updatedAt: '2026-07-10T09:00:00.000Z',
     ...overrides
@@ -75,6 +80,7 @@ function loteConCredito(overrides: Partial<StoneLot> = {}): StoneLot {
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [
       {

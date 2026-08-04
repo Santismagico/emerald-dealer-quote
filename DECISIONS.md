@@ -899,6 +899,32 @@ Las joyas existentes se leen sin clasificación y muestran **“Sin registrar”
 se clasifiquen, conforme a D-051. La joya conserva su historia: se ve que empezó en
 fantasía.
 
+Implementación C2 (2026-08-04): cada joya guarda peso, talla o medida libre,
+número de piedras y clase, sin inferir datos anteriores. La transformación crea
+un solo evento enlazado en la joya y el lote: descuenta bruto o tallado, conserva
+la cantidad de piedras registrada y traslada un costo COP entero. La piedra de
+fantasía retirada no se rastrea y su costo original permanece en la joya.
+
+El traslado **no mueve caja**. El costo atribuido sale del resultado contable del
+lote y entra al costo de la joya; el resultado combinado no cambia. En local las
+dos mitades se guardan en una transacción. En nube se exige conexión, se resuelven
+primero cambios pendientes y el servidor confirma la pareja antes de escribirla
+en el dispositivo. Las descargas de Piedras y Joyas también se validan y guardan
+juntas para no mostrar media transformación.
+
+Si un cambio de Piedras o Joyas queda retenido por conflicto, la cuenta ofrece
+usar la versión confirmada en la nube. Esa decisión descarta únicamente la cola
+de esos dos módulos: espera el envío que ya hubiera empezado, trae y valida la
+pareja completa, y confirma a la vez los dos inventarios y la retirada de esa
+cola. Si falla la red, la validación o el guardado, conserva íntegros los datos y
+los cambios locales; los demás módulos nunca se incluyen en el descarte.
+
+Deshacer y borrar quedan bloqueados: quitar una sola mitad dejaría inventario o
+costo huérfano. Una reversa futura tendría que ser otra operación doble y
+protegida. Los respaldos reconstruyen el costo histórico exacto mediante puertas
+de importación reservadas a owner/admin; un corte común impide que repetir un
+respaldo antiguo reactive una venta o pise una edición posterior.
+
 ## D-057 · Una sola verdad para los números del negocio · 2026-08-03 · Vigente
 
 Santiago pidió un dashboard de ventas y ganancias, cierres en Excel y un consolidado con

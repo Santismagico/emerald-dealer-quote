@@ -19,6 +19,7 @@ export type StoreName =
   | 'expenses';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
+type TransactionAbort = (error: unknown) => void;
 
 type MigratableDb = Pick<IDBDatabase, 'createObjectStore' | 'objectStoreNames'>;
 
@@ -119,12 +120,14 @@ function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBOb
 
 /**
  * Ejecuta varias escrituras dentro de UNA sola transacción IndexedDB.
- * El callback debe encolar sus solicitudes de forma síncrona: la promesa se
- * resuelve únicamente cuando IndexedDB confirma el commit completo.
+ * El callback debe encolar al menos una solicitud de forma síncrona. Sus
+ * manejadores pueden encadenar lecturas y escrituras dentro de la misma
+ * transacción. La promesa se resuelve únicamente cuando IndexedDB confirma el
+ * commit completo. `abort` conserva el error de negocio y espera el rollback.
  */
 export function dbWriteTransaction(
   stores: readonly StoreName[],
-  run: (getStore: StoreAccessor) => void
+  run: (getStore: StoreAccessor, abort: TransactionAbort) => void
 ): Promise<void> {
   return openDb().then(
     (db) =>
@@ -159,15 +162,20 @@ export function dbWriteTransaction(
         tx.onerror = () => {};
         tx.onabort = () => rejectOnce('La operación local fue cancelada.');
 
-        try {
-          run((store) => tx.objectStore(store));
-        } catch (error) {
-          callbackError = error;
+        const abort: TransactionAbort = (error) => {
+          if (settled) return;
+          callbackError = error instanceof Error ? error : new Error('No se pudo completar la operación local.');
           try {
             tx.abort();
           } catch {
             rejectOnce('No se pudo completar la operación local.');
           }
+        };
+
+        try {
+          run((store) => tx.objectStore(store), abort);
+        } catch (error) {
+          abort(error);
         }
       })
   );

@@ -31,7 +31,9 @@ function fakeOutbox() {
   };
 }
 
-const noopSync = { pullTable: async () => {}, pullAll: async () => {} };
+const noopSync = {
+  pullTable: async () => {}, pullStoneJewelPair: async () => {}, pullAll: async () => {}
+};
 const noopRemote = {
   list: async () => [],
   execute: async () => {},

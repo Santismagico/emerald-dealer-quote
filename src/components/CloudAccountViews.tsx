@@ -4,7 +4,7 @@ import privacySource from '../../docs/legal/politica-privacidad.md?raw';
 import noticeSource from '../../docs/legal/aviso-tratamiento-datos.md?raw';
 import { defaultSettings } from '../services/storage';
 import { useCloudAuth } from '../cloudAuthContext';
-import { Button, Field, SectionCard, TextInput } from './ui';
+import { Button, ConfirmDialog, Field, SectionCard, TextInput } from './ui';
 
 type LegalMode = 'terms' | 'privacy' | 'notice';
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot' | LegalMode;
@@ -428,22 +428,31 @@ export function PasswordRecoveryView() {
 export function AccountView({
   email,
   organizationName,
+  canImport,
   onSignOut,
   onImport,
   pendingChanges,
   heldChanges,
-  onRetryChanges
+  heldInventoryChanges,
+  inventoryChangesToReplace,
+  onRetryChanges,
+  onUseCloudInventoryVersion
 }: {
   email: string;
   organizationName: string;
+  canImport: boolean;
   onSignOut: () => Promise<void>;
   onImport: () => void;
   pendingChanges: number;
   heldChanges: number;
+  heldInventoryChanges: number;
+  inventoryChangesToReplace: number;
   onRetryChanges: () => Promise<void>;
+  onUseCloudInventoryVersion: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [confirmCloudVersion, setConfirmCloudVersion] = useState(false);
   return (
     <div className="space-y-4">
       <SectionCard title="Cuenta">
@@ -479,6 +488,23 @@ export function AccountView({
               >
                 Reintentar cambios
               </Button>
+              {heldInventoryChanges > 0 ? (
+                <>
+                  <p>
+                    {inventoryChangesToReplace === 1
+                      ? 'Un cambio local de Piedras o Joyas se reemplazará por la versión confirmada en la nube.'
+                      : `${inventoryChangesToReplace} cambios locales de Piedras o Joyas se reemplazarán por las versiones confirmadas en la nube.`}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    full
+                    disabled={busy}
+                    onClick={() => setConfirmCloudVersion(true)}
+                  >
+                    Usar la versión de la nube
+                  </Button>
+                </>
+              ) : null}
             </div>
           ) : pendingChanges > 0 ? (
             <p className="mt-1 text-xs text-stone-500">Se subirán automáticamente cuando haya conexión.</p>
@@ -489,9 +515,11 @@ export function AccountView({
           <p className="mt-1 text-sm text-stone-800">{organizationName}</p>
         </div>
         {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-        <Button variant="secondary" full disabled={busy} onClick={onImport}>
-          Importar datos de este dispositivo
-        </Button>
+        {canImport ? (
+          <Button variant="secondary" full disabled={busy} onClick={onImport}>
+            Importar datos de este dispositivo
+          </Button>
+        ) : null}
         <Button
           variant="secondary"
           full
@@ -508,6 +536,26 @@ export function AccountView({
           {busy ? 'Cerrando…' : 'Cerrar sesión'}
         </Button>
       </SectionCard>
+      <ConfirmDialog
+        open={confirmCloudVersion}
+        title="Usar la versión de la nube"
+        message="Se descartarán todos los cambios pendientes o retenidos de Piedras y Joyas en este dispositivo. Después se traerán juntas las versiones confirmadas en la nube. Los demás módulos no cambiarán."
+        confirmLabel="Sí, usar la nube"
+        danger
+        busy={busy}
+        onCancel={() => setConfirmCloudVersion(false)}
+        onConfirm={() => {
+          setBusy(true);
+          setError('');
+          void onUseCloudInventoryVersion()
+            .then(() => setConfirmCloudVersion(false))
+            .catch(() => {
+              setConfirmCloudVersion(false);
+              setError('No fue posible traer la versión de la nube. No se descartó el cambio local.');
+            })
+            .finally(() => setBusy(false));
+        }}
+      />
     </div>
   );
 }

@@ -64,6 +64,7 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [],
     createdAt: '2026-07-01T09:00:00.000Z',

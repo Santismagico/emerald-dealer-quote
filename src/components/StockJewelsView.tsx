@@ -7,7 +7,14 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { PieceType, StockJewel, StockJewelSale } from '../types';
+import type {
+  PieceType,
+  StockJewel,
+  StockJewelSale,
+  StockJewelStoneKind,
+  StoneLot,
+  StoneOrigin
+} from '../types';
 import { PIECE_TYPES } from '../types';
 import {
   countStockJewels,
@@ -24,8 +31,14 @@ import {
   type JewelFilter,
   type StockJewelDisplayStatus
 } from '../services/stockJewels';
+import {
+  attributedStoneCostCop,
+  type StoneJewelTransformationInput
+} from '../services/stoneJewelTransformation';
+import { lotDisplayName, summarizeStoneLot } from '../services/stones';
 import { fileToCompressedDataUrl } from '../utils/images';
 import { formatDateCO, todayISO } from '../utils/dates';
+import { newId } from '../utils/id';
 import { formatCOP } from '../utils/money';
 import { activeProductTypes } from '../services/productTypes';
 import {
@@ -42,7 +55,9 @@ import {
   DecimalInput,
   EmptyState,
   Field,
+  FormDialog,
   MoneyInput,
+  SegmentedControl,
   Select,
   SectionCard,
   SummaryRow,
@@ -63,6 +78,22 @@ const FILTERS: Array<{ key: JewelFilter; label: string }> = [
   { key: 'todas', label: 'Todas' }
 ];
 
+const STONE_KIND_LABEL: Record<StockJewelStoneKind, string> = {
+  '': 'Sin registrar',
+  fantasia: 'Fantasía',
+  natural: 'Natural'
+};
+
+function historicalNumber(value: number, suffix = ''): string {
+  if (!Number.isFinite(value) || value <= 0) return 'Sin registrar';
+  return `${value.toLocaleString('es-CO', { maximumFractionDigits: 3 })}${suffix}`;
+}
+
+function formatCarats(value: number): string {
+  const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
+  return `${safe.toLocaleString('es-CO', { maximumFractionDigits: 3 })} ct`;
+}
+
 export function StockJewelsView() {
   const store = useStore();
   const today = todayISO();
@@ -70,6 +101,7 @@ export function StockJewelsView() {
   const [filter, setFilter] = useState<JewelFilter>('disponibles');
   const [editing, setEditing] = useState<StockJewel | null>(null);
   const [selling, setSelling] = useState<{ jewel: StockJewel; sale: StockJewelSale } | null>(null);
+  const [transforming, setTransforming] = useState<StockJewel | null>(null);
   const [toDelete, setToDelete] = useState<StockJewel | null>(null);
   const [toUndoSale, setToUndoSale] = useState<StockJewel | null>(null);
   const [error, setError] = useState('');
@@ -150,6 +182,15 @@ export function StockJewelsView() {
     }
   };
 
+  if (transforming) {
+    return (
+      <StockJewelTransformationForm
+        jewel={transforming}
+        onClose={() => setTransforming(null)}
+      />
+    );
+  }
+
   // ---------- Formulario de pieza ----------
   if (editing) {
     const isNew = !store.stockJewels.some((j) => j.id === editing.id);
@@ -178,6 +219,68 @@ export function StockJewelsView() {
               onChange={(material) => setEditing({ ...editing, material })}
               placeholder="Oro 18K"
             />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Peso total">
+              <DecimalInput
+                value={editing.weightGrams}
+                onValue={(weightGrams) => setEditing({ ...editing, weightGrams })}
+                suffix="g"
+              />
+            </Field>
+            <Field label="Número de piedras">
+              {!isNew && editing.stoneTransformations.length > 0 ? (
+                <p className="min-h-12 rounded-xl bg-stone-100 px-3 py-3 text-base text-stone-700">
+                  {editing.stoneCount}
+                </p>
+              ) : (
+                <DecimalInput
+                  value={editing.stoneCount}
+                  onValue={(stoneCount) => setEditing({ ...editing, stoneCount })}
+                />
+              )}
+            </Field>
+          </div>
+          <Field
+            label="Talla o medida"
+            hint="Texto libre: talla del anillo, largo, diámetro u otra medida."
+          >
+            <TextInput
+              value={editing.size}
+              onChange={(size) => setEditing({ ...editing, size })}
+              placeholder="Ej. talla 7, 45 cm, diámetro 18 mm"
+            />
+          </Field>
+          <Field
+            label="Clase de piedra"
+            hint={
+              !isNew && editing.stoneKind === 'fantasia'
+                ? 'El cambio a natural se registra desde la ficha de la joya para descontar el lote correcto.'
+                : !isNew && editing.stoneKind === 'natural'
+                  ? 'Una joya natural conserva esta clasificación.'
+                  : undefined
+            }
+          >
+            {!isNew && editing.stoneKind !== '' ? (
+              <p className="min-h-12 rounded-xl bg-stone-100 px-3 py-3 text-base text-stone-700">
+                {STONE_KIND_LABEL[editing.stoneKind]}
+              </p>
+            ) : (
+              <Select
+                value={editing.stoneKind}
+                onChange={(stoneKind) =>
+                  setEditing({
+                    ...editing,
+                    stoneKind: stoneKind as StockJewelStoneKind
+                  })
+                }
+                options={[
+                  { value: '', label: 'Sin registrar' },
+                  { value: 'fantasia', label: 'Fantasía' },
+                  { value: 'natural', label: 'Natural' }
+                ]}
+              />
+            )}
           </Field>
           <Field label="Entró al inventario *" hint="El día en que pagó por la pieza.">
             <TextInput
@@ -409,7 +512,7 @@ export function StockJewelsView() {
 
           {sale.priceCop > 0 ? (
             <div className="space-y-1 rounded-xl bg-stone-50 p-3">
-              <SummaryRow label="Le costó" value={formatCOP(jewel.costCop)} />
+              <SummaryRow label="Costo total" value={formatCOP(jewel.costCop)} />
               <SummaryRow
                 label="Resultado"
                 value={formatCOP(sale.priceCop - jewel.costCop)}
@@ -546,6 +649,22 @@ export function StockJewelsView() {
                   </div>
 
                   <div className="mt-3 space-y-1">
+                    <SummaryRow
+                      label="Peso"
+                      value={historicalNumber(jewel.weightGrams, ' g')}
+                    />
+                    <SummaryRow
+                      label="Talla o medida"
+                      value={jewel.size?.trim() || 'Sin registrar'}
+                    />
+                    <SummaryRow
+                      label="Número de piedras"
+                      value={historicalNumber(jewel.stoneCount)}
+                    />
+                    <SummaryRow
+                      label="Clase de piedra"
+                      value={STONE_KIND_LABEL[jewel.stoneKind] ?? 'Sin registrar'}
+                    />
                     {summary.sold && jewel.sale ? (
                       <>
                         <SummaryRow
@@ -572,6 +691,7 @@ export function StockJewelsView() {
                           label="Recibió"
                           value={jewel.sale.receivedBy || 'Sin registrar'}
                         />
+                        <SummaryRow label="Costo total" value={formatCOP(jewel.costCop)} />
                         <SummaryRow
                           label="Resultado"
                           value={formatCOP(summary.resultCop)}
@@ -588,12 +708,63 @@ export function StockJewelsView() {
                     ) : (
                       <>
                         <SummaryRow label="La pide en" value={formatCOP(jewel.priceCop)} />
-                        <SummaryRow label="Le costó" value={formatCOP(jewel.costCop)} />
+                        <SummaryRow label="Costo total" value={formatCOP(jewel.costCop)} />
                       </>
                     )}
                   </div>
 
+                  {(jewel.stoneTransformations?.length ?? 0) > 0 ? (
+                    <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                        Historia de la piedra
+                      </p>
+                      <p className="mt-1 text-xs text-stone-600">
+                        Esta joya empezó con fantasía y ahora lleva piedra natural.
+                      </p>
+                      <ul className="mt-2 space-y-2">
+                        {(jewel.stoneTransformations ?? []).map((transformation) => {
+                          const lot = store.stoneLots.find(
+                            (candidate) => candidate.id === transformation.lotId
+                          );
+                          return (
+                            <li key={transformation.id} className="rounded-lg bg-white/80 p-2">
+                              <p className="break-words text-xs font-medium text-stone-800">
+                                {formatDateCO(transformation.date)} ·{' '}
+                                {lot ? lotDisplayName(lot) : `Lote ${transformation.lotId}`}
+                              </p>
+                              <p className="break-words text-xs text-stone-600">
+                                {transformation.origin === 'tallado' ? 'Tallado' : 'Bruto'} ·{' '}
+                                {formatCarats(transformation.carats)} ·{' '}
+                                {transformation.quantity} piedra(s)
+                              </p>
+                              <p className="text-xs text-stone-600">
+                                Costo atribuido: {formatCOP(transformation.costCop)}
+                              </p>
+                              {transformation.notes ? (
+                                <p className="break-words text-xs text-stone-500">
+                                  Nota: {transformation.notes}
+                                </p>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
+
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
+                    {!summary.sold && jewel.stoneKind === 'fantasia' ? (
+                      <button
+                        type="button"
+                        className="min-h-11 w-full shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 active:bg-emerald-100"
+                        onClick={() => {
+                          setError('');
+                          setTransforming(jewel);
+                        }}
+                      >
+                        Cambiar a piedra natural
+                      </button>
+                    ) : null}
                     {summary.sold && jewel.sale ? (
                       <>
                         <button
@@ -639,12 +810,19 @@ export function StockJewelsView() {
                     </button>
                     <button
                       type="button"
-                      className="min-h-11 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50"
+                      disabled={(jewel.stoneTransformations?.length ?? 0) > 0}
+                      className="min-h-11 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50 disabled:cursor-not-allowed disabled:text-stone-300"
                       onClick={() => setToDelete(jewel)}
                     >
                       Eliminar
                     </button>
                   </div>
+                  {(jewel.stoneTransformations?.length ?? 0) > 0 ? (
+                    <p className="mt-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                      Esta joya no se puede eliminar porque su piedra natural está unida al
+                      inventario de Piedras.
+                    </p>
+                  ) : null}
                 </div>
               </li>
             );
@@ -684,5 +862,210 @@ export function StockJewelsView() {
         }}
       />
     </div>
+  );
+}
+
+function originHasInventory(lot: StoneLot, origin: StoneOrigin): boolean {
+  const summary = summarizeStoneLot(lot);
+  return origin === 'tallado'
+    ? summary.cutAvailableCarats > 0 && summary.cutAvailableQuantity > 0
+    : summary.rawAvailableCarats > 0 && summary.rawAvailableQuantity > 0;
+}
+
+function preferredOrigin(lot: StoneLot): StoneOrigin {
+  return originHasInventory(lot, 'bruto') ? 'bruto' : 'tallado';
+}
+
+function StockJewelTransformationForm({
+  jewel,
+  onClose
+}: {
+  jewel: StockJewel;
+  onClose: () => void;
+}) {
+  const store = useStore();
+  const availableLots = useMemo(
+    () =>
+      store.stoneLots.filter(
+        (lot) => originHasInventory(lot, 'bruto') || originHasInventory(lot, 'tallado')
+      ),
+    [store.stoneLots]
+  );
+  const initialLot = availableLots[0] ?? null;
+  const [form, setForm] = useState<StoneJewelTransformationInput>(() => ({
+    id: newId(),
+    date: todayISO(),
+    lotId: initialLot?.id ?? '',
+    jewelId: jewel.id,
+    origin: initialLot ? preferredOrigin(initialLot) : 'bruto',
+    carats: 0,
+    quantity: jewel.stoneCount > 0 ? jewel.stoneCount : 0,
+    notes: ''
+  }));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const selectedLot = availableLots.find((lot) => lot.id === form.lotId) ?? null;
+  const selectedSummary = selectedLot ? summarizeStoneLot(selectedLot) : null;
+  const attributedCost =
+    selectedLot && form.carats > 0
+      ? attributedStoneCostCop(selectedLot, form.carats)
+      : 0;
+
+  const patch = (partial: Partial<StoneJewelTransformationInput>) =>
+    setForm((current) => ({ ...current, ...partial }));
+
+  const save = async () => {
+    if (!selectedLot) {
+      setError('Necesitas un lote con piedras disponibles para hacer el cambio.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await store.transformStockJewelToNatural(form);
+      store.showToast('Piedra natural registrada');
+      onClose();
+    } catch (problem) {
+      setError(
+        problem instanceof Error
+          ? problem.message
+          : 'No se pudo registrar el cambio. Intenta de nuevo.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <FormDialog
+      title="Cambiar a piedra natural"
+      description={jewelDisplayName(jewel)}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <Button variant="ghost" full disabled={busy} onClick={onClose}>
+              Cancelar
+            </Button>
+          </div>
+          <div className="flex-1">
+            <Button full disabled={busy || !selectedLot} onClick={() => void save()}>
+              Guardar cambio
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+          La piedra natural se descontará del lote elegido y su costo se sumará a la joya.
+          Este historial queda protegido y no se puede deshacer.
+        </p>
+
+        <Field label="Fecha del cambio *">
+          <TextInput
+            type="date"
+            value={form.date}
+            onChange={(date) => patch({ date })}
+          />
+        </Field>
+
+        <Field label="Lote de la piedra natural *">
+          <Select
+            value={form.lotId}
+            onChange={(lotId) => {
+              const lot = availableLots.find((candidate) => candidate.id === lotId);
+              patch({
+                lotId,
+                origin: lot ? preferredOrigin(lot) : 'bruto'
+              });
+            }}
+            options={
+              availableLots.length > 0
+                ? availableLots.map((lot) => ({ value: lot.id, label: lotDisplayName(lot) }))
+                : [{ value: '', label: 'No hay lotes con existencias' }]
+            }
+          />
+        </Field>
+
+        {selectedLot && selectedSummary ? (
+          <>
+            <SegmentedControl
+              label="Origen dentro del lote"
+              value={form.origin}
+              options={[
+                {
+                  value: 'bruto',
+                  label: 'En bruto',
+                  disabled: !originHasInventory(selectedLot, 'bruto')
+                },
+                {
+                  value: 'tallado',
+                  label: 'Tallada',
+                  disabled: !originHasInventory(selectedLot, 'tallado')
+                }
+              ]}
+              onChange={(origin) => patch({ origin: origin as StoneOrigin })}
+            />
+            <p className="rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
+              Disponible en bruto: {formatCarats(selectedSummary.rawAvailableCarats)}
+              {' · '}{selectedSummary.rawAvailableQuantity} piedra(s)
+              <br />
+              Disponible tallado: {formatCarats(selectedSummary.cutAvailableCarats)}
+              {' · '}{selectedSummary.cutAvailableQuantity} piedra(s)
+            </p>
+          </>
+        ) : (
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+            Primero registra o completa un lote con piedras disponibles en el área Piedras.
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quilates usados *">
+            <DecimalInput
+              value={form.carats}
+              onValue={(carats) => patch({ carats })}
+              suffix="ct"
+            />
+          </Field>
+          <Field label="N.º de piedras *">
+            <DecimalInput
+              value={form.quantity}
+              onValue={(quantity) => patch({ quantity })}
+            />
+          </Field>
+        </div>
+
+        <div className="space-y-1 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+          <SummaryRow
+            label="Costo atribuido (calculado)"
+            value={form.carats > 0 ? formatCOP(attributedCost) : 'Pendiente'}
+          />
+          <SummaryRow label="Costo actual de la joya" value={formatCOP(jewel.costCop)} />
+          <SummaryRow
+            label="Costo nuevo de la joya"
+            value={formatCOP(jewel.costCop + attributedCost)}
+            bold
+            valueClass="text-brand-800"
+          />
+          <p className="pt-1 text-[11px] text-stone-500">
+            El costo se calcula automáticamente desde el lote. No mueve dinero de caja.
+          </p>
+        </div>
+
+        <Field label="Notas internas">
+          <TextArea
+            value={form.notes}
+            onChange={(notes) => patch({ notes })}
+            rows={2}
+            placeholder="Detalle del cambio de piedra"
+          />
+        </Field>
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+    </FormDialog>
   );
 }

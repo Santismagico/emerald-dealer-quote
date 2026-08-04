@@ -38,9 +38,20 @@ import {
   validateStoneLotOwnership,
   validateStoneLotSalesMetadata
 } from './stones';
-import { compareStockJewels, validateStockJewelSaleMetadata } from './stockJewels';
+import {
+  compareStockJewels,
+  validateStockJewelSaleMetadata,
+  validateStockJewelStoneHistory
+} from './stockJewels';
 import { compareMaterialLots } from './materials';
 import { compareExpenses, validateExpense } from './expenses';
+import {
+  transformStockJewelToNatural as buildStockJewelTransformation,
+  validateStoneJewelTransformationCollections,
+  validateStoneJewelTransformationLink,
+  type StoneJewelTransformationInput,
+  type StoneJewelTransformationResult
+} from './stoneJewelTransformation';
 
 // Re-export para compatibilidad: el resto de la app importa defaultSettings desde aquí.
 export { defaultSettings } from './schema';
@@ -205,13 +216,37 @@ export async function saveStoneLot(lot: StoneLot): Promise<void> {
   const metadataError = validateStoneLotSalesMetadata(lot, previous);
   if (metadataError) throw new Error(metadataError);
   const normalized = normalizeStoneLot(lot);
+  if (
+    previous
+      ? JSON.stringify(normalized.internalUses) !== JSON.stringify(previous.internalUses)
+      : normalized.internalUses.length > 0
+  ) {
+    throw new Error('Los usos internos solo se registran al transformar una joya.');
+  }
   const inventoryError = validateStoneLotInventory(normalized, previous);
   if (inventoryError) throw new Error(inventoryError);
   await dbPut('stoneLots', normalized);
 }
 
 export async function deleteStoneLot(id: string): Promise<void> {
-  await dbDelete('stoneLots', id);
+  await dbWriteTransaction(['stoneLots'], (getStore, abort) => {
+    const store = getStore('stoneLots');
+    const request = store.get(id);
+    request.onsuccess = () => {
+      if (request.result !== undefined) {
+        const lot = normalizeStoneLot(request.result);
+        if (lot.internalUses.length > 0) {
+          abort(
+            new Error(
+              'Este lote tiene piedras usadas en joyas y no se puede eliminar sin borrar esa historia.'
+            )
+          );
+          return;
+        }
+      }
+      store.delete(id);
+    };
+  });
 }
 
 export async function listSuppliers(): Promise<Supplier[]> {
@@ -371,11 +406,217 @@ export async function saveStockJewel(jewel: StockJewel): Promise<void> {
   const previous = stored === undefined ? null : normalizeStockJewel(stored);
   const metadataError = validateStockJewelSaleMetadata(jewel, previous);
   if (metadataError) throw new Error(metadataError);
-  await dbPut('stockJewels', normalizeStockJewel(jewel));
+  const normalized = normalizeStockJewel(jewel);
+  if (
+    previous
+      ? JSON.stringify(normalized.stoneTransformations) !==
+        JSON.stringify(previous.stoneTransformations)
+      : normalized.stoneTransformations.length > 0
+  ) {
+    throw new Error('La historia de piedras solo se registra al transformar una joya.');
+  }
+  const historyError = validateStockJewelStoneHistory(normalized, previous);
+  if (historyError) throw new Error(historyError);
+  await dbPut('stockJewels', normalized);
 }
 
 export async function deleteStockJewel(id: string): Promise<void> {
-  await dbDelete('stockJewels', id);
+  await dbWriteTransaction(['stockJewels'], (getStore, abort) => {
+    const store = getStore('stockJewels');
+    const request = store.get(id);
+    request.onsuccess = () => {
+      if (request.result !== undefined) {
+        const jewel = normalizeStockJewel(request.result);
+        if (jewel.stoneTransformations.length > 0) {
+          abort(
+            new Error(
+              'Esta joya tiene una transformación de piedra registrada y no se puede eliminar sin borrar esa historia.'
+            )
+          );
+          return;
+        }
+      }
+      store.delete(id);
+    };
+  });
+}
+
+/**
+ * Transforma una joya usando los registros actuales y confirma lote + joya en
+ * una sola transacción. Si cualquier lectura, regla o escritura falla,
+ * IndexedDB revierte ambos lados antes de rechazar la operación.
+ */
+export async function transformStockJewelToNatural(
+  input: StoneJewelTransformationInput
+): Promise<StoneJewelTransformationResult> {
+  let transformed: StoneJewelTransformationResult | undefined;
+
+  await dbWriteTransaction(['stoneLots', 'stockJewels'], (getStore, abort) => {
+    const stoneLots = getStore('stoneLots');
+    const stockJewels = getStore('stockJewels');
+    const lotRequest = stoneLots.get(input.lotId);
+    const jewelRequest = stockJewels.get(input.jewelId);
+    let lotLoaded = false;
+    let jewelLoaded = false;
+    let storedLot: unknown;
+    let storedJewel: unknown;
+
+    const applyWhenReady = () => {
+      if (!lotLoaded || !jewelLoaded || transformed) return;
+      try {
+        if (storedLot === undefined) {
+          throw new Error('No se encontró el lote de piedras elegido.');
+        }
+        if (storedJewel === undefined) {
+          throw new Error('No se encontró la joya que quieres transformar.');
+        }
+
+        const previousLot = normalizeStoneLot(storedLot);
+        const previousJewel = normalizeStockJewel(storedJewel);
+        const result = buildStockJewelTransformation(
+          previousLot,
+          previousJewel,
+          input,
+          new Date().toISOString()
+        );
+        const lot = normalizeStoneLot(result.lot);
+        const jewel = normalizeStockJewel(result.jewel);
+
+        const ownershipError = validateStoneLotOwnership(lot);
+        if (ownershipError) throw new Error(ownershipError);
+        const salesMetadataError = validateStoneLotSalesMetadata(lot, previousLot);
+        if (salesMetadataError) throw new Error(salesMetadataError);
+        const inventoryError = validateStoneLotInventory(lot, previousLot);
+        if (inventoryError) throw new Error(inventoryError);
+        const jewelMetadataError = validateStockJewelSaleMetadata(jewel, previousJewel);
+        if (jewelMetadataError) throw new Error(jewelMetadataError);
+
+        transformed = { ...result, lot, jewel };
+        stoneLots.put(lot);
+        stockJewels.put(jewel);
+      } catch (error) {
+        abort(error);
+      }
+    };
+
+    lotRequest.onsuccess = () => {
+      storedLot = lotRequest.result;
+      lotLoaded = true;
+      applyWhenReady();
+    };
+    jewelRequest.onsuccess = () => {
+      storedJewel = jewelRequest.result;
+      jewelLoaded = true;
+      applyWhenReady();
+    };
+  });
+
+  if (!transformed) {
+    throw new Error('No se pudo completar la transformación de la joya.');
+  }
+  return transformed;
+}
+
+/**
+ * Confirma en el dispositivo la pareja autoritativa devuelta por la RPC.
+ * Si el servidor recalculó el costo por cambios hechos desde otro equipo,
+ * lote y joya se sustituyen juntos o no se sustituye ninguno.
+ */
+export async function reconcileAuthoritativeStoneJewelTransformation(
+  payload: unknown
+): Promise<StoneJewelTransformationResult> {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new Error('El servidor devolvió una transformación incompleta.');
+  }
+  const candidate = payload as Record<string, unknown>;
+  if (
+    typeof candidate.lot !== 'object' ||
+    candidate.lot === null ||
+    typeof candidate.jewel !== 'object' ||
+    candidate.jewel === null
+  ) {
+    throw new Error('El servidor devolvió una transformación incompleta.');
+  }
+
+  const ownershipError = validateStoneLotOwnership(candidate.lot);
+  if (ownershipError) throw new Error(ownershipError);
+  const lotMetadataError = validateStoneLotSalesMetadata(candidate.lot);
+  if (lotMetadataError) throw new Error(lotMetadataError);
+  const jewelMetadataError = validateStockJewelSaleMetadata(candidate.jewel);
+  if (jewelMetadataError) throw new Error(jewelMetadataError);
+
+  const lot = normalizeStoneLot(candidate.lot);
+  const jewel = normalizeStockJewel(candidate.jewel);
+  const inventoryError = validateStoneLotInventory(lot);
+  if (inventoryError) throw new Error(inventoryError);
+  const historyError = validateStockJewelStoneHistory(jewel);
+  if (historyError) throw new Error(historyError);
+  const transformation = jewel.stoneTransformations.find(
+    (item) => item.lotId === lot.id && item.jewelId === jewel.id
+  );
+  const internalUse = transformation
+    ? lot.internalUses.find((item) => item.id === transformation.id)
+    : undefined;
+  if (
+    !transformation ||
+    !internalUse ||
+    validateStoneJewelTransformationLink(internalUse, transformation)
+  ) {
+    throw new Error('El servidor devolvió una historia que no cuadra entre Piedras y Joyas.');
+  }
+
+  await dbWriteTransaction(['stoneLots', 'stockJewels'], (getStore, abort) => {
+    const lotStore = getStore('stoneLots');
+    const jewelStore = getStore('stockJewels');
+    const lotsRequest = lotStore.getAll();
+    const jewelsRequest = jewelStore.getAll();
+    let storedLots: unknown[] | null = null;
+    let storedJewels: unknown[] | null = null;
+
+    const validateAndWrite = () => {
+      if (storedLots === null || storedJewels === null) return;
+      try {
+        const lots = storedLots.map(normalizeStoneLot);
+        const jewels = storedJewels.map(normalizeStockJewel);
+        const nextLots = lots.some((item) => item.id === lot.id)
+          ? lots.map((item) => (item.id === lot.id ? lot : item))
+          : [...lots, lot];
+        const nextJewels = jewels.some((item) => item.id === jewel.id)
+          ? jewels.map((item) => (item.id === jewel.id ? jewel : item))
+          : [...jewels, jewel];
+        const collectionsError = validateStoneJewelTransformationCollections(
+          nextLots,
+          nextJewels
+        );
+        if (collectionsError) {
+          abort(new Error(
+            `La respuesta del servidor necesita actualizar toda la historia: ${collectionsError}`
+          ));
+          return;
+        }
+        lotStore.put({ ...lot, cloudUpdatedAt: lot.updatedAt });
+        jewelStore.put({ ...jewel, cloudUpdatedAt: jewel.updatedAt });
+      } catch (error) {
+        abort(error);
+      }
+    };
+
+    lotsRequest.onsuccess = () => {
+      storedLots = lotsRequest.result as unknown[];
+      validateAndWrite();
+    };
+    jewelsRequest.onsuccess = () => {
+      storedJewels = jewelsRequest.result as unknown[];
+      validateAndWrite();
+    };
+  });
+  return {
+    lot,
+    jewel,
+    internalUse,
+    transformation,
+    attributedCostCop: transformation.costCop
+  };
 }
 
 export async function listMaterialPartners(): Promise<MaterialPartner[]> {

@@ -424,6 +424,25 @@ export interface CuttingBatch {
   notes: string;
 }
 
+/** Existencia fisica de piedras antes o despues de pasar por talla. */
+export type StoneOrigin = 'bruto' | 'tallado';
+
+/**
+ * Piedra retirada de un lote para incorporarla a una joya del inventario.
+ * No es una venta ni un movimiento de caja: es un traslado interno de costo.
+ */
+export interface StoneInternalUse {
+  id: string;
+  date: string;
+  carats: number;
+  quantity: number;
+  origin: StoneOrigin;
+  jewelId: string;
+  /** Costo atribuido a la joya en el momento del traslado, COP entero. */
+  costCop: number;
+  notes: string;
+}
+
 export interface StoneSale {
   id: string;
   /** Fecha de la venta (YYYY-MM-DD). */
@@ -437,7 +456,7 @@ export interface StoneSale {
   /** Número de piedras vendidas. */
   quantity: number;
   /** Existencia física de la que salió la venta (D-055). */
-  origin: 'bruto' | 'tallado';
+  origin: StoneOrigin;
   /**
    * Precio TOTAL acordado de la venta, en COP entero. De contado equivale a lo
    * recibido; a crédito lo recibido es la suma de `payments` (D-042).
@@ -499,6 +518,8 @@ export interface StoneLot {
   supplierPayments: SupplierPayment[];
   /** Envíos parciales a talla, en el orden en que se registraron. */
   cuttingBatches: CuttingBatch[];
+  /** Salidas hacia joyas propias. Nunca se mezclan con ventas. */
+  internalUses: StoneInternalUse[];
   notes: string;
   /** Ventas del lote, en el orden en que se registraron. */
   sales: StoneSale[];
@@ -537,6 +558,24 @@ export interface StockJewelSale {
   notes: string;
 }
 
+export type StockJewelStoneKind = 'fantasia' | 'natural' | '';
+
+/** Historia inmutable de un cambio de piedra de fantasia por una natural. */
+export interface StockJewelStoneTransformation {
+  id: string;
+  date: string;
+  lotId: string;
+  jewelId: string;
+  origin: StoneOrigin;
+  carats: number;
+  quantity: number;
+  /** Costo trasladado desde el lote, COP entero. */
+  costCop: number;
+  notes: string;
+  fromStoneKind: 'fantasia';
+  toStoneKind: 'natural';
+}
+
 /**
  * Joya YA FABRICADA que está en vitrina para vender (SOLO uso interno).
  * No es una cotización a la medida: no tiene etapas de taller, ni anticipo, ni
@@ -552,6 +591,14 @@ export interface StockJewel {
   photo: string;
   /** Fecha en que la pieza entró al inventario (YYYY-MM-DD). Es cuando salió el dinero. */
   acquiredDate: string;
+  /** Peso total de la pieza. 0 significa historico sin registrar. */
+  weightGrams: number;
+  /** Talla, largo o medida en texto libre. */
+  size: string;
+  /** Numero de piedras que lleva. 0 significa historico sin registrar. */
+  stoneCount: number;
+  /** Clase de piedra; vacio conserva honestamente los registros anteriores. */
+  stoneKind: StockJewelStoneKind;
   /** Lo que costó la pieza, en COP entero. INTERNO. */
   costCop: number;
   /** Precio de venta que se pide, en COP entero. */
@@ -562,6 +609,8 @@ export interface StockJewel {
   sale: StockJewelSale | null;
   /** Colección a la que pertenece, o null. Reservado para D-050 (aún sin usar). */
   collectionId: string | null;
+  /** Cambios fantasia -> natural, en orden historico. No se pueden deshacer. */
+  stoneTransformations: StockJewelStoneTransformation[];
   createdAt: string;
   updatedAt: string;
 }

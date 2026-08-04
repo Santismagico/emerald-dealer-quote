@@ -10,7 +10,11 @@ import type { Expense, Quote, StockJewel, StoneLot, Settings } from '../types';
 import type { PdfContent, PdfSection } from './pdfContent';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { lotDisplayName, summarizeStoneLot } from './stones';
-import { jewelDisplayName, summarizeStockJewel } from './stockJewels';
+import {
+  jewelDisplayName,
+  stockJewelAcquisitionCostCop,
+  summarizeStockJewel
+} from './stockJewels';
 import { clientPaidTotal } from './payments';
 import { formatCOP, toSafeCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
@@ -306,13 +310,14 @@ function buildBusinessReport(
   const jewelPurchases: DailyJewelPurchase[] = [];
   const jewelSales: DailyJewelSale[] = [];
   for (const jewel of stockJewels) {
+    const acquisitionCostCop = stockJewelAcquisitionCostCop(jewel);
     // Una joya que entra al inventario ya se pagó: el dinero salió ese día,
     // igual que una compra de piedras de contado.
-    if (matchDate(jewel.acquiredDate) && jewel.costCop > 0) {
+    if (matchDate(jewel.acquiredDate) && acquisitionCostCop > 0) {
       jewelPurchases.push({
         jewelName: jewelDisplayName(jewel),
         pieceType: jewel.pieceType,
-        costCop: jewel.costCop
+        costCop: acquisitionCostCop
       });
     }
     if (jewel.sale && matchDate(jewel.sale.date)) {
@@ -554,7 +559,7 @@ export function listMonthlySummaries(
     }
   }
   for (const jewel of stockJewels) {
-    if (jewel.costCop > 0) addDate(jewel.acquiredDate);
+    if (stockJewelAcquisitionCostCop(jewel) > 0) addDate(jewel.acquiredDate);
     if (jewel.sale) addDate(jewel.sale.date);
   }
   for (const quote of quotes) {

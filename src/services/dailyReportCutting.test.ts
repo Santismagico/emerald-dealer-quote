@@ -44,6 +44,7 @@ const lot: StoneLot = {
       notes: ''
     }
   ],
+  internalUses: [],
   notes: '',
   sales: [],
   createdAt: '2026-08-01T12:00:00.000Z',

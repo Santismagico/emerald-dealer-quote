@@ -68,6 +68,7 @@ type ViewName =
 interface CloudAccountInfo {
   email: string;
   organizationName: string;
+  canImport: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -525,15 +526,28 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             <AccountView
               email={cloudAccount.email}
               organizationName={cloudAccount.organizationName}
+              canImport={cloudAccount.canImport}
               onSignOut={cloudAccount.signOut}
-              onImport={() => setView('cloudImport')}
+              onImport={() => {
+                if (cloudAccount.canImport) setView('cloudImport');
+              }}
               pendingChanges={store.cloudSync.pending}
               heldChanges={store.cloudSync.held}
+              heldInventoryChanges={store.cloudSync.operations.filter(
+                (operation) =>
+                  operation.state === 'held' &&
+                  (operation.table === 'stone_lots' || operation.table === 'stock_jewels')
+              ).length}
+              inventoryChangesToReplace={store.cloudSync.operations.filter(
+                (operation) =>
+                  (operation.table === 'stone_lots' || operation.table === 'stock_jewels')
+              ).length}
               onRetryChanges={() => store.retryCloudChanges()}
+              onUseCloudInventoryVersion={() => store.useCloudInventoryVersion()}
             />
           </div>
         )}
-        {view === 'cloudImport' && cloudAccount && (
+        {view === 'cloudImport' && cloudAccount?.canImport && (
           <CloudImportView
             onDone={() => setView('account')}
             onCancel={() => setView('account')}
@@ -831,6 +845,7 @@ function ReadyCloudWorkspace() {
       <AppShell cloudAccount={{
         email: auth.session?.user.email ?? '',
         organizationName: auth.organization?.name ?? '',
+        canImport: auth.organization?.role === 'owner' || auth.organization?.role === 'admin',
         signOut: auth.signOut
       }} />
     </StoreProvider>
@@ -842,11 +857,12 @@ function CloudWorkspace() {
   const [importState, setImportState] = useState<'checking' | 'offer' | 'ready'>('checking');
   const [localSource, setLocalSource] = useState<BackupFile | null>(null);
   const organizationId = auth.organization?.id ?? '';
+  const canImport = auth.organization?.role === 'owner' || auth.organization?.role === 'admin';
   const marker = `emerald-cloud-import-reviewed:${organizationId}`;
 
   useEffect(() => {
     let mounted = true;
-    if (!organizationId || window.localStorage.getItem(marker) === 'yes') {
+    if (!organizationId || !canImport || window.localStorage.getItem(marker) === 'yes') {
       setImportState('ready');
       return;
     }
@@ -865,7 +881,7 @@ function CloudWorkspace() {
         if (mounted) setImportState('ready');
       });
     return () => { mounted = false; };
-  }, [marker, organizationId]);
+  }, [canImport, marker, organizationId]);
 
   if (importState === 'checking') return <CloudLoadingView />;
   if (importState === 'offer') {

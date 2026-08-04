@@ -53,6 +53,7 @@ import {
 import { validateStockJewelSaleMetadata } from './stockJewels';
 import { validateOptionalUsdRate } from './currency';
 import { validateSettingsMetadata } from './settingsMetadata';
+import { validateStoneJewelTransformationCollections } from './stoneJewelTransformation';
 
 /**
  * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 8.
@@ -64,6 +65,58 @@ import { validateSettingsMetadata } from './settingsMetadata';
 export const BACKUP_VERSION = 8;
 const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPositiveCarats(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    Math.abs(value * 1000 - Math.round(value * 1000)) < 1e-7
+  );
+}
+
+function isRawStoneInternalUse(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    isPositiveCarats(value.carats) &&
+    typeof value.quantity === 'number' &&
+    Number.isInteger(value.quantity) &&
+    value.quantity > 0 &&
+    (value.origin === 'bruto' || value.origin === 'tallado') &&
+    typeof value.jewelId === 'string' &&
+    typeof value.costCop === 'number' &&
+    Number.isSafeInteger(value.costCop) &&
+    value.costCop >= 0 &&
+    typeof value.notes === 'string'
+  );
+}
+
+function isRawStoneTransformation(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.lotId === 'string' &&
+    typeof value.jewelId === 'string' &&
+    isPositiveCarats(value.carats) &&
+    typeof value.quantity === 'number' &&
+    Number.isInteger(value.quantity) &&
+    value.quantity > 0 &&
+    (value.origin === 'bruto' || value.origin === 'tallado') &&
+    typeof value.costCop === 'number' &&
+    Number.isSafeInteger(value.costCop) &&
+    value.costCop >= 0 &&
+    typeof value.notes === 'string' &&
+    value.fromStoneKind === 'fantasia' &&
+    value.toStoneKind === 'natural'
+  );
+}
 
 export async function exportBackup(): Promise<BackupFile> {
   const [
@@ -227,6 +280,13 @@ function normalizeBackup(data: unknown): BackupFile {
     if (stoneLotIds.has(id)) {
       throw new Error('El respaldo contiene lotes de piedras duplicados.');
     }
+    if (
+      isRecord(l) &&
+      Object.prototype.hasOwnProperty.call(l, 'internalUses') &&
+      (!Array.isArray(l.internalUses) || !l.internalUses.every(isRawStoneInternalUse))
+    ) {
+      throw new Error('El respaldo contiene usos internos de piedras inválidos.');
+    }
     const ownershipError = validateStoneLotOwnership(l);
     if (ownershipError) {
       throw new Error(`El respaldo contiene un reparto de piedras inválido: ${ownershipError}`);
@@ -286,6 +346,14 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     if (jewelIds.has(id)) {
       throw new Error('El respaldo contiene joyas en stock duplicadas.');
+    }
+    if (
+      isRecord(j) &&
+      Object.prototype.hasOwnProperty.call(j, 'stoneTransformations') &&
+      (!Array.isArray(j.stoneTransformations) ||
+        !j.stoneTransformations.every(isRawStoneTransformation))
+    ) {
+      throw new Error('El respaldo contiene transformaciones de joyas inválidas.');
     }
     const metadataError = validateStockJewelSaleMetadata(j);
     if (metadataError) {
@@ -363,7 +431,7 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     expenseIds.add(expense.id);
   }
-  return {
+  const normalized: BackupFile = {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
     exportedAt: typeof b.exportedAt === 'string' ? b.exportedAt : '',
@@ -380,6 +448,12 @@ function normalizeBackup(data: unknown): BackupFile {
     materialLots: rawMaterialLots.map(normalizeMaterialLot),
     expenses: rawExpenses.map(normalizeExpense)
   };
+  const linkError = validateStoneJewelTransformationCollections(
+    normalized.stoneLots,
+    normalized.stockJewels
+  );
+  if (linkError) throw new Error(`El respaldo no cuadra entre Piedras y Joyas: ${linkError}`);
+  return normalized;
 }
 
 /** Valida, normaliza y parsea un respaldo. Lanza Error con mensaje humano si no es válido. */

@@ -4,7 +4,14 @@
 // ventas; nunca existe un contador guardado a mano. Todo es interno (COP
 // entero): ninguna piedra ni precio entra en canales de cliente.
 
-import type { BuyerPayment, CuttingBatch, StoneLot, StoneSale, SupplierPayment } from '../types';
+import type {
+  BuyerPayment,
+  CuttingBatch,
+  StoneInternalUse,
+  StoneLot,
+  StoneSale,
+  SupplierPayment
+} from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
@@ -48,6 +55,14 @@ export interface StoneLotSummary {
   soldRawQuantity: number;
   soldCutCarats: number;
   soldCutQuantity: number;
+  internalUsedCarats: number;
+  internalUsedQuantity: number;
+  internalUsedRawCarats: number;
+  internalUsedRawQuantity: number;
+  internalUsedCutCarats: number;
+  internalUsedCutQuantity: number;
+  /** Costo que salio del lote y entro a joyas, sin mover caja. */
+  internalAttributedCost: number;
   /** COP recibido por las ventas del lote. */
   soldValue: number;
   sentToCutCarats: number;
@@ -92,6 +107,13 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   let soldRawQuantity = 0;
   let soldCutCarats = 0;
   let soldCutQuantity = 0;
+  let internalUsedCarats = 0;
+  let internalUsedQuantity = 0;
+  let internalUsedRawCarats = 0;
+  let internalUsedRawQuantity = 0;
+  let internalUsedCutCarats = 0;
+  let internalUsedCutQuantity = 0;
+  let internalAttributedCost = 0;
   let soldValue = 0;
   let receivedFromBuyers = 0;
   let buyersDebt = 0;
@@ -112,9 +134,24 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     receivedFromBuyers += summary.receivedCop;
     buyersDebt += summary.balanceCop;
   }
+  for (const use of lot.internalUses ?? []) {
+    internalUsedCarats += use.carats;
+    internalUsedQuantity += use.quantity;
+    internalAttributedCost += toSafeCOP(use.costCop);
+    if (use.origin === 'tallado') {
+      internalUsedCutCarats += use.carats;
+      internalUsedCutQuantity += use.quantity;
+    } else {
+      internalUsedRawCarats += use.carats;
+      internalUsedRawQuantity += use.quantity;
+    }
+  }
   soldCarats = round3(soldCarats);
   soldRawCarats = round3(soldRawCarats);
   soldCutCarats = round3(soldCutCarats);
+  internalUsedCarats = round3(internalUsedCarats);
+  internalUsedRawCarats = round3(internalUsedRawCarats);
+  internalUsedCutCarats = round3(internalUsedCutCarats);
 
   let sentToCutCarats = 0;
   let sentToCutQuantity = 0;
@@ -144,10 +181,15 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   returnedCutCarats = round3(returnedCutCarats);
   returnedSentCarats = round3(returnedSentCarats);
 
-  const rawAvailableCarats = round3(lot.carats - sentToCutCarats - soldRawCarats);
-  const rawAvailableQuantity = lot.quantity - sentToCutQuantity - soldRawQuantity;
-  const cutAvailableCarats = round3(returnedCutCarats - soldCutCarats);
-  const cutAvailableQuantity = returnedCutQuantity - soldCutQuantity;
+  const rawAvailableCarats = round3(
+    lot.carats - sentToCutCarats - soldRawCarats - internalUsedRawCarats
+  );
+  const rawAvailableQuantity =
+    lot.quantity - sentToCutQuantity - soldRawQuantity - internalUsedRawQuantity;
+  const cutAvailableCarats = round3(
+    returnedCutCarats - soldCutCarats - internalUsedCutCarats
+  );
+  const cutAvailableQuantity = returnedCutQuantity - soldCutQuantity - internalUsedCutQuantity;
   const remainingCarats = round3(rawAvailableCarats + inCuttingCarats + cutAvailableCarats);
   const remainingQuantity = rawAvailableQuantity + inCuttingQuantity + cutAvailableQuantity;
 
@@ -167,6 +209,13 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     soldRawQuantity,
     soldCutCarats,
     soldCutQuantity,
+    internalUsedCarats,
+    internalUsedQuantity,
+    internalUsedRawCarats,
+    internalUsedRawQuantity,
+    internalUsedCutCarats,
+    internalUsedCutQuantity,
+    internalAttributedCost,
     soldValue,
     sentToCutCarats,
     sentToCutQuantity,
@@ -189,7 +238,7 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
     remainingCarats,
     remainingQuantity,
     exhausted: remainingCarats <= 0 && remainingQuantity <= 0,
-    result: soldValue - totalInvested,
+    result: soldValue + internalAttributedCost - totalInvested,
     paidToSupplier,
     supplierDebt,
     creditSettled: lot.onCredit && supplierDebt <= 0,
@@ -301,6 +350,43 @@ export function validateStoneLotSalesMetadata(
   raw: unknown,
   previous?: StoneLot | null
 ): string | null {
+  const candidate = (
+    typeof raw === 'object' && raw !== null ? raw : {}
+  ) as Record<string, unknown>;
+  const hasInternalUses = Object.prototype.hasOwnProperty.call(candidate, 'internalUses');
+  if (hasInternalUses && !Array.isArray(candidate.internalUses)) {
+    return 'Los usos internos del lote no son validos.';
+  }
+  if (!hasInternalUses && (previous?.internalUses?.length ?? 0) > 0) {
+    return 'Esta version no conserva los usos internos ya registrados.';
+  }
+  const rawInternalUses = Array.isArray(candidate.internalUses) ? candidate.internalUses : [];
+  const internalUseIds = new Set<string>();
+  for (const value of rawInternalUses) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return 'El lote contiene un uso interno invalido.';
+    }
+    const use = value as Record<string, unknown>;
+    const id = typeof use.id === 'string' ? use.id.trim() : '';
+    if (!id || internalUseIds.has(id)) {
+      return 'El lote contiene usos internos repetidos o sin identificar.';
+    }
+    internalUseIds.add(id);
+    if (
+      typeof use.date !== 'string' ||
+      typeof use.carats !== 'number' ||
+      !Number.isFinite(use.carats) ||
+      typeof use.quantity !== 'number' ||
+      !Number.isInteger(use.quantity) ||
+      (use.origin !== 'bruto' && use.origin !== 'tallado') ||
+      typeof use.jewelId !== 'string' ||
+      typeof use.costCop !== 'number' ||
+      !Number.isSafeInteger(use.costCop) ||
+      typeof use.notes !== 'string'
+    ) {
+      return 'El lote contiene datos invalidos en un uso interno.';
+    }
+  }
   const lot = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   if (!Array.isArray(lot.sales)) return 'Las ventas del lote no son válidas.';
   const hasCuttingBatches = Object.prototype.hasOwnProperty.call(lot, 'cuttingBatches');
@@ -466,6 +552,48 @@ export function validateCuttingBatch(
   return null;
 }
 
+/** Valida una salida interna antes de enlazarla con la historia de una joya. */
+export function validateStoneInternalUse(
+  lot: StoneLot,
+  use: StoneInternalUse,
+  excludeUseId?: string
+): string | null {
+  if (!use.id.trim()) return 'El uso interno necesita un identificador.';
+  if (!isValidISODate(use.date)) return 'El uso interno necesita una fecha valida.';
+  if (use.date < lot.purchaseDate) return 'No puedes usar la piedra antes de comprar el lote.';
+  if (!use.jewelId.trim()) return 'El uso interno necesita la joya que recibio la piedra.';
+  if (use.origin !== 'bruto' && use.origin !== 'tallado') {
+    return 'El origen del uso interno no es valido.';
+  }
+  if (!Number.isFinite(use.carats) || use.carats <= 0) {
+    return 'El uso interno necesita quilates validos.';
+  }
+  if (Math.abs(use.carats - round3(use.carats)) > 1e-9) {
+    return 'Los quilates del uso interno admiten maximo tres decimales.';
+  }
+  if (!Number.isInteger(use.quantity) || use.quantity <= 0) {
+    return 'El uso interno necesita un numero entero de piedras.';
+  }
+  if (!Number.isSafeInteger(use.costCop) || use.costCop < 0) {
+    return 'El costo atribuido debe guardarse en pesos enteros.';
+  }
+
+  const others = (lot.internalUses ?? []).filter((candidate) => candidate.id !== excludeUseId);
+  const available = summarizeStoneLot({ ...lot, internalUses: others });
+  const availableCarats =
+    use.origin === 'tallado' ? available.cutAvailableCarats : available.rawAvailableCarats;
+  const availableQuantity =
+    use.origin === 'tallado' ? available.cutAvailableQuantity : available.rawAvailableQuantity;
+  const label = use.origin === 'tallado' ? 'tallados' : 'en bruto';
+  if (round3(use.carats) > round3(availableCarats)) {
+    return `El lote solo tiene ${availableCarats} ct ${label} disponibles.`;
+  }
+  if (use.quantity > availableQuantity) {
+    return `El lote solo tiene ${availableQuantity} piedra(s) ${label} disponibles.`;
+  }
+  return null;
+}
+
 function returnedBatchInventoryChanged(
   previous: CuttingBatch,
   next: CuttingBatch | undefined
@@ -486,7 +614,7 @@ function returnedBatchInventoryChanged(
  * La pantalla usa validaciones específicas, pero ninguna escritura puede
  * confiar únicamente en la pantalla (regla 6.4.14).
  */
-export function validateStoneLotInventory(
+function validateStoneLotInventoryBase(
   lot: StoneLot,
   previous?: StoneLot | null
 ): string | null {
@@ -531,6 +659,44 @@ export function validateStoneLotInventory(
 }
 
 /** Copia del lote con una tanda agregada o reemplazada. */
+export function validateStoneLotInventory(
+  lot: StoneLot,
+  previous?: StoneLot | null
+): string | null {
+  if (!Array.isArray(lot.internalUses)) return 'Los usos internos no son validos.';
+  if (new Set(lot.internalUses.map((use) => use.id)).size !== lot.internalUses.length) {
+    return 'El lote contiene usos internos repetidos.';
+  }
+  for (const use of lot.internalUses) {
+    const error = validateStoneInternalUse(lot, use, use.id);
+    if (error) return error;
+  }
+
+  if (previous) {
+    for (const oldUse of previous.internalUses ?? []) {
+      const nextUse = lot.internalUses.find((candidate) => candidate.id === oldUse.id);
+      if (!nextUse || JSON.stringify(nextUse) !== JSON.stringify(oldUse)) {
+        return 'Un uso interno ya registrado no se puede cambiar ni deshacer.';
+      }
+    }
+
+    const talladoUsedInternally =
+      (previous.internalUses ?? []).some((use) => use.origin === 'tallado') ||
+      lot.internalUses.some((use) => use.origin === 'tallado');
+    if (talladoUsedInternally) {
+      for (const oldBatch of previous.cuttingBatches) {
+        if (!oldBatch.returnedDate) continue;
+        const nextBatch = lot.cuttingBatches.find((candidate) => candidate.id === oldBatch.id);
+        if (returnedBatchInventoryChanged(oldBatch, nextBatch)) {
+          return 'Esta tanda ya produjo piedras usadas en una joya; cambiar sus datos fisicos borraria ese origen.';
+        }
+      }
+    }
+  }
+
+  return validateStoneLotInventoryBase(lot, previous);
+}
+
 export function withCuttingBatch(lot: StoneLot, batch: CuttingBatch, nowIso: string): StoneLot {
   const exists = lot.cuttingBatches.some((candidate) => candidate.id === batch.id);
   return {
@@ -646,6 +812,13 @@ export function validateStoneLotPurchaseUpdate(
     if (JSON.stringify(previous.cuttingBatches) !== JSON.stringify(next.cuttingBatches)) {
       return 'Las tandas de talla no se pueden cambiar desde la edición de la compra.';
     }
+  }
+
+  if (
+    previous &&
+    JSON.stringify(previous.internalUses ?? []) !== JSON.stringify(next.internalUses ?? [])
+  ) {
+    return 'Los usos internos no se pueden cambiar desde la edicion de la compra.';
   }
 
   const paidToSupplier = next.supplierPayments.reduce(
@@ -767,6 +940,8 @@ export interface StonesFlow {
   totalSpent: number;
   /** COP pagado por tandas de talla. Ya está incluido en totalSpent. */
   totalCuttingPaid: number;
+  /** COP trasladado a joyas. No entra a caja y sale del costo pendiente del lote. */
+  totalInternalAttributed: number;
   /** COP vendido al PRECIO ACORDADO, haya entrado o no (D-042). */
   totalEarned: number;
   /** COP realmente recibido: contado completo + abonos de las ventas a crédito. */
@@ -784,6 +959,7 @@ export interface StonesFlow {
 export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   let totalSpent = 0;
   let totalCuttingPaid = 0;
+  let totalInternalAttributed = 0;
   let totalEarned = 0;
   let totalReceived = 0;
   let totalDebt = 0;
@@ -793,6 +969,7 @@ export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
     const summary = summarizeStoneLot(lot);
     totalSpent += summary.totalInvested;
     totalCuttingPaid += summary.paidCuttingCost;
+    totalInternalAttributed += summary.internalAttributedCost;
     totalDebt += summary.supplierDebt;
     totalReceived += summary.receivedFromBuyers;
     totalReceivable += summary.buyersDebt;
@@ -804,6 +981,7 @@ export function stonesFlow(lots: readonly StoneLot[]): StonesFlow {
   return {
     totalSpent,
     totalCuttingPaid,
+    totalInternalAttributed,
     totalEarned,
     totalReceived,
     balance: totalEarned - totalSpent,
@@ -1072,6 +1250,7 @@ export function emptyStoneLot(today: string, nowIso: string): StoneLot {
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [],
     createdAt: nowIso,

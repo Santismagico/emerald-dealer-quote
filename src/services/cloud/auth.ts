@@ -89,6 +89,7 @@ export interface CloudSession {
 export interface CloudOrganization {
   id: string;
   name: string;
+  role: 'owner' | 'admin' | 'seller';
 }
 
 export type CloudAuthEvent =
@@ -304,19 +305,22 @@ export function createCloudAuthService(
     async getOrganization() {
       const result = await (await getClient())
         .from('memberships')
-        .select('organization_id, organizations(name)')
+        .select('organization_id, role, organizations(name)')
         .maybeSingle();
       throwIfError(result.error);
       if (!result.data || typeof result.data !== 'object') return null;
       const row = result.data as {
         organization_id?: unknown;
+        role?: unknown;
         organizations?: { name?: unknown } | Array<{ name?: unknown }> | null;
       };
       if (typeof row.organization_id !== 'string') return null;
+      if (row.role !== 'owner' && row.role !== 'admin' && row.role !== 'seller') return null;
       const organization = Array.isArray(row.organizations) ? row.organizations[0] : row.organizations;
       return {
         id: row.organization_id,
-        name: typeof organization?.name === 'string' ? organization.name : ''
+        name: typeof organization?.name === 'string' ? organization.name : '',
+        role: row.role
       };
     },
     async createOrganization(name, settings) {
@@ -333,7 +337,7 @@ export function createCloudAuthService(
         p_updated_at: now().toISOString()
       });
       throwIfError(saved.error);
-      return { id: created.data, name: cleanName };
+      return { id: created.data, name: cleanName, role: 'owner' };
     }
   };
 }

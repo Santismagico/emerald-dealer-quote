@@ -1,4 +1,4 @@
-import { dbDelete, dbGetAll, dbPut } from '../db';
+import { dbDelete, dbGetAll, dbPut, dbWriteTransaction } from '../db';
 
 export type CloudTable =
   | 'org_settings'
@@ -13,7 +13,16 @@ export type CloudTable =
   | 'material_lots'
   | 'expenses';
 
-export type CloudOperationType = 'upsert' | 'delete';
+export type CloudOperationType =
+  | 'upsert'
+  | 'delete'
+  | 'transform_stock_jewel'
+  | 'restore_stock_jewel'
+  | 'authorize_import'
+  | 'seed_stone_lot_import'
+  | 'seed_stock_jewel_import'
+  | 'finalize_stone_lot_import'
+  | 'finalize_stock_jewel_import';
 
 export interface CloudOutboxOperation {
   id: string;
@@ -40,6 +49,8 @@ export interface OutboxRepository {
   list: () => Promise<CloudOutboxOperation[]>;
   put: (operation: CloudOutboxOperation) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  putMany?: (operations: readonly CloudOutboxOperation[]) => Promise<void>;
+  removeMany?: (ids: readonly string[]) => Promise<void>;
 }
 
 export interface OutboxFlushResult {
@@ -59,6 +70,10 @@ export interface CloudOutbox {
   list: () => Promise<CloudOutboxOperation[]>;
   status: () => Promise<OutboxStatus>;
   retryHeld: (id?: string) => Promise<OutboxFlushResult>;
+  resolveTableChanges?: (
+    tables: readonly CloudTable[],
+    resolve: (operations: readonly CloudOutboxOperation[]) => Promise<void>
+  ) => Promise<void>;
 }
 
 interface OutboxOptions {
@@ -77,7 +92,15 @@ interface OutboxOptions {
 export const indexedDbOutboxRepository: OutboxRepository = {
   list: () => dbGetAll<CloudOutboxOperation>('cloudOutbox'),
   put: (operation) => dbPut('cloudOutbox', operation),
-  remove: (id) => dbDelete('cloudOutbox', id)
+  remove: (id) => dbDelete('cloudOutbox', id),
+  putMany: (operations) => dbWriteTransaction(['cloudOutbox'], (getStore) => {
+    const store = getStore('cloudOutbox');
+    for (const operation of operations) store.put(operation);
+  }),
+  removeMany: (ids) => dbWriteTransaction(['cloudOutbox'], (getStore) => {
+    const store = getStore('cloudOutbox');
+    for (const id of ids) store.delete(id);
+  })
 };
 
 function defaultOperationId(): string {
@@ -99,7 +122,27 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
     globalThis.setTimeout(callback, delayMs);
   });
   let activeFlush: Promise<OutboxFlushResult> | null = null;
+  let activeResolution: Promise<void> | null = null;
+  let resolutionRequested = false;
   let retryScheduledFor = 0;
+  let queueClockInitialized = false;
+  let queueClock: Promise<number> = Promise.resolve(Number.NEGATIVE_INFINITY);
+
+  const nextQueuedAt = (): Promise<number> => {
+    queueClock = queueClock.then(async (previous) => {
+      let latest = previous;
+      if (!queueClockInitialized) {
+        const stored = await options.repository.list();
+        latest = stored.reduce(
+          (maximum, operation) => Math.max(maximum, operation.queuedAt),
+          latest
+        );
+        queueClockInitialized = true;
+      }
+      return Math.max(now(), latest + 1);
+    });
+    return queueClock;
+  };
 
   const schedule = (at: number, flush: () => Promise<OutboxFlushResult>) => {
     if (retryScheduledFor && retryScheduledFor <= at) return;
@@ -111,6 +154,7 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
   };
 
   const flush = (): Promise<OutboxFlushResult> => {
+    if (activeResolution) return activeResolution.then(() => flush(), () => flush());
     if (activeFlush) return activeFlush;
 
     activeFlush = (async () => {
@@ -118,6 +162,7 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
       const operations = ordered(await options.repository.list());
 
       for (const operation of operations) {
+        if (resolutionRequested) break;
         if (operation.state === 'held') continue;
         const currentTime = now();
         if (operation.nextAttemptAt > currentTime) {
@@ -166,6 +211,7 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
 
   return {
     async enqueue(input) {
+      if (activeResolution) await activeResolution;
       const operation: CloudOutboxOperation = {
         id: createId(),
         table: input.table,
@@ -173,7 +219,7 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
         entityId: input.entityId,
         data: input.type === 'delete' ? null : input.data ?? null,
         updatedAt: input.updatedAt,
-        queuedAt: now(),
+        queuedAt: await nextQueuedAt(),
         attempts: 0,
         nextAttemptAt: 0
       };
@@ -192,6 +238,7 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
       };
     },
     async retryHeld(id) {
+      if (activeResolution) await activeResolution;
       const operations = await options.repository.list();
       for (const operation of operations) {
         if (operation.state !== 'held' || (id && operation.id !== id)) continue;
@@ -204,6 +251,37 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
       }
       options.onChange?.();
       return flush();
+    },
+    resolveTableChanges(tables, resolve) {
+      if (activeResolution) return activeResolution;
+      const selectedTables = new Set(tables);
+      resolutionRequested = true;
+      let resolutionCompleted = false;
+      const run = (async () => {
+        if (activeFlush) await activeFlush;
+        const operations = (await options.repository.list()).filter(
+          (operation) => selectedTables.has(operation.table)
+        );
+        if (!operations.some((operation) => operation.state === 'held')) {
+          resolutionCompleted = true;
+          return;
+        }
+        await resolve(operations);
+        const remainingIds = new Set(
+          (await options.repository.list()).map((operation) => operation.id)
+        );
+        if (operations.some((operation) => remainingIds.has(operation.id))) {
+          throw new Error('La versión de la nube no retiró toda la cola seleccionada.');
+        }
+        options.onChange?.();
+        resolutionCompleted = true;
+      })();
+      activeResolution = run.finally(() => {
+        resolutionRequested = false;
+        activeResolution = null;
+        if (resolutionCompleted) void flush().catch(() => {});
+      });
+      return activeResolution;
     }
   };
 }

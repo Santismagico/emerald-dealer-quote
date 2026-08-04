@@ -35,6 +35,7 @@ import {
   withoutSupplierPayment,
   type LotFilter
 } from '../services/stones';
+import { jewelDisplayName } from '../services/stockJewels';
 import { receivableStatus } from '../services/receivables';
 import { activeProductTypes } from '../services/productTypes';
 import {
@@ -90,7 +91,9 @@ export function stoneLotDeletionWarning(lot: StoneLot): string {
       : '';
   return `¿Eliminar el lote "${lotDisplayName(lot)}"? Se borrará la compra y todo su historial: ${
     lot.sales.length
-  } venta(s), ${lot.cuttingBatches.length} tanda(s) de talla, ${formatCOP(
+  } venta(s), ${lot.cuttingBatches.length} tanda(s) de talla, ${
+    lot.internalUses?.length ?? 0
+  } uso(s) en joyas, ${formatCOP(
     summary.paidCuttingCost
   )} pagados en tallas, ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
     summary.supplierDebt
@@ -154,6 +157,12 @@ export function StonesView() {
         ) : null}
         <SummaryRow label="Vendido (valor acordado)" value={formatCOP(flow.totalEarned)} />
         <SummaryRow label="Ya recibido de verdad" value={formatCOP(flow.totalReceived)} />
+        {flow.totalInternalAttributed > 0 ? (
+          <SummaryRow
+            label="Costo pasado a joyas (sin mover caja)"
+            value={formatCOP(flow.totalInternalAttributed)}
+          />
+        ) : null}
         {flow.totalReceivable > 0 && (
           <SummaryRow
             label="Te deben por ventas a crédito"
@@ -294,10 +303,10 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
       <div className="mt-2 flex items-center justify-between text-xs text-stone-500">
         <span>
           {summary.exhausted
-            ? `Vendido todo (${formatCarats(lot.carats)} · ${lot.quantity} pz)`
+            ? `Sin existencias (${formatCarats(lot.carats)} · ${lot.quantity} pz compradas)`
             : `Quedan ${formatCarats(summary.remainingCarats)} · ${summary.remainingQuantity} pz de ${formatCarats(lot.carats)} · ${lot.quantity} pz`}
         </span>
-        {lot.sales.length > 0 ? (
+        {lot.sales.length > 0 || (lot.internalUses?.length ?? 0) > 0 ? (
           <span className={`font-semibold ${summary.result < 0 ? 'text-stone-600' : 'text-brand-800'}`}>
             {summary.exhausted ? 'Resultado: ' : 'Parcial: '}
             {formatCOP(summary.result)}
@@ -359,6 +368,9 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   if (!lot) return null;
   const summary = summarizeStoneLot(lot);
   const partnership = summarizeStonePartnership(lot);
+  const talladoHistoryProtected =
+    lot.sales.some((sale) => sale.origin === 'tallado') ||
+    (lot.internalUses ?? []).some((use) => use.origin === 'tallado');
 
   if (editingLot) {
     return <LotForm key={lot.id} initial={lot} isNew={false} onClose={() => setEditingLot(false)} />;
@@ -439,6 +451,12 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
             label="Vendido"
             value={`${formatCarats(summary.soldCarats)} · ${summary.soldQuantity} pz · ${formatCOP(summary.soldValue)}`}
           />
+          {summary.internalUsedQuantity > 0 || summary.internalUsedCarats > 0 ? (
+            <SummaryRow
+              label="Usado en joyas"
+              value={`${formatCarats(summary.internalUsedCarats)} · ${summary.internalUsedQuantity} pz · ${formatCOP(summary.internalAttributedCost)}`}
+            />
+          ) : null}
           <SummaryRow label="Tallas pagadas" value={formatCOP(summary.paidCuttingCost)} />
           {summary.unpaidCuttingCost > 0 ? (
             <SummaryRow
@@ -559,17 +577,17 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                         </p>
                       ) : null}
                       {batch.notes ? <p className="text-xs text-stone-500">{batch.notes}</p> : null}
-                      {batch.returnedDate &&
-                      lot.sales.some((sale) => sale.origin === 'tallado') ? (
+                      {batch.returnedDate && talladoHistoryProtected ? (
                         <p className="text-xs font-medium text-amber-700">
-                          Historial protegido por ventas talladas
+                          Historial protegido por ventas o usos en joyas
                         </p>
                       ) : null}
                     </button>
                     <button
                       type="button"
                       aria-label="Eliminar tanda de talla"
-                      className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                      disabled={Boolean(batch.returnedDate) && talladoHistoryProtected}
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50 disabled:text-stone-300"
                       onClick={() => setCuttingToDelete(batch)}
                     >
                       ✕
@@ -579,6 +597,46 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               })}
             </ul>
           )}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            Usos en joyas ({lot.internalUses?.length ?? 0})
+          </p>
+          {(lot.internalUses?.length ?? 0) === 0 ? (
+            <p className="mt-1 text-xs text-stone-500">
+              Ninguna piedra de este lote se ha usado en una joya propia.
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {(lot.internalUses ?? []).map((use) => {
+                const jewel = store.stockJewels.find((candidate) => candidate.id === use.jewelId);
+                return (
+                  <li key={use.id} className="rounded-xl bg-white/90 p-3">
+                    <p className="break-words text-sm font-medium text-stone-800">
+                      {jewel ? jewelDisplayName(jewel) : 'Joya no disponible'}
+                    </p>
+                    <p className="break-all text-[11px] text-stone-500">
+                      ID de joya: {use.jewelId || 'Sin registrar'}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-stone-600">
+                      {formatDateCO(use.date)} · {use.origin === 'tallado' ? 'Tallado' : 'Bruto'} ·{' '}
+                      {formatCarats(use.carats)} · {use.quantity} piedra(s)
+                    </p>
+                    <p className="text-xs text-stone-600">
+                      Costo atribuido: {formatCOP(use.costCop)}
+                    </p>
+                    {use.notes ? (
+                      <p className="break-words text-xs text-stone-500">Nota: {use.notes}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="mt-2 text-[11px] text-stone-500">
+            Solo lectura: estos movimientos están unidos a la historia de cada joya.
+          </p>
         </div>
 
         {lot.onCredit && (
@@ -781,11 +839,21 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               </Button>
             </div>
             <div className="flex-1">
-              <Button variant="danger" full onClick={() => setConfirmDeleteLot(true)}>
+              <Button
+                variant="danger"
+                full
+                disabled={(lot.internalUses?.length ?? 0) > 0}
+                onClick={() => setConfirmDeleteLot(true)}
+              >
                 Eliminar lote
               </Button>
             </div>
           </div>
+          {(lot.internalUses?.length ?? 0) > 0 ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              Este lote no se puede eliminar porque ya respalda piedras usadas en joyas.
+            </p>
+          ) : null}
           <Button variant="ghost" full onClick={onClose}>
             Cerrar
           </Button>
@@ -1101,7 +1169,8 @@ function CuttingBatchForm({
   const physicalLocked =
     !isNew &&
     Boolean(initial.returnedDate) &&
-    lot.sales.some((sale) => sale.origin === 'tallado');
+    (lot.sales.some((sale) => sale.origin === 'tallado') ||
+      (lot.internalUses ?? []).some((use) => use.origin === 'tallado'));
   const otherBatches = lot.cuttingBatches.filter((batch) => batch.id !== initial.id);
   const available = summarizeStoneLot({ ...lot, cuttingBatches: otherBatches });
 
@@ -1160,8 +1229,8 @@ function CuttingBatchForm({
       <div className="space-y-3">
         {physicalLocked ? (
           <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-            Los datos físicos están protegidos porque esta talla ya respalda ventas. Sí puedes
-            completar el costo, el pago y las notas.
+            Los datos físicos están protegidos porque esta talla ya respalda ventas o piedras
+            usadas en joyas. Sí puedes completar el costo, el pago y las notas.
           </p>
         ) : null}
         <Field label="Fecha de envío">

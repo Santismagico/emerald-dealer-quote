@@ -12,7 +12,13 @@ function memoryRepository(): OutboxRepository & { values: Map<string, CloudOutbo
     values,
     list: async () => [...values.values()],
     put: async (operation) => void values.set(operation.id, operation),
-    remove: async (id) => void values.delete(id)
+    remove: async (id) => void values.delete(id),
+    putMany: async (operations) => {
+      for (const operation of operations) values.set(operation.id, operation);
+    },
+    removeMany: async (ids) => {
+      for (const id of ids) values.delete(id);
+    }
   };
 }
 
@@ -23,6 +29,31 @@ function deferred() {
 }
 
 describe('cola de sincronización', () => {
+  it('conserva el orden de inserción aunque el reloj coincida y los ids vengan al revés', async () => {
+    const repository = memoryRepository();
+    const uploaded: string[] = [];
+    const ids = ['z-primero', 'a-segundo'];
+    const outbox = createCloudOutbox({
+      repository,
+      createId: () => ids.shift()!,
+      now: () => 1_000,
+      execute: async (operation) => { uploaded.push(operation.entityId); }
+    });
+
+    await outbox.enqueue({
+      table: 'stock_jewels', type: 'restore_stock_jewel', entityId: 'primero',
+      data: { id: 'evento-1' }, updatedAt: '2026-08-04T10:00:00Z'
+    });
+    await outbox.enqueue({
+      table: 'stock_jewels', type: 'restore_stock_jewel', entityId: 'segundo',
+      data: { id: 'evento-2' }, updatedAt: '2026-08-04T10:00:00Z'
+    });
+
+    expect((await outbox.list()).map((operation) => operation.queuedAt)).toEqual([1000, 1001]);
+    await outbox.flush();
+    expect(uploaded).toEqual(['primero', 'segundo']);
+  });
+
   it('informa cinco cambios pendientes y cero después de subirlos', async () => {
     const repository = memoryRepository();
     const outbox = createCloudOutbox({
@@ -106,6 +137,137 @@ describe('cola de sincronización', () => {
     await outbox.retryHeld('op-held');
 
     expect(await outbox.status()).toMatchObject({ pending: 0, held: 0, operations: [] });
+  });
+
+  it('puede usar la nube retirando un cambio retenido antes de actualizar', async () => {
+    const repository = memoryRepository();
+    repository.values.set('op-held-inventory', {
+      id: 'op-held-inventory',
+      table: 'stock_jewels',
+      type: 'upsert',
+      entityId: 'jewel-1',
+      data: { id: 'jewel-1' },
+      updatedAt: '2026-08-04T10:00:00Z',
+      queuedAt: 1,
+      attempts: 5,
+      nextAttemptAt: 0,
+      state: 'held'
+    });
+    const outbox = createCloudOutbox({ repository, execute: async () => {} });
+
+    await outbox.resolveTableChanges?.(['stone_lots', 'stock_jewels'], async (operations) => {
+      expect(operations.map((operation) => operation.id)).toEqual(['op-held-inventory']);
+      await repository.removeMany?.(operations.map((operation) => operation.id));
+      expect(await outbox.list()).toEqual([]);
+    });
+
+    expect(await outbox.list()).toEqual([]);
+  });
+
+  it('conserva el cambio retenido si no logra traer la versión de la nube', async () => {
+    const repository = memoryRepository();
+    const held: CloudOutboxOperation = {
+      id: 'op-held-rollback',
+      table: 'stone_lots',
+      type: 'delete',
+      entityId: 'lot-1',
+      data: null,
+      updatedAt: '2026-08-04T10:00:00Z',
+      queuedAt: 1,
+      attempts: 5,
+      nextAttemptAt: 0,
+      state: 'held'
+    };
+    repository.values.set(held.id, held);
+    const outbox = createCloudOutbox({ repository, execute: async () => {} });
+
+    await expect(outbox.resolveTableChanges?.(['stone_lots', 'stock_jewels'], async () => {
+      throw new Error('Sin conexión');
+    })).rejects.toThrow(/sin conexión/i);
+
+    expect(await outbox.list()).toEqual([held]);
+  });
+
+  it('si falla la retirada atómica conserva completa la cola original', async () => {
+    const repository = memoryRepository();
+    const first: CloudOutboxOperation = {
+      id: 'op-first', table: 'stone_lots', type: 'upsert', entityId: 'lot-1',
+      data: { id: 'lot-1' }, updatedAt: '2026-08-04T10:00:00Z',
+      queuedAt: 1, attempts: 5, nextAttemptAt: 0, state: 'held'
+    };
+    const second: CloudOutboxOperation = {
+      id: 'op-second', table: 'stock_jewels', type: 'upsert', entityId: 'jewel-1',
+      data: { id: 'jewel-1' }, updatedAt: '2026-08-04T10:00:00Z',
+      queuedAt: 2, attempts: 0, nextAttemptAt: 0
+    };
+    repository.values.set(first.id, first);
+    repository.values.set(second.id, second);
+    repository.removeMany = async () => { throw new Error('fallo atómico'); };
+    const outbox = createCloudOutbox({ repository, execute: async () => {} });
+
+    await expect(outbox.resolveTableChanges?.(
+      ['stone_lots', 'stock_jewels'],
+      async (operations) => repository.removeMany?.(
+        operations.map((operation) => operation.id)
+      )
+    ))
+      .rejects.toThrow(/fallo atómico/i);
+
+    expect(await outbox.list()).toEqual([first, second]);
+  });
+
+  it('detiene el envío entre operaciones antes de usar la versión de la nube', async () => {
+    const repository = memoryRepository();
+    const inFlight = deferred();
+    const uploaded: string[] = [];
+    const operations: CloudOutboxOperation[] = [
+      {
+        id: 'op-in-flight', table: 'stone_lots', type: 'upsert', entityId: 'lot-running',
+        data: { id: 'lot-running' }, updatedAt: '2026-08-04T10:00:00Z',
+        queuedAt: 1, attempts: 0, nextAttemptAt: 0
+      },
+      {
+        id: 'op-not-started', table: 'stock_jewels', type: 'upsert', entityId: 'jewel-pending',
+        data: { id: 'jewel-pending' }, updatedAt: '2026-08-04T10:01:00Z',
+        queuedAt: 2, attempts: 0, nextAttemptAt: 0
+      },
+      {
+        id: 'op-held-conflict', table: 'stock_jewels', type: 'delete', entityId: 'jewel-held',
+        data: null, updatedAt: '2026-08-04T10:02:00Z',
+        queuedAt: 3, attempts: 5, nextAttemptAt: 0, state: 'held'
+      }
+    ];
+    for (const operation of operations) repository.values.set(operation.id, operation);
+    const outbox = createCloudOutbox({
+      repository,
+      execute: async (operation) => {
+        uploaded.push(operation.id);
+        if (operation.id === 'op-in-flight') await inFlight.promise;
+      }
+    });
+
+    const flushing = outbox.flush();
+    await vi.waitFor(() => expect(uploaded).toEqual(['op-in-flight']));
+    let resolutionStarted = false;
+    const resolving = outbox.resolveTableChanges?.(
+      ['stone_lots', 'stock_jewels'],
+      async (selected) => {
+        resolutionStarted = true;
+        expect(selected.map((operation) => operation.id)).toEqual([
+          'op-not-started',
+          'op-held-conflict'
+        ]);
+        await repository.removeMany?.(selected.map((operation) => operation.id));
+      }
+    );
+    await Promise.resolve();
+    expect(resolutionStarted).toBe(false);
+
+    inFlight.resolve();
+    await Promise.all([flushing, resolving]);
+
+    expect(uploaded).toEqual(['op-in-flight']);
+    expect(await outbox.list()).toEqual([]);
   });
 
   it('al volver la red asigna el número del servidor y sube la cotización una sola vez', async () => {

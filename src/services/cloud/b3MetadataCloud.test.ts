@@ -38,7 +38,9 @@ function fakeOutbox() {
   };
 }
 
-const noopSync = { pullTable: async () => {}, pullAll: async () => {} };
+const noopSync = {
+  pullTable: async () => {}, pullStoneJewelPair: async () => {}, pullAll: async () => {}
+};
 const noopRemote = {
   list: async () => [],
   execute: async () => {},
@@ -64,6 +66,7 @@ function stoneLot(usdRate: number | null = 4100): StoneLot {
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [{
       id: 'sale-b3',
@@ -97,6 +100,10 @@ function stockJewel(usdRate: number | null = 4100): StockJewel {
     material: 'Oro',
     photo: '',
     acquiredDate: '2026-08-03',
+    weightGrams: 0,
+    size: '',
+    stoneCount: 0,
+    stoneKind: '',
     costCop: 1000000,
     priceCop: 2000000,
     status: 'disponible',
@@ -114,6 +121,7 @@ function stockJewel(usdRate: number | null = 4100): StockJewel {
       notes: ''
     },
     collectionId: null,
+    stoneTransformations: [],
     createdAt: timestamp,
     updatedAt: timestamp
   };

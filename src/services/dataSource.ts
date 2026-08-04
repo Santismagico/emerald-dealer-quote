@@ -14,6 +14,10 @@ import type {
 import type { GoldPriceBreakdown } from './goldPrice';
 import * as storage from './storage';
 import type { OutboxStatus } from './cloud/outbox';
+import type {
+  StoneJewelTransformationInput,
+  StoneJewelTransformationResult
+} from './stoneJewelTransformation';
 
 export interface StoreDataSource {
   loadSettings: () => Promise<Settings>;
@@ -45,6 +49,9 @@ export interface StoreDataSource {
   listStockJewels: () => Promise<StockJewel[]>;
   saveStockJewel: (jewel: StockJewel) => Promise<void>;
   deleteStockJewel: (id: string) => Promise<void>;
+  transformStockJewelToNatural: (
+    input: StoneJewelTransformationInput
+  ) => Promise<StoneJewelTransformationResult>;
   listMaterialPartners: () => Promise<MaterialPartner[]>;
   saveMaterialPartner: (partner: MaterialPartner) => Promise<void>;
   deleteMaterialPartner: (id: string) => Promise<void>;
@@ -57,6 +64,7 @@ export interface StoreDataSource {
   nextQuoteNumber: () => Promise<string>;
   cloudSyncStatus?: () => Promise<OutboxStatus>;
   retryCloudChanges?: (id?: string) => Promise<void>;
+  useCloudInventoryVersion?: () => Promise<void>;
 }
 
 export const localDataSource: StoreDataSource = storage;

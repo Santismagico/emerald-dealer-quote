@@ -25,6 +25,10 @@ import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
 import { sortStockJewels } from './services/stockJewels';
+import type {
+  StoneJewelTransformationInput,
+  StoneJewelTransformationResult
+} from './services/stoneJewelTransformation';
 import { sortMaterialLots } from './services/materials';
 import { sortExpenses } from './services/expenses';
 import { withProductTypesUpdate } from './services/productTypes';
@@ -81,6 +85,9 @@ interface AppStore {
   removeBuyer: (id: string) => Promise<void>;
   upsertStockJewel: (jewel: StockJewel) => Promise<void>;
   removeStockJewel: (id: string) => Promise<void>;
+  transformStockJewelToNatural: (
+    input: StoneJewelTransformationInput
+  ) => Promise<StoneJewelTransformationResult>;
   upsertMaterialPartner: (partner: MaterialPartner) => Promise<void>;
   removeMaterialPartner: (id: string) => Promise<void>;
   upsertMaterialLot: (lot: MaterialLot) => Promise<void>;
@@ -89,6 +96,7 @@ interface AppStore {
   removeExpense: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   retryCloudChanges: (id?: string) => Promise<void>;
+  useCloudInventoryVersion: () => Promise<void>;
   reloadAll: () => Promise<void>;
   /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
   refreshGoldPrice: () => Promise<GoldPriceBreakdown>;
@@ -310,8 +318,8 @@ export function StoreProvider({
   }, [dataSource]);
 
   const removeStoneLot = useCallback(async (id: string) => {
-    setStoneLots((prev) => prev.filter((l) => l.id !== id));
     await dataSource.deleteStoneLot(id);
+    setStoneLots(await dataSource.listStoneLots());
   }, [dataSource]);
 
   const upsertSupplier = useCallback(async (supplier: Supplier) => {
@@ -367,8 +375,21 @@ export function StoreProvider({
   }, [dataSource]);
 
   const removeStockJewel = useCallback(async (id: string) => {
-    setStockJewels((prev) => prev.filter((j) => j.id !== id));
     await dataSource.deleteStockJewel(id);
+    setStockJewels(await dataSource.listStockJewels());
+  }, [dataSource]);
+
+  const transformStockJewelToNatural = useCallback(async (
+    input: StoneJewelTransformationInput
+  ) => {
+    const result = await dataSource.transformStockJewelToNatural(input);
+    const [nextStoneLots, nextStockJewels] = await Promise.all([
+      dataSource.listStoneLots(),
+      dataSource.listStockJewels()
+    ]);
+    setStoneLots(nextStoneLots);
+    setStockJewels(nextStockJewels);
+    return result;
   }, [dataSource]);
 
   // Guardar o borrar un socio propaga el historial de material, gastos y piedras.
@@ -433,6 +454,12 @@ export function StoreProvider({
     await refreshCloudSync();
   }, [dataSource, refreshCloudSync]);
 
+  const useCloudInventoryVersion = useCallback(async () => {
+    if (!dataSource.useCloudInventoryVersion) return;
+    await dataSource.useCloudInventoryVersion();
+    await Promise.all([reloadAll(), refreshCloudSync()]);
+  }, [dataSource, reloadAll, refreshCloudSync]);
+
   return (
     <StoreContext.Provider
       value={{
@@ -472,6 +499,7 @@ export function StoreProvider({
         removeBuyer,
         upsertStockJewel,
         removeStockJewel,
+        transformStockJewelToNatural,
         upsertMaterialPartner,
         removeMaterialPartner,
         upsertMaterialLot,
@@ -480,6 +508,7 @@ export function StoreProvider({
         removeExpense,
         nextQuoteNumber,
         retryCloudChanges,
+        useCloudInventoryVersion,
         reloadAll,
         refreshGoldPrice,
         refreshUsdRate

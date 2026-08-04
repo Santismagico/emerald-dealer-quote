@@ -55,6 +55,7 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
       { id: 'pay-1', date: '2026-07-16', amount: 1000000, notes: 'Transferencia' }
     ],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [
       {

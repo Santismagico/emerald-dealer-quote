@@ -7,7 +7,11 @@
 // (regla de D-023). Así un dato corrupto no puede dejar una joya marcada como
 // vendida sin la venta que lo respalde.
 
-import type { StockJewel, StockJewelSale } from '../types';
+import type {
+  StockJewel,
+  StockJewelSale,
+  StockJewelStoneTransformation
+} from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
@@ -53,6 +57,130 @@ export function summarizeStockJewel(jewel: StockJewel): StockJewelSummary {
 }
 
 /** Flujo del negocio de joyas en stock: qué hay en vitrina y qué se ha vendido. */
+/** Costo trasladado desde lotes de piedras; no representa una nueva salida de caja. */
+export function stockJewelTransformationCostCop(jewel: StockJewel): number {
+  return (jewel.stoneTransformations ?? []).reduce(
+    (total, transformation) => total + toSafeCOP(transformation.costCop),
+    0
+  );
+}
+
+/**
+ * Dinero que salio de caja cuando entro la joya. El costo agregado despues por
+ * transformaciones es un traslado interno y se excluye para conservar cierres.
+ */
+export function stockJewelAcquisitionCostCop(jewel: StockJewel): number {
+  return Math.max(0, toSafeCOP(jewel.costCop) - stockJewelTransformationCostCop(jewel));
+}
+
+function validateStoneTransformation(
+  jewel: StockJewel,
+  transformation: StockJewelStoneTransformation
+): string | null {
+  if (!transformation.id.trim()) return 'La transformacion necesita un identificador.';
+  if (!isValidISODate(transformation.date)) return 'La transformacion necesita una fecha valida.';
+  if (transformation.date < jewel.acquiredDate) {
+    return 'No puedes transformar la joya antes de que entrara al inventario.';
+  }
+  if (!transformation.lotId.trim() || transformation.jewelId !== jewel.id) {
+    return 'La transformacion no coincide con su joya y lote de origen.';
+  }
+  if (transformation.origin !== 'bruto' && transformation.origin !== 'tallado') {
+    return 'El origen de la piedra transformada no es valido.';
+  }
+  if (!Number.isFinite(transformation.carats) || transformation.carats <= 0) {
+    return 'La transformacion necesita quilates validos.';
+  }
+  if (!Number.isInteger(transformation.quantity) || transformation.quantity <= 0) {
+    return 'La transformacion necesita un numero entero de piedras.';
+  }
+  if (!Number.isSafeInteger(transformation.costCop) || transformation.costCop < 0) {
+    return 'El costo atribuido debe guardarse en pesos enteros.';
+  }
+  if (jewel.sale && transformation.date > jewel.sale.date) {
+    return 'La transformacion no puede quedar despues de la fecha de venta.';
+  }
+  if (
+    transformation.fromStoneKind !== 'fantasia' ||
+    transformation.toStoneKind !== 'natural'
+  ) {
+    return 'La historia de la transformacion no es valida.';
+  }
+  return null;
+}
+
+/** Protege la historia y deja explicito que una transformacion no se deshace. */
+export function validateStockJewelStoneHistory(
+  jewel: StockJewel,
+  previous?: StockJewel | null
+): string | null {
+  if (!['', 'fantasia', 'natural'].includes(jewel.stoneKind)) {
+    return 'La clase de piedra de la joya no es valida.';
+  }
+  if (!Array.isArray(jewel.stoneTransformations)) {
+    return 'La historia de piedras de la joya no es valida.';
+  }
+  if (jewel.stoneTransformations.length > 1) {
+    return 'Una joya natural no puede transformarse otra vez.';
+  }
+  if (
+    new Set(jewel.stoneTransformations.map((transformation) => transformation.id)).size !==
+    jewel.stoneTransformations.length
+  ) {
+    return 'La joya contiene transformaciones repetidas.';
+  }
+  for (const transformation of jewel.stoneTransformations) {
+    const error = validateStoneTransformation(jewel, transformation);
+    if (error) return error;
+  }
+  if (jewel.stoneTransformations.length > 0 && jewel.stoneKind !== 'natural') {
+    return 'Una joya transformada debe conservarse como piedra natural.';
+  }
+  if (
+    jewel.stoneTransformations.length > 0 &&
+    (!Number.isSafeInteger(jewel.costCop) || jewel.costCop < 0)
+  ) {
+    return 'El costo de una joya transformada debe guardarse en pesos enteros seguros.';
+  }
+  if (
+    jewel.stoneTransformations.length > 0 &&
+    jewel.stoneCount !== jewel.stoneTransformations[0].quantity
+  ) {
+    return 'El número de piedras debe conservar la cantidad de la transformación.';
+  }
+  if (toSafeCOP(jewel.costCop) < stockJewelTransformationCostCop(jewel)) {
+    return 'El costo de la joya no puede ser menor que la piedra natural agregada.';
+  }
+
+  if (previous) {
+    for (const oldTransformation of previous.stoneTransformations ?? []) {
+      const nextTransformation = jewel.stoneTransformations.find(
+        (candidate) => candidate.id === oldTransformation.id
+      );
+      if (
+        !nextTransformation ||
+        JSON.stringify(nextTransformation) !== JSON.stringify(oldTransformation)
+      ) {
+        return 'La transformacion ya registrada no se puede cambiar ni deshacer.';
+      }
+    }
+    if (previous.stoneKind === 'natural' && jewel.stoneKind !== 'natural') {
+      return 'Una joya natural no puede volver a fantasia ni quedar sin registrar.';
+    }
+    if (previous.stoneKind === 'fantasia' && jewel.stoneKind === '') {
+      return 'Una joya clasificada como fantasia no puede volver a quedar sin registrar.';
+    }
+    if (
+      previous.stoneKind === 'fantasia' &&
+      jewel.stoneKind === 'natural' &&
+      jewel.stoneTransformations.length !== (previous.stoneTransformations ?? []).length + 1
+    ) {
+      return 'El cambio de fantasia a natural necesita registrar su transformacion.';
+    }
+  }
+  return null;
+}
+
 export interface StockJewelsFlow {
   jewelCount: number;
   availableCount: number;
@@ -101,6 +229,14 @@ export function stockJewelsFlow(jewels: readonly StockJewel[]): StockJewelsFlow 
 
 /** Motivo humano por el que la pieza no se puede guardar, o null si es válida. */
 export function validateStockJewel(jewel: StockJewel): string | null {
+  if (!Number.isFinite(jewel.weightGrams) || jewel.weightGrams < 0) {
+    return 'El peso de la pieza no es valido.';
+  }
+  if (!Number.isInteger(jewel.stoneCount) || jewel.stoneCount < 0) {
+    return 'El numero de piedras debe ser un entero valido.';
+  }
+  const historyError = validateStockJewelStoneHistory(jewel);
+  if (historyError) return historyError;
   if (!jewel.name.trim()) return 'Ponle un nombre a la pieza.';
   if (!isValidISODate(jewel.acquiredDate)) {
     return 'La pieza necesita la fecha en que entró al inventario.';
@@ -126,6 +262,11 @@ export function validateStockJewelSale(
   if (!isValidISODate(sale.date)) return 'La venta necesita una fecha válida.';
   if (sale.date < jewel.acquiredDate) {
     return 'No puedes vender la pieza antes de que entrara al inventario.';
+  }
+  if (
+    jewel.stoneTransformations.some((transformation) => transformation.date > sale.date)
+  ) {
+    return 'No puedes fechar la venta antes de la transformacion de la joya.';
   }
   if (toSafeCOP(sale.priceCop) <= 0) return 'Indica el valor recibido por la venta.';
   const methodMayStayBlank = previousSale && !(previousSale.method ?? '').trim();
@@ -248,12 +389,17 @@ export function emptyStockJewel(today: string, nowIso: string): StockJewel {
     material: 'Oro',
     photo: '',
     acquiredDate: today,
+    weightGrams: 0,
+    size: '',
+    stoneCount: 0,
+    stoneKind: '',
     costCop: 0,
     priceCop: 0,
     status: 'disponible',
     notes: '',
     sale: null,
     collectionId: null,
+    stoneTransformations: [],
     createdAt: nowIso,
     updatedAt: nowIso
   };

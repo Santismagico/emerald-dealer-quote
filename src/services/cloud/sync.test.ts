@@ -1,6 +1,19 @@
-import { describe, expect, it } from 'vitest';
-import { createCloudSync, type CloudSyncCache, type SyncCacheRecord } from './sync';
+import { describe, expect, it, vi } from 'vitest';
+import type { StockJewel, StoneLot } from '../../types';
+import { transformStockJewelToNatural } from '../stoneJewelTransformation';
+import {
+  createCloudSync,
+  type CloudSyncCache,
+  type CloudSyncCacheMutation,
+  type SyncCacheRecord
+} from './sync';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+}
 
 function memoryCache(records: SyncCacheRecord[]): CloudSyncCache & { values: Map<string, SyncCacheRecord> } {
   const values = new Map(records.map((record) => [record.id, record]));
@@ -11,6 +24,73 @@ function memoryCache(records: SyncCacheRecord[]): CloudSyncCache & { values: Map
     remove: async (_table, id) => void values.delete(id)
   };
 }
+
+function inventoryMemoryCache(lot: StoneLot, jewel: StockJewel, failBatch = false) {
+  const values = new Map<CloudTable, Map<string, SyncCacheRecord>>([
+    ['stone_lots', new Map([[lot.id, {
+      id: lot.id, data: lot, updatedAt: lot.updatedAt, seenInCloud: true
+    }]])],
+    ['stock_jewels', new Map([[jewel.id, {
+      id: jewel.id, data: jewel, updatedAt: jewel.updatedAt, seenInCloud: true
+    }]])]
+  ]);
+  const tableValues = (table: CloudTable) => {
+    let records = values.get(table);
+    if (!records) {
+      records = new Map();
+      values.set(table, records);
+    }
+    return records;
+  };
+  const removedOutboxIds: string[] = [];
+  const applyBatch = async (mutations: readonly CloudSyncCacheMutation[]) => {
+    const staged = new Map<CloudTable, Map<string, SyncCacheRecord>>(
+      [...values].map(([table, records]) => [table, new Map(records)])
+    );
+    for (const mutation of mutations) {
+      let records = staged.get(mutation.table);
+      if (!records) {
+        records = new Map();
+        staged.set(mutation.table, records);
+      }
+      if (mutation.record) records.set(mutation.id, mutation.record);
+      else records.delete(mutation.id);
+    }
+    if (failBatch) throw new Error('fallo atomico simulado');
+    values.clear();
+    for (const [table, records] of staged) values.set(table, records);
+  };
+  const cache: CloudSyncCache = {
+    list: async (table) => [...tableValues(table).values()],
+    put: async (table, record) => void tableValues(table).set(record.id, record),
+    remove: async (table, id) => void tableValues(table).delete(id),
+    applyBatch,
+    applyBatchAndRemoveOutbox: async (mutations, outboxIds) => {
+      await applyBatch(mutations);
+      removedOutboxIds.push(...outboxIds);
+    }
+  };
+  return { cache, values, tableValues, removedOutboxIds };
+}
+
+const c2Lot: StoneLot = {
+  id: 'lot-pair', name: 'Lote pareja', stoneType: 'Esmeralda', description: '',
+  purchaseDate: '2026-08-01', supplier: '', supplierId: null, carats: 5, quantity: 5,
+  purchaseValueCop: 1_000_000, partnerId: null, partnerName: '', myPercent: 100,
+  onCredit: false, supplierPayments: [], cuttingBatches: [], internalUses: [], notes: '',
+  sales: [], createdAt: '2026-08-01T09:00:00.000Z', updatedAt: '2026-08-01T09:00:00.000Z'
+};
+const c2Jewel: StockJewel = {
+  id: 'jewel-pair', name: 'Anillo pareja', pieceType: 'anillo', material: 'Oro', photo: '',
+  acquiredDate: '2026-08-02', weightGrams: 4, size: '7', stoneCount: 1,
+  stoneKind: 'fantasia', costCop: 500_000, priceCop: 1_500_000, status: 'disponible',
+  notes: '', sale: null, collectionId: null, stoneTransformations: [],
+  createdAt: '2026-08-02T09:00:00.000Z', updatedAt: '2026-08-02T09:00:00.000Z'
+};
+const c2Transformed = transformStockJewelToNatural(c2Lot, c2Jewel, {
+  id: 'event-pair', date: '2026-08-04', lotId: c2Lot.id, jewelId: c2Jewel.id,
+  origin: 'bruto', carats: 1, quantity: 1, notes: ''
+}, '2026-08-04T12:00:00.000Z');
 
 const remoteQuote = (updated_at: string) => ({
   id: 'q-1',
@@ -101,6 +181,57 @@ describe('sincronización LWW', () => {
     expect(cache.values.has('q-local')).toBe(true);
   });
 
+  it('una transformación pendiente protege a la vez el lote y la joya', async () => {
+    const operation = {
+      id: 'op-transform',
+      table: 'stock_jewels',
+      type: 'transform_stock_jewel',
+      entityId: 'jewel-transform',
+      data: {
+        id: 'event-1',
+        lotId: 'lot-transform',
+        jewelId: 'jewel-transform'
+      },
+      updatedAt: '2026-08-04T12:00:00Z',
+      queuedAt: 1,
+      attempts: 0,
+      nextAttemptAt: 0
+    } satisfies CloudOutboxOperation;
+    const lotCache = memoryCache([{
+      id: 'lot-transform',
+      data: { id: 'lot-transform', internalUses: [{ id: 'event-1' }] },
+      updatedAt: operation.updatedAt,
+      seenInCloud: true
+    }]);
+    const jewelCache = memoryCache([{
+      id: 'jewel-transform',
+      data: { id: 'jewel-transform', stoneKind: 'natural' },
+      updatedAt: operation.updatedAt,
+      seenInCloud: true
+    }]);
+    const remote = {
+      list: async (table: string) => [{
+        id: table === 'stone_lots' ? 'lot-transform' : 'jewel-transform',
+        data: { id: 'version-remota', stoneKind: 'fantasia' },
+        updated_at: '2030-01-01T00:00:00Z'
+      }]
+    };
+
+    await createCloudSync({ remote, cache: lotCache, listPending: async () => [operation] })
+      .pullTable('stone_lots');
+    await createCloudSync({ remote, cache: jewelCache, listPending: async () => [operation] })
+      .pullTable('stock_jewels');
+
+    expect(lotCache.values.has('lot-transform')).toBe(true);
+    expect(jewelCache.values.has('jewel-transform')).toBe(true);
+    expect(lotCache.values.get('lot-transform')?.data).toMatchObject({
+      internalUses: [{ id: 'event-1' }]
+    });
+    expect(jewelCache.values.get('jewel-transform')?.data).toMatchObject({
+      stoneKind: 'natural'
+    });
+  });
+
   it('si la consulta remota falla deja intacta toda la caché', async () => {
     const original = [
       { id: 'q-1', data: { id: 'q-1' }, updatedAt: '2026-07-18T10:00:00Z' },
@@ -163,6 +294,177 @@ describe('sincronización LWW', () => {
 
     await sync.pullTable('quotes');
     expect(cache.values.has('q-1')).toBe(false);
+  });
+});
+
+describe('sincronización atómica de Piedras y Joyas C2', () => {
+  it('si falla una de las dos lecturas remotas conserva la pareja local anterior', async () => {
+    const target = inventoryMemoryCache(c2Lot, c2Jewel);
+    const batch = vi.spyOn(target.cache, 'applyBatch');
+    const sync = createCloudSync({
+      remote: {
+        list: async (table) => {
+          if (table === 'stock_jewels') throw new Error('fallo entre lecturas');
+          return [{
+            id: c2Lot.id,
+            data: c2Transformed.lot,
+            updated_at: c2Transformed.lot.updatedAt
+          }];
+        }
+      },
+      cache: target.cache,
+      listPending: async () => []
+    });
+
+    await expect(sync.pullStoneJewelPair()).rejects.toThrow(/fallo entre lecturas/i);
+    expect(batch).not.toHaveBeenCalled();
+    expect(target.tableValues('stone_lots').get(c2Lot.id)?.data).toEqual(c2Lot);
+    expect(target.tableValues('stock_jewels').get(c2Jewel.id)?.data).toEqual(c2Jewel);
+  });
+
+  it('aplica la transformación remota completa en un solo lote local', async () => {
+    const target = inventoryMemoryCache(c2Lot, c2Jewel);
+    const sync = createCloudSync({
+      remote: {
+        list: async (table) => table === 'stone_lots'
+          ? [{
+              id: c2Lot.id,
+              data: c2Transformed.lot,
+              updated_at: c2Transformed.lot.updatedAt
+            }]
+          : [{
+              id: c2Jewel.id,
+              data: c2Transformed.jewel,
+              updated_at: c2Transformed.jewel.updatedAt
+            }]
+      },
+      cache: target.cache,
+      listPending: async () => []
+    });
+
+    await sync.pullStoneJewelPair();
+
+    expect(target.tableValues('stone_lots').get(c2Lot.id)?.data).toEqual(c2Transformed.lot);
+    expect(target.tableValues('stock_jewels').get(c2Jewel.id)?.data).toEqual(
+      c2Transformed.jewel
+    );
+  });
+
+  it('al elegir la nube reemplaza una pareja local aunque su reloj sea posterior', async () => {
+    const newerLot = {
+      ...c2Lot,
+      notes: 'Edición local retenida',
+      updatedAt: '2030-01-01T00:00:00.000Z'
+    };
+    const newerJewel = {
+      ...c2Jewel,
+      notes: 'Edición local retenida',
+      updatedAt: '2030-01-01T00:00:00.000Z'
+    };
+    const target = inventoryMemoryCache(newerLot, newerJewel);
+    const sync = createCloudSync({
+      remote: {
+        list: async (table) => table === 'stone_lots'
+          ? [{
+              id: c2Lot.id,
+              data: c2Transformed.lot,
+              updated_at: c2Transformed.lot.updatedAt
+            }]
+          : [{
+              id: c2Jewel.id,
+              data: c2Transformed.jewel,
+              updated_at: c2Transformed.jewel.updatedAt
+            }]
+      },
+      cache: target.cache,
+      listPending: async () => []
+    });
+
+    await sync.replaceStoneJewelPairFromCloud?.(['op-held-inventory']);
+
+    expect(target.tableValues('stone_lots').get(c2Lot.id)?.data).toEqual(c2Transformed.lot);
+    expect(target.tableValues('stock_jewels').get(c2Jewel.id)?.data).toEqual(
+      c2Transformed.jewel
+    );
+    expect(target.removedOutboxIds).toEqual(['op-held-inventory']);
+  });
+
+  it('serializa una lectura normal en curso antes de reemplazar toda la pareja con la nube', async () => {
+    const newerLot = {
+      ...c2Lot,
+      notes: 'Edición local retenida',
+      updatedAt: '2030-01-01T00:00:00.000Z'
+    };
+    const newerJewel = {
+      ...c2Jewel,
+      notes: 'Edición local retenida',
+      updatedAt: '2030-01-01T00:00:00.000Z'
+    };
+    const target = inventoryMemoryCache(newerLot, newerJewel);
+    const firstPull = deferred();
+    const calls = new Map<CloudTable, number>();
+    const sync = createCloudSync({
+      remote: {
+        list: async (table) => {
+          const call = (calls.get(table) ?? 0) + 1;
+          calls.set(table, call);
+          if (call === 1) await firstPull.promise;
+          if (table === 'stone_lots') {
+            const lot = call === 1 ? c2Lot : c2Transformed.lot;
+            return [{ id: lot.id, data: lot, updated_at: lot.updatedAt }];
+          }
+          const jewel = call === 1 ? c2Jewel : c2Transformed.jewel;
+          return [{ id: jewel.id, data: jewel, updated_at: jewel.updatedAt }];
+        }
+      },
+      cache: target.cache,
+      listPending: async () => []
+    });
+
+    const normal = sync.pullStoneJewelPair();
+    await vi.waitFor(() => {
+      expect(calls.get('stone_lots')).toBe(1);
+      expect(calls.get('stock_jewels')).toBe(1);
+    });
+    const replacement = sync.replaceStoneJewelPairFromCloud?.(['op-held-inventory']);
+    const repeatedNormal = sync.pullStoneJewelPair();
+    expect(repeatedNormal).toBe(normal);
+
+    firstPull.resolve();
+    await Promise.all([normal, replacement, repeatedNormal]);
+
+    expect(calls.get('stone_lots')).toBe(2);
+    expect(calls.get('stock_jewels')).toBe(2);
+    expect(target.tableValues('stone_lots').get(c2Lot.id)?.data).toEqual(c2Transformed.lot);
+    expect(target.tableValues('stock_jewels').get(c2Jewel.id)?.data).toEqual(
+      c2Transformed.jewel
+    );
+    expect(target.removedOutboxIds).toEqual(['op-held-inventory']);
+  });
+
+  it('si falla el guardado por lote no confirma ninguna mitad', async () => {
+    const target = inventoryMemoryCache(c2Lot, c2Jewel, true);
+    const sync = createCloudSync({
+      remote: {
+        list: async (table) => table === 'stone_lots'
+          ? [{
+              id: c2Lot.id,
+              data: c2Transformed.lot,
+              updated_at: c2Transformed.lot.updatedAt
+            }]
+          : [{
+              id: c2Jewel.id,
+              data: c2Transformed.jewel,
+              updated_at: c2Transformed.jewel.updatedAt
+            }]
+      },
+      cache: target.cache,
+      listPending: async () => []
+    });
+
+    await expect(sync.pullStoneJewelPair()).rejects.toThrow(/fallo atomico/i);
+    expect(target.tableValues('stone_lots').get(c2Lot.id)?.data).toEqual(c2Lot);
+    expect(target.tableValues('stock_jewels').get(c2Jewel.id)?.data).toEqual(c2Jewel);
   });
 });
 

@@ -14,6 +14,7 @@ import type {
   Supplier
 } from '../../types';
 import { sampleQuote, sampleSettings } from '../../test/fixtures';
+import { transformStockJewelToNatural } from '../stoneJewelTransformation';
 import {
   countImportRecords,
   hasLocalDataToImport,
@@ -54,12 +55,17 @@ function largeBackup(): BackupFile {
       material: 'Oro',
       photo: '',
       acquiredDate: '2026-07-18',
+      weightGrams: 0,
+      size: '',
+      stoneCount: 0,
+      stoneKind: '',
       costCop: 800000,
       priceCop: 1200000,
       status: 'disponible',
       notes: '',
       sale: null,
       collectionId: null,
+      stoneTransformations: [],
       createdAt: timestamp,
       updatedAt: timestamp
     }],
@@ -126,22 +132,86 @@ function memoryWriter() {
     expenses: new Map<string, Expense>()
   };
   let flushes = 0;
+  const transformations: string[] = [];
+  const restoredCosts: Array<{
+    id: string;
+    lotCostCop: number;
+    jewelTransformationCostCop: number;
+    jewelCostCop: number;
+    updatedAt: string;
+  }> = [];
   const writer: CloudImportWriter = {
+    authorizeImport: async () => {},
     saveSettings: async (settings) => { values.settings = settings; },
     saveClient: async (client) => void values.clients.set(client.id, client),
     saveQuote: async (quote) => void values.quotes.set(quote.id, quote),
     saveAppointment: async (appointment) => void values.appointments.set(appointment.id, appointment),
     saveStoneLot: async (lot) => void values.stoneLots.set(lot.id, lot),
+    seedStoneLotForImport: async (lot) => {
+      if (!values.stoneLots.has(lot.id)) values.stoneLots.set(lot.id, lot);
+    },
     saveSupplier: async (supplier) => void values.suppliers.set(supplier.id, supplier),
     saveBuyer: async (buyer) => void values.buyers.set(buyer.id, buyer),
     saveStockJewel: async (jewel) => void values.stockJewels.set(jewel.id, jewel),
+    seedStockJewelForImport: async (jewel) => {
+      if (!values.stockJewels.has(jewel.id)) values.stockJewels.set(jewel.id, jewel);
+    },
+    finalizeStoneLotForImport: async (lot) => void values.stoneLots.set(lot.id, lot),
+    finalizeStockJewelForImport: async (jewel) => void values.stockJewels.set(jewel.id, jewel),
+    restoreStockJewelTransformationForImport: async (input) => {
+      const lot = values.stoneLots.get(input.lotId);
+      const jewel = values.stockJewels.get(input.jewelId);
+      if (!lot || !jewel) throw new Error('Falta la base de la transformación.');
+      const existingUse = lot.internalUses.find((use) => use.id === input.id);
+      const existingTransformation = jewel.stoneTransformations.find(
+        (transformation) => transformation.id === input.id
+      );
+      if (existingUse || existingTransformation) {
+        if (
+          !existingUse ||
+          !existingTransformation ||
+          existingUse.costCop !== input.costCop ||
+          existingTransformation.costCop !== input.costCop
+        ) {
+          throw new Error('La transformacion restaurada no coincide.');
+        }
+        return;
+      }
+      const { costCop, updatedAt, ...transformationInput } = input;
+      const result = transformStockJewelToNatural(lot, jewel, transformationInput, updatedAt);
+      const restoredLot: StoneLot = {
+        ...result.lot,
+        internalUses: result.lot.internalUses.map((use) =>
+          use.id === input.id ? { ...use, costCop } : use
+        )
+      };
+      const restoredJewel: StockJewel = {
+        ...result.jewel,
+        costCop: jewel.costCop + costCop,
+        stoneTransformations: result.jewel.stoneTransformations.map((transformation) =>
+          transformation.id === input.id ? { ...transformation, costCop } : transformation
+        )
+      };
+      values.stoneLots.set(restoredLot.id, restoredLot);
+      values.stockJewels.set(restoredJewel.id, restoredJewel);
+      transformations.push(input.id);
+      restoredCosts.push({
+        id: input.id,
+        lotCostCop: restoredLot.internalUses.at(-1)?.costCop ?? -1,
+        jewelTransformationCostCop:
+          restoredJewel.stoneTransformations.at(-1)?.costCop ?? -1,
+        jewelCostCop: restoredJewel.costCop,
+        updatedAt
+      });
+    },
     saveMaterialPartner: async (p) => void values.materialPartners.set(p.id, p),
     saveMaterialLot: async (l) => void values.materialLots.set(l.id, l),
     saveExpense: async (expense) => void values.expenses.set(expense.id, expense),
     flush: async () => { flushes += 1; },
-    pendingCount: async () => 0
+    pendingCount: async () => 0,
+    pullAll: async () => {}
   };
-  return { writer, values, flushes: () => flushes };
+  return { writer, values, transformations, restoredCosts, flushes: () => flushes };
 }
 
 describe('importación inicial a la nube', () => {
@@ -169,7 +239,7 @@ describe('importación inicial a la nube', () => {
       partnerName: 'Socio de prueba',
       myPercent: 60
     });
-    expect(target.flushes()).toBe(9);
+    expect(target.flushes()).toBe(10);
     expect(progress.mock.calls.at(-1)?.[0]).toMatchObject({ completed: 206, total: 206, percent: 100 });
   });
 
@@ -184,6 +254,138 @@ describe('importación inicial a la nube', () => {
     expect([...target.values.quotes.keys()][0]).toBe('q-0');
   });
 
+  it('reconstruye una transformación mediante la operación atómica y conserva el resultado final', async () => {
+    const backup = largeBackup();
+    const firstUse: StoneLot['internalUses'][number] = {
+      id: 'event-first',
+      date: '2026-08-04',
+      carats: 1,
+      quantity: 1,
+      origin: 'bruto',
+      jewelId: 'jewel-first',
+      costCop: 135_000,
+      notes: 'Primer cambio de vitrina'
+    };
+    const secondUse: StoneLot['internalUses'][number] = {
+      id: 'event-second',
+      date: '2026-08-05',
+      carats: 1,
+      quantity: 1,
+      origin: 'bruto',
+      jewelId: 'jewel-second',
+      costCop: 75_000,
+      notes: 'Segundo cambio de vitrina'
+    };
+    const transformedLot: StoneLot = {
+      id: 'lot-transform',
+      name: 'Lote natural',
+      stoneType: 'Esmeralda',
+      description: '',
+      purchaseDate: '2026-08-01',
+      supplier: '',
+      supplierId: null,
+      carats: 10,
+      quantity: 10,
+      purchaseValueCop: 1_000_000,
+      partnerId: null,
+      partnerName: '',
+      myPercent: 100,
+      onCredit: false,
+      supplierPayments: [],
+      cuttingBatches: [],
+      internalUses: [firstUse, secondUse],
+      notes: '',
+      sales: [],
+      createdAt: '2026-08-01T10:00:00.000Z',
+      updatedAt: '2026-08-05T10:00:00.000Z'
+    };
+    const transformedJewelFirst: StockJewel = {
+      ...backup.stockJewels[0],
+      id: 'jewel-first',
+      acquiredDate: '2026-08-02',
+      stoneCount: 1,
+      stoneKind: 'natural',
+      costCop: 935_000,
+      sale: {
+        id: 'sale-final',
+        date: '2026-08-06',
+        buyer: 'Comprador final',
+        buyerId: null,
+        priceCop: 1_500_000,
+        productType: 'Joya con piedra natural',
+        usdRate: null,
+        method: 'Efectivo',
+        receivedBy: 'Santiago',
+        notes: 'Venta restaurada'
+      },
+      stoneTransformations: [{
+        ...firstUse,
+        lotId: 'lot-transform',
+        fromStoneKind: 'fantasia',
+        toStoneKind: 'natural'
+      }],
+      updatedAt: '2026-08-04T10:00:00.000Z'
+    };
+    const transformedJewelSecond: StockJewel = {
+      ...backup.stockJewels[0],
+      id: 'jewel-second',
+      acquiredDate: '2026-08-02',
+      stoneCount: 1,
+      stoneKind: 'natural',
+      costCop: 875_000,
+      stoneTransformations: [{
+        ...secondUse,
+        lotId: 'lot-transform',
+        fromStoneKind: 'fantasia',
+        toStoneKind: 'natural'
+      }],
+      updatedAt: '2026-08-05T10:00:00.000Z'
+    };
+    backup.stoneLots = [transformedLot];
+    backup.stockJewels = [transformedJewelSecond, transformedJewelFirst];
+    const target = memoryWriter();
+
+    await importToCloud(backup, { writer: target.writer, batchSize: 500 });
+
+    expect(countImportRecords(backup)).toBe(213);
+    expect(backup.stockJewels.map((jewel) => jewel.id)).toEqual(['jewel-second', 'jewel-first']);
+    expect(transformedLot.internalUses.map((use) => use.id)).toEqual(['event-first', 'event-second']);
+    expect(target.transformations).toEqual(['event-first', 'event-second']);
+    expect(target.restoredCosts).toEqual([
+      {
+        id: 'event-first',
+        lotCostCop: 135_000,
+        jewelTransformationCostCop: 135_000,
+        jewelCostCop: 935_000,
+        updatedAt: '2026-08-05T10:00:00.000Z'
+      },
+      {
+        id: 'event-second',
+        lotCostCop: 75_000,
+        jewelTransformationCostCop: 75_000,
+        jewelCostCop: 875_000,
+        updatedAt: '2026-08-05T10:00:00.000Z'
+      }
+    ]);
+    expect(firstUse.costCop).not.toBe(100_000);
+    expect(secondUse.costCop).not.toBe(100_000);
+    expect(target.values.stoneLots.get(transformedLot.id)).toEqual(transformedLot);
+    expect(target.values.stockJewels.get(transformedJewelFirst.id)).toEqual(transformedJewelFirst);
+    expect(target.values.stockJewels.get(transformedJewelSecond.id)).toEqual(transformedJewelSecond);
+    expect(target.values.stockJewels.get(transformedJewelFirst.id)?.sale).toEqual(
+      transformedJewelFirst.sale
+    );
+    expect(target.flushes()).toBe(4);
+
+    await importToCloud(backup, { writer: target.writer, batchSize: 500 });
+
+    expect(target.transformations).toEqual(['event-first', 'event-second']);
+    expect(target.values.stoneLots.get(transformedLot.id)).toEqual(transformedLot);
+    expect(target.values.stockJewels.get(transformedJewelFirst.id)).toEqual(transformedJewelFirst);
+    expect(target.values.stockJewels.get(transformedJewelSecond.id)).toEqual(transformedJewelSecond);
+    expect(target.flushes()).toBe(8);
+  });
+
   it('detecta si el dispositivo tiene información y si la nube está vacía', async () => {
     expect(hasLocalDataToImport(largeBackup())).toBe(true);
     expect(await isCloudEmpty({ list: async () => [] })).toBe(true);
@@ -194,13 +396,29 @@ describe('importación inicial a la nube', () => {
     })).toBe(false);
   });
 
-  it('si se interrumpe internet, informa que la cola quedó protegida', async () => {
+  it('no empieza si existe un cambio anterior pendiente o retenido', async () => {
     const backup = largeBackup();
     const target = memoryWriter();
     target.writer.pendingCount = async () => 10;
 
     await expect(importToCloud(backup, { writer: target.writer, batchSize: 25 })).rejects.toThrow(
-      'Lo pendiente quedó guardado'
+      /antes de importar, resuelve los cambios pendientes/i
     );
+    expect(target.values.quotes.size).toBe(0);
+    expect(target.flushes()).toBe(1);
+  });
+
+  it('comprueba el permiso antes de escribir el primer registro', async () => {
+    const backup = largeBackup();
+    const target = memoryWriter();
+    target.writer.authorizeImport = async () => {
+      throw new Error('Esta cuenta no puede importar datos.');
+    };
+
+    await expect(importToCloud(backup, { writer: target.writer })).rejects.toThrow(
+      /no puede importar/i
+    );
+    expect(target.values.quotes.size).toBe(0);
+    expect(target.flushes()).toBe(0);
   });
 });

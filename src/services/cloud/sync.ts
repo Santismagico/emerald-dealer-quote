@@ -1,4 +1,5 @@
-import { dbDelete, dbGetAll, dbPut, type StoreName } from '../db';
+import { dbDelete, dbGetAll, dbPut, dbWriteTransaction, type StoreName } from '../db';
+import type { StockJewel, StoneLot } from '../../types';
 import {
   normalizeAppointment,
   normalizeBuyer,
@@ -17,6 +18,7 @@ import { validateExpenseRateMetadata } from '../expenses';
 import { validateSettingsMetadata } from '../settingsMetadata';
 import { validateStockJewelSaleMetadata } from '../stockJewels';
 import { validateStoneLotInventory, validateStoneLotSalesMetadata } from '../stones';
+import { validateStoneJewelTransformationCollections } from '../stoneJewelTransformation';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
 
 export interface CloudRow {
@@ -41,10 +43,23 @@ export interface CloudSyncCache {
   list: (table: CloudTable) => Promise<SyncCacheRecord[]>;
   put: (table: CloudTable, record: SyncCacheRecord) => Promise<void>;
   remove: (table: CloudTable, id: string) => Promise<void>;
+  applyBatch?: (mutations: readonly CloudSyncCacheMutation[]) => Promise<void>;
+  applyBatchAndRemoveOutbox?: (
+    mutations: readonly CloudSyncCacheMutation[],
+    outboxIds: readonly string[]
+  ) => Promise<void>;
+}
+
+export interface CloudSyncCacheMutation {
+  table: CloudTable;
+  id: string;
+  record: SyncCacheRecord | null;
 }
 
 export interface CloudSync {
   pullTable: (table: CloudTable) => Promise<void>;
+  pullStoneJewelPair: () => Promise<void>;
+  replaceStoneJewelPairFromCloud?: (outboxIds: readonly string[]) => Promise<void>;
   pullAll: () => Promise<void>;
 }
 
@@ -152,7 +167,55 @@ export const indexedDbSyncCache: CloudSyncCache = {
       cloudUpdatedAt: record.updatedAt
     });
   },
-  remove: (table, id) => dbDelete(storeByTable[table], table === 'org_settings' ? SETTINGS_KEY : id)
+  remove: (table, id) => dbDelete(storeByTable[table], table === 'org_settings' ? SETTINGS_KEY : id),
+  async applyBatch(mutations) {
+    if (mutations.length === 0) return;
+    const prepared = mutations.map((mutation) => ({
+      ...mutation,
+      store: storeByTable[mutation.table],
+      key: mutation.table === 'org_settings' ? SETTINGS_KEY : mutation.id,
+      value: mutation.record
+        ? {
+            ...normalized(mutation.table, mutation.record.data),
+            id: mutation.table === 'org_settings' ? SETTINGS_KEY : mutation.record.id,
+            cloudUpdatedAt: mutation.record.updatedAt
+          }
+        : null
+    }));
+    const stores = [...new Set(prepared.map((mutation) => mutation.store))];
+    await dbWriteTransaction(stores, (getStore) => {
+      for (const mutation of prepared) {
+        if (mutation.value === null) getStore(mutation.store).delete(mutation.key);
+        else getStore(mutation.store).put(mutation.value);
+      }
+    });
+  },
+  async applyBatchAndRemoveOutbox(mutations, outboxIds) {
+    const prepared = mutations.map((mutation) => ({
+      ...mutation,
+      store: storeByTable[mutation.table],
+      key: mutation.table === 'org_settings' ? SETTINGS_KEY : mutation.id,
+      value: mutation.record
+        ? {
+            ...normalized(mutation.table, mutation.record.data),
+            id: mutation.table === 'org_settings' ? SETTINGS_KEY : mutation.record.id,
+            cloudUpdatedAt: mutation.record.updatedAt
+          }
+        : null
+    }));
+    const stores = [...new Set<StoreName>([
+      ...prepared.map((mutation) => mutation.store),
+      'cloudOutbox'
+    ])];
+    await dbWriteTransaction(stores, (getStore) => {
+      for (const mutation of prepared) {
+        if (mutation.value === null) getStore(mutation.store).delete(mutation.key);
+        else getStore(mutation.store).put(mutation.value);
+      }
+      const outboxStore = getStore('cloudOutbox');
+      for (const id of outboxIds) outboxStore.delete(id);
+    });
+  }
 };
 
 function entityId(table: CloudTable, row: CloudRow): string {
@@ -166,22 +229,45 @@ function validTime(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** Una transformación pendiente protege a la vez la joya y el lote que consume. */
+function pendingEntityForTable(
+  operation: CloudOutboxOperation,
+  table: CloudTable
+): string | null {
+  if (
+    operation.type !== 'transform_stock_jewel' &&
+    operation.type !== 'restore_stock_jewel'
+  ) {
+    return operation.table === table ? operation.entityId : null;
+  }
+  const data =
+    typeof operation.data === 'object' && operation.data !== null
+      ? (operation.data as Record<string, unknown>)
+      : {};
+  if (table === 'stock_jewels' && typeof data.jewelId === 'string') return data.jewelId;
+  if (table === 'stone_lots' && typeof data.lotId === 'string') return data.lotId;
+  return null;
+}
+
 export function createCloudSync(options: {
   remote: CloudSyncRemote;
   cache: CloudSyncCache;
   listPending: () => Promise<CloudOutboxOperation[]>;
 }): CloudSync {
-  const pullTable = async (table: CloudTable) => {
-    const [remoteRows, localRows, pendingOperations] = await Promise.all([
-      options.remote.list(table),
-      options.cache.list(table),
-      options.listPending()
-    ]);
+  const planTablePull = (
+    table: CloudTable,
+    remoteRows: CloudRow[],
+    localRows: SyncCacheRecord[],
+    pendingOperations: CloudOutboxOperation[],
+    forceRemote = false
+  ): { mutations: CloudSyncCacheMutation[]; finalRows: Map<string, SyncCacheRecord> } => {
+    const mutations: CloudSyncCacheMutation[] = [];
     const localById = new Map(localRows.map((record) => [record.id, record]));
+    const finalRows = new Map(localById);
     const pendingById = new Map(
       pendingOperations
-        .filter((operation) => operation.table === table)
-        .map((operation) => [operation.entityId, operation])
+        .map((operation) => [pendingEntityForTable(operation, table), operation] as const)
+        .filter((entry): entry is [string, CloudOutboxOperation] => Boolean(entry[0]))
     );
     const remoteIds = new Set(
       remoteRows
@@ -192,8 +278,13 @@ export function createCloudSync(options: {
     for (const localRow of localRows) {
       // Ante cualquier duda se conserva el dato: solo se reconcilian borrados
       // de registros que este dispositivo ya vio o subió a la nube.
-      if (!localRow.seenInCloud || remoteIds.has(localRow.id) || pendingById.has(localRow.id)) continue;
-      await options.cache.remove(table, localRow.id);
+      if (
+        !forceRemote &&
+        (!localRow.seenInCloud || remoteIds.has(localRow.id) || pendingById.has(localRow.id))
+      ) continue;
+      if (forceRemote && remoteIds.has(localRow.id)) continue;
+      finalRows.delete(localRow.id);
+      mutations.push({ table, id: localRow.id, record: null });
     }
 
     for (const remoteRow of remoteRows) {
@@ -203,28 +294,149 @@ export function createCloudSync(options: {
       const pending = pendingById.get(id);
 
       // Una eliminación local pendiente nunca se revive durante un pull.
-      if (pending?.type === 'delete') continue;
+      if (!forceRemote && pending?.type === 'delete') continue;
+      // La operacion compuesta protege sus dos mitades hasta que la RPC las
+      // confirme; un reloj remoto adelantado no puede separarlas.
+      if (!forceRemote && (
+        pending?.type === 'transform_stock_jewel' ||
+        pending?.type === 'restore_stock_jewel'
+      )) continue;
       // LWW: el cambio con fecha más reciente gana, incluso si aún espera conexión.
-      if (local && validTime(local.updatedAt) > validTime(remoteRow.updated_at)) continue;
+      if (
+        !forceRemote &&
+        local &&
+        validTime(local.updatedAt) > validTime(remoteRow.updated_at)
+      ) continue;
 
-      const metadataError = b3MetadataError(table, remoteRow.data, local?.data);
+      const metadataError = b3MetadataError(
+        table,
+        remoteRow.data,
+        forceRemote ? undefined : local?.data
+      );
       if (metadataError) {
         throw new Error(`La nube rechazó un dato inválido antes de guardarlo: ${metadataError}`);
       }
 
-      await options.cache.put(table, {
+      const record: SyncCacheRecord = {
         id,
         data: remoteRow.data,
         updatedAt: remoteRow.updated_at,
         seenInCloud: true
-      });
+      };
+      finalRows.set(id, record);
+      mutations.push({ table, id, record });
     }
+    return { mutations, finalRows };
+  };
+
+  const applyMutations = async (mutations: CloudSyncCacheMutation[]) => {
+    if (mutations.length === 0) return;
+    if (options.cache.applyBatch) {
+      await options.cache.applyBatch(mutations);
+      return;
+    }
+    for (const mutation of mutations) {
+      if (mutation.record) await options.cache.put(mutation.table, mutation.record);
+      else await options.cache.remove(mutation.table, mutation.id);
+    }
+  };
+
+  const pullTable = async (table: CloudTable) => {
+    const [remoteRows, localRows, pendingOperations] = await Promise.all([
+      options.remote.list(table),
+      options.cache.list(table),
+      options.listPending()
+    ]);
+    const plan = planTablePull(table, remoteRows, localRows, pendingOperations);
+    await applyMutations(plan.mutations);
+  };
+
+  const runStoneJewelPairPull = async (
+    forceRemote: boolean,
+    discardOutboxIds: readonly string[] = []
+  ): Promise<void> => {
+    const [remoteLots, remoteJewels, localLots, localJewels, pendingOperations] =
+      await Promise.all([
+        options.remote.list('stone_lots'),
+        options.remote.list('stock_jewels'),
+        options.cache.list('stone_lots'),
+        options.cache.list('stock_jewels'),
+        options.listPending()
+      ]);
+    const lotPlan = planTablePull(
+      'stone_lots', remoteLots, localLots, pendingOperations, forceRemote
+    );
+    const jewelPlan = planTablePull(
+      'stock_jewels', remoteJewels, localJewels, pendingOperations, forceRemote
+    );
+    const lots = [...lotPlan.finalRows.values()].map(
+      (record) => normalizeStoneLot(record.data) as StoneLot
+    );
+    const jewels = [...jewelPlan.finalRows.values()].map(
+      (record) => normalizeStockJewel(record.data) as StockJewel
+    );
+    const linkError = validateStoneJewelTransformationCollections(lots, jewels);
+    if (linkError) {
+      throw new Error(`La nube devolvió Piedras y Joyas descuadradas: ${linkError}`);
+    }
+    const mutations = [...lotPlan.mutations, ...jewelPlan.mutations];
+    if (discardOutboxIds.length > 0) {
+      if (!options.cache.applyBatchAndRemoveOutbox) {
+        throw new Error('No se puede reemplazar la pareja y limpiar la cola atómicamente.');
+      }
+      await options.cache.applyBatchAndRemoveOutbox(mutations, discardOutboxIds);
+      return;
+    }
+    await applyMutations(mutations);
+  };
+
+  let inventoryPullTail: Promise<void> = Promise.resolve();
+  let activeNormalPull: Promise<void> | null = null;
+  let activeReplacementPull: Promise<void> | null = null;
+  const queueInventoryPull = (
+    forceRemote: boolean,
+    discardOutboxIds: readonly string[] = []
+  ): Promise<void> => {
+    const queued = inventoryPullTail
+      .catch(() => {})
+      .then(() => runStoneJewelPairPull(forceRemote, discardOutboxIds));
+    inventoryPullTail = queued;
+    return queued;
+  };
+
+  const pullStoneJewelPair = (): Promise<void> => {
+    if (activeNormalPull) return activeNormalPull;
+    const queued = queueInventoryPull(false);
+    activeNormalPull = queued;
+    queued.then(
+      () => { if (activeNormalPull === queued) activeNormalPull = null; },
+      () => { if (activeNormalPull === queued) activeNormalPull = null; }
+    );
+    return queued;
+  };
+
+  const replaceStoneJewelPairFromCloud = (
+    discardOutboxIds: readonly string[]
+  ): Promise<void> => {
+    if (activeReplacementPull) return activeReplacementPull;
+    const queued = queueInventoryPull(true, discardOutboxIds);
+    activeReplacementPull = queued;
+    queued.then(
+      () => { if (activeReplacementPull === queued) activeReplacementPull = null; },
+      () => { if (activeReplacementPull === queued) activeReplacementPull = null; }
+    );
+    return queued;
   };
 
   return {
     pullTable,
+    pullStoneJewelPair,
+    replaceStoneJewelPairFromCloud,
     async pullAll() {
-      for (const table of CLOUD_TABLES) await pullTable(table);
+      for (const table of CLOUD_TABLES) {
+        if (table === 'stone_lots') await pullStoneJewelPair();
+        else if (table !== 'stock_jewels') await pullTable(table);
+      }
     }
   };
 }

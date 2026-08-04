@@ -39,6 +39,29 @@ function fakeClient() {
 }
 
 describe('cuenta de nube', () => {
+  it('lee el rol de la membresia para proteger las importaciones', async () => {
+    const baseClient = fakeClient();
+    const select = vi.fn(() => ({
+      maybeSingle: vi.fn(async () => ({
+        data: {
+          organization_id: 'org-1',
+          role: 'admin',
+          organizations: { name: 'Joyería Ejemplo' }
+        },
+        error: null
+      }))
+    }));
+    const client = { ...baseClient, from: vi.fn(() => ({ select })) };
+    const service = createCloudAuthService(async () => client as never);
+
+    await expect(service.getOrganization()).resolves.toEqual({
+      id: 'org-1',
+      name: 'Joyería Ejemplo',
+      role: 'admin'
+    });
+    expect(select).toHaveBeenCalledWith('organization_id, role, organizations(name)');
+  });
+
   it('traduce los errores comunes a español claro', () => {
     expect(authErrorInSpanish({ code: 'invalid_credentials' })).toBe('El correo o la contraseña no coinciden.');
     expect(authErrorInSpanish({ code: 'email_not_confirmed' })).toContain('Confirma tu correo');
@@ -239,7 +262,8 @@ describe('cuenta de nube', () => {
 
     expect(await service.createOrganization(' Joyería Ejemplo ', defaultSettings())).toEqual({
       id: 'org-1',
-      name: 'Joyería Ejemplo'
+      name: 'Joyería Ejemplo',
+      role: 'owner'
     });
     expect(client.rpc.mock.calls[0]).toEqual(['create_organization', { org_name: 'Joyería Ejemplo' }]);
     expect(client.rpc.mock.calls[1][0]).toBe('upsert_settings');

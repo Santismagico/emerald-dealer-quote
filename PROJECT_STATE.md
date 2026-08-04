@@ -275,8 +275,9 @@ arriba. **Inicio reemplaza a "Más"** en la barra inferior, que queda en Inicio 
 Cotizador · Taller · Agenda · Inventario (siguen siendo cinco, D-046). Registrado
 en D-052.
 
-**No quedan decisiones abiertas.** A1, B1, B2, B3 y C1 ya fueron implementadas.
-C2 es la única etapa pendiente de la Fase C y conserva su riesgo alto.
+**No quedan decisiones abiertas.** A1, B1, B2, B3, C1 y C2 ya fueron
+implementadas. La Fase C queda detenida para auditoría independiente antes de
+cualquier trabajo de la Fase D.
 
 **Orden de trabajo entregada a Codex:**
 `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
@@ -412,8 +413,35 @@ sobreventas y cambios físicos incompatibles. No fue aplicada a producción.
 Verificación C1: **858 pruebas en 58 archivos**, comprobación PWA, compilación de
 **332 módulos** y recorrido real en 320, 390 y 1280 px. Sin desbordamiento,
 controles táctiles mínimos de 44 px, inputs móviles de 16 px ni errores de consola.
-C2 sigue pendiente. `main`, el enlace del piloto y el workflow de despliegue no
-fueron tocados.
+
+**C2 implementada el 2026-08-04 (Codex):** las joyas en stock registran peso,
+talla o medida libre, número de piedras y clase fantasía/natural, mientras las
+anteriores siguen en “Sin registrar”. Cambiar fantasía por natural crea una sola
+historia enlazada: descuenta la existencia correcta del lote, suma el costo
+atribuido a la joya y conserva ambas mitades o ninguna. La piedra de fantasía que
+sale no se rastrea.
+
+La transformación no crea caja en ninguna fecha y el resultado combinado del
+negocio permanece igual. En nube se confirma primero en el servidor; una edición
+pendiente del lote o la joya bloquea el cambio hasta subir, y la pareja se baja y
+guarda en una sola operación local. Un conflicto retenido puede resolverse usando
+la pareja confirmada en la nube: espera cualquier envío ya iniciado y reemplaza
+Piedras, Joyas y su cola seleccionada como una sola acción, sin tocar otros módulos;
+ante cualquier fallo conserva todo lo local. Respaldos anteriores siguen importando; los
+actuales exigen enlaces exactos y restauran costos históricos sin reactivar ventas
+ni sobrescribir cambios posteriores. Importar queda reservado a owner/admin.
+
+Verificación C2: **940 pruebas en 62 archivos**, comprobación PWA y compilación de
+**333 módulos**, todo en verde. La migración SQL es nueva y aditiva, pero solo se
+verificó de forma estática: no se aplicó ni se ejecutó contra PostgreSQL real. El
+recorrido real comprobó fantasía → natural, descuento del lote, costo e historia;
+la revisión final 320/390/1280 queda registrada en la bitácora de este commit.
+
+Dudas resueltas y límites declarados: deshacer permanece bloqueado porque una
+reversa debe devolver inventario y costo a la vez; en cuentas de nube transformar
+requiere conexión para no confirmar una realidad falsa; restaurar costo histórico
+usa una puerta separada y restringida. `main`, el enlace del piloto y el workflow
+de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 
 ## Bitácora de etapas (Codex la actualiza)
 
@@ -458,3 +486,4 @@ fueron tocados.
 | 2026-08-03 | Plan v2 · B2: Sociedades en piedras (Codex) | Reparto sobre resultado real recibido, comparación por socio, historial al renombrar/borrar, respaldo v8 y validación de nube aditiva; 807 pruebas, guard N6, 328 módulos y revisión 320/390/1280 en verde; no publicado | B2 (este commit) |
 | 2026-08-03 | Plan v2 · B3: Tipo de producto + moneda (Codex) | Tipos administrables sin inferencias, tasa fija por operación, vista COP/USD sin escrituras, fallback offline, respaldo v8 y nube protegida en ambas direcciones y entre versiones; 846 pruebas en 56 archivos, 18 controles locales, 332 módulos y revisión visual 320/390/1280 en verde; no publicado | B3 (este commit) |
 | 2026-08-04 | Plan v2 · C1: Talla por tandas (Codex) | Bruto, en talla y tallado derivados; merma, costos y pagos por tanda; historial físico protegido; compatibilidad anterior, respaldo v8 y migración de nube aditiva; 858 pruebas en 58 archivos, 332 módulos y revisión 320/390/1280 en verde; no publicado | C1 (este commit) |
+| 2026-08-04 | Plan v2 · C2: Fantasía → natural (Codex) | Ficha completa de joyas; transformación enlazada y atómica; descuento de piedras, traslado de costo sin caja, respaldo histórico y nube server-first con recepción conjunta; 940 pruebas en 62 archivos, 333 módulos y revisión 320/390/1280 en verde; migración preparada no aplicada; no publicado; Fase D no iniciada | C2 (este commit) |

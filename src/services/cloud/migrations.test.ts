@@ -11,6 +11,7 @@ import expensesSource from '../../../supabase/migrations/20260803205711_gastos_n
 import stonePartnershipsSource from '../../../supabase/migrations/20260803220000_sociedades_lotes_piedras.sql?raw'
 import productCurrencySource from '../../../supabase/migrations/20260803233000_tipo_producto_moneda.sql?raw'
 import cuttingBatchesSource from '../../../supabase/migrations/20260804144748_fase_c1_tandas_talla.sql?raw'
+import jewelTransformationSource from '../../../supabase/migrations/20260804151230_fase_c2_transformacion_joya.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -25,6 +26,47 @@ const expenses = expensesSource.toLowerCase()
 const stonePartnerships = stonePartnershipsSource.toLowerCase()
 const productCurrency = productCurrencySource.toLowerCase()
 const cuttingBatches = cuttingBatchesSource.toLowerCase()
+const jewelTransformation = jewelTransformationSource.toLowerCase()
+const jewelTransformationStart = jewelTransformation.indexOf(
+  'create or replace function public.transform_stock_jewel_to_natural'
+)
+const jewelRestorationStart = jewelTransformation.indexOf(
+  'create or replace function public.restore_stock_jewel_transformation'
+)
+const importAuthorizationStart = jewelTransformation.indexOf(
+  'create or replace function public.authorize_cloud_import'
+)
+const stoneSeedStart = jewelTransformation.indexOf(
+  'create or replace function public.seed_stone_lot_transformation_import'
+)
+const jewelSeedStart = jewelTransformation.indexOf(
+  'create or replace function public.seed_stock_jewel_transformation_import'
+)
+const stoneFinalizeStart = jewelTransformation.indexOf(
+  'create or replace function public.finalize_stone_lot_transformation_import'
+)
+const jewelFinalizeStart = jewelTransformation.indexOf(
+  'create or replace function public.finalize_stock_jewel_transformation_import'
+)
+const c2DeleteStart = jewelTransformation.indexOf(
+  'create or replace function public.delete_stone_lot'
+)
+const jewelTransformationRpc = jewelTransformation.slice(
+  jewelTransformationStart,
+  jewelRestorationStart
+)
+const jewelRestorationRpc = jewelTransformation.slice(
+  jewelRestorationStart,
+  importAuthorizationStart
+)
+const importAuthorizationRpc = jewelTransformation.slice(
+  importAuthorizationStart,
+  stoneSeedStart
+)
+const stoneSeedRpc = jewelTransformation.slice(stoneSeedStart, jewelSeedStart)
+const jewelSeedRpc = jewelTransformation.slice(jewelSeedStart, stoneFinalizeStart)
+const stoneFinalizeRpc = jewelTransformation.slice(stoneFinalizeStart, jewelFinalizeStart)
+const jewelFinalizeRpc = jewelTransformation.slice(jewelFinalizeStart, c2DeleteStart)
 
 const tables = [
   'organizations',
@@ -150,6 +192,487 @@ describe('migraciones de nube', () => {
       expect(functions).toContain(`function public.${name}`)
       expect(functions).toContain(`grant execute on function public.${name}`)
     }
+  })
+})
+
+describe('migracion C2: transformacion atomica de joya fantasia a natural', () => {
+  it('es aditiva y no acepta la organizacion ni el costo desde el navegador', () => {
+    expect(jewelTransformation).toContain(
+      'function public.transform_stock_jewel_to_natural'
+    )
+    expect(jewelTransformation).not.toMatch(/\b(create|alter|drop)\s+table\b/)
+    expect(jewelTransformation).not.toContain('create policy')
+    expect(jewelTransformation).not.toContain('drop policy')
+    expect(jewelTransformation).not.toContain('p_organization_id')
+    expect(jewelTransformationRpc).not.toContain('p_cost')
+  })
+
+  it('publica una RPC protegida con la firma exacta y permisos minimos', () => {
+    for (const parameter of [
+      'p_event_id text',
+      'p_date text',
+      'p_lot_id text',
+      'p_jewel_id text',
+      'p_origin text',
+      'p_carats numeric',
+      'p_quantity integer',
+      'p_notes text',
+      'p_updated_at timestamptz'
+    ]) {
+      expect(jewelTransformationRpc).toContain(parameter)
+    }
+    expect(jewelTransformationRpc).toContain('returns jsonb')
+    expect(jewelTransformationRpc).toContain('security definer')
+    expect(jewelTransformationRpc).toContain("set search_path = ''")
+    expect(jewelTransformation).toContain(
+      'revoke all on function public.transform_stock_jewel_to_natural('
+    )
+    expect(jewelTransformation).toContain(
+      ') from public, anon, authenticated, service_role;'
+    )
+    expect(jewelTransformation).toContain(
+      'grant execute on function public.transform_stock_jewel_to_natural('
+    )
+    expect(jewelTransformation).toContain(') to authenticated;')
+  })
+
+  it('resuelve la organizacion y bloquea evento, lote y joya en orden fijo', () => {
+    expect(jewelTransformationRpc).toContain(
+      'private.current_organization_id_for_roles'
+    )
+    expect(jewelTransformationRpc).toContain('organization_id = v_organization_id')
+    const eventLock = jewelTransformationRpc.indexOf(':stock_transform_events:')
+    const lotLock = jewelTransformationRpc.indexOf(':stone_lots:')
+    const jewelLock = jewelTransformationRpc.indexOf(':stock_jewels:')
+    expect(eventLock).toBeGreaterThan(-1)
+    expect(lotLock).toBeGreaterThan(eventLock)
+    expect(jewelLock).toBeGreaterThan(lotLock)
+
+    const lotRowLock = jewelTransformationRpc.indexOf('from public.stone_lots lot')
+    const jewelRowLock = jewelTransformationRpc.indexOf('from public.stock_jewels jewel')
+    expect(lotRowLock).toBeGreaterThan(jewelLock)
+    expect(jewelRowLock).toBeGreaterThan(lotRowLock)
+    expect(jewelTransformationRpc.match(/for update/g)?.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('valida forma, fechas y existencias brutas o talladas en el servidor', () => {
+    expect(jewelTransformation).toContain(
+      'function private.assert_stone_lot_internal_uses_payload'
+    )
+    expect(jewelTransformation).toContain(
+      'function private.assert_stock_jewel_c2_payload'
+    )
+    expect(jewelTransformation).toContain("not in ('bruto', 'tallado')")
+    expect(jewelTransformation).toContain(
+      "<> round((use_item->>'carats')::numeric, 3)"
+    )
+    expect(jewelTransformation).toContain('stone internal use cannot predate lot purchase')
+    expect(jewelTransformation).toContain(
+      'stock jewel transformation cannot predate acquisition'
+    )
+    expect(jewelTransformation).toContain(
+      'stock jewel transformation cannot postdate sale'
+    )
+    expect(jewelTransformation).toContain('9007199254740991')
+    expect(jewelTransformation).toContain('stone internal uses exceed raw inventory')
+    expect(jewelTransformation).toContain('stone internal uses exceed cut inventory')
+    expect(jewelTransformationRpc).toContain('a sold stock jewel cannot be transformed')
+    expect(jewelTransformationRpc).toContain(
+      'only a fantasia stock jewel can become natural'
+    )
+  })
+
+  it('calcula el costo en el servidor con compra y tallas ya pagadas', () => {
+    expect(jewelTransformationRpc).toContain(
+      "where coalesce(batch->>'cuttingpaiddate', '') <> ''"
+    )
+    expect(jewelTransformationRpc).toContain(
+      "v_total_invested := (v_lot_data->>'purchasevaluecop')::numeric + v_paid_cutting_cost"
+    )
+    expect(jewelTransformationRpc).toContain(
+      "v_purchase_millicarats := round((v_lot_data->>'carats')::numeric * 1000)"
+    )
+    expect(jewelTransformationRpc).toContain(
+      '(v_total_invested * v_consumed_millicarats) / v_purchase_millicarats'
+    )
+    expect(jewelTransformationRpc).toContain("'{costcop}'")
+    expect(jewelTransformationRpc).toContain('v_jewel_cost + v_attributed_cost')
+    expect(jewelTransformationRpc).toContain(
+      'stock jewel transformation cost exceeds safe cop range'
+    )
+  })
+
+  it('guarda ambas mitades atomicamente y reintenta sin duplicar el evento', () => {
+    expect(jewelTransformationRpc).toContain("'{internaluses}'")
+    expect(jewelTransformationRpc).toContain("'{stonetransformations}'")
+    expect(jewelTransformationRpc).toContain("'fromstonekind', 'fantasia'")
+    expect(jewelTransformationRpc).toContain("'tostonekind', 'natural'")
+    expect(jewelTransformationRpc).toContain('v_existing_use is not null')
+    expect(jewelTransformationRpc).toContain('v_existing_event is not null')
+    expect(jewelTransformationRpc).toContain(
+      'transformation event id already belongs to another record'
+    )
+    expect(jewelTransformationRpc).toContain(
+      'transformation event id was reused with different data'
+    )
+    const lotUpdate = jewelTransformationRpc.indexOf('update public.stone_lots')
+    const jewelUpdate = jewelTransformationRpc.indexOf('update public.stock_jewels')
+    expect(lotUpdate).toBeGreaterThan(-1)
+    expect(jewelUpdate).toBeGreaterThan(lotUpdate)
+    expect(jewelTransformationRpc).toContain(
+      "return jsonb_build_object('lot', v_lot_data, 'jewel', v_jewel_data)"
+    )
+    expect(jewelTransformationRpc).toContain(
+      "return jsonb_build_object('lot', v_new_lot_data, 'jewel', v_new_jewel_data)"
+    )
+  })
+
+  it('impide crear, cambiar o borrar la historia por las RPC normales', () => {
+    expect(jewelTransformation).toContain(
+      'function private.assert_stone_internal_uses_preserved'
+    )
+    expect(jewelTransformation).toContain(
+      'function private.assert_stock_transformations_preserved'
+    )
+    expect(jewelTransformation).toContain(
+      'perform private.assert_stone_internal_uses_preserved(p_id, p_data)'
+    )
+    expect(jewelTransformation).toContain(
+      'perform private.assert_stock_transformations_preserved(p_id, p_data)'
+    )
+    expect(jewelTransformation).toContain(
+      'returned cutting inventory is immutable after an internal use'
+    )
+    expect(jewelTransformation).toContain(
+      'stone lot with internal uses cannot be deleted'
+    )
+    expect(jewelTransformation).toContain(
+      'transformed stock jewel cannot be deleted'
+    )
+    expect(jewelTransformation).toContain(
+      'fantasia to natural requires the protected transformation rpc'
+    )
+  })
+
+  it('restaura el costo historico solo para owner/admin y sin cambiar la RPC normal', () => {
+    expect(jewelTransformationStart).toBeGreaterThan(-1)
+    expect(jewelRestorationStart).toBeGreaterThan(jewelTransformationStart)
+    expect(jewelTransformationRpc).not.toContain('p_cost_cop')
+    expect(jewelRestorationRpc).toContain(
+      'function public.restore_stock_jewel_transformation'
+    )
+    expect(jewelRestorationRpc).toContain('p_cost_cop numeric')
+    expect(jewelRestorationRpc).not.toContain('p_cost_cop integer')
+    expect(jewelRestorationRpc).toContain('returns jsonb')
+    expect(jewelRestorationRpc).toContain(
+      "current_organization_id_for_roles(array['owner', 'admin'])"
+    )
+    expect(jewelRestorationRpc).not.toContain("'seller'")
+    expect(jewelRestorationRpc).not.toContain('p_organization_id')
+    expect(jewelRestorationRpc).toContain('p_cost_cop is null or p_cost_cop < 0')
+    expect(jewelRestorationRpc).toContain("p_cost_cop = 'nan'::numeric")
+    expect(jewelRestorationRpc).toContain('p_cost_cop > 9007199254740991')
+    expect(jewelRestorationRpc).toContain('trunc(p_cost_cop) <> p_cost_cop')
+    expect(jewelRestorationRpc).toContain("set search_path = ''")
+    expect(jewelRestorationRpc).toContain('security definer')
+  })
+
+  it('protege el cutoff antes de transformar y conserva el orden fijo de bloqueos', () => {
+    const eventLock = jewelRestorationRpc.indexOf(':stock_transform_events:')
+    const lotLock = jewelRestorationRpc.indexOf(':stone_lots:')
+    const jewelLock = jewelRestorationRpc.indexOf(':stock_jewels:')
+    const lotRowLock = jewelRestorationRpc.indexOf('from public.stone_lots lot')
+    const jewelRowLock = jewelRestorationRpc.indexOf('from public.stock_jewels jewel')
+    const detection = jewelRestorationRpc.indexOf('into v_existed_before')
+    const cutoff = jewelRestorationRpc.indexOf(
+      'stock jewel transformation import cutoff no longer matches'
+    )
+    const baseCall = jewelRestorationRpc.indexOf(
+      'perform public.transform_stock_jewel_to_natural('
+    )
+    expect(eventLock).toBeGreaterThan(-1)
+    expect(lotLock).toBeGreaterThan(eventLock)
+    expect(jewelLock).toBeGreaterThan(lotLock)
+    expect(lotRowLock).toBeGreaterThan(jewelLock)
+    expect(jewelRowLock).toBeGreaterThan(lotRowLock)
+    expect(detection).toBeGreaterThan(jewelRowLock)
+    expect(cutoff).toBeGreaterThan(detection)
+    expect(baseCall).toBeGreaterThan(cutoff)
+    expect(jewelRestorationRpc.match(/for update/g)?.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('en un evento nuevo reemplaza ambos costos y ajusta solo la diferencia', () => {
+    expect(jewelRestorationRpc).toContain(
+      'v_cost_delta := p_cost_cop::numeric - v_calculated_cost'
+    )
+    expect(jewelRestorationRpc).toContain(
+      "jsonb_set(use_item, '{costcop}', to_jsonb(p_cost_cop), false)"
+    )
+    expect(jewelRestorationRpc).toContain(
+      "jsonb_set(event_item, '{costcop}', to_jsonb(p_cost_cop), false)"
+    )
+    expect(jewelRestorationRpc).toContain(
+      "v_new_jewel_cost := (v_jewel_data->>'costcop')::numeric + v_cost_delta"
+    )
+    expect(jewelRestorationRpc).toContain(
+      'perform private.assert_stone_lot_internal_uses_payload(v_new_lot_data)'
+    )
+    expect(jewelRestorationRpc).toContain(
+      'perform private.assert_stock_jewel_c2_payload(v_new_jewel_data)'
+    )
+    const lotUpdate = jewelRestorationRpc.indexOf('update public.stone_lots')
+    const jewelUpdate = jewelRestorationRpc.indexOf('update public.stock_jewels')
+    expect(lotUpdate).toBeGreaterThan(-1)
+    expect(jewelUpdate).toBeGreaterThan(lotUpdate)
+  })
+
+  it('un reintento confirma el costo ya guardado y nunca lo reemplaza', () => {
+    const retryBranch = jewelRestorationRpc.slice(
+      jewelRestorationRpc.indexOf('if v_existed_before then'),
+      jewelRestorationRpc.indexOf('v_calculated_cost :=')
+    )
+    expect(retryBranch).toContain(
+      "(v_existing_use->>'costcop')::numeric"
+    )
+    expect(retryBranch).toContain('is distinct from p_cost_cop::numeric')
+    expect(retryBranch).toContain('restored transformation cost differs from stored history')
+    expect(retryBranch).toContain(
+      "return jsonb_build_object('lot', v_lot_data, 'jewel', v_jewel_data)"
+    )
+    expect(retryBranch).not.toContain('jsonb_set')
+  })
+
+  it('la restauracion nueva devuelve los dos JSON finales autoritativos', () => {
+    expect(jewelRestorationRpc).toContain(
+      "return jsonb_build_object('lot', v_new_lot_data, 'jewel', v_new_jewel_data)"
+    )
+    expect(jewelRestorationRpc).not.toMatch(/\breturn\s*;/)
+  })
+
+  it('cierra la restauracion a todos por defecto y la abre a authenticated', () => {
+    expect(jewelTransformation).toContain(
+      'revoke all on function public.restore_stock_jewel_transformation('
+    )
+    expect(jewelTransformation).toContain(
+      'text, text, text, text, text, numeric, integer, text, timestamptz, numeric'
+    )
+    expect(jewelTransformation).toContain(
+      'grant execute on function public.restore_stock_jewel_transformation('
+    )
+    expect(jewelTransformation).toContain(') to authenticated;')
+  })
+
+  it('el costo historico admite COP enteros superiores al limite de 32 bits', () => {
+    const historicalCostCop = 3_000_000_000
+    expect(historicalCostCop).toBeGreaterThan(2_147_483_647)
+    expect(jewelRestorationRpc).toContain('p_cost_cop numeric')
+    expect(jewelRestorationRpc).toContain('trunc(p_cost_cop) <> p_cost_cop')
+    expect(jewelRestorationRpc).toContain('to_jsonb(p_cost_cop)')
+  })
+
+  it('autoriza la importacion antes de escribir y bloquea a seller', () => {
+    expect(importAuthorizationStart).toBeGreaterThan(jewelRestorationStart)
+    expect(importAuthorizationRpc).toContain('function public.authorize_cloud_import()')
+    expect(importAuthorizationRpc).toContain('returns void')
+    expect(importAuthorizationRpc).toContain('security definer')
+    expect(importAuthorizationRpc).toContain("set search_path = ''")
+    expect(importAuthorizationRpc).toContain(
+      "current_organization_id_for_roles(array['owner', 'admin'])"
+    )
+    expect(importAuthorizationRpc).not.toContain("'seller'")
+    expect(importAuthorizationRpc).not.toContain('p_organization_id')
+    expect(jewelTransformation).toContain(
+      'revoke all on function public.authorize_cloud_import()'
+    )
+    expect(jewelTransformation).toContain(
+      'grant execute on function public.authorize_cloud_import()'
+    )
+  })
+
+  it('los seeds reciben baseline y final, validan ambos y solo insertan', () => {
+    for (const seedRpc of [stoneSeedRpc, jewelSeedRpc]) {
+      expect(seedRpc).toContain('p_id text')
+      expect(seedRpc).toContain('p_baseline_data jsonb')
+      expect(seedRpc).toContain('p_final_data jsonb')
+      expect(seedRpc).toContain('p_updated_at timestamptz')
+      expect(seedRpc).toContain(
+        "current_organization_id_for_roles(array['owner', 'admin'])"
+      )
+      expect(seedRpc).not.toContain("'seller'")
+      expect(seedRpc).not.toContain('p_organization_id')
+      expect(seedRpc).toContain('for update')
+      expect(seedRpc).toContain('on conflict (organization_id, id) do nothing')
+      expect(seedRpc).not.toMatch(/update\s+public\./)
+    }
+    expect(stoneSeedRpc).toContain(
+      "jsonb_array_length(p_baseline_data->'internaluses') <> 0"
+    )
+    expect(stoneSeedRpc).toContain(
+      'perform private.assert_stone_lot_internal_uses_payload(p_final_data)'
+    )
+    expect(jewelSeedRpc).toContain(
+      "jsonb_array_length(p_baseline_data->'stonetransformations') <> 0"
+    )
+    expect(jewelSeedRpc).toContain(
+      'perform private.assert_stock_jewel_c2_payload(p_final_data)'
+    )
+  })
+
+  it('el seed de lote solo acepta baseline o un prefijo exacto y ordenado del final', () => {
+    expect(stoneSeedRpc).toContain('v_baseline_match :=')
+    expect(stoneSeedRpc).toContain(
+      'v_existing_data is not distinct from p_baseline_data'
+    )
+    expect(stoneSeedRpc).toContain(
+      "v_existing_data - 'updatedat' - 'internaluses'"
+    )
+    expect(stoneSeedRpc).toContain(
+      "p_final_data - 'updatedat' - 'internaluses'"
+    )
+    expect(stoneSeedRpc).toContain('with ordinality as current_uses')
+    expect(stoneSeedRpc).toContain('with ordinality as final_uses')
+    expect(stoneSeedRpc).toContain(
+      'current_uses.use_item is distinct from final_uses.use_item'
+    )
+    expect(stoneSeedRpc).toContain(
+      "jsonb_array_length(v_existing_data->'internaluses')"
+    )
+    expect(stoneSeedRpc).toContain(
+      "jsonb_array_length(p_final_data->'internaluses')"
+    )
+    expect(stoneSeedRpc).toContain(
+      'stone lot import seed collides with another record or edit'
+    )
+    expect(stoneSeedRpc).toContain(
+      'v_existing_updated_at is not distinct from p_updated_at'
+    )
+    expect(stoneSeedRpc).toContain('v_existing_updated_at >= p_updated_at')
+  })
+
+  it('el seed de joya solo acepta baseline, intermedio exacto o final exacto', () => {
+    expect(jewelSeedRpc).toContain(
+      'v_baseline_match := v_existing_data is not distinct from p_baseline_data'
+    )
+    expect(jewelSeedRpc).toContain(
+      "v_existing_data - 'updatedat' - 'sale'"
+    )
+    expect(jewelSeedRpc).toContain(
+      "p_final_data - 'updatedat' - 'sale'"
+    )
+    expect(jewelSeedRpc).toContain(
+      "coalesce(v_existing_data->'sale', 'null'::jsonb)"
+    )
+    expect(jewelSeedRpc).toContain("v_existing_data - 'updatedat'")
+    expect(jewelSeedRpc).toContain("p_final_data - 'updatedat'")
+    expect(jewelSeedRpc).toContain(
+      'if not v_baseline_match and not v_intermediate_match and not v_final_match'
+    )
+    expect(jewelSeedRpc).toContain(
+      'stock jewel import seed collides with another record or edit'
+    )
+    expect(jewelSeedRpc).toContain(
+      'v_existing_updated_at is not distinct from p_updated_at'
+    )
+    expect(jewelSeedRpc).toContain('v_existing_updated_at >= p_updated_at')
+  })
+
+  it('los finalizers exigen fila, historia y registro completo sin ediciones laterales', () => {
+    for (const finalizeRpc of [stoneFinalizeRpc, jewelFinalizeRpc]) {
+      expect(finalizeRpc).toContain(
+        "current_organization_id_for_roles(array['owner', 'admin'])"
+      )
+      expect(finalizeRpc).not.toContain("'seller'")
+      expect(finalizeRpc).not.toContain('p_organization_id')
+      expect(finalizeRpc).toContain('for update')
+      expect(finalizeRpc).toContain('import seed not found')
+    }
+    expect(stoneFinalizeRpc).toContain(
+      "p_data->'internaluses' is distinct from v_existing_data->'internaluses'"
+    )
+    expect(stoneFinalizeRpc).toContain(
+      "(v_existing_data - 'updatedat') is distinct from (p_data - 'updatedat')"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "p_data->'stonetransformations'"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "is distinct from v_existing_data->'stonetransformations'"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "p_data->'costcop' is distinct from v_existing_data->'costcop'"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "v_existing_data - 'updatedat' - 'sale'"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "p_data - 'updatedat' - 'sale'"
+    )
+  })
+
+  it('finalizar joya solo agrega venta desde null o reintenta la misma venta', () => {
+    expect(jewelFinalizeRpc).toContain(
+      "v_existing_sale := coalesce(v_existing_data->'sale', 'null'::jsonb)"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "v_existing_sale is distinct from 'null'::jsonb"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "v_existing_sale is distinct from p_data->'sale'"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      'stock jewel import sale differs from existing sale'
+    )
+  })
+
+  it('los finalizers usan un timestamp efectivo comun para columna y data', () => {
+    for (const finalizeRpc of [stoneFinalizeRpc, jewelFinalizeRpc]) {
+      expect(finalizeRpc).toContain('v_effective_updated_at := greatest(')
+      expect(finalizeRpc).toContain('v_existing_updated_at')
+      expect(finalizeRpc).toContain('p_updated_at')
+      expect(finalizeRpc).toContain('pg_catalog.statement_timestamp()')
+      expect(finalizeRpc).toContain("'{updatedat}'")
+      expect(finalizeRpc).toContain('to_jsonb(v_updated_at_text)')
+      expect(finalizeRpc).toContain('updated_at = v_effective_updated_at')
+    }
+  })
+
+  it('el cutoff impide revivir cambios posteriores y permite reintento final exacto', () => {
+    expect(stoneFinalizeRpc).toContain(
+      'if v_existing_updated_at > p_updated_at then return; end if;'
+    )
+    expect(stoneFinalizeRpc).toContain(
+      'if v_existing_updated_at is distinct from p_updated_at then'
+    )
+    expect(stoneFinalizeRpc).toContain(
+      'stone lot import cutoff no longer matches current row'
+    )
+    expect(jewelFinalizeRpc).toContain(
+      "v_existing_sale is not distinct from p_data->'sale'"
+    )
+    expect(jewelFinalizeRpc).toContain(
+      'and v_existing_updated_at > p_updated_at then'
+    )
+    expect(jewelFinalizeRpc).toContain(
+      'if v_existing_updated_at is distinct from p_updated_at then'
+    )
+    expect(jewelFinalizeRpc).toContain(
+      'stock jewel import cutoff no longer matches current row'
+    )
+  })
+
+  it('protege las cuatro RPC de importacion y usa sus firmas exactas', () => {
+    const names = [
+      'seed_stone_lot_transformation_import',
+      'seed_stock_jewel_transformation_import',
+      'finalize_stone_lot_transformation_import',
+      'finalize_stock_jewel_transformation_import'
+    ]
+    for (const name of names) {
+      expect(jewelTransformation).toContain(`revoke all on function public.${name}(`)
+      expect(jewelTransformation).toContain(`grant execute on function public.${name}(`)
+    }
+    expect(jewelTransformation).toContain('text, jsonb, jsonb, timestamptz')
+    expect(jewelTransformation).toContain('text, jsonb, timestamptz')
   })
 })
 

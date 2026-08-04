@@ -23,6 +23,7 @@ describe('aviso al eliminar un lote', () => {
         { id: 'pay-1', date: '2026-07-16', amount: 2000000, notes: '' }
       ],
       cuttingBatches: [],
+      internalUses: [],
       notes: '',
       sales: [
         {
@@ -159,6 +160,7 @@ function loteConCobro(overrides: Partial<StoneLot> = {}): StoneLot {
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [venta()],
     createdAt: '2026-07-10T09:00:00.000Z',
