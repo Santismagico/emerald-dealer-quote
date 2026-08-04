@@ -3,9 +3,10 @@
 // y no requerir servidor. Ver DECISIONS.md.
 
 import type { jsPDF } from 'jspdf';
-import type { Quote, Settings } from '../types';
+import type { Quote, Settings, StockJewel } from '../types';
 import type { CalcResult } from '../calc/engine';
 import { buildClientPdfContent, buildInternalPdfContent, type PdfContent } from './pdfContent';
+import { prepareCatalogPdfContent, type CatalogOptions } from './catalog';
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -16,6 +17,30 @@ const EMERALD: [number, number, number] = [6, 78, 59];
 const GOLD: [number, number, number] = [163, 132, 62];
 const GRAY: [number, number, number] = [110, 110, 110];
 const DARK: [number, number, number] = [30, 30, 30];
+const CATALOG_IMAGE_MAX_PX = 640;
+const CATALOG_IMAGE_QUALITY = 0.68;
+
+export const MAX_CATALOG_PDF_BYTES = 15 * 1024 * 1024;
+
+export class CatalogPrivacyError extends Error {
+  readonly words: string[];
+
+  constructor(words: string[]) {
+    super('El catálogo contiene información que no se puede enviar a un cliente.');
+    this.name = 'CatalogPrivacyError';
+    this.words = words;
+  }
+}
+
+export class CatalogPdfTooLargeError extends Error {
+  readonly size: number;
+
+  constructor(size: number) {
+    super('El catálogo quedó demasiado pesado para compartir. Usa un filtro con menos piezas.');
+    this.name = 'CatalogPdfTooLargeError';
+    this.size = size;
+  }
+}
 
 interface RenderState {
   doc: jsPDF;
@@ -33,13 +58,38 @@ function imageFormat(dataUrl: string): 'PNG' | 'JPEG' {
   return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
 }
 
-function loadImageSize(dataUrl: string): Promise<{ w: number; h: number }> {
+function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('No se pudo leer una imagen.'));
     img.src = dataUrl;
   });
+}
+
+async function loadImageSize(dataUrl: string): Promise<{ w: number; h: number }> {
+  const img = await loadImage(dataUrl);
+  return { w: img.naturalWidth, h: img.naturalHeight };
+}
+
+/** Reduce las fotos del catálogo antes de incrustarlas para cuidar el peso final. */
+async function optimizeCatalogImage(dataUrl: string): Promise<string> {
+  const img = await loadImage(dataUrl);
+  const scale = Math.min(
+    1,
+    CATALOG_IMAGE_MAX_PX / Math.max(img.naturalWidth, img.naturalHeight)
+  );
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('No se pudo preparar una imagen del catálogo.');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL('image/jpeg', CATALOG_IMAGE_QUALITY);
 }
 
 async function renderHeader(state: RenderState, content: PdfContent, logoDataUrl: string): Promise<void> {
@@ -97,36 +147,59 @@ async function renderHeader(state: RenderState, content: PdfContent, logoDataUrl
   state.y += 7;
 }
 
-function renderSections(state: RenderState, content: PdfContent): void {
+async function renderSections(state: RenderState, content: PdfContent): Promise<void> {
   const { doc } = state;
   for (const section of content.sections) {
-    ensureSpace(state, 14);
+    ensureSpace(state, section.image ? 66 : 14);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
     doc.setTextColor(...EMERALD);
     doc.text(section.title.toUpperCase(), MARGIN, state.y);
     state.y += 6;
 
+    let textX = MARGIN;
+    let textWidth = CONTENT_W;
+    let imageBottom = state.y;
+    if (section.image) {
+      try {
+        const optimized = await optimizeCatalogImage(section.image);
+        const size = await loadImageSize(optimized);
+        const maxW = 46;
+        const maxH = 52;
+        const scale = Math.min(maxW / size.w, maxH / size.h);
+        const width = size.w * scale;
+        const height = size.h * scale;
+        doc.addImage(optimized, imageFormat(optimized), MARGIN, state.y, width, height);
+        textX = MARGIN + maxW + 5;
+        textWidth = CONTENT_W - maxW - 5;
+        imageBottom = state.y + height;
+      } catch {
+        // Una foto ilegible se omite sin impedir que la pieza aparezca.
+      }
+    }
+
     doc.setFontSize(9.5);
     for (const [label, value] of section.rows ?? []) {
-      const valueLines = doc.splitTextToSize(value, CONTENT_W - 55) as string[];
+      const labelWidth = section.image ? 32 : 55;
+      const valueLines = doc.splitTextToSize(value, textWidth - labelWidth) as string[];
       ensureSpace(state, valueLines.length * 4.5 + 2);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...GRAY);
-      doc.text(label, MARGIN, state.y);
+      doc.text(label, textX, state.y);
       doc.setTextColor(...DARK);
-      doc.text(valueLines, MARGIN + 55, state.y);
+      doc.text(valueLines, textX + labelWidth, state.y);
       state.y += valueLines.length * 4.5 + 1.5;
     }
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...DARK);
     for (const paragraph of section.paragraphs ?? []) {
-      const lines = doc.splitTextToSize(paragraph, CONTENT_W) as string[];
+      const lines = doc.splitTextToSize(paragraph, textWidth) as string[];
       ensureSpace(state, lines.length * 4.5 + 2);
-      doc.text(lines, MARGIN, state.y);
+      doc.text(lines, textX, state.y);
       state.y += lines.length * 4.5 + 1.5;
     }
+    state.y = Math.max(state.y, imageBottom);
     state.y += 4;
   }
 }
@@ -216,13 +289,13 @@ function renderFooter(doc: jsPDF, content: PdfContent): void {
   }
 }
 
-async function renderPdf(content: PdfContent, images: string[], logoDataUrl: string): Promise<jsPDF> {
+export async function renderPdf(content: PdfContent, images: string[], logoDataUrl: string): Promise<jsPDF> {
   // jsPDF se carga bajo demanda: no pesa en la carga inicial de la app.
   const { jsPDF: JsPdf } = await import('jspdf');
   const doc = new JsPdf({ unit: 'mm', format: 'a4' });
   const state: RenderState = { doc, y: MARGIN };
   await renderHeader(state, content, logoDataUrl);
-  renderSections(state, content);
+  await renderSections(state, content);
   await renderImages(state, images);
   renderTotals(state, content);
   renderFooter(doc, content);
@@ -247,6 +320,11 @@ export function clientPdfFileName(quoteNumber: string): string {
   return `Cotizacion-${safeFilePart(quoteNumber) || 'Sin-numero'}.pdf`;
 }
 
+export function catalogPdfFileName(options: CatalogOptions, generatedDate: string): string {
+  const priceLabel = options.includePrices ? 'con-precios' : 'sin-precios';
+  return `Catalogo-${safeFilePart(generatedDate)}-${options.stoneFilter}-${priceLabel}.pdf`;
+}
+
 /** Genera el PDF cliente una sola vez como Blob reutilizable. */
 export async function createClientPdfBlob(quote: Quote, calc: CalcResult, settings: Settings): Promise<Blob> {
   const content = getClientPdfContent(quote, calc, settings);
@@ -259,6 +337,30 @@ export async function createClientPdfBlob(quote: Quote, calc: CalcResult, settin
 export async function createClientPdfFile(quote: Quote, calc: CalcResult, settings: Settings): Promise<File> {
   const blob = await createClientPdfBlob(quote, calc, settings);
   return new File([blob], clientPdfFileName(quote.number), { type: 'application/pdf' });
+}
+
+export function assertCatalogPdfSize(size: number): void {
+  if (size > MAX_CATALOG_PDF_BYTES) throw new CatalogPdfTooLargeError(size);
+}
+
+/** Prepara, revisa y renderiza el catálogo como el mismo tipo de archivo del PDF cliente. */
+export async function createCatalogPdfFile(
+  stockJewels: readonly StockJewel[],
+  settings: Settings,
+  options: CatalogOptions,
+  generatedDate: string
+): Promise<File> {
+  const prepared = prepareCatalogPdfContent(stockJewels, settings, options, generatedDate);
+  if (prepared.status === 'sensitive') throw new CatalogPrivacyError(prepared.words);
+  const doc = await renderPdf(prepared.content, [], settings.logoDataUrl);
+  const output = doc.output('blob');
+  const blob = output.type === 'application/pdf'
+    ? output
+    : new Blob([output], { type: 'application/pdf' });
+  assertCatalogPdfSize(blob.size);
+  return new File([blob], catalogPdfFileName(options, generatedDate), {
+    type: 'application/pdf'
+  });
 }
 
 export function downloadPdfFile(file: File): void {

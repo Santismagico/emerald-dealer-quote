@@ -1136,3 +1136,11 @@ dejarlo en el documento sería peor que mostrarlo, porque nadie lo revisaría.
 El costo, el margen, los socios, el reparto y las notas internas **nunca** aparecen, con
 precios o sin ellos. Eso no es una opción configurable: es la regla de privacidad que
 protege `src/services/pdfContent.test.ts` desde el primer día del proyecto.
+
+Implementación F1 (2026-08-04): cada generación vuelve a preguntar si incluye precio.
+Antes del PDF, las piezas disponibles se reducen campo por campo a `name`, `pieceType`,
+`material`, `photo`, `weightGrams`, `size`, `stoneCount`, `stoneKind` y, únicamente si
+la opción está activa, `priceCop`. `status` y `sale` solo se consultan para excluir
+apartadas y vendidas y no llegan al documento. El contenido final pasa por el detector
+sin posibilidad de continuar ante un hallazgo. No se agregó otra decisión: esta es la
+ejecución literal de D-065.

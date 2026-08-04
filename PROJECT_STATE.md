@@ -544,10 +544,13 @@ de D1 quedó intacta (47 líneas añadidas, ninguna eliminada).
 (no está disponible en el entorno). Conviene que Santiago descargue uno y lo abra
 una vez.
 
-**Fase F entregada a Codex (última del plan v2):**
-`docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_F.md`, un commit. Es **la única salida al
-cliente de todo el plan v2**: un error aquí no es un número mal sumado, es el costo
-de una pieza en manos de quien se la estás vendiendo, y el archivo ya fue enviado.
+**Fase F implementada el 2026-08-04 (Codex; última del plan v2):** el inventario de
+Joyas permite crear un catálogo PDF de todas las piezas disponibles, solo naturales
+o solo fantasía, y elegir en cada generación si muestra precios. Vendidas y apartadas
+quedan fuera; “Sin registrar” solo entra en Todas. El archivo se descarga o se entrega
+al mismo menú de compartir del PDF cliente, con descarga de respaldo. Las fotos se
+reducen antes de incrustarse y un archivo final superior a 15 MB se bloquea con una
+explicación en pantalla.
 
 **Decisión nueva — D-065:** el catálogo lleva precio **solo si Santiago lo decide al
 generarlo**, no por configuración fija. A un cliente de confianza le manda con
@@ -566,11 +569,26 @@ de verdad; el detector de `pdfContent.ts` es la segunda capa. El detector busca
 *palabras* como "costo" o "margen" y **no puede** notar que se imprimió `1200000` en
 vez de `1800000`. Contra eso solo protege la estructura.
 
-Prueba obligatoria marcada: **el número delator** — una joya con `costCop` único
-(`987654`) cuyo valor no debe aparecer en ninguna parte del documento, con precios y
-sin ellos.
+**Lista exacta de campos leídos de `StockJewel` para construir cada ficha:** `name`,
+`pieceType`, `material`, `photo`, `weightGrams`, `size`, `stoneCount`, `stoneKind` y,
+solo cuando Santiago elige incluir precios, `priceCop`. La selección previa también
+lee `status` y `sale` exclusivamente para excluir apartadas y vendidas; esos dos
+campos no pasan a la copia segura ni al documento. No se leen `costCop`, `notes`,
+`acquiredDate`, `collectionId`, fechas, transformaciones ni datos vinculados.
 
-Al terminar, Claude hará una **auditoría de privacidad aparte** antes de que
+Verificación F1: la prueba del número delator `987654` y la nota inconfundible pasan
+con precios y sin precios; sin precios tampoco aparece `priceCop`; filtros,
+disponibilidad, lista blanca exacta, detector final, pieza sin foto, peso máximo y
+compartir están cubiertos. Resultado completo: **970 pruebas en 66 archivos**, PWA y
+compilación de **340 módulos** en verde. Recorrido real a **320, 390 y 1280 px**:
+sin desbordamiento horizontal, controles mínimos de 44 px, filtros, descargas con y
+sin precio y menú de compartir aprobados; cero avisos o errores de consola. La pieza
+temporal se eliminó al terminar.
+
+Sin dependencias, campos, migraciones, cambios de datos, nube ni publicación.
+`src/calc/engine.ts` y `src/services/pdfContent.test.ts` siguen sin cambios. `main`,
+el piloto y `.github/workflows/deploy.yml` permanecen intactos. **El plan v2 queda
+completo**, pendiente de la auditoría de privacidad separada de Claude antes de que
 Santiago considere publicar cualquier cosa.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
@@ -749,3 +767,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · E1: Panel de ventas y ganancias (Codex) | Día/semana/mes/año; ganancia, caja y cobros separados; ganancia por lote; sociedades con monto y rentabilidad; COP/USD por tasa propia con históricos "Sin registrar"; 950 pruebas en 64 archivos, 336 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; E2 no iniciada | E1 (este commit) |
 | 2026-08-04 | Plan v2 · E2: Excel editable (Codex) | Cierres diario/mensual y panel exportan CSV local con punto y coma, BOM UTF-8, tildes y números editables; PDF conservado; prueba física en Excel español confirmó columnas y fórmula sobre monto; 953 pruebas en 65 archivos, 337 módulos y revisión 320/390/1280 en verde; sin dependencias, datos, nube ni publicación; E3 no iniciada | E2 (este commit) |
 | 2026-08-04 | Plan v2 · E3: Consolidado con filtros (Codex) | Día/semana/mes/año; filtros combinables por sociedad y producto, incluido “Sin registrar”; comparación lado a lado por ganancia propia y rentabilidad; Excel interno sin mezclar caja; 957 pruebas en 65 archivos, 338 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; Fase F no iniciada | E3 (este commit) |
+| 2026-08-04 | Plan v2 · F1: Catálogo PDF para clientes (Codex) | Lista blanca de campos, piezas disponibles por clase, precios elegibles en cada generación, fotos reducidas, bloqueo de privacidad y peso, descarga y compartir; 970 pruebas en 66 archivos, 340 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; **plan v2 completo** | F1 (este commit) |

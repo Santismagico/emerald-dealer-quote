@@ -2,8 +2,8 @@
 // vender. No pasan por el cotizador ni por el Taller y se venden SIEMPRE de
 // contado. El estado "vendida" no se guarda: se deriva de tener venta.
 //
-// Todo aquí es INTERNO. El costo y el resultado nunca salen a un documento
-// del cliente porque estas piezas no generan ninguno.
+// La gestión sigue siendo INTERNA. El catálogo cliente sale únicamente por la
+// lista blanca de services/catalog.ts; costo, resultado y notas no llegan al PDF.
 
 import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
@@ -65,6 +65,7 @@ import {
   TextInput
 } from './ui';
 import { CurrencyToggle } from './CurrencyToggle';
+import { StockJewelCatalogView } from './StockJewelCatalogView';
 
 const STATUS_CHIP: Record<StockJewelDisplayStatus, string> = {
   disponible: 'bg-emerald-100 text-emerald-800',
@@ -107,6 +108,7 @@ export function StockJewelsView() {
   const [error, setError] = useState('');
   const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
   const [rateSource, setRateSource] = useState('');
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const rateTouchedRef = useRef(false);
   const rateRequestIdRef = useRef('');
@@ -171,6 +173,17 @@ export function StockJewelsView() {
         }
       });
   };
+
+  if (catalogOpen) {
+    return (
+      <StockJewelCatalogView
+        jewels={store.stockJewels}
+        settings={store.settings}
+        generatedDate={today}
+        onClose={() => setCatalogOpen(false)}
+      />
+    );
+  }
 
   const pickPhoto = async (files: FileList | null) => {
     if (!files || files.length === 0 || !editing) return;
@@ -588,9 +601,14 @@ export function StockJewelsView() {
         Solo cambia cada venta con su propia tasa. Los totales combinados siguen en COP.
       </p>
 
-      <Button full onClick={() => setEditing(emptyStockJewel(today, new Date().toISOString()))}>
-        ＋ Nueva pieza
-      </Button>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Button full onClick={() => setEditing(emptyStockJewel(today, new Date().toISOString()))}>
+          ＋ Nueva pieza
+        </Button>
+        <Button variant="secondary" full onClick={() => setCatalogOpen(true)}>
+          Crear catálogo PDF
+        </Button>
+      </div>
 
       <TextInput value={search} onChange={setSearch} placeholder="Buscar pieza…" />
 
