@@ -477,6 +477,20 @@ de 44 px, input de 16 px, cambio Día/Semana/Mes/Año y COP/USD en verde, cero e
 de consola. Sin datos, nube, cliente ni publicación. **E2 no fue iniciada en este
 commit.**
 
+**E2 implementada el 2026-08-04 (Codex):** los cierres diario y mensual conservan
+su PDF y suman **Descargar Excel**; el panel de ventas usa el mismo generador. Es un
+CSV editable con **punto y coma**, **BOM UTF-8**, CRLF y montos crudos como números,
+sin `$` ni separadores de miles. La descarga es local directa: no usa Web Share ni
+WhatsApp.
+
+Verificación E2: **953 pruebas en 65 archivos**, PWA y build de **337 módulos** en
+verde; interfaz a **320, 390 y 1280 px** sin desbordamiento y con botones de 44 px.
+Prueba física en Excel de escritorio en español: `cierre-mes-2026-08.csv` abrió con
+las columnas separadas, tildes correctas (`Período`, `Sección`) y el monto `100000`
+como número editable; una fórmula temporal `=E7+1` devolvió `100001` y luego se
+deshizo. El PDF siguió visible junto al nuevo botón. Sin dependencias, datos, nube,
+cliente ni publicación. **E3 no fue iniciada en este commit.**
+
 **Corrección de registro (2026-08-04):** había **dos decisiones D-059** —la de
 gastos de Codex y la del precio del oro que Claude añadió sin notar el choque—.
 La segunda se renumeró a **D-062**, con nota en `DECISIONS.md`. La orden de la Fase
@@ -660,3 +674,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · D2: Cierres leen del libro (Codex) | Cierre diario, mensual e historial derivados del mismo flujo; toda categoría, entrada, salida y neto lee `kind`/`direction`; 54 pruebas específicas sin cambiar esperados y 943 pruebas completas en 63 archivos, 334 módulos en verde; PDF intacto; sin pantalla, datos, nube ni publicación; Fase E no iniciada | D2 (este commit) |
 | 2026-08-04 | Plan v2 · E0: Costo atribuido en el libro (Codex) | Cada evento derivado incorpora costo atribuido; ventas de piedras reutilizan la regla C2 con residuo exacto, joyas y cotizaciones usan su costo conocido, y cobros no duplican ganancia; 945 pruebas en 63 archivos, PWA y build en verde; caja idéntica; sin pantalla, datos, nube ni publicación; E1 no iniciada | E0 (este commit) |
 | 2026-08-04 | Plan v2 · E1: Panel de ventas y ganancias (Codex) | Día/semana/mes/año; ganancia, caja y cobros separados; ganancia por lote; sociedades con monto y rentabilidad; COP/USD por tasa propia con históricos "Sin registrar"; 950 pruebas en 64 archivos, 336 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; E2 no iniciada | E1 (este commit) |
+| 2026-08-04 | Plan v2 · E2: Excel editable (Codex) | Cierres diario/mensual y panel exportan CSV local con punto y coma, BOM UTF-8, tildes y números editables; PDF conservado; prueba física en Excel español confirmó columnas y fórmula sobre monto; 953 pruebas en 65 archivos, 337 módulos y revisión 320/390/1280 en verde; sin dependencias, datos, nube ni publicación; E3 no iniciada | E2 (este commit) |

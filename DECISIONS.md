@@ -1105,3 +1105,9 @@ Implementación E1 (2026-08-04): cada sociedad muestra la parte propia y la del 
 con su monto y su porcentaje sobre la inversión correspondiente. El reparto conserva
 el residuo COP del lado propio, como en B2. Cuando la inversión es cero, la pantalla
 indica **"No aplica"** en lugar de inventar un porcentaje.
+
+Implementación E2 (2026-08-04): los cierres diario y mensual, y el panel de ventas,
+añaden un CSV editable compatible con Excel en español. El archivo usa punto y coma,
+BOM UTF-8 y saltos CRLF; los montos se escriben como números sin símbolo ni separador
+de miles. El PDF se conserva. La descarga es local directa y no existe ruta hacia Web
+Share ni WhatsApp. E3 reutiliza este mismo mecanismo para el consolidado filtrado.

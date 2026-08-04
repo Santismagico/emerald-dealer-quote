@@ -9,7 +9,8 @@ import {
 import type { CurrencyView } from '../services/currency';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
-import { EmptyState, Field, SectionCard, SummaryRow, TextInput } from './ui';
+import { buildSalesExcelCsv, downloadExcelCsv } from '../services/excelExport';
+import { Button, EmptyState, Field, SectionCard, SummaryRow, TextInput } from './ui';
 
 const usdFormatter = new Intl.NumberFormat('es-CO', {
   style: 'currency',
@@ -333,6 +334,20 @@ export function SalesDashboardView() {
           ))}
         </SectionCard>
       ) : null}
+
+      <Button
+        variant="secondary"
+        full
+        onClick={() => {
+          downloadExcelCsv(
+            buildSalesExcelCsv(analytics, label),
+            `ventas-ganancias-${analytics.range.start}-${analytics.range.end}.csv`
+          );
+          store.showToast('Excel de ventas y ganancias generado');
+        }}
+      >
+        Descargar Excel del panel
+      </Button>
 
       <p className="text-center text-[11px] text-stone-400">
         Información interna. No se envía ni aparece en documentos del cliente.

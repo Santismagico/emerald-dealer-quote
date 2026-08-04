@@ -16,6 +16,7 @@ import {
   type BusinessReport
 } from '../services/dailyReport';
 import { downloadDailyReportPdf } from '../services/pdf';
+import { buildCloseExcelCsv, downloadExcelCsv } from '../services/excelExport';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, todayISO } from '../utils/dates';
 import { Button, EmptyState, Field, SectionCard, Select, SummaryRow, TextInput } from './ui';
@@ -28,6 +29,7 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
   const [day, setDay] = useState(today);
   const [month, setMonth] = useState(currentMonth);
   const [busy, setBusy] = useState(false);
+  const [excelBusy, setExcelBusy] = useState(false);
 
   const validDay = isValidISODate(day);
   const dailyReport = useMemo(
@@ -78,6 +80,22 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
 
   const report: BusinessReport = mode === 'dia' ? dailyReport : monthlyReport;
   const periodLabel = mode === 'dia' ? `El ${formatDateCO(dailyReport.date)}` : formatMonthCO(month);
+
+  const downloadExcel = () => {
+    setExcelBusy(true);
+    try {
+      const period = mode === 'dia' ? dailyReport.date : monthlyReport.month;
+      downloadExcelCsv(
+        buildCloseExcelCsv(report, periodLabel),
+        `cierre-${mode === 'dia' ? 'dia' : 'mes'}-${period}.csv`
+      );
+      store.showToast('Excel del cierre generado');
+    } catch {
+      store.showToast('No se pudo generar el Excel. Intenta de nuevo.');
+    } finally {
+      setExcelBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -407,6 +425,18 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
 
       <Button full disabled={busy || (mode === 'dia' && !validDay)} onClick={() => void download()}>
         {busy ? 'Generando…' : mode === 'dia' ? 'Descargar PDF del día' : 'Descargar PDF del mes'}
+      </Button>
+      <Button
+        variant="secondary"
+        full
+        disabled={excelBusy || (mode === 'dia' && !validDay)}
+        onClick={downloadExcel}
+      >
+        {excelBusy
+          ? 'Generando…'
+          : mode === 'dia'
+            ? 'Descargar Excel del día'
+            : 'Descargar Excel del mes'}
       </Button>
       <p className="text-center text-[11px] text-stone-400">
         Documento interno: solo se descarga en este dispositivo. Nunca se envía ni se comparte.
