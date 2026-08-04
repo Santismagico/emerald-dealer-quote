@@ -314,8 +314,30 @@ más `origin: 'bruto' | 'tallado'` en cada venta. Regla que más fácil se rompe
 queda marcada: **la transformación fantasía→natural NO es un movimiento de caja**,
 es un traslado de costo.
 
-Codex **no debe seguir a la Fase D**: Claude audita la Fase C antes, porque el
-libro del negocio va a leer justamente lo que allí se define.
+**Fase C TERMINADA y AUDITADA (2026-08-04).** Codex entregó C1 (`14ffeea`) y C2
+(`2617c19`). Claude la auditó de forma independiente: **940 pruebas en 62
+archivos**, compilación, compilación pública sin Supabase con CSP exacta, sin
+secretos, sin dependencias nuevas, migraciones aditivas y `main` intacto.
+**Veredicto: APROBADO.** Informe en `docs/AUDITORIA_CLAUDE_V2_FASE_C.md`.
+
+Se comprobaron las dos condiciones decisivas: un lote sin tandas conserva
+exactamente existencias, dinero y resultado; y la transformación fantasía→natural
+**no mueve caja** (probado desde cuatro ángulos). El servidor rechaza exceder tanto
+la existencia en bruto como la tallada, y también los usos internos hacia joyas.
+
+Recorrido real ejecutado en la app: lote de 100 ct/10 pz → tanda de 20 ct/2 pz →
+regreso de 6 ct/**3 pz** (piedra partida aceptada) → **merma 70% calculada sola**;
+la talla sin pagar aparece aparte y **no** sube la inversión. Sin errores de
+consola; sin desbordamiento a 320/375/1280 px.
+
+**Pendiente de prueba de usuario:** Claude no ejecutó la transformación de una
+joya en el navegador (sí sus ~700 líneas de pruebas). Conviene que Santiago la
+pruebe con una joya real cuando la tenga.
+
+**SIGUIENTE: Fase D — el libro del negocio** (`src/services/ledger.ts`, D-057).
+Ya está desbloqueada: leerá tandas, costos de talla pagados, usos internos y
+transformaciones. La prueba que la valida es que `dailyReport.ts` y el cierre
+mensual den **exactamente** los mismos totales al pasar a leer del libro.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
