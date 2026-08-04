@@ -13,6 +13,7 @@ import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { isValidISODate, toISODate } from '../utils/dates';
 import { toSafeCOP } from '../utils/money';
 import { stockJewelAcquisitionCostCop } from './stockJewels';
+import { attributedStoneCostCop } from './stoneJewelTransformation';
 
 export type LedgerDirection = 'entra' | 'sale' | 'ninguna';
 
@@ -51,6 +52,8 @@ export interface LedgerEvent {
   direction: LedgerDirection;
   /** COP entero y nunca negativo. El signo lo expresa direction. */
   amountCop: number;
+  /** Costo COP de lo vendido en este evento. Cero cuando no es una venta. */
+  attributedCostCop: number;
   /** null conserva honestamente una tasa historica no registrada. */
   usdRate: number | null;
   module: LedgerModule;
@@ -81,8 +84,9 @@ export interface LedgerCashTotals {
   net: number;
 }
 
-type EventFields = Omit<LedgerEvent, 'amountCop' | 'myPercent'> & {
+type EventFields = Omit<LedgerEvent, 'amountCop' | 'attributedCostCop' | 'myPercent'> & {
   amountCop: number;
+  attributedCostCop?: number;
   myPercent?: number;
 };
 
@@ -90,8 +94,42 @@ function event(fields: EventFields): LedgerEvent {
   return {
     ...fields,
     amountCop: toSafeCOP(fields.amountCop),
+    attributedCostCop: toSafeCOP(fields.attributedCostCop ?? 0),
     myPercent: Math.min(100, Math.max(0, Math.round(fields.myPercent ?? 100)))
   };
+}
+
+/**
+ * Reutiliza la regla de costo por quilate de C2 y deja cualquier residuo COP
+ * en la ultima venta que agota el lote. Asi nunca se atribuye mas de lo
+ * invertido y un lote vendido por completo cierra peso por peso.
+ */
+function stoneSaleAttributedCosts(lot: StoneLot): Map<string, number> {
+  const costs = new Map<string, number>();
+  const purchasedMilliCarats = Math.max(0, Math.round(lot.carats * 1000));
+  const investedCop = toSafeCOP(
+    lot.purchaseValueCop +
+      (lot.cuttingBatches ?? []).reduce(
+        (total, batch) => total + (batch.cuttingPaidDate.trim() ? toSafeCOP(batch.cuttingCostCop) : 0),
+        0
+      )
+  );
+  let soldMilliCarats = 0;
+  let attributedCop = 0;
+
+  for (const sale of lot.sales) {
+    soldMilliCarats += Math.max(0, Math.round(sale.carats * 1000));
+    const remainingCop = Math.max(0, investedCop - attributedCop);
+    const proportionalCop = attributedStoneCostCop(lot, sale.carats);
+    const saleCostCop =
+      purchasedMilliCarats > 0 && soldMilliCarats >= purchasedMilliCarats
+        ? remainingCop
+        : Math.min(remainingCop, proportionalCop);
+    costs.set(sale.id, saleCostCop);
+    attributedCop += saleCostCop;
+  }
+
+  return costs;
 }
 
 function instantToLocalDate(iso: string): string | null {
@@ -156,6 +194,7 @@ export function buildLedger({
           kind: 'cotizacion_aprobada',
           direction: 'ninguna',
           amountCop: total,
+          attributedCostCop: calculation.baseCost,
           usdRate: null,
           module: 'cotizador',
           lotId: null,
@@ -239,6 +278,7 @@ export function buildLedger({
   }
 
   for (const lot of stoneLots) {
+    const saleAttributedCosts = stoneSaleAttributedCosts(lot);
     // Una compra a credito se registra, pero no mueve caja hasta cada pago al
     // proveedor. Es la misma regla honesta que ya aplicaban los cierres.
     events.push(
@@ -270,6 +310,7 @@ export function buildLedger({
           kind: sale.onCredit ? 'venta_piedras_credito' : 'venta_piedras_contado',
           direction: sale.onCredit ? 'ninguna' : 'entra',
           amountCop: sale.valueCop,
+          attributedCostCop: saleAttributedCosts.get(sale.id) ?? 0,
           usdRate: sale.usdRate,
           module: 'piedras',
           lotId: lot.id,
@@ -411,6 +452,7 @@ export function buildLedger({
           kind: 'venta_joya_stock',
           direction: 'entra',
           amountCop: jewel.sale.priceCop,
+          attributedCostCop: jewel.costCop,
           usdRate: jewel.sale.usdRate,
           module: 'joyas',
           lotId: null,

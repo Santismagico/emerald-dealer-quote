@@ -447,6 +447,20 @@ lote nunca supera lo invertido, y al venderse completo coincide exactamente.
 Agregarlo **no puede** mover `cashIn`/`cashOut`/`net`: la prueba de equivalencia de
 D1 lo vigila.
 
+**E0 implementada el 2026-08-04 (Codex):** el libro derivado ya incorpora
+`attributedCostCop` en todos sus eventos. Las ventas de piedras reutilizan la regla
+por quilate de C2 y entregan el residuo COP a la última venta que agota el lote; las
+joyas atribuyen el costo completo de la pieza; y las cotizaciones aprobadas atribuyen
+su costo base conocido. Los abonos conservan costo atribuido cero para no reconocer
+dos veces la misma ganancia.
+
+Los invariantes obligatorios quedaron probados con una inversión impar de $1.001:
+costos $334 + $334 + $333, nunca por encima de lo invertido y exactamente $1.001 al
+agotarse. La equivalencia D1 siguió dando `cashIn`, `cashOut` y `net` peso por peso sin
+cambiar esperados. Verificación E0: **945 pruebas en 63 archivos**, PWA y compilación
+en verde. No hubo pantalla nueva que recorrer; cero cambios de datos, migraciones,
+nube o publicación. **E1 no fue iniciada en este commit.**
+
 **Corrección de registro (2026-08-04):** había **dos decisiones D-059** —la de
 gastos de Codex y la del precio del oro que Claude añadió sin notar el choque—.
 La segunda se renumeró a **D-062**, con nota en `DECISIONS.md`. La orden de la Fase
@@ -628,3 +642,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · C2: Fantasía → natural (Codex) | Ficha completa de joyas; transformación enlazada y atómica; descuento de piedras, traslado de costo sin caja, respaldo histórico y nube server-first con recepción conjunta; 940 pruebas en 62 archivos, 333 módulos y revisión 320/390/1280 en verde; migración preparada no aplicada; no publicado; Fase D no iniciada | C2 (este commit) |
 | 2026-08-04 | Plan v2 · D1: Libro del negocio en paralelo (Codex) | Flujo puro y normalizado de 16 tipos de evento; ids estables, dimensiones completas y caja decidida en un solo lugar; prueba rica de equivalencia diaria/mensual peso por peso; 943 pruebas en 63 archivos, 333 módulos en verde; `dailyReport.ts` intacto; sin pantalla, datos, nube ni publicación | D1 (este commit) |
 | 2026-08-04 | Plan v2 · D2: Cierres leen del libro (Codex) | Cierre diario, mensual e historial derivados del mismo flujo; toda categoría, entrada, salida y neto lee `kind`/`direction`; 54 pruebas específicas sin cambiar esperados y 943 pruebas completas en 63 archivos, 334 módulos en verde; PDF intacto; sin pantalla, datos, nube ni publicación; Fase E no iniciada | D2 (este commit) |
+| 2026-08-04 | Plan v2 · E0: Costo atribuido en el libro (Codex) | Cada evento derivado incorpora costo atribuido; ventas de piedras reutilizan la regla C2 con residuo exacto, joyas y cotizaciones usan su costo conocido, y cobros no duplican ganancia; 945 pruebas en 63 archivos, PWA y build en verde; caja idéntica; sin pantalla, datos, nube ni publicación; E1 no iniciada | E0 (este commit) |

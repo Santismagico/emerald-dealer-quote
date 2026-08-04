@@ -1069,6 +1069,14 @@ puede tener caja muy negativa y ganancia positiva, y ambas cifras ser correctas.
 Lo que aún no ha cobrado **no desaparece**: se muestra aparte como cobros pendientes,
 que es lo que ya hace la sección de Cobros.
 
+Implementación E0 (2026-08-04): el evento derivado del libro incorpora
+`attributedCostCop` sin cambiar ninguna entidad guardada. La cotización aprobada
+reconoce su costo base; la venta de una joya reconoce el costo total de la pieza; y la
+venta de piedras reutiliza la regla por quilate de C2. El residuo de redondeo queda en
+la última venta que agota el lote, de modo que nunca se atribuye más de lo invertido y
+un lote vendido completo cierra exactamente. Abonos y demás eventos no vuelven a
+atribuir ese costo, por lo que cobrar después no duplica la ganancia.
+
 ## D-064 · Las sociedades se comparan por cuánto dejaron y por qué tan rentables fueron · 2026-08-04 · Vigente
 
 Para decidir qué sociedad le conviene repetir, Santiago quiere **las dos medidas a la

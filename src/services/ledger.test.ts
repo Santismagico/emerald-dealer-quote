@@ -368,5 +368,52 @@ describe('D1: libro del negocio en paralelo', () => {
     expect(
       first.every((entry) => Number.isSafeInteger(entry.amountCop) && entry.amountCop >= 0)
     ).toBe(true);
+    expect(
+      first.every(
+        (entry) => Number.isSafeInteger(entry.attributedCostCop) && entry.attributedCostCop >= 0
+      )
+    ).toBe(true);
+  });
+
+  it('atribuye el costo a la venta sin duplicarlo en los cobros posteriores', () => {
+    const ledger = buildLedger(input);
+    const approvedQuote = ledger.find((entry) => entry.id === 'quote:quote-rich:approved');
+    const creditSale = ledger.find((entry) => entry.id === 'stone-lot:lot-credit:sale:sale-credit');
+    const buyerPayments = ledger.filter((entry) => entry.kind === 'abono_comprador');
+    const jewelSale = ledger.find((entry) => entry.kind === 'venta_joya_stock');
+
+    expect(approvedQuote?.attributedCostCop).toBeGreaterThan(0);
+    expect(creditSale).toMatchObject({
+      date: DAY,
+      direction: 'ninguna',
+      attributedCostCop: 1_041_667
+    });
+    expect(buyerPayments.every((entry) => entry.attributedCostCop === 0)).toBe(true);
+    expect(jewelSale?.attributedCostCop).toBe(1_300_000);
+  });
+
+  it('no supera lo invertido y entrega el residuo COP al agotar un lote impar', () => {
+    const baseSale = cashLot.sales[0];
+    const oddLot: StoneLot = {
+      ...cashLot,
+      id: 'lot-odd',
+      carats: 3,
+      quantity: 3,
+      purchaseValueCop: 1_001,
+      sales: [
+        { ...baseSale, id: 'odd-1', carats: 1, quantity: 1 },
+        { ...baseSale, id: 'odd-2', carats: 1, quantity: 1 },
+        { ...baseSale, id: 'odd-3', carats: 1, quantity: 1 }
+      ]
+    };
+    const costs = buildLedger({ stoneLots: [oddLot] })
+      .filter((entry) => entry.kind === 'venta_piedras_contado')
+      .map((entry) => entry.attributedCostCop);
+
+    expect(costs).toEqual([334, 334, 333]);
+    expect(costs.reduce((total, cost) => total + cost, 0)).toBe(oddLot.purchaseValueCop);
+    expect(costs.slice(0, 2).reduce((total, cost) => total + cost, 0)).toBeLessThan(
+      oddLot.purchaseValueCop
+    );
   });
 });
