@@ -867,3 +867,47 @@ las revisiones técnicas no ven.
   en la joya, igual que con proveedores, compradores y socios.
 
 `main`, el piloto y el workflow **sin tocar**. Nada publicado.
+
+## Pendientes abiertos con Santiago (2026-08-04, sin construir)
+
+Dos cosas que Santiago pidió después de las correcciones R1. **Ninguna está
+implementada ni ordenada todavía.**
+
+**1. Limpiar la navegación (pendiente de su visto bueno).** Reportó que la app confunde.
+Diagnóstico: al agregar la pantalla de inicio (A1) quedaron **dos vocabularios para las
+mismas cosas** — Inicio habla de acciones (Vender, Producir y atender, La plata) y la
+barra habla de lugares (Cotizador, Taller, Agenda). Solo "Inventario" coincide. Es un
+error de diseño de Claude, no de implementación.
+
+Propuesta presentada: **el primer grupo de Inicio pasa a ser exactamente la barra**,
+mismos nombres y orden — Cotizador · Taller · Inventario · **Dinero** (antes "La plata")—
+más Inicio. La **Agenda sale de la barra** porque Santiago confirmó que no la usa; los
+seis grupos de Inicio pasan a tres. Nada desaparece. Pendiente de que Santiago apruebe
+los nombres.
+
+Dato que lo sustenta: preguntado qué usa a diario, respondió **las cuatro** —cotizar,
+taller, inventario y la plata—; la agenda no.
+
+**2. Agenda con reserva de citas por parte del cliente (decisión de Santiago).** Se le
+advirtió que es un proyecto aparte y de tamaño grande, y **aun así lo eligió** sobre
+quitarla o borrarla. Queda aceptado como proyecto propio, a planear **después** de que
+las correcciones R1 estén auditadas.
+
+Realidades que su planeación deberá resolver, y que ya se le explicaron:
+
+- Exige una **superficie pública** que los clientes puedan abrir. Hoy la aplicación es
+  solo del joyero.
+- **Riesgo de seguridad nuevo y el mayor del proyecto:** sería la primera vez que algo
+  escribe en la base de datos **sin un usuario con sesión iniciada**. Toca el aislamiento
+  entre joyerías, que además sigue sin demostrarse en vivo (N6).
+- Los **avisos automáticos** por correo chocan con el bloqueo de SMTP propio, pendiente
+  desde hace meses.
+- Un formulario público atrae **abuso** y necesita defensa.
+- Recoger datos de clientes en público toca los **documentos legales**, todavía en
+  borrador.
+
+**Forma recomendada para una v1 que esquiva el bloqueo de SMTP:** enlace privado por
+joyería, el cliente elige entre horarios que el joyero definió y deja nombre, WhatsApp y
+motivo; la cita entra a la Agenda como **pendiente de confirmar**; el joyero confirma en
+la aplicación y contacta él mismo por WhatsApp. Sin correo automático, sin depender de
+nada externo.
