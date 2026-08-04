@@ -334,10 +334,28 @@ consola; sin desbordamiento a 320/375/1280 px.
 joya en el navegador (sí sus ~700 líneas de pruebas). Conviene que Santiago la
 pruebe con una joya real cuando la tenga.
 
-**SIGUIENTE: Fase D — el libro del negocio** (`src/services/ledger.ts`, D-057).
-Ya está desbloqueada: leerá tandas, costos de talla pagados, usos internos y
-transformaciones. La prueba que la valida es que `dailyReport.ts` y el cierre
-mensual den **exactamente** los mismos totales al pasar a leer del libro.
+**Fase D entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_D.md`. Es el
+libro del negocio (`src/services/ledger.ts`, D-057) y **no tiene pantalla**.
+
+Dividida en **dos commits a propósito**, para que el riesgo sea manejable:
+**D1** construye el libro *en paralelo* sin tocar `dailyReport.ts`, y su
+entregable central es una **prueba de equivalencia** que demuestre que los totales
+del libro son exactamente iguales a los de `buildDailyReport` y
+`buildMonthlyReport`. **D2** recién entonces hace que los cierres lean del libro,
+con la condición de que las pruebas existentes pasen **sin cambiar un solo valor
+esperado**. La prueba de D1 es la red de seguridad de D2.
+
+Pieza clave del diseño: `direction: 'entra' | 'sale' | 'ninguna'`. El tercer
+estado permite registrar lo que importa para el resultado pero **no es caja** —una
+venta a crédito el día que se pacta, un uso interno de piedras, una transformación
+de joya, y todos los movimientos de material (D-048 sigue vigente: el material no
+toca los cierres)—. `amountCop` va siempre positivo; el sentido lo da `direction`.
+
+Fase D **no cambia datos**: cero campos nuevos, cero migraciones, cero cambios en
+la nube.
+
+Codex **no debe seguir a la Fase E**: Claude audita el libro antes de que tres
+pantallas empiecen a depender de él.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
