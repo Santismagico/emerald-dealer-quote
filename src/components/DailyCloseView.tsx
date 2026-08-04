@@ -20,9 +20,9 @@ import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, todayISO } from '../utils/dates';
 import { Button, EmptyState, Field, SectionCard, Select, SummaryRow, TextInput } from './ui';
 
-export function DailyCloseView() {
+export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 'mes' }) {
   const store = useStore();
-  const [mode, setMode] = useState<'dia' | 'mes'>('dia');
+  const [mode, setMode] = useState<'dia' | 'mes'>(initialMode);
   const today = todayISO();
   const currentMonth = today.slice(0, 7);
   const [day, setDay] = useState(today);

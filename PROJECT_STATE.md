@@ -289,8 +289,20 @@ cambio de CSP nuevos**.
 Codex **no debe seguir a la Fase C**: es la de riesgo alto y lleva su propia
 orden después de que Claude audite estas cuatro etapas.
 
-**Sin cambios de código todavía:** esta entrada registra únicamente el plan.
-`main`, el enlace del piloto y el workflow de despliegue no fueron tocados.
+**A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
+portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
+mensual. Inicio conserva todos los destinos de Más, abre directamente las cuatro
+secciones de Inventario y ambos cierres, y muestra número solo para citas de hoy,
+cobros vencidos y trabajos en proceso. La barra queda Inicio · Cotizador · Taller
+· Agenda · Inventario y toda navegación nueva conserva el guardado diferido.
+
+Verificación A1: **754 pruebas en 47 archivos**, compilación de **326 módulos**,
+recorrido de todos los destinos y revisión real en 320, 390 y 1280 px, sin
+desbordamiento, con botones mínimos de 48 px y sin errores de consola. A1 no
+modificó datos, nube, migraciones, el motor de cálculo ni el PDF del cliente.
+
+**Pendientes:** B1, B2 y B3. No se inició la Fase C. `main`, el enlace del piloto
+y el workflow de despliegue no fueron tocados.
 
 ## Bitácora de etapas (Codex la actualiza)
 
@@ -330,3 +342,4 @@ orden después de que Claude audite estas cuatro etapas.
 | 2026-07-18 | **Prueba real de dos dispositivos superada (Santiago + Fable)** | Santiago probó la nube en PC y celular contra el proyecto de pruebas: sincronización de ida y vuelta, borrado entre dispositivos y cotización sin señal, todo aprobado. Segundo hallazgo suyo: un cambio pendiente quedaba atascado para siempre tras reiniciar — los disparadores solo escuchaban "online"/"visibilitychange" y al arrancar no ocurre ninguno. Arreglo: intento de subida inmediato al arrancar (`startOutboxTriggers`), con prueba que falla sin él; 513 pruebas en verde. Confirmado en su celular: "Todo está al día" | `e46f662` |
 | 2026-07-18 | **Corrección publicada: ventanas emergentes vs. menú inferior (Fable, orden expresa de Santiago)** | Hallazgo de Santiago en su prueba de usuario: en teléfonos, los 9 diálogos (cita, estados, lotes, confirmaciones) quedaban con sus botones incrustados tras el menú fijo y sin desplazamiento; venía de la reorganización C10/E5–E7 y estaba en producción. Regla central de overlays con colchón para el menú + diálogos max-h-full con desplazamiento interno. Verificado en dev (360×640 y 1280), 512 pruebas en la rama nube y 468 en la publicada; cherry-pick a `main` (`0a86e5a`), deploy en verde y sitio en vivo verificado con las medidas correctas. Punto de restauración: tag `punto-seguro-pre-fix-ventanas-2026-07-18` | `8818972` en nube; `0a86e5a` en main |
 | 2026-07-26 | C15 + E8/E9: trazabilidad y formulario de venta (Codex) | Forma de pago, receptor y notas revisables en ventas, abonos y cierres; protección contra borrado accidental; ventana móvil desplazable con acciones fijas; Contado/A crédito e interruptores aclarados. 751 pruebas, 324 módulos, revisión 320/390/1280 y sitio en vivo en verde; publicada solo en emerald-dealer-app | fuente `1772263` + `0aca89e`; sitio `762dc7c` |
+| 2026-08-03 | Plan v2 · A1: Pantalla de inicio (Codex) | Portada agrupada con Movimiento neto mensual, todos los destinos existentes, accesos directos a Inventario/cierres y tres avisos; 754 pruebas, 326 módulos y revisión 320/390/1280 en verde; no publicado | A1 (este commit) |

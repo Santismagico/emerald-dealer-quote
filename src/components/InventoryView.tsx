@@ -19,9 +19,9 @@ import { ReceivablesView } from './ReceivablesView';
 
 export type InventorySection = 'piedras' | 'materiales' | 'joyas' | 'cobros';
 
-export function InventoryView() {
+export function InventoryView({ initialSection = 'piedras' }: { initialSection?: InventorySection }) {
   const store = useStore();
-  const [section, setSection] = useState<InventorySection>('piedras');
+  const [section, setSection] = useState<InventorySection>(initialSection);
 
   // Aviso en la pestaña: cuántos cobros están vencidos hoy. Derivado, nunca guardado.
   const overdueCount = useMemo(() => {

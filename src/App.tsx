@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { StoreProvider, selectStoreDataSource, useStore } from './store';
 import type { ReactNode } from 'react';
 import type { BackupFile, Quote } from './types';
@@ -10,8 +11,9 @@ import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
 import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { AgendaView } from './components/AgendaView';
-import { InventoryView } from './components/InventoryView';
+import { InventoryView, type InventorySection } from './components/InventoryView';
 import { DailyCloseView } from './components/DailyCloseView';
+import { HomeView } from './components/HomeView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
 import { BuyersView } from './components/BuyersView';
@@ -36,13 +38,15 @@ import {
   readLocalImportSource
 } from './services/cloud/importer';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
-import { todaysPendingAppointments } from './services/agenda';
+import { formatMonthCO } from './services/dailyReport';
+import { buildHomeSummary, type HomeDestination } from './services/home';
 import {
   getBackupReminderSnoozedUntil,
   getBackupReminderState
 } from './services/backupReminder';
 
 type ViewName =
+  | 'home'
   | 'history'
   | 'form'
   | 'preview'
@@ -50,7 +54,6 @@ type ViewName =
   | 'workshopJob'
   | 'agenda'
   | 'stones'
-  | 'more'
   | 'dailyClose'
   | 'clients'
   | 'suppliers'
@@ -122,7 +125,9 @@ function emptyQuote(defaults: {
 
 function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
   const store = useStore();
-  const [view, setView] = useState<ViewName>('history');
+  const [view, setView] = useState<ViewName>('home');
+  const [inventorySection, setInventorySection] = useState<InventorySection>('piedras');
+  const [closeMode, setCloseMode] = useState<'dia' | 'mes'>('dia');
   const [draft, setDraft] = useState<Quote | null>(null);
   const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
   // Desde dónde se abrió la vista previa, para que "Volver" regrese al lugar correcto.
@@ -143,8 +148,23 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
     now: reminderNow
   });
 
+  const today = todayISO();
+  const currentMonth = today.slice(0, 7);
+  const homeSummary = useMemo(
+    () =>
+      buildHomeSummary({
+        month: currentMonth,
+        today,
+        quotes: store.quotes,
+        appointments: store.appointments,
+        stoneLots: store.stoneLots,
+        stockJewels: store.stockJewels
+      }),
+    [currentMonth, store.appointments, store.quotes, store.stockJewels, store.stoneLots, today]
+  );
+
   // Aviso visual local: cuántas citas programadas hay hoy (D-020, sin notificaciones).
-  const todayAppointments = todaysPendingAppointments(store.appointments, todayISO()).length;
+  const todayAppointments = homeSummary.appointmentsToday;
 
   useEffect(() => {
     const refresh = () => setReminderNow(new Date());
@@ -315,6 +335,51 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
     action();
   };
 
+  const openHomeDestination = (destination: HomeDestination) => {
+    void runAfterViewFlush(() => {
+      switch (destination) {
+        case 'history':
+        case 'workshop':
+        case 'agenda':
+        case 'clients':
+        case 'buyers':
+        case 'suppliers':
+        case 'settings':
+          setView(destination);
+          return;
+        case 'partners':
+          setView('materialPartners');
+          return;
+        case 'account':
+          if (cloudAccount) setView('account');
+          return;
+        case 'inventoryStones':
+        case 'inventoryMaterials':
+        case 'inventoryJewels':
+        case 'inventoryReceivables': {
+          const section = ({
+            inventoryStones: 'piedras',
+            inventoryMaterials: 'materiales',
+            inventoryJewels: 'joyas',
+            inventoryReceivables: 'cobros'
+          } as const)[destination];
+          setInventorySection(section);
+          setView('stones');
+          return;
+        }
+        case 'dailyClose':
+        case 'monthlyClose':
+          setCloseMode(destination === 'dailyClose' ? 'dia' : 'mes');
+          setView('dailyClose');
+          return;
+        default: {
+          const unreachable: never = destination;
+          return unreachable;
+        }
+      }
+    });
+  };
+
   return (
     <div className="atelier app-shell mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
       <header className="luxury-header safe-top top-0 z-40">
@@ -347,6 +412,14 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             onSnooze={() => void snoozeBackupReminder()}
           />
         ) : null}
+        {view === 'home' && (
+          <HomeView
+            monthLabel={formatMonthCO(currentMonth)}
+            summary={homeSummary}
+            showAccount={Boolean(cloudAccount)}
+            onOpen={openHomeDestination}
+          />
+        )}
         {view === 'history' && (
           <HistoryView
             onNew={startNewQuote}
@@ -384,7 +457,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         )}
         {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
         {view === 'agenda' && <AgendaView />}
-        {view === 'stones' && <InventoryView />}
+        {view === 'stones' && <InventoryView key={inventorySection} initialSection={inventorySection} />}
         {view === 'workshopJob' && draft && (
           <WorkshopJobView
             ref={workshopJobRef}
@@ -398,56 +471,45 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             onOpenQuote={(quote) => openPreview(quote, 'interno', 'workshop')}
           />
         )}
-        {view === 'more' && (
-          <MoreView
-            onDailyClose={() => setView('dailyClose')}
-            onClients={() => setView('clients')}
-            onSuppliers={() => setView('suppliers')}
-            onBuyers={() => setView('buyers')}
-            onMaterialPartners={() => setView('materialPartners')}
-            onSettings={() => setView('settings')}
-            onAccount={cloudAccount ? () => setView('account') : undefined}
-          />
-        )}
         {view === 'dailyClose' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
-            <DailyCloseView />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <DailyCloseView key={closeMode} initialMode={closeMode} />
           </div>
         )}
         {view === 'clients' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <ClientsView />
           </div>
         )}
         {view === 'suppliers' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <SuppliersView />
           </div>
         )}
         {view === 'buyers' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <BuyersView />
           </div>
         )}
         {view === 'materialPartners' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <MaterialPartnersView />
           </div>
         )}
         {view === 'settings' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <SettingsView isCloudAccount={Boolean(cloudAccount)} />
           </div>
         )}
         {view === 'account' && cloudAccount && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <AccountView
               email={cloudAccount.email}
               organizationName={cloudAccount.organizationName}
@@ -469,6 +531,22 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
 
       <nav className="luxury-nav safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg">
         <div className="grid grid-cols-5">
+          <NavButton
+            label="Inicio"
+            icon={<LineIcon name="home" />}
+            active={
+              view === 'home' ||
+              view === 'dailyClose' ||
+              view === 'clients' ||
+              view === 'suppliers' ||
+              view === 'buyers' ||
+              view === 'materialPartners' ||
+              view === 'settings' ||
+              view === 'account' ||
+              view === 'cloudImport'
+            }
+            onClick={() => void runAfterViewFlush(() => setView('home'))}
+          />
           <NavButton
             label="Cotizador"
             icon={<LineIcon name="quotes" />}
@@ -493,23 +571,6 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             icon={<LineIcon name="gem" />}
             active={view === 'stones'}
             onClick={() => void runAfterViewFlush(() => setView('stones'))}
-          />
-          <NavButton
-            label="Más"
-            icon={<LineIcon name="menu" />}
-            badge={cloudAccount ? store.cloudSync.pending + store.cloudSync.held : 0}
-            active={
-              view === 'more' ||
-              view === 'dailyClose' ||
-              view === 'clients' ||
-              view === 'suppliers' ||
-              view === 'buyers' ||
-              view === 'materialPartners' ||
-              view === 'settings' ||
-              view === 'account' ||
-              view === 'cloudImport'
-            }
-            onClick={() => void runAfterViewFlush(() => setView('more'))}
           />
         </div>
       </nav>
@@ -596,6 +657,7 @@ function InAppBrowserBanner() {
 }
 
 type LineIconName =
+  | 'home'
   | 'quotes'
   | 'workshop'
   | 'calendar'
@@ -608,7 +670,14 @@ type LineIconName =
 
 function LineIcon({ name, size = 22 }: { name: LineIconName; size?: number }) {
   let drawing: ReactNode;
-  if (name === 'quotes') {
+  if (name === 'home') {
+    drawing = (
+      <>
+        <path d="m3.5 11 8.5-7 8.5 7" />
+        <path d="M5.5 9.5V20h13V9.5M9.5 20v-6h5v6" />
+      </>
+    );
+  } else if (name === 'quotes') {
     drawing = (
       <>
         <path d="M3.8 7.2h6.1l1.8 2H20v9.3H3.8z" />
@@ -693,104 +762,6 @@ function LineIcon({ name, size = 22 }: { name: LineIconName; size?: number }) {
     >
       {drawing}
     </svg>
-  );
-}
-
-function MoreView({
-  onDailyClose,
-  onClients,
-  onSuppliers,
-  onBuyers,
-  onMaterialPartners,
-  onSettings,
-  onAccount
-}: {
-  onDailyClose: () => void;
-  onClients: () => void;
-  onSuppliers: () => void;
-  onBuyers: () => void;
-  onMaterialPartners: () => void;
-  onSettings: () => void;
-  onAccount?: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <MoreItem
-        icon={<LineIcon name="report" />}
-        title="Cierre del día"
-        subtitle="PDF interno con todos los movimientos del negocio"
-        onClick={onDailyClose}
-      />
-      <MoreItem
-        icon={<LineIcon name="client" />}
-        title="Clientes por encargo"
-        subtitle="Cotizaciones, agenda y piezas a medida"
-        onClick={onClients}
-      />
-      <MoreItem
-        icon={<LineIcon name="supplier" />}
-        title="Proveedores"
-        subtitle="A quiénes les compras piedras y servicios"
-        onClick={onSuppliers}
-      />
-      <MoreItem
-        icon={<LineIcon name="client" />}
-        title="Clientes de inventario"
-        subtitle="Piedras, joyas disponibles, saldos y cobros"
-        onClick={onBuyers}
-      />
-      <MoreItem
-        icon={<LineIcon name="supplier" />}
-        title="Socios de material"
-        subtitle="Con quiénes compartes oro u otro material"
-        onClick={onMaterialPartners}
-      />
-      <MoreItem
-        icon={<LineIcon name="settings" />}
-        title="Ajustes"
-        subtitle="Datos de la joyería, precio del oro y respaldos"
-        onClick={onSettings}
-      />
-      {onAccount ? (
-        <MoreItem
-          icon={<LineIcon name="client" />}
-          title="Cuenta"
-          subtitle="Correo, joyería y cierre de sesión"
-          onClick={onAccount}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function MoreItem({
-  icon,
-  title,
-  subtitle,
-  onClick
-}: {
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="luxury-card flex min-h-[4.75rem] w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99]"
-    >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-800" aria-hidden>
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-base font-semibold text-stone-900">{title}</span>
-        <span className="block truncate text-xs text-stone-500">{subtitle}</span>
-      </span>
-      <span className="text-stone-400" aria-hidden>
-        ›
-      </span>
-    </button>
   );
 }
 
