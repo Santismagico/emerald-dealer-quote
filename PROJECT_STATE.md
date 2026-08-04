@@ -260,7 +260,7 @@ de esa única verdad. Por eso el orden de fases **no es negociable**.
 | A | A1 Pantalla de inicio | Bajo | diseño que elija Santiago |
 | B | B1 Gastos · B2 Sociedades en piedras · B3 Tipo de producto + moneda | Bajo–Medio | Desbloqueada; A-1 y A-2 cerradas |
 | C | C1 Bruto → tallado por tandas · C2 Joyas completas + fantasía/natural | **Alto** | B |
-| D | D1 Libro del negocio | Medio | B, C |
+| D | D1 Libro del negocio · D2 Cierres leen del libro | Medio | B, C |
 | E | E1 Dashboard · E2 Excel · E3 Consolidado | Medio | D |
 | F | F1 Catálogo PDF automático | Bajo–Medio | C2 |
 
@@ -275,9 +275,9 @@ arriba. **Inicio reemplaza a "Más"** en la barra inferior, que queda en Inicio 
 Cotizador · Taller · Agenda · Inventario (siguen siendo cinco, D-046). Registrado
 en D-052.
 
-**No quedan decisiones abiertas.** A1, B1, B2, B3, C1 y C2 ya fueron
-implementadas. La Fase C queda detenida para auditoría independiente antes de
-cualquier trabajo de la Fase D.
+**No quedan decisiones abiertas.** A1, B1, B2, B3, C1, C2 y D1 ya fueron
+implementadas. D2 queda pendiente y no se inicia hasta cerrar D1 como commit
+independiente.
 
 **Orden de trabajo entregada a Codex:**
 `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
@@ -353,6 +353,26 @@ toca los cierres)—. `amountCop` va siempre positivo; el sentido lo da `directi
 
 Fase D **no cambia datos**: cero campos nuevos, cero migraciones, cero cambios en
 la nube.
+
+**D1 implementada el 2026-08-04 (Codex):** `src/services/ledger.ts` construye
+un flujo puro con ids derivados y estables, COP enteros, tasa histórica honesta,
+módulo, lote, sociedad, tipo de producto y contraparte. Registra ventas y compras
+a crédito sin mover caja, abonos en su fecha real, pagos de proveedor, talla y
+taller, compras y ventas de joyas, usos internos, transformaciones, cotizaciones,
+material y gastos. Una compra de piedras a crédito usa `direction: 'ninguna'` y
+solo sus pagos reales al proveedor usan `sale`, para conservar D-045.
+
+La prueba de equivalencia de D1 usa conjuntamente lotes de contado y crédito,
+abonos de comprador y cliente, pagos de proveedor, talla pagada y pendiente,
+transformación de joya, taller, gastos, cotizaciones y material compartido. El
+libro produjo exactamente los mismos `cashIn`, `cashOut` y `net` que los cierres
+diario y mensual; en el día rico fueron **$7.900.001**, **$5.150.002** y
+**$2.749.999**. `dailyReport.ts` permaneció intacto.
+
+Verificación D1: **943 pruebas en 63 archivos**, comprobación PWA y compilación de
+**333 módulos**, todo en verde. No hubo recorrido nuevo de navegador porque D1 no
+tiene pantalla ni habilita un recorrido de usuario. Sin dependencias, datos,
+migraciones, nube ni publicación; `main`, el piloto y el workflow siguen intactos.
 
 Codex **no debe seguir a la Fase E**: Claude audita el libro antes de que tres
 pantallas empiecen a depender de él.
@@ -527,3 +547,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-03 | Plan v2 · B3: Tipo de producto + moneda (Codex) | Tipos administrables sin inferencias, tasa fija por operación, vista COP/USD sin escrituras, fallback offline, respaldo v8 y nube protegida en ambas direcciones y entre versiones; 846 pruebas en 56 archivos, 18 controles locales, 332 módulos y revisión visual 320/390/1280 en verde; no publicado | B3 (este commit) |
 | 2026-08-04 | Plan v2 · C1: Talla por tandas (Codex) | Bruto, en talla y tallado derivados; merma, costos y pagos por tanda; historial físico protegido; compatibilidad anterior, respaldo v8 y migración de nube aditiva; 858 pruebas en 58 archivos, 332 módulos y revisión 320/390/1280 en verde; no publicado | C1 (este commit) |
 | 2026-08-04 | Plan v2 · C2: Fantasía → natural (Codex) | Ficha completa de joyas; transformación enlazada y atómica; descuento de piedras, traslado de costo sin caja, respaldo histórico y nube server-first con recepción conjunta; 940 pruebas en 62 archivos, 333 módulos y revisión 320/390/1280 en verde; migración preparada no aplicada; no publicado; Fase D no iniciada | C2 (este commit) |
+| 2026-08-04 | Plan v2 · D1: Libro del negocio en paralelo (Codex) | Flujo puro y normalizado de 16 tipos de evento; ids estables, dimensiones completas y caja decidida en un solo lugar; prueba rica de equivalencia diaria/mensual peso por peso; 943 pruebas en 63 archivos, 333 módulos en verde; `dailyReport.ts` intacto; sin pantalla, datos, nube ni publicación | D1 (este commit) |

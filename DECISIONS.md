@@ -945,6 +945,16 @@ verdad, cuatro presentaciones.
 La prueba que valida el libro es que `dailyReport.ts` y el cierre mensual, al pasar a
 leer de él, **sigan dando exactamente los mismos totales que hoy**.
 
+Implementación D1 (2026-08-04): el libro se construyó en paralelo, sin tocar los
+cierres. La prueba de equivalencia reúne en un mismo período contado, crédito,
+abonos, proveedor, talla pagada y pendiente, usos internos, transformación de joya,
+taller, gastos, cotizaciones y material, y obtuvo igualdad exacta en `cashIn`,
+`cashOut` y `net`. Al aplicar el catálogo a la caja honesta de D-045, una compra de
+piedras de contado usa `sale`, una compra a crédito usa `ninguna`, y cada pago real
+al proveedor usa `sale`. Los usos de material, que guardan gramos pero no un costo
+monetario propio, conservan `amountCop: 0` antes que inventar un valor; toda actividad
+de material usa `direction: 'ninguna'` y nunca altera los cierres.
+
 Corolario de operación: el orden de construcción no es negociable. Primero los datos que
 faltan (gastos, sociedades, tipo de producto), después los cambios de inventario, luego
 el libro, y solo al final las pantallas que lo leen. Construir el dashboard antes
