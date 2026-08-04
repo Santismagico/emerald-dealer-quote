@@ -32,8 +32,12 @@ import {
   normalizeExpense
 } from './schema';
 import { compareAppointments } from './agenda';
-import { compareStoneLots, validateStoneLotOwnership } from './stones';
-import { compareStockJewels } from './stockJewels';
+import {
+  compareStoneLots,
+  validateStoneLotOwnership,
+  validateStoneLotSalesMetadata
+} from './stones';
+import { compareStockJewels, validateStockJewelSaleMetadata } from './stockJewels';
 import { compareMaterialLots } from './materials';
 import { compareExpenses, validateExpense } from './expenses';
 
@@ -86,6 +90,10 @@ export async function saveEditableSettings(
       : current.goldPriceUpdatedAt,
     quoteCounter: current.quoteCounter,
     expenseCategories: current.expenseCategories,
+    productTypes: current.productTypes,
+    productTypesUpdatedAt: current.productTypesUpdatedAt,
+    lastKnownUsdRate: current.lastKnownUsdRate,
+    usdRateUpdatedAt: current.usdRateUpdatedAt,
     lastBackupExportedAt: current.lastBackupExportedAt,
     backupReminderSnoozedUntil: current.backupReminderSnoozedUntil,
     backupReminderFirstDataAt: current.backupReminderFirstDataAt
@@ -111,7 +119,9 @@ export async function saveFetchedGoldPrice(
     return {
       ...current,
       goldPricePerGram: applied.totalCopPerGram,
-      goldPriceUpdatedAt: applied.fetchedAt
+      goldPriceUpdatedAt: applied.fetchedAt,
+      lastKnownUsdRate: applied.copPerUsd,
+      usdRateUpdatedAt: applied.fetchedAt
     };
   });
   return { settings, info: applied };
@@ -189,6 +199,10 @@ export async function listStoneLots(): Promise<StoneLot[]> {
 export async function saveStoneLot(lot: StoneLot): Promise<void> {
   const error = validateStoneLotOwnership(lot);
   if (error) throw new Error(error);
+  const stored = await dbGet<unknown>('stoneLots', lot.id);
+  const previous = stored === undefined ? null : normalizeStoneLot(stored);
+  const metadataError = validateStoneLotSalesMetadata(lot, previous);
+  if (metadataError) throw new Error(metadataError);
   await dbPut('stoneLots', normalizeStoneLot(lot));
 }
 
@@ -349,6 +363,10 @@ export async function listStockJewels(): Promise<StockJewel[]> {
 }
 
 export async function saveStockJewel(jewel: StockJewel): Promise<void> {
+  const stored = await dbGet<unknown>('stockJewels', jewel.id);
+  const previous = stored === undefined ? null : normalizeStockJewel(stored);
+  const metadataError = validateStockJewelSaleMetadata(jewel, previous);
+  if (metadataError) throw new Error(metadataError);
   await dbPut('stockJewels', normalizeStockJewel(jewel));
 }
 
@@ -478,7 +496,9 @@ export async function listExpenses(): Promise<Expense[]> {
 }
 
 export async function saveExpense(expense: Expense): Promise<void> {
-  const error = validateExpense(expense);
+  const stored = await dbGet<unknown>('expenses', expense.id);
+  const previous = stored === undefined ? null : normalizeExpense(stored);
+  const error = validateExpense(expense, previous);
   if (error) throw new Error(error);
   await dbPut('expenses', normalizeExpense(expense));
 }

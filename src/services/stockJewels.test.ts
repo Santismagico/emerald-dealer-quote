@@ -43,6 +43,8 @@ function venta(overrides: Partial<StockJewelSale> = {}): StockJewelSale {
     buyer: 'Comprador Ejemplo',
     buyerId: null,
     priceCop: 4800000,
+    productType: 'Joya con piedra natural',
+    usdRate: 4000,
     method: 'Transferencia',
     receivedBy: 'Santiago',
     notes: '',

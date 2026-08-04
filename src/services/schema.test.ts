@@ -157,6 +157,10 @@ describe('normalizeSettings: migraciones y saneamiento', () => {
     expect(s.backupReminderSnoozedUntil).toBe('');
     expect(s.backupReminderFirstDataAt).toBe('');
     expect(s.expenseCategories.map((option) => option.name)).toContain('Arriendo');
+    expect(s.productTypes.map((option) => option.name)).toContain('Esmeralda en bruto');
+    expect(s.productTypesUpdatedAt).toBe('');
+    expect(s.lastKnownUsdRate).toBeNull();
+    expect(s.usdRateUpdatedAt).toBe('');
   });
 
   it('normaliza categorías, conserva desactivadas y elimina duplicados', () => {
@@ -267,6 +271,8 @@ describe('normalizeStoneLot', () => {
           carats: 1,
           quantity: 1,
           valueCop: 2000000,
+          productType: '',
+          usdRate: null,
           onCredit: false,
           dueDate: '',
           payments: [],
@@ -371,6 +377,7 @@ describe('normalizeStoneLot: crédito al vender (D-042)', () => {
         id: 'ab-1',
         date: '2026-07-20',
         amount: 2000000,
+        usdRate: null,
         method: 'Transferencia',
         receivedBy: 'Santiago',
         notes: 'primer abono'
@@ -435,6 +442,31 @@ describe('normalizeStoneLot: crédito al vender (D-042)', () => {
     });
     expect(l.sales[0].payments[0].amount).toBe(0);
     expect(l.sales[0].payments[1].id).toBeTruthy();
+  });
+});
+
+describe('históricos anteriores a B3', () => {
+  it('no inventa tipo de producto ni tasa a partir del módulo de origen', () => {
+    const lot = normalizeStoneLot({
+      id: 'l-historico-b3',
+      stoneType: 'Esmeralda',
+      sales: [{
+        id: 'v-historica-b3',
+        onCredit: true,
+        payments: [{ id: 'ab-historico-b3', amount: 100000 }]
+      }]
+    });
+    const jewel = normalizeStockJewel({
+      id: 'j-historica-b3',
+      name: 'Anillo con esmeralda',
+      sale: { id: 'vj-historica-b3', priceCop: 1000000 }
+    });
+    const expense = normalizeExpense({ id: 'g-historico-b3', amountCop: 50000 });
+
+    expect(lot.sales[0]).toMatchObject({ productType: '', usdRate: null });
+    expect(lot.sales[0].payments[0].usdRate).toBeNull();
+    expect(jewel.sale).toMatchObject({ productType: '', usdRate: null });
+    expect(expense.usdRate).toBeNull();
   });
 });
 

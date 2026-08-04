@@ -8,6 +8,7 @@ import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
 import { parseBackup, importBackup } from '../services/backup';
 import { defaultSettings } from '../services/storage';
+import { addProductType, setProductTypeActive } from '../services/productTypes';
 import {
   Button,
   Field,
@@ -108,6 +109,8 @@ export function SettingsView({ isCloudAccount = false }: { isCloudAccount?: bool
   const [importBusy, setImportBusy] = useState(false);
   const importBusyRef = useRef(false);
   const [goldBusy, setGoldBusy] = useState(false);
+  const [newProductType, setNewProductType] = useState('');
+  const [productTypesBusy, setProductTypesBusy] = useState(false);
   // En la PWA instalada de Android, un input file con display:none dentro de un
   // label puede no abrir el selector; el clic programático desde un botón sí.
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -328,6 +331,76 @@ export function SettingsView({ isCloudAccount = false }: { isCloudAccount?: bool
           />
         </Field>
         <p className="text-sm text-stone-500">Moneda: COP (peso colombiano)</p>
+      </SectionCard>
+
+      <SectionCard
+        title="Tipos de producto"
+        subtitle="Se ofrecen al registrar ventas. Desactivar uno conserva todo su historial."
+      >
+        <div className="flex min-w-0 gap-2">
+          <div className="min-w-0 flex-1">
+            <TextInput
+              value={newProductType}
+              onChange={setNewProductType}
+              placeholder="Nuevo tipo de producto"
+            />
+          </div>
+          <Button
+            variant="secondary"
+            disabled={productTypesBusy || !newProductType.trim()}
+            onClick={async () => {
+              if (!newProductType.trim() || productTypesBusy) return;
+              setProductTypesBusy(true);
+              try {
+                await store.updateProductTypes((current) =>
+                  addProductType(current, newProductType)
+                );
+                setNewProductType('');
+                store.showToast('Tipo de producto disponible');
+              } catch {
+                store.showToast('No se pudo guardar el tipo de producto.');
+              } finally {
+                setProductTypesBusy(false);
+              }
+            }}
+          >
+            Agregar
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {store.settings.productTypes.map((option) => (
+            <div
+              key={option.name}
+              className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-stone-50 px-3 py-2"
+            >
+              <span className="min-w-0 break-words text-sm text-stone-800">{option.name}</span>
+              <button
+                type="button"
+                disabled={productTypesBusy}
+                className={'min-h-11 shrink-0 rounded-lg px-3 text-sm font-semibold ' + (
+                  option.active
+                    ? 'text-red-600 active:bg-red-50'
+                    : 'text-brand-800 active:bg-brand-50'
+                )}
+                onClick={async () => {
+                  if (productTypesBusy) return;
+                  setProductTypesBusy(true);
+                  try {
+                    await store.updateProductTypes((current) =>
+                      setProductTypeActive(current, option.name, !option.active)
+                    );
+                  } catch {
+                    store.showToast('No se pudo actualizar el tipo de producto.');
+                  } finally {
+                    setProductTypesBusy(false);
+                  }
+                }}
+              >
+                {option.active ? 'Dejar de ofrecer' : 'Volver a ofrecer'}
+              </button>
+            </div>
+          ))}
+        </div>
       </SectionCard>
 
       <SectionCard

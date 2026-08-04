@@ -8,6 +8,7 @@ import type { BuyerPayment, StoneLot, StoneSale, SupplierPayment } from '../type
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
+import { validateOptionalUsdRate } from './currency';
 
 export type LotFilter = 'existencias' | 'agotados' | 'todos';
 
@@ -203,6 +204,71 @@ export function validateStoneLotOwnership(raw: unknown): string | null {
 }
 
 /**
+ * Protege los metadatos B3 antes de normalizar. Sin registro anterior acepta
+ * los vacíos históricos; las pantallas exigen los campos en operaciones nuevas.
+ */
+export function validateStoneLotSalesMetadata(
+  raw: unknown,
+  previous?: StoneLot | null
+): string | null {
+  const lot = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  if (!Array.isArray(lot.sales)) return 'Las ventas del lote no son válidas.';
+  const sales = lot.sales;
+  for (const value of sales) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return 'El lote contiene una venta inválida.';
+    }
+    const sale = value as Record<string, unknown>;
+    const id = typeof sale.id === 'string' ? sale.id : '';
+    const previousSale = previous?.sales.find((candidate) => candidate.id === id);
+    if (
+      Object.prototype.hasOwnProperty.call(sale, 'productType') &&
+      typeof sale.productType !== 'string'
+    ) {
+      return 'El tipo de producto de la venta no es válido.';
+    }
+
+    const rate = Object.prototype.hasOwnProperty.call(sale, 'usdRate') ? sale.usdRate : null;
+    const rateError = validateOptionalUsdRate(rate);
+    if (rateError) return rateError;
+    if (previousSale && previousSale.usdRate !== rate) {
+      return 'La tasa guardada de una venta no se puede cambiar.';
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(sale, 'payments') &&
+      !Array.isArray(sale.payments)
+    ) {
+      return 'Los abonos de la venta no son válidos.';
+    }
+    const payments = Array.isArray(sale.payments) ? sale.payments : [];
+    for (const paymentValue of payments) {
+      if (
+        typeof paymentValue !== 'object' ||
+        paymentValue === null ||
+        Array.isArray(paymentValue)
+      ) {
+        return 'La venta contiene un abono inválido.';
+      }
+      const payment = paymentValue as Record<string, unknown>;
+      const paymentId = typeof payment.id === 'string' ? payment.id : '';
+      const previousPayment = previousSale?.payments.find(
+        (candidate) => candidate.id === paymentId
+      );
+      const paymentRate = Object.prototype.hasOwnProperty.call(payment, 'usdRate')
+        ? payment.usdRate
+        : null;
+      const paymentRateError = validateOptionalUsdRate(paymentRate);
+      if (paymentRateError) return paymentRateError;
+      if (previousPayment && previousPayment.usdRate !== paymentRate) {
+        return 'La tasa guardada de un abono no se puede cambiar.';
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Revisa un pago al proveedor ANTES de guardarlo. Devuelve el motivo del
  * rechazo en lenguaje humano, o null si es válido. `excludePaymentId`
  * permite editar un pago sin que se cuente a sí mismo.
@@ -266,6 +332,8 @@ export function validateStoneLotPurchaseUpdate(
           sale.carats !== candidate.carats ||
           sale.quantity !== candidate.quantity ||
           sale.valueCop !== candidate.valueCop ||
+          sale.productType !== candidate.productType ||
+          sale.usdRate !== candidate.usdRate ||
           sale.onCredit !== candidate.onCredit ||
           sale.dueDate !== candidate.dueDate ||
           // Los abonos ya recibidos son historial: no se tocan desde la compra.
@@ -482,15 +550,22 @@ export function validateStoneSale(
   sale: StoneSale,
   excludeSaleId?: string
 ): string | null {
+  const previousSale = excludeSaleId
+    ? lot.sales.find((candidate) => candidate.id === excludeSaleId)
+    : undefined;
+  if (!previousSale && !sale.productType.trim()) return 'Elige el tipo de producto.';
+  const rateError = validateOptionalUsdRate(sale.usdRate);
+  if (rateError) return rateError;
+  if (!previousSale && sale.usdRate === null) return 'Indica la tasa USD/COP de la venta.';
+  if (previousSale && previousSale.usdRate !== sale.usdRate) {
+    return 'La tasa guardada de una venta no se puede cambiar.';
+  }
   if (!isValidISODate(sale.date)) return 'La venta necesita una fecha válida.';
   if (sale.quantity <= 0 && sale.carats <= 0) {
     return 'Indica cuántas piedras o cuántos quilates se vendieron.';
   }
   if (toSafeCOP(sale.valueCop) <= 0) return 'Indica el valor acordado de la venta.';
   if (!sale.onCredit) {
-    const previousSale = excludeSaleId
-      ? lot.sales.find((candidate) => candidate.id === excludeSaleId)
-      : undefined;
     const legacyCashSale = previousSale?.onCredit === false;
     const methodMayStayBlank = legacyCashSale && !(previousSale.method ?? '').trim();
     const receiverMayStayBlank = legacyCashSale && !(previousSale.receivedBy ?? '').trim();
@@ -548,13 +623,13 @@ export function validateBuyerPayment(
   payment: BuyerPayment,
   excludePaymentId?: string
 ): string | null {
+  const previousPayment = excludePaymentId
+    ? sale.payments.find((candidate) => candidate.id === excludePaymentId)
+    : undefined;
   if (!sale.onCredit) return 'Los abonos solo se registran en ventas a crédito.';
   if (!isValidISODate(payment.date)) return 'El abono necesita una fecha válida.';
   const amount = toSafeCOP(payment.amount);
   if (amount <= 0) return 'Indica el monto que te abonaron.';
-  const previousPayment = excludePaymentId
-    ? sale.payments.find((candidate) => candidate.id === excludePaymentId)
-    : undefined;
   const methodMayStayBlank = previousPayment && !(previousPayment.method ?? '').trim();
   const receiverMayStayBlank = previousPayment && !(previousPayment.receivedBy ?? '').trim();
   if (!methodMayStayBlank && !(payment.method ?? '').trim()) {
@@ -562,6 +637,12 @@ export function validateBuyerPayment(
   }
   if (!receiverMayStayBlank && !(payment.receivedBy ?? '').trim()) {
     return 'Indica quién recibió este abono.';
+  }
+  const rateError = validateOptionalUsdRate(payment.usdRate);
+  if (rateError) return rateError;
+  if (!previousPayment && payment.usdRate === null) return 'Indica la tasa USD/COP del abono.';
+  if (previousPayment && previousPayment.usdRate !== payment.usdRate) {
+    return 'La tasa guardada de un abono no se puede cambiar.';
   }
 
   const others = sale.payments.filter((p) => p.id !== excludePaymentId);
@@ -589,8 +670,8 @@ export function withoutBuyerPayment(sale: StoneSale, paymentId: string): StoneSa
 }
 
 /** Abono del comprador en blanco para el formulario. */
-export function emptyBuyerPayment(today: string): BuyerPayment {
-  return { id: newId(), date: today, amount: 0, receivedBy: '', method: '', notes: '' };
+export function emptyBuyerPayment(today: string, usdRate: number | null = null): BuyerPayment {
+  return { id: newId(), date: today, amount: 0, usdRate, receivedBy: '', method: '', notes: '' };
 }
 
 /**
@@ -661,7 +742,7 @@ export function emptyStoneLot(today: string, nowIso: string): StoneLot {
 }
 
 /** Venta en blanco para el formulario de registrar venta. */
-export function emptyStoneSale(today: string): StoneSale {
+export function emptyStoneSale(today: string, usdRate: number | null = null): StoneSale {
   return {
     id: newId(),
     date: today,
@@ -670,6 +751,8 @@ export function emptyStoneSale(today: string): StoneSale {
     carats: 0,
     quantity: 1,
     valueCop: 0,
+    productType: '',
+    usdRate,
     receivedBy: '',
     method: '',
     onCredit: false,

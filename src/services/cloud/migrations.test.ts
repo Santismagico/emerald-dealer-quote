@@ -9,6 +9,7 @@ import materialsSource from '../../../supabase/migrations/20260724210000_inventa
 import materialValidationFixSource from '../../../supabase/migrations/20260725150651_validar_suma_usos_material.sql?raw'
 import expensesSource from '../../../supabase/migrations/20260803205711_gastos_negocio.sql?raw'
 import stonePartnershipsSource from '../../../supabase/migrations/20260803220000_sociedades_lotes_piedras.sql?raw'
+import productCurrencySource from '../../../supabase/migrations/20260803233000_tipo_producto_moneda.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -21,6 +22,7 @@ const materials = materialsSource.toLowerCase()
 const materialValidationFix = materialValidationFixSource.toLowerCase()
 const expenses = expensesSource.toLowerCase()
 const stonePartnerships = stonePartnershipsSource.toLowerCase()
+const productCurrency = productCurrencySource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -376,5 +378,132 @@ describe('migracion de sociedades en lotes de piedras (B2)', () => {
     expect(stonePartnerships).toContain('v_my_percent > 100')
     expect(stonePartnerships).toContain('v_my_percent <> 100')
     expect(stonePartnerships).toContain("errcode = '22023'")
+  })
+})
+
+describe('migracion de tipo de producto y moneda (B3)', () => {
+  const validators = [
+    'assert_settings_payload',
+    'assert_stone_lot_payload',
+    'assert_stock_jewel_payload',
+    'assert_expense_payload',
+  ]
+
+  it('reemplaza los cuatro validadores y la RPC de ajustes sin tocar tablas ni RLS', () => {
+    for (const validator of validators) {
+      expect(productCurrency).toContain(`create or replace function private.${validator}`)
+      expect(productCurrency).toContain(`revoke all on function private.${validator}`)
+    }
+    expect(productCurrency).toContain('create or replace function public.upsert_settings')
+    expect(productCurrency.match(/security invoker/g)).toHaveLength(4)
+    expect(productCurrency.match(/security definer/g)).toHaveLength(1)
+    expect(productCurrency.match(/set search_path = ''/g)).toHaveLength(5)
+    expect(productCurrency).not.toMatch(/create\s+table/)
+    expect(productCurrency).not.toMatch(/drop\s+(table|column|policy)/)
+    expect(productCurrency).not.toMatch(/truncate/)
+    expect(productCurrency).not.toMatch(/create\s+policy/)
+    for (const table of ['clients', 'quotes', 'stone_lots', 'stock_jewels', 'expenses']) {
+      expect(productCurrency).not.toMatch(
+        new RegExp(`\\b(insert\\s+into|update|delete\\s+from)\\s+public\\.${table}`)
+      )
+    }
+    expect(productCurrency).toContain(
+      'revoke all on function public.upsert_settings(jsonb, timestamptz)'
+    )
+    expect(productCurrency).toContain(
+      'grant execute on function public.upsert_settings(jsonb, timestamptz) to authenticated'
+    )
+  })
+
+  it('valida el catalogo administrado y la ultima tasa sin perder categorias ni settings previos', () => {
+    expect(productCurrency).toContain("p_data->'producttypes'")
+    expect(productCurrency).toContain("p_data->'lastknownusdrate'")
+    expect(productCurrency).toContain("p_data->'usdrateupdatedat'")
+    expect(productCurrency).toContain("p_data->'producttypesupdatedat'")
+    expect(productCurrency).toContain("p_data->'expensecategories'")
+    expect(productCurrency).toContain("group by lower(btrim(item->>'name'))")
+    expect(productCurrency).toContain("p_data->'goldpricepergram'")
+    expect(productCurrency).toContain("p_data->'settingsversion'")
+  })
+
+  it('fusiona ajustes por organizacion sin que un payload B2 borre claves B3', () => {
+    expect(productCurrency).toContain(
+      "current_organization_id_for_roles(array['owner', 'admin'])"
+    )
+    expect(productCurrency).toContain("v_organization_id::text || ':org_settings'")
+    expect(productCurrency).toContain('from public.org_settings settings')
+    expect(productCurrency).toContain('settings.organization_id = v_organization_id')
+    expect(productCurrency).toContain('v_merged_data := v_existing_data || p_data')
+    expect(productCurrency).toContain('v_merged_data := p_data || v_existing_data')
+    expect(productCurrency).toContain(
+      'v_merged_updated_at := greatest(v_existing_updated_at, p_updated_at)'
+    )
+    expect(productCurrency).toContain(
+      'greatest(v_existing_version, v_incoming_version)'
+    )
+  })
+
+  it('resuelve tasa y catalogo por fecha, une nombres y deja active al catalogo ganador', () => {
+    expect(productCurrency).toContain('v_incoming_rate_at >= v_existing_rate_at')
+    expect(productCurrency).toContain("'{lastknownusdrate}'")
+    expect(productCurrency).toContain("'{usdrateupdatedat}'")
+    expect(productCurrency).toContain('v_incoming_catalog_at >= v_existing_catalog_at')
+    expect(productCurrency).toContain('jsonb_agg(candidate.item order by candidate.source_priority')
+    expect(productCurrency).toContain('with ordinality as winner(item, ordinality)')
+    expect(productCurrency).toContain('with ordinality as loser(item, ordinality)')
+    expect(productCurrency).toContain(
+      "lower(btrim(winner_item->>'name')) = lower(btrim(loser.item->>'name'))"
+    )
+    expect(productCurrency).toContain("'{producttypes}'")
+    expect(productCurrency).toContain("'{producttypesupdatedat}'")
+    expect(productCurrency).toContain(
+      "jsonb_typeof(v_existing_data->'producttypes') is distinct from 'array'"
+    )
+    expect(productCurrency).toContain(
+      "jsonb_typeof(v_existing_data->'lastknownusdrate') = 'number'"
+    )
+  })
+
+  it('protege ventas, abonos y gastos con tasa finita 1000..20000 cuando existe', () => {
+    expect(productCurrency).toContain("sale->'producttype'")
+    expect(productCurrency).toContain("sale->'usdrate'")
+    expect(productCurrency).toContain("item->'usdrate'")
+    expect(productCurrency).toContain("p_data->'sale'->'producttype'")
+    expect(productCurrency).toContain("p_data->'sale'->'usdrate'")
+    expect(productCurrency).toContain("p_data->'usdrate'")
+    expect(productCurrency).toContain("not in ('number', 'null')")
+    expect(productCurrency).toContain('::numeric < 1000')
+    expect(productCurrency).toContain('::numeric > 20000')
+    expect(productCurrency).toContain("errcode = '22023'")
+  })
+
+  it('impide cambiar una tasa ya guardada dentro de la misma organizacion', () => {
+    expect(productCurrency.match(/current_organization_id_for_roles/g)).toHaveLength(4)
+    expect(productCurrency).toContain('from public.stone_lots')
+    expect(productCurrency).toContain('from public.stock_jewels')
+    expect(productCurrency).toContain('from public.expenses')
+    expect(productCurrency.match(/pg_advisory_xact_lock/g)).toHaveLength(4)
+    expect(productCurrency.match(/for update/g)?.length).toBeGreaterThanOrEqual(4)
+    expect(productCurrency).toContain("new_sale->>'id' = old_sale->>'id'")
+    expect(productCurrency).toContain("new_payment->>'id' = old_payment->>'id'")
+    expect(productCurrency).toContain("v_existing_data->'sale'->>'id' = p_data->'sale'->>'id'")
+    expect(productCurrency).toContain("coalesce(old_sale->'usdrate', 'null'::jsonb)")
+    expect(productCurrency).toContain("coalesce(old_payment->'usdrate', 'null'::jsonb)")
+    expect(productCurrency).toContain("coalesce(v_existing_data->'usdrate', 'null'::jsonb)")
+    expect(productCurrency).toContain('usd rate is immutable')
+  })
+
+  it('conserva las reglas B1, B2, credito, pagos y joyas ya vigentes', () => {
+    expect(productCurrency).toContain("p_data->'purchasevaluecop'")
+    expect(productCurrency).toContain("p_data->'supplierpayments'")
+    expect(productCurrency).toContain("sale->'payments'")
+    expect(productCurrency).toContain("p_data ? 'partnerid'")
+    expect(productCurrency).toContain("p_data ? 'mypercent'")
+    expect(productCurrency).toContain('v_my_percent > 100')
+    expect(productCurrency).toContain('v_my_percent <> 100')
+    expect(productCurrency).toContain("p_data->'costcop'")
+    expect(productCurrency).toContain("p_data->'pricecop'")
+    expect(productCurrency).toContain("p_data->'amountcop'")
+    expect(productCurrency).toContain("p_data->'paidby'")
   })
 })

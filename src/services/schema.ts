@@ -30,7 +30,8 @@ import type {
   MaterialUse,
   MaterialLot,
   Expense,
-  ExpenseCategoryOption
+  ExpenseCategoryOption,
+  ProductTypeOption
 } from '../types';
 import {
   QUOTE_STATUSES,
@@ -40,9 +41,11 @@ import {
 } from '../types';
 import { newId } from '../utils/id';
 import { BASE_EXPENSE_CATEGORIES } from './expenses';
+import { BASE_PRODUCT_TYPES } from './productTypes';
+import { normalizeUsdRate } from './currency';
 
 /** Versión del esquema de settings. Súbela al agregar una migración. */
-export const SETTINGS_VERSION = 4;
+export const SETTINGS_VERSION = 5;
 
 export function defaultSettings(): Settings {
   return {
@@ -70,6 +73,10 @@ export function defaultSettings(): Settings {
     conditions:
       'Precios sujetos a cambio según el mercado del oro y disponibilidad de piedras. Cotización válida hasta la fecha indicada. El trabajo inicia con la confirmación del anticipo.',
     expenseCategories: BASE_EXPENSE_CATEGORIES.map((name) => ({ name, active: true })),
+    productTypes: BASE_PRODUCT_TYPES.map((name) => ({ name, active: true })),
+    productTypesUpdatedAt: '',
+    lastKnownUsdRate: null,
+    usdRateUpdatedAt: '',
     quoteCounter: 1,
     lastBackupExportedAt: '',
     backupReminderSnoozedUntil: '',
@@ -90,6 +97,11 @@ function safeNumber(value: unknown, fallback = 0): number {
 
 function safeArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function safeOptionalTimestamp(value: unknown): string {
+  const timestamp = safeString(value).trim();
+  return timestamp && Number.isFinite(Date.parse(timestamp)) ? timestamp : '';
 }
 
 /** Solo se aceptan imágenes en data URL generadas por la app (nunca URLs externas: evita rastreo). */
@@ -125,6 +137,11 @@ export function normalizeSettings(raw: unknown): Settings {
   out.currency = 'COP';
   out.logoDataUrl = safeImageDataUrl(source.logoDataUrl);
   out.expenseCategories = normalizeExpenseCategories(source.expenseCategories);
+  out.productTypes = normalizeProductTypes(source.productTypes);
+  out.productTypesUpdatedAt = safeOptionalTimestamp(source.productTypesUpdatedAt);
+  out.lastKnownUsdRate = normalizeUsdRate(source.lastKnownUsdRate);
+  out.usdRateUpdatedAt =
+    out.lastKnownUsdRate === null ? '' : safeOptionalTimestamp(source.usdRateUpdatedAt);
 
   // Migraciones ordenadas. La versión guardada indica qué le falta al registro.
   const storedVersion = safeNumber(source.settingsVersion, 1);
@@ -151,6 +168,31 @@ function normalizeExpenseCategories(raw: unknown): ExpenseCategoryOption[] {
 
   const normalized: ExpenseCategoryOption[] = [];
   for (const baseName of BASE_EXPENSE_CATEGORIES) {
+    const key = baseName.toLocaleLowerCase('es');
+    normalized.push(stored.get(key) ?? { name: baseName, active: true });
+    stored.delete(key);
+  }
+  normalized.push(
+    ...[...stored.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+    )
+  );
+  return normalized;
+}
+
+function normalizeProductTypes(raw: unknown): ProductTypeOption[] {
+  const stored = new Map<string, ProductTypeOption>();
+  for (const value of safeArray(raw)) {
+    if (typeof value !== 'object' || value === null) continue;
+    const option = value as Record<string, unknown>;
+    const name = safeString(option.name).trim();
+    if (!name) continue;
+    const key = name.toLocaleLowerCase('es');
+    if (!stored.has(key)) stored.set(key, { name, active: option.active !== false });
+  }
+
+  const normalized: ProductTypeOption[] = [];
+  for (const baseName of BASE_PRODUCT_TYPES) {
     const key = baseName.toLocaleLowerCase('es');
     normalized.push(stored.get(key) ?? { name: baseName, active: true });
     stored.delete(key);
@@ -293,6 +335,7 @@ function normalizeBuyerPayment(raw: unknown): BuyerPayment {
     id: safeString(p.id, newId()),
     date: safeString(p.date),
     amount: Math.max(0, Math.round(safeNumber(p.amount))),
+    usdRate: normalizeUsdRate(p.usdRate),
     receivedBy: safeString(p.receivedBy),
     method: safeString(p.method),
     notes: safeString(p.notes)
@@ -316,6 +359,8 @@ function normalizeStoneSale(raw: unknown): StoneSale {
     carats: Math.max(0, safeNumber(s.carats)),
     quantity: Math.max(0, safeNumber(s.quantity)),
     valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    productType: safeString(s.productType).trim(),
+    usdRate: normalizeUsdRate(s.usdRate),
     receivedBy: safeString(s.receivedBy),
     method: safeString(s.method),
     onCredit,
@@ -382,6 +427,8 @@ function normalizeStockJewelSale(raw: unknown): StockJewelSale {
     buyer: safeString(s.buyer),
     buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
     priceCop: Math.max(0, Math.round(safeNumber(s.priceCop))),
+    productType: safeString(s.productType).trim(),
+    usdRate: normalizeUsdRate(s.usdRate),
     receivedBy: safeString(s.receivedBy),
     method: safeString(s.method),
     notes: safeString(s.notes)
@@ -400,6 +447,7 @@ export function normalizeExpense(raw: unknown): Expense {
     concept: safeString(e.concept),
     category: safeString(e.category),
     amountCop: Math.max(0, Math.round(safeNumber(e.amountCop))),
+    usdRate: normalizeUsdRate(e.usdRate),
     method: safeString(e.method),
     paidBy: safeString(e.paidBy),
     partnerId,

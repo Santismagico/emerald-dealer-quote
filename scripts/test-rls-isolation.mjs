@@ -156,7 +156,15 @@ export function validPayloads(prefix) {
     stone_lots: {
       id: `${prefix}-stone`, purchaseValueCop: 1000000, quantity: 1,
       partnerId: null, partnerName: '', myPercent: 100,
-      supplierPayments: [], sales: [],
+      supplierPayments: [],
+      sales: [{
+        id: `${prefix}-stone-sale`,
+        valueCop: 700000,
+        quantity: 1,
+        productType: 'Anillo',
+        usdRate: 4200.5,
+        payments: [{ amount: 200000, usdRate: 4210 }],
+      }],
     },
     suppliers: { id: `${prefix}-supplier`, name: `Proveedor ${prefix}` },
     buyers: { id: `${prefix}-buyer`, name: `Comprador ${prefix}` },
@@ -165,7 +173,12 @@ export function validPayloads(prefix) {
       costCop: 800000,
       priceCop: 1200000,
       status: 'disponible',
-      sale: null,
+      sale: {
+        id: `${prefix}-stock-jewel-sale`,
+        priceCop: 1200000,
+        productType: 'Aretes',
+        usdRate: 4200.5,
+      },
     },
     material_partners: {
       id: `${prefix}-material-partner`,
@@ -189,6 +202,7 @@ export function validPayloads(prefix) {
       concept: `Publicidad ${prefix}`,
       category: 'Publicidad',
       amountCop: 300000,
+      usdRate: 4200.5,
       method: 'Transferencia',
       paidBy: 'Santiago',
       partnerId: null,
@@ -203,7 +217,17 @@ export function validPayloads(prefix) {
 
 async function upsertAll(api, payloads, now) {
   assertSuccess(await api.rpc('upsert_settings', {
-    p_data: { currency: 'COP', goldPricePerGram: 500000, goldMarkupPerGram: 100000 },
+    p_data: {
+      currency: 'COP',
+      goldPricePerGram: 500000,
+      goldMarkupPerGram: 100000,
+      productTypes: [
+        { name: 'Anillo', active: true },
+        { name: 'Aretes', active: true },
+      ],
+      lastKnownUsdRate: 4200.5,
+      usdRateUpdatedAt: '2026-08-03T10:00:00.000Z',
+    },
     p_updated_at: now,
   }), 'guardar configuración por RPC')
   for (const { table, upsertRpc } of n6EntitySpecs) {
@@ -662,6 +686,253 @@ async function verifyMalformedPayloads(api, organizationId, now) {
       `porcentaje invalido de piedras ${invalidPercent}`
     )
   }
+
+  const settingsPayloads = validPayloads('n6-settings-guard')
+  const settingsBefore = await readEditableRow(
+    api,
+    'org_settings',
+    organizationId,
+    settingsPayloads,
+    'leer configuracion antes de campos B3 invalidos'
+  )
+  if (!settingsBefore) throw new Error('falta la configuracion protegida')
+  for (const [label, invalidSettings] of [
+    ['tipos de producto duplicados', {
+      ...settingsBefore.data,
+      productTypes: [
+        { name: 'Anillo', active: true },
+        { name: ' anillo ', active: false },
+      ],
+    }],
+    ['ultima tasa menor al minimo', { ...settingsBefore.data, lastKnownUsdRate: 999 }],
+    ['ultima tasa mayor al maximo', { ...settingsBefore.data, lastKnownUsdRate: 20001 }],
+  ]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_settings', { p_data: invalidSettings, p_updated_at: now }),
+      `configuracion con ${label}`,
+      '22023'
+    )
+    const settingsAfter = await readEditableRow(
+      api,
+      'org_settings',
+      organizationId,
+      settingsPayloads,
+      `leer configuracion despues de ${label}`
+    )
+    assertRowUnchanged(settingsBefore, settingsAfter, `configuracion con ${label}`)
+  }
+
+  const immutableStoneSale = protectedStone.sales[0]
+  const immutableBuyerPayment = immutableStoneSale.payments[0]
+  for (const [label, invalidSales] of [
+    ['tipo de producto no textual', [{ ...immutableStoneSale, productType: 7 }]],
+    ['tasa de venta fuera de rango', [{ ...immutableStoneSale, usdRate: 999 }]],
+    ['cambio de tasa de venta', [{ ...immutableStoneSale, usdRate: 4300 }]],
+    ['cambio de tasa de abono', [{
+      ...immutableStoneSale,
+      payments: [{ ...immutableBuyerPayment, usdRate: 4300 }],
+    }]],
+  ]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_stone_lot', {
+        p_id: protectedStone.id,
+        p_data: { ...protectedStone, sales: invalidSales },
+        p_updated_at: now,
+      }),
+      `lote con ${label}`,
+      '22023'
+    )
+    const stoneAfter = await readEntityRow(
+      api,
+      'stone_lots',
+      organizationId,
+      protectedStone.id,
+      `leer lote despues de ${label}`
+    )
+    assertRowUnchanged(stoneBefore, stoneAfter, `lote con ${label}`)
+  }
+
+  const historicalStone = {
+    ...validPayloads('n6-historical-stone-rate').stone_lots,
+    sales: [{
+      ...validPayloads('n6-historical-stone-rate').stone_lots.sales[0],
+      usdRate: null,
+      payments: [{
+        ...validPayloads('n6-historical-stone-rate').stone_lots.sales[0].payments[0],
+        usdRate: null,
+      }],
+    }],
+  }
+  assertSuccess(
+    await api.rpc('upsert_stone_lot', {
+      p_id: historicalStone.id,
+      p_data: historicalStone,
+      p_updated_at: now,
+    }),
+    'guardar lote historico sin tasas'
+  )
+  const historicalStoneBefore = await readEntityRow(
+    api,
+    'stone_lots',
+    organizationId,
+    historicalStone.id,
+    'leer lote historico antes de intentar completar tasas'
+  )
+  for (const [label, changedSale] of [
+    ['venta', { ...historicalStone.sales[0], usdRate: 4200 }],
+    ['abono', {
+      ...historicalStone.sales[0],
+      payments: [{ ...historicalStone.sales[0].payments[0], usdRate: 4200 }],
+    }],
+  ]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_stone_lot', {
+        p_id: historicalStone.id,
+        p_data: { ...historicalStone, sales: [changedSale] },
+        p_updated_at: now,
+      }),
+      `lote historico que intenta completar tasa de ${label}`,
+      '22023'
+    )
+    const historicalStoneAfter = await readEntityRow(
+      api,
+      'stone_lots',
+      organizationId,
+      historicalStone.id,
+      `leer lote historico despues de completar tasa de ${label}`
+    )
+    assertRowUnchanged(
+      historicalStoneBefore,
+      historicalStoneAfter,
+      `tasa historica de ${label} inmutable`
+    )
+  }
+
+  const protectedJewel = validPayloads('n6-protected-jewel-rate').stock_jewels
+  assertSuccess(
+    await api.rpc('upsert_stock_jewel', {
+      p_id: protectedJewel.id,
+      p_data: protectedJewel,
+      p_updated_at: now,
+    }),
+    'guardar joya con tasa valida'
+  )
+  const jewelBefore = await readEntityRow(
+    api,
+    'stock_jewels',
+    organizationId,
+    protectedJewel.id,
+    'leer joya antes de alterar campos B3'
+  )
+  for (const [label, invalidSale] of [
+    ['tipo de producto no textual', { ...protectedJewel.sale, productType: false }],
+    ['tasa fuera de rango', { ...protectedJewel.sale, usdRate: 20001 }],
+    ['cambio de tasa', { ...protectedJewel.sale, usdRate: 4300 }],
+  ]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_stock_jewel', {
+        p_id: protectedJewel.id,
+        p_data: { ...protectedJewel, sale: invalidSale },
+        p_updated_at: now,
+      }),
+      `joya con ${label}`,
+      '22023'
+    )
+    const jewelAfter = await readEntityRow(
+      api,
+      'stock_jewels',
+      organizationId,
+      protectedJewel.id,
+      `leer joya despues de ${label}`
+    )
+    assertRowUnchanged(jewelBefore, jewelAfter, `joya con ${label}`)
+  }
+
+  const historicalJewel = {
+    ...validPayloads('n6-historical-jewel-rate').stock_jewels,
+    sale: {
+      ...validPayloads('n6-historical-jewel-rate').stock_jewels.sale,
+      usdRate: null,
+    },
+  }
+  assertSuccess(
+    await api.rpc('upsert_stock_jewel', {
+      p_id: historicalJewel.id,
+      p_data: historicalJewel,
+      p_updated_at: now,
+    }),
+    'guardar joya historica sin tasa'
+  )
+  const historicalJewelBefore = await readEntityRow(
+    api,
+    'stock_jewels',
+    organizationId,
+    historicalJewel.id,
+    'leer joya historica antes de completar tasa'
+  )
+  assertRejectedWithCode(
+    await api.rpc('upsert_stock_jewel', {
+      p_id: historicalJewel.id,
+      p_data: {
+        ...historicalJewel,
+        sale: { ...historicalJewel.sale, usdRate: 4200 },
+      },
+      p_updated_at: now,
+    }),
+    'joya historica que intenta completar tasa',
+    '22023'
+  )
+  const historicalJewelAfter = await readEntityRow(
+    api,
+    'stock_jewels',
+    organizationId,
+    historicalJewel.id,
+    'leer joya historica despues de completar tasa'
+  )
+  assertRowUnchanged(
+    historicalJewelBefore,
+    historicalJewelAfter,
+    'tasa historica de joya inmutable'
+  )
+
+  const historicalExpense = {
+    ...validPayloads('n6-historical-expense-rate').expenses,
+    usdRate: null,
+  }
+  assertSuccess(
+    await api.rpc('upsert_expense', {
+      p_id: historicalExpense.id,
+      p_data: historicalExpense,
+      p_updated_at: now,
+    }),
+    'guardar gasto historico sin tasa'
+  )
+  const expenseBefore = await readEntityRow(
+    api,
+    'expenses',
+    organizationId,
+    historicalExpense.id,
+    'leer gasto historico antes de alterar tasa'
+  )
+  for (const invalidRate of [999, 20001, 4200]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_expense', {
+        p_id: historicalExpense.id,
+        p_data: { ...historicalExpense, usdRate: invalidRate },
+        p_updated_at: now,
+      }),
+      `gasto historico con tasa ${invalidRate}`,
+      '22023'
+    )
+    const expenseAfter = await readEntityRow(
+      api,
+      'expenses',
+      organizationId,
+      historicalExpense.id,
+      `leer gasto despues de tasa ${invalidRate}`
+    )
+    assertRowUnchanged(expenseBefore, expenseAfter, `gasto con tasa ${invalidRate}`)
+  }
 }
 
 async function cleanupN6(admin, apis, organizations, users) {
@@ -785,6 +1056,9 @@ export async function runN6(env = process.env) {
         materialOveruseBlocked: true,
         missingMaterialUsesBlocked: true,
         invalidStoneSharesBlocked: true,
+        invalidProductTypesBlocked: true,
+        invalidUsdRatesBlocked: true,
+        immutableUsdRatesBlocked: true,
       },
     }
   } catch (error) {

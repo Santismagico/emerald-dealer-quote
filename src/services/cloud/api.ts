@@ -14,7 +14,9 @@ import type {
 import type { StoreDataSource } from '../dataSource';
 import type { GoldPriceBreakdown } from '../goldPrice';
 import { validateExpense } from '../expenses';
-import { validateStoneLotOwnership } from '../stones';
+import { validateSettingsMetadata } from '../settingsMetadata';
+import { validateStockJewelSaleMetadata } from '../stockJewels';
+import { validateStoneLotOwnership, validateStoneLotSalesMetadata } from '../stones';
 import * as localStorage from '../storage';
 import { getSupabase } from './config';
 import {
@@ -180,6 +182,8 @@ export function createCloudDataSource(options: {
   };
 
   const saveSettings = async (settings: Settings): Promise<void> => {
+    const metadataError = validateSettingsMetadata(settings);
+    if (metadataError) throw new Error(metadataError);
     const updatedAt = nowIso();
     await cacheAndQueue('org_settings', localStorage.SETTINGS_KEY, settings, updatedAt);
   };
@@ -251,6 +255,9 @@ export function createCloudDataSource(options: {
     async saveStoneLot(lot: StoneLot) {
       const error = validateStoneLotOwnership(lot);
       if (error) throw new Error(error);
+      const previous = (await localStorage.listStoneLots()).find((item) => item.id === lot.id) ?? null;
+      const metadataError = validateStoneLotSalesMetadata(lot, previous);
+      if (metadataError) throw new Error(metadataError);
       await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
     },
     async deleteStoneLot(id) {
@@ -317,6 +324,9 @@ export function createCloudDataSource(options: {
     },
     listStockJewels: () => pullThen('stock_jewels', localStorage.listStockJewels),
     async saveStockJewel(jewel: StockJewel) {
+      const previous = (await localStorage.listStockJewels()).find((item) => item.id === jewel.id) ?? null;
+      const metadataError = validateStockJewelSaleMetadata(jewel, previous);
+      if (metadataError) throw new Error(metadataError);
       await cacheAndQueue('stock_jewels', jewel.id, jewel, jewel.updatedAt || nowIso());
     },
     async deleteStockJewel(id) {
@@ -382,7 +392,8 @@ export function createCloudDataSource(options: {
     },
     listExpenses: () => pullThen('expenses', localStorage.listExpenses),
     async saveExpense(expense: Expense) {
-      const error = validateExpense(expense);
+      const previous = (await localStorage.listExpenses()).find((item) => item.id === expense.id) ?? null;
+      const error = validateExpense(expense, previous);
       if (error) throw new Error(error);
       await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
     },

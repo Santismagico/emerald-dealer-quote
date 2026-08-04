@@ -11,6 +11,7 @@ import type { StockJewel, StockJewelSale } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
+import { validateOptionalUsdRate } from './currency';
 
 export type JewelFilter = 'disponibles' | 'vendidas' | 'todas';
 
@@ -115,6 +116,13 @@ export function validateStockJewelSale(
 ): string | null {
   if (jewel.sale && jewel.sale.id !== sale.id) return 'Esta pieza ya está vendida.';
   const previousSale = jewel.sale?.id === sale.id ? jewel.sale : null;
+  if (!previousSale && !sale.productType.trim()) return 'Elige el tipo de producto.';
+  const rateError = validateOptionalUsdRate(sale.usdRate);
+  if (rateError) return rateError;
+  if (!previousSale && sale.usdRate === null) return 'Indica la tasa USD/COP de la venta.';
+  if (previousSale && previousSale.usdRate !== sale.usdRate) {
+    return 'La tasa guardada de una venta no se puede cambiar.';
+  }
   if (!isValidISODate(sale.date)) return 'La venta necesita una fecha válida.';
   if (sale.date < jewel.acquiredDate) {
     return 'No puedes vender la pieza antes de que entrara al inventario.';
@@ -127,6 +135,37 @@ export function validateStockJewelSale(
   }
   if (!receiverMayStayBlank && !(sale.receivedBy ?? '').trim()) {
     return 'Indica quién recibió el dinero de esta venta.';
+  }
+  return null;
+}
+
+/**
+ * Valida tipo/tasa sobre el valor original. Sin registro anterior acepta los
+ * vacíos históricos; la pantalla exige los campos al crear una venta nueva.
+ */
+export function validateStockJewelSaleMetadata(
+  raw: unknown,
+  previous?: StockJewel | null
+): string | null {
+  const jewel = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  if (jewel.sale === null || jewel.sale === undefined) return null;
+  if (typeof jewel.sale !== 'object' || Array.isArray(jewel.sale)) {
+    return 'La venta de la joya no es válida.';
+  }
+  const sale = jewel.sale as Record<string, unknown>;
+  const previousSale =
+    typeof sale.id === 'string' && previous?.sale?.id === sale.id ? previous.sale : null;
+  if (
+    Object.prototype.hasOwnProperty.call(sale, 'productType') &&
+    typeof sale.productType !== 'string'
+  ) {
+    return 'El tipo de producto de la venta no es válido.';
+  }
+  const rate = Object.prototype.hasOwnProperty.call(sale, 'usdRate') ? sale.usdRate : null;
+  const rateError = validateOptionalUsdRate(rate);
+  if (rateError) return rateError;
+  if (previousSale && previousSale.usdRate !== rate) {
+    return 'La tasa guardada de una venta no se puede cambiar.';
   }
   return null;
 }
@@ -221,13 +260,18 @@ export function emptyStockJewel(today: string, nowIso: string): StockJewel {
 }
 
 /** Venta en blanco para el formulario de vender una pieza. */
-export function emptyStockJewelSale(today: string): StockJewelSale {
+export function emptyStockJewelSale(
+  today: string,
+  usdRate: number | null = null
+): StockJewelSale {
   return {
     id: newId(),
     date: today,
     buyer: '',
     buyerId: null,
     priceCop: 0,
+    productType: '',
+    usdRate,
     receivedBy: '',
     method: '',
     notes: ''

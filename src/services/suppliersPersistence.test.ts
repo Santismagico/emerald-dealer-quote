@@ -63,6 +63,8 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
         carats: 0.5,
         quantity: 1,
         valueCop: 1500000,
+        productType: '',
+        usdRate: null,
         buyerId: null,
         onCredit: false,
         dueDate: '',

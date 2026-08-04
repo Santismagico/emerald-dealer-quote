@@ -5,7 +5,7 @@
 // Todo lo que se ve aquí es DERIVADO de las ventas: saldos, semáforo y días
 // de atraso se calculan al mostrarlos y nunca se guardan.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { BuyerPayment, StoneLot, StoneSale } from '../types';
 import {
@@ -24,7 +24,25 @@ import {
 } from '../services/stones';
 import { formatDateCO, todayISO } from '../utils/dates';
 import { formatCOP } from '../utils/money';
-import { Button, Field, MoneyInput, TextInput, TextArea, EmptyState, SummaryRow } from './ui';
+import {
+  formatOperationMoney,
+  newOperationUsdRate,
+  resolveUsdRatePrefill,
+  storedUsdRateSource,
+  usdRateLabel,
+  type CurrencyView
+} from '../services/currency';
+import {
+  Button,
+  DecimalInput,
+  Field,
+  MoneyInput,
+  TextInput,
+  TextArea,
+  EmptyState,
+  SummaryRow
+} from './ui';
+import { CurrencyToggle } from './CurrencyToggle';
 
 const STATUS_STYLE: Record<ReceivableStatus, { chip: string; dot: string }> = {
   alDia: { chip: 'bg-emerald-100 text-emerald-800', dot: 'bg-brand-600' },
@@ -72,12 +90,59 @@ export function ReceivablesView() {
     null
   );
   const [error, setError] = useState('');
+  const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
+  const [rateSource, setRateSource] = useState('');
+  const rateTouchedRef = useRef(false);
+  const rateRequestIdRef = useRef('');
 
   const totals = useMemo(
     () => receivablesTotals(store.stoneLots, today),
     [store.stoneLots, today]
   );
   const debts = useMemo(() => listBuyerDebts(store.stoneLots, today), [store.stoneLots, today]);
+
+  const startPayment = (receivable: Receivable) => {
+    rateTouchedRef.current = false;
+    const payment = emptyBuyerPayment(
+      today,
+      newOperationUsdRate(store.settings.lastKnownUsdRate)
+    );
+    rateRequestIdRef.current = payment.id;
+    setError('');
+    setRateSource(
+      storedUsdRateSource(payment.usdRate, store.settings.usdRateUpdatedAt)
+    );
+    setPaying({ receivable, payment });
+    void store.refreshUsdRate()
+      .then((snapshot) => {
+        if (rateRequestIdRef.current !== payment.id) return;
+        setPaying((current) => current?.payment.id === payment.id
+          ? {
+              ...current,
+              payment: {
+                ...current.payment,
+                usdRate: resolveUsdRatePrefill(
+                  current.payment.usdRate,
+                  snapshot.rate,
+                  rateTouchedRef.current
+                )
+              }
+            }
+          : current);
+        if (!rateTouchedRef.current) setRateSource('Tasa vigente consultada');
+      })
+      .catch(() => {
+        if (rateRequestIdRef.current === payment.id && !rateTouchedRef.current) {
+          setRateSource(
+            storedUsdRateSource(
+              payment.usdRate,
+              store.settings.usdRateUpdatedAt,
+              true
+            )
+          );
+        }
+      });
+  };
 
   const saveBuyerPayment = async (receivable: Receivable, payment: BuyerPayment) => {
     const lot = store.stoneLots.find((l: StoneLot) => l.id === receivable.lotId);
@@ -113,6 +178,7 @@ export function ReceivablesView() {
           type="button"
           className="min-h-11 text-sm font-medium text-brand-800"
           onClick={() => {
+            rateRequestIdRef.current = '';
             setPaying(null);
             setError('');
           }}
@@ -146,6 +212,23 @@ export function ReceivablesView() {
                 onValue={(amount) => setPaying({ receivable, payment: { ...payment, amount } })}
               />
             </Field>
+            <Field
+              label="Tasa USD/COP"
+              hint={`${rateSource}. Puedes ajustarla manualmente antes de guardar.`}
+            >
+              <DecimalInput
+                value={payment.usdRate ?? 0}
+                onValue={(value) => {
+                  rateTouchedRef.current = true;
+                  setRateSource('Tasa escrita manualmente');
+                  setPaying({
+                    receivable,
+                    payment: { ...payment, usdRate: value > 0 ? value : null }
+                  });
+                }}
+                suffix="COP"
+              />
+            </Field>
             <Field label="¿Cómo le pagaron? *">
               <TextInput
                 value={payment.method}
@@ -175,6 +258,7 @@ export function ReceivablesView() {
                   variant="ghost"
                   full
                   onClick={() => {
+                    rateRequestIdRef.current = '';
                     setPaying(null);
                     setError('');
                   }}
@@ -239,6 +323,11 @@ export function ReceivablesView() {
           )}
         </section>
 
+        <CurrencyToggle value={currencyView} onChange={setCurrencyView} />
+        <p className="text-[11px] text-stone-500">
+          Solo cambia cada abono con su propia tasa. Deudas y saldos combinados siguen en COP.
+        </p>
+
         <ul className="space-y-3">
           {receivables.map((r) => (
             <li key={r.saleId} className="rounded-2xl bg-white p-4 shadow-sm">
@@ -280,7 +369,11 @@ export function ReceivablesView() {
                       <li key={payment.id} className="rounded-xl bg-stone-50 p-3">
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <span className="font-medium text-stone-800">
-                            {formatCOP(payment.amount)}
+                            {formatOperationMoney(
+                              payment.amount,
+                              payment.usdRate,
+                              currencyView
+                            )}
                           </span>
                           <span className="text-xs text-stone-500">
                             {formatDateCO(payment.date)}
@@ -289,6 +382,9 @@ export function ReceivablesView() {
                         <p className="mt-1 break-words text-xs text-stone-500">
                           {payment.method || 'Medio sin registrar'} · Recibió:{' '}
                           {payment.receivedBy || 'Sin registrar'}
+                        </p>
+                        <p className="mt-1 text-xs text-stone-500">
+                          {usdRateLabel(payment.usdRate)}
                         </p>
                         {payment.notes ? (
                           <p className="mt-1 break-words text-xs text-stone-600">
@@ -304,8 +400,7 @@ export function ReceivablesView() {
                 <Button
                   full
                   onClick={() => {
-                    setError('');
-                    setPaying({ receivable: r, payment: emptyBuyerPayment(today) });
+                    startPayment(r);
                   }}
                 >
                   Registrar abono

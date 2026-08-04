@@ -87,12 +87,15 @@ function loteConVentaDelComprador(): StoneLot {
         carats: 1,
         quantity: 1,
         valueCop: 3000000,
+        productType: '',
+        usdRate: null,
         onCredit: true,
         dueDate: '2026-08-15',
         payments: [{
           id: 'ab-1',
           date: '2026-07-20',
           amount: 1000000,
+          usdRate: null,
           method: 'Transferencia',
           receivedBy: 'Santiago',
           notes: 'Comprobante 123'
@@ -125,6 +128,8 @@ function joyaVendidaAlComprador(): StockJewel {
       buyer: 'Joyería Ejemplo',
       buyerId: 'buy-1',
       priceCop: 1900000,
+      productType: '',
+      usdRate: null,
       method: 'Efectivo',
       receivedBy: 'Laura',
       notes: 'Venta de mostrador'

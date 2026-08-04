@@ -13,6 +13,10 @@ import {
   normalizeSupplier
 } from '../schema';
 import { SETTINGS_KEY } from '../storage';
+import { validateExpenseRateMetadata } from '../expenses';
+import { validateSettingsMetadata } from '../settingsMetadata';
+import { validateStockJewelSaleMetadata } from '../stockJewels';
+import { validateStoneLotSalesMetadata } from '../stones';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
 
 export interface CloudRow {
@@ -100,6 +104,34 @@ function recordUpdatedAt(value: Record<string, unknown>): string {
   return typeof value.createdAt === 'string' ? value.createdAt : '';
 }
 
+function b3MetadataError(
+  table: CloudTable,
+  remoteData: unknown,
+  localData?: unknown
+): string | null {
+  switch (table) {
+    case 'org_settings':
+      return validateSettingsMetadata(remoteData);
+    case 'stone_lots':
+      return validateStoneLotSalesMetadata(
+        remoteData,
+        localData === undefined ? null : normalizeStoneLot(localData)
+      );
+    case 'stock_jewels':
+      return validateStockJewelSaleMetadata(
+        remoteData,
+        localData === undefined ? null : normalizeStockJewel(localData)
+      );
+    case 'expenses':
+      return validateExpenseRateMetadata(
+        remoteData,
+        localData === undefined ? null : normalizeExpense(localData)
+      );
+    default:
+      return null;
+  }
+}
+
 export const indexedDbSyncCache: CloudSyncCache = {
   async list(table) {
     const values = await dbGetAll<Record<string, unknown>>(storeByTable[table]);
@@ -172,6 +204,11 @@ export function createCloudSync(options: {
       if (pending?.type === 'delete') continue;
       // LWW: el cambio con fecha más reciente gana, incluso si aún espera conexión.
       if (local && validTime(local.updatedAt) > validTime(remoteRow.updated_at)) continue;
+
+      const metadataError = b3MetadataError(table, remoteRow.data, local?.data);
+      if (metadataError) {
+        throw new Error(`La nube rechazó un dato inválido antes de guardarlo: ${metadataError}`);
+      }
 
       await options.cache.put(table, {
         id,

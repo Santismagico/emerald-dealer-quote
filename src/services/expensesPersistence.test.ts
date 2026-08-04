@@ -26,6 +26,7 @@ function expense(overrides: Partial<Expense> = {}): Expense {
     concept: 'Publicidad feria',
     category: 'Publicidad',
     amountCop: 600000,
+    usdRate: null,
     method: 'Transferencia',
     paidBy: 'Santiago',
     partnerId: null,

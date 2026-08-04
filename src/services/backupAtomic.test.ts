@@ -195,6 +195,7 @@ function makeFullBackup(prefix: string): BackupFile {
     concept: `${prefix} Publicidad`,
     category: 'Publicidad',
     amountCop: 300000,
+    usdRate: null,
     method: 'Transferencia',
     paidBy: 'Santiago',
     partnerId,
@@ -381,6 +382,66 @@ describe('restauración atómica de respaldos', () => {
         quotes: []
       } as unknown as BackupFile)
     ).rejects.toThrow('faltan clientes');
+    expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
+  });
+
+  it('rechaza ajustes B3 corruptos antes de escribir', async () => {
+    const invalidRate = makeFullBackup('tasa-ajustes');
+    invalidRate.settings = {
+      ...invalidRate.settings!,
+      lastKnownUsdRate: 999
+    };
+    const invalidTypes = makeFullBackup('tipos-ajustes');
+    invalidTypes.settings = {
+      ...invalidTypes.settings!,
+      productTypes: [{ name: '', active: true }]
+    };
+    const transactions = trackAtomicTransactions();
+
+    await expect(backupService.importBackup(invalidRate)).rejects.toThrow(/tasa USD\/COP/);
+    await expect(backupService.importBackup(invalidTypes)).rejects.toThrow(/sin nombre/);
+    expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
+  });
+
+  it('rechaza tasas B3 inválidas en operaciones antes de normalizar', async () => {
+    const invalidStone = makeFullBackup('tasa-piedras');
+    invalidStone.stoneLots[0].sales = [{
+      id: 'venta-invalida',
+      date: '2026-07-25',
+      buyer: 'Comprador',
+      buyerId: null,
+      carats: 1,
+      quantity: 1,
+      valueCop: 2000000,
+      productType: 'Esmeralda tallada',
+      usdRate: 999,
+      onCredit: false,
+      dueDate: '',
+      payments: [],
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: ''
+    }];
+    const invalidStock = makeFullBackup('tasa-joya');
+    invalidStock.stockJewels[0].sale = {
+      id: 'venta-joya-invalida',
+      date: '2026-07-25',
+      buyer: 'Comprador',
+      buyerId: null,
+      priceCop: 1200000,
+      productType: 'Joya con piedra natural',
+      usdRate: 20001,
+      method: 'Efectivo',
+      receivedBy: 'Santiago',
+      notes: ''
+    };
+    const invalidExpense = makeFullBackup('tasa-gasto');
+    invalidExpense.expenses[0].usdRate = 999;
+    const transactions = trackAtomicTransactions();
+
+    await expect(backupService.importBackup(invalidStone)).rejects.toThrow(/tasa USD\/COP/);
+    await expect(backupService.importBackup(invalidStock)).rejects.toThrow(/tasa USD\/COP/);
+    await expect(backupService.importBackup(invalidExpense)).rejects.toThrow(/tasa USD\/COP/);
     expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
   });
 

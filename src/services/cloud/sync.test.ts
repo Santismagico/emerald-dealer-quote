@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createCloudSync, type CloudSyncCache, type SyncCacheRecord } from './sync';
-import type { CloudOutboxOperation } from './outbox';
+import type { CloudOutboxOperation, CloudTable } from './outbox';
 
 function memoryCache(records: SyncCacheRecord[]): CloudSyncCache & { values: Map<string, SyncCacheRecord> } {
   const values = new Map(records.map((record) => [record.id, record]));
@@ -163,5 +163,176 @@ describe('sincronización LWW', () => {
 
     await sync.pullTable('quotes');
     expect(cache.values.has('q-1')).toBe(false);
+  });
+});
+
+describe('defensas B3 al bajar datos de la nube', () => {
+  it('rechaza cambios de tasa en piedras, joyas y gastos ya guardados', async () => {
+    const cases: Array<{
+      table: CloudTable;
+      id: string;
+      localData: Record<string, unknown>;
+      remoteData: Record<string, unknown>;
+    }> = [
+      {
+        table: 'stone_lots',
+        id: 'stone-1',
+        localData: {
+          id: 'stone-1',
+          sales: [{ id: 'sale-1', usdRate: 4100, payments: [] }]
+        },
+        remoteData: {
+          id: 'stone-1',
+          sales: [{ id: 'sale-1', usdRate: 4200, payments: [] }]
+        }
+      },
+      {
+        table: 'stock_jewels',
+        id: 'stock-1',
+        localData: { id: 'stock-1', sale: { id: 'sale-1', usdRate: 4100 } },
+        remoteData: { id: 'stock-1', sale: { id: 'sale-1', usdRate: 4200 } }
+      },
+      {
+        table: 'expenses',
+        id: 'expense-1',
+        localData: { id: 'expense-1', usdRate: 4100 },
+        remoteData: { id: 'expense-1', usdRate: 4200 }
+      }
+    ];
+
+    for (const value of cases) {
+      const localRecord = {
+        id: value.id,
+        data: value.localData,
+        updatedAt: '2026-08-03T10:00:00Z'
+      };
+      const cache = memoryCache([localRecord]);
+      const sync = createCloudSync({
+        remote: {
+          list: async () => [{
+            id: value.id,
+            data: value.remoteData,
+            updated_at: '2026-08-03T11:00:00Z'
+          }]
+        },
+        cache,
+        listPending: async () => []
+      });
+
+      await expect(sync.pullTable(value.table)).rejects.toThrow(/no se puede cambiar/);
+      expect(cache.values.get(value.id)?.data).toEqual(value.localData);
+    }
+  });
+
+  it('acepta reemplazar una venta deshecha de joya por otra venta con identificador nuevo', async () => {
+    const localData = {
+      id: 'stock-replaced-sale',
+      sale: { id: 'sale-anterior', usdRate: 4100 }
+    };
+    const remoteData = {
+      id: 'stock-replaced-sale',
+      sale: { id: 'sale-nueva', usdRate: 4200 }
+    };
+    const cache = memoryCache([{
+      id: 'stock-replaced-sale',
+      data: localData,
+      updatedAt: '2026-08-03T10:00:00Z'
+    }]);
+    const sync = createCloudSync({
+      remote: {
+        list: async () => [{
+          id: 'stock-replaced-sale',
+          data: remoteData,
+          updated_at: '2026-08-03T11:00:00Z'
+        }]
+      },
+      cache,
+      listPending: async () => []
+    });
+
+    await sync.pullTable('stock_jewels');
+    expect(cache.values.get('stock-replaced-sale')?.data).toEqual(remoteData);
+  });
+
+  it('no permite completar desde la nube una tasa histórica vacía', async () => {
+    const localData = {
+      id: 'stone-historical',
+      sales: [{ id: 'sale-historical', productType: '', usdRate: null, payments: [] }]
+    };
+    const cache = memoryCache([{
+      id: 'stone-historical',
+      data: localData,
+      updatedAt: '2026-08-03T10:00:00Z'
+    }]);
+    const sync = createCloudSync({
+      remote: {
+        list: async () => [{
+          id: 'stone-historical',
+          data: {
+            ...localData,
+            sales: [{ ...localData.sales[0], usdRate: 4100 }]
+          },
+          updated_at: '2026-08-03T11:00:00Z'
+        }]
+      },
+      cache,
+      listPending: async () => []
+    });
+
+    await expect(sync.pullTable('stone_lots')).rejects.toThrow(/no se puede cambiar/);
+    expect(cache.values.get('stone-historical')?.data).toEqual(localData);
+  });
+
+  it('acepta un histórico nuevo sin tasa, pero rechaza rangos y ajustes corruptos', async () => {
+    const historicalCache = memoryCache([]);
+    const historicalSync = createCloudSync({
+      remote: {
+        list: async () => [{
+          id: 'stone-old',
+          data: { id: 'stone-old', sales: [{ id: 'sale-old', payments: [] }] },
+          updated_at: '2026-08-03T11:00:00Z'
+        }]
+      },
+      cache: historicalCache,
+      listPending: async () => []
+    });
+    await historicalSync.pullTable('stone_lots');
+    expect(historicalCache.values.has('stone-old')).toBe(true);
+
+    const invalidRateCache = memoryCache([]);
+    const invalidRateSync = createCloudSync({
+      remote: {
+        list: async () => [{
+          id: 'stone-invalid',
+          data: {
+            id: 'stone-invalid',
+            sales: [{ id: 'sale-invalid', usdRate: 999, payments: [] }]
+          },
+          updated_at: '2026-08-03T11:00:00Z'
+        }]
+      },
+      cache: invalidRateCache,
+      listPending: async () => []
+    });
+    await expect(invalidRateSync.pullTable('stone_lots')).rejects.toThrow(/tasa USD\/COP/);
+    expect(invalidRateCache.values.size).toBe(0);
+
+    const invalidSettingsCache = memoryCache([]);
+    const invalidSettingsSync = createCloudSync({
+      remote: {
+        list: async () => [{
+          data: {
+            lastKnownUsdRate: 4100,
+            usdRateUpdatedAt: '2026-08-03T10:00:00Z',
+            productTypes: [{ name: '', active: true }]
+          },
+          updated_at: '2026-08-03T11:00:00Z'
+        }]
+      },
+      cache: invalidSettingsCache,
+      listPending: async () => []
+    });
+    await expect(invalidSettingsSync.pullTable('org_settings')).rejects.toThrow(/sin nombre/);
+    expect(invalidSettingsCache.values.size).toBe(0);
   });
 });

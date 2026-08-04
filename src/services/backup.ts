@@ -45,7 +45,10 @@ import {
   normalizeExpense
 } from './schema';
 import { validateExpense } from './expenses';
-import { validateStoneLotOwnership } from './stones';
+import { validateStoneLotOwnership, validateStoneLotSalesMetadata } from './stones';
+import { validateStockJewelSaleMetadata } from './stockJewels';
+import { validateOptionalUsdRate } from './currency';
+import { validateSettingsMetadata } from './settingsMetadata';
 
 /**
  * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 8.
@@ -142,6 +145,12 @@ function normalizeBackup(data: unknown): BackupFile {
   if (rawSettings !== null && (typeof rawSettings !== 'object' || Array.isArray(rawSettings))) {
     throw new Error('El respaldo contiene ajustes inválidos.');
   }
+  if (rawSettings !== null) {
+    const settingsError = validateSettingsMetadata(rawSettings);
+    if (settingsError) {
+      throw new Error(`El respaldo contiene ajustes inválidos. ${settingsError}`);
+    }
+  }
   const quoteIds = new Set<string>();
   for (const q of b.quotes) {
     if (typeof (q as Quote)?.id !== 'string' || typeof (q as Quote)?.number !== 'string') {
@@ -218,6 +227,10 @@ function normalizeBackup(data: unknown): BackupFile {
     if (ownershipError) {
       throw new Error(`El respaldo contiene un reparto de piedras inválido: ${ownershipError}`);
     }
+    const metadataError = validateStoneLotSalesMetadata(l);
+    if (metadataError) {
+      throw new Error(`El respaldo contiene ventas de piedras inválidas: ${metadataError}`);
+    }
     stoneLotIds.add(id);
   }
   // Los proveedores son opcionales (v1–v4 no los traen).
@@ -265,6 +278,10 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     if (jewelIds.has(id)) {
       throw new Error('El respaldo contiene joyas en stock duplicadas.');
+    }
+    const metadataError = validateStockJewelSaleMetadata(j);
+    if (metadataError) {
+      throw new Error(`El respaldo contiene ventas de joyas inválidas: ${metadataError}`);
     }
     jewelIds.add(id);
   }
@@ -325,6 +342,12 @@ function normalizeBackup(data: unknown): BackupFile {
       expense.myPercent > 100
     ) {
       throw new Error('El respaldo contiene dinero o porcentajes inválidos en gastos.');
+    }
+    const rateError = validateOptionalUsdRate(
+      Object.prototype.hasOwnProperty.call(expense, 'usdRate') ? expense.usdRate : null
+    );
+    if (rateError) {
+      throw new Error(`El respaldo contiene tasas inválidas en gastos: ${rateError}`);
     }
     const normalizedExpense = normalizeExpense(expense);
     if (validateExpense(normalizedExpense)) {

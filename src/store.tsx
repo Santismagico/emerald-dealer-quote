@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import type {
   Settings,
   ExpenseCategoryOption,
+  ProductTypeOption,
   Client,
   Quote,
   Appointment,
@@ -26,7 +27,13 @@ import { sortStoneLots } from './services/stones';
 import { sortStockJewels } from './services/stockJewels';
 import { sortMaterialLots } from './services/materials';
 import { sortExpenses } from './services/expenses';
-import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
+import { withProductTypesUpdate } from './services/productTypes';
+import {
+  fetchGoldPriceCOP,
+  fetchUsdRateCOP,
+  type GoldPriceBreakdown,
+  type UsdRateSnapshot
+} from './services/goldPrice';
 import { downloadBackupFile } from './services/backup';
 import {
   createBackupExportController,
@@ -53,6 +60,9 @@ interface AppStore {
   updateSettings: (settings: Settings, goldPriceWasEdited: boolean) => Promise<Settings>;
   updateExpenseCategories: (
     update: (current: ExpenseCategoryOption[]) => ExpenseCategoryOption[]
+  ) => Promise<Settings>;
+  updateProductTypes: (
+    update: (current: ProductTypeOption[]) => ProductTypeOption[]
   ) => Promise<Settings>;
   exportBackup: () => Promise<boolean>;
   snoozeBackupReminder: (snoozedUntil: string) => Promise<void>;
@@ -82,6 +92,8 @@ interface AppStore {
   reloadAll: () => Promise<void>;
   /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
   refreshGoldPrice: () => Promise<GoldPriceBreakdown>;
+  /** Consulta solo la tasa USD→COP y conserva la última válida para operar sin conexión. */
+  refreshUsdRate: () => Promise<UsdRateSnapshot>;
 }
 
 const StoreContext = createContext<AppStore | null>(null);
@@ -161,6 +173,17 @@ export function StoreProvider({
     return info;
   }, [dataSource]);
 
+  const refreshUsdRate = useCallback(async () => {
+    const fetched = await fetchUsdRateCOP();
+    const next = await dataSource.updateSettingsAtomically((current) => ({
+      ...current,
+      lastKnownUsdRate: fetched.rate,
+      usdRateUpdatedAt: fetched.fetchedAt
+    }));
+    setSettings(next);
+    return fetched;
+  }, [dataSource]);
+
   useEffect(() => {
     reloadAll()
       .catch(() => {
@@ -199,6 +222,16 @@ export function StoreProvider({
       ...current,
       expenseCategories: update(current.expenseCategories)
     }));
+    setSettings(saved);
+    return saved;
+  }, [dataSource]);
+
+  const updateProductTypes = useCallback(async (
+    update: (current: ProductTypeOption[]) => ProductTypeOption[]
+  ) => {
+    const saved = await dataSource.updateSettingsAtomically((current) =>
+      withProductTypesUpdate(current, update, new Date().toISOString())
+    );
     setSettings(saved);
     return saved;
   }, [dataSource]);
@@ -421,6 +454,7 @@ export function StoreProvider({
         showToast,
         updateSettings,
         updateExpenseCategories,
+        updateProductTypes,
         exportBackup,
         snoozeBackupReminder,
         ensureBackupReminderFirstDataAt,
@@ -447,7 +481,8 @@ export function StoreProvider({
         nextQuoteNumber,
         retryCloudChanges,
         reloadAll,
-        refreshGoldPrice
+        refreshGoldPrice,
+        refreshUsdRate
       }}
     >
       {children}

@@ -25,6 +25,8 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     carats: 1,
     quantity: 1,
     valueCop: 3000000,
+    productType: 'Esmeralda en bruto',
+    usdRate: 4000,
     onCredit: false,
     dueDate: '',
     payments: [],
@@ -112,6 +114,7 @@ describe('una venta a crédito no infla la caja del día', () => {
               id: 'ab-1',
               date: DIA,
               amount: 1200000,
+              usdRate: null,
               method: 'Transferencia',
               receivedBy: 'Santiago',
               notes: ''
@@ -144,6 +147,7 @@ describe('una venta a crédito no infla la caja del día', () => {
               id: 'ab-1',
               date: DIA,
               amount: 1000000,
+              usdRate: null,
               method: 'Efectivo',
               receivedBy: 'Laura',
               notes: ''
@@ -185,6 +189,8 @@ describe('joyas en stock en el cierre', () => {
         buyer: 'Comprador Ejemplo',
         buyerId: null,
         priceCop: 3200000,
+        productType: '',
+        usdRate: null,
         method: 'Transferencia',
         receivedBy: 'Santiago',
         notes: ''
@@ -210,6 +216,8 @@ describe('joyas en stock en el cierre', () => {
         buyer: '',
         buyerId: null,
         priceCop: 3000000,
+        productType: '',
+        usdRate: null,
         method: 'Efectivo',
         receivedBy: 'Laura',
         notes: ''
@@ -240,6 +248,7 @@ describe('un día sin movimientos sigue siendo un día vacío', () => {
               id: 'ab-1',
               date: DIA,
               amount: 100000,
+              usdRate: null,
               method: 'Transferencia',
               receivedBy: 'Santiago',
               notes: ''
@@ -287,6 +296,7 @@ describe('cierre del mes', () => {
                 id: 'ab-1',
                 date: '2026-07-10',
                 amount: 1000000,
+                usdRate: null,
                 method: 'Transferencia',
                 receivedBy: 'Santiago',
                 notes: ''
@@ -295,6 +305,7 @@ describe('cierre del mes', () => {
                 id: 'ab-2',
                 date: '2026-08-02',
                 amount: 1000000,
+                usdRate: null,
                 method: 'Efectivo',
                 receivedBy: 'Laura',
                 notes: ''
@@ -314,6 +325,8 @@ describe('cierre del mes', () => {
           buyer: '',
           buyerId: null,
           priceCop: 2500000,
+          productType: '',
+          usdRate: null,
           method: 'Transferencia',
           receivedBy: 'Santiago',
           notes: ''
@@ -344,6 +357,7 @@ describe('cierre del mes', () => {
               id: 'ab-1',
               date: '2026-09-15',
               amount: 500000,
+              usdRate: null,
               method: 'Efectivo',
               receivedBy: 'Laura',
               notes: ''
@@ -386,6 +400,7 @@ describe('el PDF interno no cambia de naturaleza', () => {
               id: 'ab-trazable',
               date: DIA,
               amount: 500000,
+              usdRate: null,
               method: 'Efectivo',
               receivedBy: 'Laura',
               notes: 'ABONO_TRAZABLE'
@@ -404,6 +419,8 @@ describe('el PDF interno no cambia de naturaleza', () => {
           buyer: 'Comprador Ejemplo',
           buyerId: null,
           priceCop: 2500000,
+          productType: '',
+          usdRate: null,
           method: 'Tarjeta',
           receivedBy: 'Camila',
           notes: 'JOYA_TRAZABLE'

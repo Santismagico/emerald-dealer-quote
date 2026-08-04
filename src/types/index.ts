@@ -161,6 +161,12 @@ export interface ExpenseCategoryOption {
   active: boolean;
 }
 
+/** Tipo de producto administrable. Nunca se borra: solo cambia `active` (D-058). */
+export interface ProductTypeOption {
+  name: string;
+  active: boolean;
+}
+
 export interface Settings {
   /** Nombre visible de la joyería. Por defecto: Emerald Dealer. */
   jewelryName: string;
@@ -197,6 +203,14 @@ export interface Settings {
   conditions: string;
   /** Categorías internas disponibles al crear gastos (D-059). */
   expenseCategories: ExpenseCategoryOption[];
+  /** Tipos de producto disponibles en ventas nuevas (D-058). */
+  productTypes: ProductTypeOption[];
+  /** Momento del último cambio real al catálogo de tipos de producto. */
+  productTypesUpdatedAt: string;
+  /** Última tasa USD→COP válida conocida; null hasta la primera consulta exitosa. */
+  lastKnownUsdRate: number | null;
+  /** Momento de la última consulta exitosa de la tasa USD→COP. */
+  usdRateUpdatedAt: string;
   /** Consecutivo para numerar cotizaciones. */
   quoteCounter: number;
   /** Última exportación de respaldo iniciada correctamente (ISO). */
@@ -289,6 +303,8 @@ export interface BuyerPayment {
   date: string;
   /** Monto recibido en COP entero. */
   amount: number;
+  /** Tasa USD→COP propia de este abono. null significa histórico sin registrar. */
+  usdRate: number | null;
   /** Quién recibió el dinero en la joyería. */
   receivedBy: string;
   /** Medio: efectivo, transferencia, etc. */
@@ -322,6 +338,8 @@ export interface Expense {
   category: string;
   /** Monto total pagado, siempre COP entero. */
   amountCop: number;
+  /** Tasa USD→COP propia de esta salida. null significa histórico sin registrar. */
+  usdRate: number | null;
   method: string;
   paidBy: string;
   /** Socio vinculado; null si es propio o si luego se borró la ficha. */
@@ -406,6 +424,10 @@ export interface StoneSale {
    * recibido; a crédito lo recibido es la suma de `payments` (D-042).
    */
   valueCop: number;
+  /** Clasificación histórica elegida al vender. Vacío significa sin registrar. */
+  productType: string;
+  /** Tasa USD→COP propia de esta venta. null significa histórico sin registrar. */
+  usdRate: number | null;
   /** Quién recibió el dinero cuando la venta fue de contado (D-051). */
   receivedBy: string;
   /** Medio de pago de la venta de contado. En crédito vive en cada abono. */
@@ -483,6 +505,10 @@ export interface StockJewelSale {
   buyerId: string | null;
   /** Valor recibido en COP entero. */
   priceCop: number;
+  /** Clasificación histórica elegida al vender. Vacío significa sin registrar. */
+  productType: string;
+  /** Tasa USD→COP propia de esta venta. null significa histórico sin registrar. */
+  usdRate: number | null;
   /** Quién recibió el dinero en la joyería (D-051). */
   receivedBy: string;
   /** Medio: efectivo, transferencia, etc. */

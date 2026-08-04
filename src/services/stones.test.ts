@@ -34,6 +34,8 @@ function venta(overrides: Partial<StoneSale> = {}): StoneSale {
     carats: 1,
     quantity: 1,
     valueCop: 2000000,
+    productType: 'Esmeralda en bruto',
+    usdRate: 4000,
     buyerId: null,
     onCredit: false,
     dueDate: '',
@@ -168,6 +170,7 @@ describe('sociedades en lotes de piedras (D-053)', () => {
             id: 'ab-legacy',
             date: '2026-07-16',
             amount: 151,
+            usdRate: null,
             method: 'Transferencia',
             receivedBy: 'Santiago',
             notes: ''
@@ -233,6 +236,7 @@ describe('sociedades en lotes de piedras (D-053)', () => {
         ...pending.sales[0],
         payments: [{
           id: 'ab-1', date: '2026-07-16', amount: 201,
+          usdRate: null,
           method: 'Transferencia', receivedBy: 'Santiago', notes: ''
         }]
       }]

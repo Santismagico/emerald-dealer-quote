@@ -9,7 +9,8 @@ import {
   filterExpenses,
   setExpenseCategoryActive,
   sortExpenses,
-  validateExpense
+  validateExpense,
+  validateExpenseOperation
 } from './expenses';
 
 function expense(overrides: Partial<Expense> = {}): Expense {
@@ -19,6 +20,7 @@ function expense(overrides: Partial<Expense> = {}): Expense {
     concept: 'Arriendo del local',
     category: 'Arriendo',
     amountCop: 100001,
+    usdRate: null,
     method: 'Transferencia',
     paidBy: 'Santiago',
     partnerId: null,
@@ -58,6 +60,21 @@ describe('gastos del negocio', () => {
     expect(
       validateExpense(expense({ partnerId: 'soc-1', partnerName: '', myPercent: 60 }))
     ).toMatch(/socio/);
+  });
+
+  it('exige tasa al crear y la deja fija después del primer guardado', () => {
+    expect(validateExpenseOperation(expense(), null)).toMatch(/tasa USD\/COP/);
+    expect(validateExpenseOperation(expense({ usdRate: 4100 }), null)).toBeNull();
+    expect(validateExpenseOperation(expense(), expense())).toBeNull();
+    expect(
+      validateExpenseOperation(expense({ usdRate: 4100 }), expense())
+    ).toMatch(/no se puede cambiar/);
+    expect(
+      validateExpenseOperation(
+        expense({ usdRate: 4200 }),
+        expense({ usdRate: 4100 })
+      )
+    ).toMatch(/no se puede cambiar/);
   });
 
   it('resume por socio los gastos compartidos sin alterar su historial', () => {

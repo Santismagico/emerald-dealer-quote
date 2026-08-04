@@ -33,7 +33,7 @@ const noopRemote = {
 function expense(overrides: Partial<Expense> = {}): Expense {
   return {
     id: 'g-1', date: '2026-08-03', concept: 'Feria', category: 'Publicidad',
-    amountCop: 300000, method: 'Transferencia', paidBy: 'Santiago',
+    amountCop: 300000, usdRate: null, method: 'Transferencia', paidBy: 'Santiago',
     partnerId: 'soc-1', partnerName: 'Socio Emerald', myPercent: 60, notes: '',
     createdAt: '2026-08-03T10:00:00.000Z', updatedAt: '2026-08-03T10:00:00.000Z',
     ...overrides

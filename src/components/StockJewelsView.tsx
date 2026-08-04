@@ -27,9 +27,19 @@ import {
 import { fileToCompressedDataUrl } from '../utils/images';
 import { formatDateCO, todayISO } from '../utils/dates';
 import { formatCOP } from '../utils/money';
+import { activeProductTypes } from '../services/productTypes';
+import {
+  formatOperationMoney,
+  newOperationUsdRate,
+  resolveUsdRatePrefill,
+  storedUsdRateSource,
+  usdRateLabel,
+  type CurrencyView
+} from '../services/currency';
 import {
   Button,
   ConfirmDialog,
+  DecimalInput,
   EmptyState,
   Field,
   MoneyInput,
@@ -39,6 +49,7 @@ import {
   TextArea,
   TextInput
 } from './ui';
+import { CurrencyToggle } from './CurrencyToggle';
 
 const STATUS_CHIP: Record<StockJewelDisplayStatus, string> = {
   disponible: 'bg-emerald-100 text-emerald-800',
@@ -62,7 +73,11 @@ export function StockJewelsView() {
   const [toDelete, setToDelete] = useState<StockJewel | null>(null);
   const [toUndoSale, setToUndoSale] = useState<StockJewel | null>(null);
   const [error, setError] = useState('');
+  const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
+  const [rateSource, setRateSource] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const rateTouchedRef = useRef(false);
+  const rateRequestIdRef = useRef('');
 
   const visible = useMemo(
     () => filterStockJewels(store.stockJewels, search, filter),
@@ -78,6 +93,52 @@ export function StockJewelsView() {
     { value: '', label: 'Escribir el nombre' },
     ...store.buyers.map((b) => ({ value: b.id, label: b.name }))
   ];
+
+  const startSale = (jewel: StockJewel) => {
+    rateTouchedRef.current = false;
+    const sale = {
+      ...emptyStockJewelSale(
+        today,
+        newOperationUsdRate(store.settings.lastKnownUsdRate)
+      ),
+      priceCop: jewel.priceCop
+    };
+    rateRequestIdRef.current = sale.id;
+    setError('');
+    setRateSource(
+      storedUsdRateSource(sale.usdRate, store.settings.usdRateUpdatedAt)
+    );
+    setSelling({ jewel, sale });
+    void store.refreshUsdRate()
+      .then((snapshot) => {
+        if (rateRequestIdRef.current !== sale.id) return;
+        setSelling((current) => current?.sale.id === sale.id
+          ? {
+              ...current,
+              sale: {
+                ...current.sale,
+                usdRate: resolveUsdRatePrefill(
+                  current.sale.usdRate,
+                  snapshot.rate,
+                  rateTouchedRef.current
+                )
+              }
+            }
+          : current);
+        if (!rateTouchedRef.current) setRateSource('Tasa vigente consultada');
+      })
+      .catch(() => {
+        if (rateRequestIdRef.current === sale.id && !rateTouchedRef.current) {
+          setRateSource(
+            storedUsdRateSource(
+              sale.usdRate,
+              store.settings.usdRateUpdatedAt,
+              true
+            )
+          );
+        }
+      });
+  };
 
   const pickPhoto = async (files: FileList | null) => {
     if (!files || files.length === 0 || !editing) return;
@@ -238,6 +299,14 @@ export function StockJewelsView() {
   // ---------- Formulario de venta ----------
   if (selling) {
     const { jewel, sale } = selling;
+    const isNewSale = jewel.sale?.id !== sale.id;
+    const productTypeOptions = [
+      { value: '', label: 'Selecciona un tipo' },
+      ...[...new Set([
+        ...activeProductTypes(store.settings.productTypes),
+        ...(sale.productType ? [sale.productType] : [])
+      ])].map((name) => ({ value: name, label: name }))
+    ];
     return (
       <div className="space-y-4">
         <SectionCard
@@ -283,6 +352,40 @@ export function StockJewelsView() {
               onValue={(priceCop) => setSelling({ jewel, sale: { ...sale, priceCop } })}
             />
           </Field>
+          <Field label="Tipo de producto">
+            <Select
+              value={sale.productType}
+              onChange={(productType) =>
+                setSelling({ jewel, sale: { ...sale, productType } })
+              }
+              options={productTypeOptions}
+            />
+          </Field>
+          <Field
+            label="Tasa USD/COP"
+            hint={isNewSale
+              ? `${rateSource}. Puedes ajustarla manualmente antes de guardar.`
+              : 'Quedó fijada al registrar la venta.'}
+          >
+            {isNewSale ? (
+              <DecimalInput
+                value={sale.usdRate ?? 0}
+                onValue={(value) => {
+                  rateTouchedRef.current = true;
+                  setRateSource('Tasa escrita manualmente');
+                  setSelling({
+                    jewel,
+                    sale: { ...sale, usdRate: value > 0 ? value : null }
+                  });
+                }}
+                suffix="COP"
+              />
+            ) : (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {usdRateLabel(sale.usdRate)}
+              </p>
+            )}
+          </Field>
           <Field label="¿Cómo le pagaron? *">
             <TextInput
               value={sale.method}
@@ -325,6 +428,7 @@ export function StockJewelsView() {
                 variant="ghost"
                 full
                 onClick={() => {
+                  rateRequestIdRef.current = '';
                   setSelling(null);
                   setError('');
                 }}
@@ -375,6 +479,11 @@ export function StockJewelsView() {
           </div>
         </div>
       </section>
+
+      <CurrencyToggle value={currencyView} onChange={setCurrencyView} />
+      <p className="text-[11px] text-stone-500">
+        Solo cambia cada venta con su propia tasa. Los totales combinados siguen en COP.
+      </p>
 
       <Button full onClick={() => setEditing(emptyStockJewel(today, new Date().toISOString()))}>
         ＋ Nueva pieza
@@ -441,8 +550,17 @@ export function StockJewelsView() {
                       <>
                         <SummaryRow
                           label={`Vendida el ${formatDateCO(jewel.sale.date)}`}
-                          value={formatCOP(jewel.sale.priceCop)}
+                          value={formatOperationMoney(
+                            jewel.sale.priceCop,
+                            jewel.sale.usdRate,
+                            currencyView
+                          )}
                         />
+                        <SummaryRow
+                          label="Tipo de producto"
+                          value={jewel.sale.productType || 'Sin registrar'}
+                        />
+                        <SummaryRow label="Tasa" value={usdRateLabel(jewel.sale.usdRate)} />
                         {jewel.sale.buyer ? (
                           <SummaryRow label="Comprador" value={jewel.sale.buyer} />
                         ) : null}
@@ -480,9 +598,11 @@ export function StockJewelsView() {
                       <>
                         <button
                           type="button"
-                          className="min-h-10 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
+                          className="min-h-11 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
                           onClick={() => {
                             setError('');
+                            rateRequestIdRef.current = '';
+                            rateTouchedRef.current = true;
                             setSelling({ jewel, sale: jewel.sale! });
                           }}
                         >
@@ -490,7 +610,7 @@ export function StockJewelsView() {
                         </button>
                         <button
                           type="button"
-                          className="min-h-10 flex-1 rounded-lg text-sm font-medium text-stone-600 active:bg-stone-100"
+                          className="min-h-11 flex-1 rounded-lg text-sm font-medium text-stone-600 active:bg-stone-100"
                           onClick={() => setToUndoSale(jewel)}
                         >
                           Deshacer venta
@@ -499,13 +619,9 @@ export function StockJewelsView() {
                     ) : (
                       <button
                         type="button"
-                        className="min-h-10 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
+                        className="min-h-11 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
                         onClick={() => {
-                          setError('');
-                          setSelling({
-                            jewel,
-                            sale: { ...emptyStockJewelSale(today), priceCop: jewel.priceCop }
-                          });
+                          startSale(jewel);
                         }}
                       >
                         Vender
@@ -513,7 +629,7 @@ export function StockJewelsView() {
                     )}
                     <button
                       type="button"
-                      className="min-h-10 flex-1 rounded-lg text-sm font-medium text-brand-800 active:bg-brand-50"
+                      className="min-h-11 flex-1 rounded-lg text-sm font-medium text-brand-800 active:bg-brand-50"
                       onClick={() => {
                         setError('');
                         setEditing(jewel);
@@ -523,7 +639,7 @@ export function StockJewelsView() {
                     </button>
                     <button
                       type="button"
-                      className="min-h-10 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50"
+                      className="min-h-11 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50"
                       onClick={() => setToDelete(jewel)}
                     >
                       Eliminar

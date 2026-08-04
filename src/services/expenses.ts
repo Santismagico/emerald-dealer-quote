@@ -2,6 +2,7 @@ import type { Expense, ExpenseCategoryOption } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
+import { validateOptionalUsdRate } from './currency';
 
 export const BASE_EXPENSE_CATEGORIES = [
   'Arriendo',
@@ -14,13 +15,18 @@ export const BASE_EXPENSE_CATEGORIES = [
   'Otro'
 ] as const;
 
-export function emptyExpense(date: string, nowIso: string): Expense {
+export function emptyExpense(
+  date: string,
+  nowIso: string,
+  usdRate: number | null = null
+): Expense {
   return {
     id: newId(),
     date,
     concept: '',
     category: BASE_EXPENSE_CATEGORIES[0],
     amountCop: 0,
+    usdRate,
     method: '',
     paidBy: '',
     partnerId: null,
@@ -32,7 +38,9 @@ export function emptyExpense(date: string, nowIso: string): Expense {
   };
 }
 
-export function validateExpense(expense: Expense): string | null {
+export function validateExpense(expense: Expense, previous?: Expense | null): string | null {
+  const rateError = validateExpenseRateMetadata(expense, previous);
+  if (rateError) return rateError;
   if (!isValidISODate(expense.date)) return 'El gasto necesita una fecha válida.';
   if (!expense.concept.trim()) return 'Escribe el concepto del gasto.';
   if (!expense.category.trim()) return 'Elige una categoría.';
@@ -47,6 +55,34 @@ export function validateExpense(expense: Expense): string | null {
     return 'Tu porcentaje debe estar entre 0 y 100.';
   }
   if (!shared && expense.myPercent !== 100) return 'Un gasto sin socio debe ser 100% propio.';
+  return null;
+}
+
+/** Valida la tasa sobre datos externos sin normalizar ni exigir campos de una alta nueva. */
+export function validateExpenseRateMetadata(
+  raw: unknown,
+  previous?: Expense | null
+): string | null {
+  const expense = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const rate = Object.prototype.hasOwnProperty.call(expense, 'usdRate')
+    ? expense.usdRate
+    : null;
+  const rateError = validateOptionalUsdRate(rate);
+  if (rateError) return rateError;
+  if (previous && previous.usdRate !== rate) {
+    return 'La tasa guardada de un gasto no se puede cambiar.';
+  }
+  return null;
+}
+
+/** Regla del formulario: un gasto nuevo necesita tasa; un histórico puede seguir en null. */
+export function validateExpenseOperation(
+  expense: Expense,
+  previous: Expense | null
+): string | null {
+  const error = validateExpense(expense, previous);
+  if (error) return error;
+  if (!previous && expense.usdRate === null) return 'Indica la tasa USD/COP del gasto.';
   return null;
 }
 

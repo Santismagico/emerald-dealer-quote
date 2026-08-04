@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Expense } from '../types';
 import { useStore } from '../store';
 import {
@@ -9,13 +9,22 @@ import {
   expenseSplit,
   filterExpenses,
   setExpenseCategoryActive,
-  validateExpense
+  validateExpenseOperation
 } from '../services/expenses';
 import { formatDateCO, todayISO } from '../utils/dates';
 import { formatCOP, toSafeCOP } from '../utils/money';
 import {
+  formatOperationMoney,
+  newOperationUsdRate,
+  resolveUsdRatePrefill,
+  storedUsdRateSource,
+  usdRateLabel,
+  type CurrencyView
+} from '../services/currency';
+import {
   Button,
   ConfirmDialog,
+  DecimalInput,
   EmptyState,
   Field,
   FormDialog,
@@ -26,6 +35,7 @@ import {
   TextArea,
   TextInput
 } from './ui';
+import { CurrencyToggle } from './CurrencyToggle';
 
 export function ExpensesView() {
   const store = useStore();
@@ -39,6 +49,10 @@ export function ExpensesView() {
   const [error, setError] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [categoriesBusy, setCategoriesBusy] = useState(false);
+  const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
+  const [rateSource, setRateSource] = useState('');
+  const rateTouchedRef = useRef(false);
+  const rateRequestIdRef = useRef('');
 
   const categoryHistory = useMemo(
     () => expenseCategoryHistory(store.settings.expenseCategories, store.expenses),
@@ -55,16 +69,52 @@ export function ExpensesView() {
   const total = filtered.reduce((sum, expense) => sum + toSafeCOP(expense.amountCop), 0);
 
   const startNew = () => {
-    const next = emptyExpense(todayISO(), new Date().toISOString());
+    rateTouchedRef.current = false;
+    const next = emptyExpense(
+      todayISO(),
+      new Date().toISOString(),
+      newOperationUsdRate(store.settings.lastKnownUsdRate)
+    );
     next.category = activeCategories[0] ?? '';
+    rateRequestIdRef.current = next.id;
     setError('');
+    setRateSource(
+      storedUsdRateSource(next.usdRate, store.settings.usdRateUpdatedAt)
+    );
     setForm(next);
+    void store.refreshUsdRate()
+      .then((snapshot) => {
+        if (rateRequestIdRef.current !== next.id) return;
+        setForm((current) => current?.id === next.id
+          ? {
+              ...current,
+              usdRate: resolveUsdRatePrefill(
+                current.usdRate,
+                snapshot.rate,
+                rateTouchedRef.current
+              )
+            }
+          : current);
+        if (!rateTouchedRef.current) setRateSource('Tasa vigente consultada');
+      })
+      .catch(() => {
+        if (rateRequestIdRef.current === next.id && !rateTouchedRef.current) {
+          setRateSource(
+            storedUsdRateSource(
+              next.usdRate,
+              store.settings.usdRateUpdatedAt,
+              true
+            )
+          );
+        }
+      });
   };
 
   const save = async () => {
     if (!form || busy) return;
     const next = { ...form, updatedAt: new Date().toISOString() };
-    const validation = validateExpense(next);
+    const previous = store.expenses.find((expense) => expense.id === next.id) ?? null;
+    const validation = validateExpenseOperation(next, previous);
     if (validation) {
       setError(validation);
       return;
@@ -137,6 +187,11 @@ export function ExpensesView() {
         ) : null}
       </SectionCard>
 
+      <CurrencyToggle value={currencyView} onChange={setCurrencyView} />
+      <p className="text-[11px] text-stone-500">
+        Solo cambia cada gasto con su propia tasa. El total filtrado sigue en COP.
+      </p>
+
       <SectionCard title="Buscar y filtrar">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Desde">
@@ -177,20 +232,28 @@ export function ExpensesView() {
                       {formatDateCO(expense.date)} · {expense.category}
                     </p>
                   </div>
-                  <span className="shrink-0 font-semibold text-red-700">- {formatCOP(expense.amountCop)}</span>
+                  <span className="shrink-0 font-semibold text-red-700">
+                    - {formatOperationMoney(expense.amountCop, expense.usdRate, currencyView)}
+                  </span>
                 </div>
                 <p className="mt-2 break-words text-xs text-stone-600">
                   {expense.method} · pagó {expense.paidBy}
                   {expense.partnerName
-                    ? ` · ${expense.partnerName}: tu parte ${formatCOP(split.myAmountCop)}, socio ${formatCOP(split.partnerAmountCop)}`
+                    ? ` · ${expense.partnerName}: tu parte ${formatOperationMoney(split.myAmountCop, expense.usdRate, currencyView)}, socio ${formatOperationMoney(split.partnerAmountCop, expense.usdRate, currencyView)}`
                     : ''}
                 </p>
+                <p className="mt-1 text-xs text-stone-500">{usdRateLabel(expense.usdRate)}</p>
                 {expense.notes ? <p className="mt-1 break-words text-xs text-stone-500">{expense.notes}</p> : null}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     className="min-h-11 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
-                    onClick={() => { setError(''); setForm(expense); }}
+                    onClick={() => {
+                      rateRequestIdRef.current = '';
+                      rateTouchedRef.current = true;
+                      setError('');
+                      setForm(expense);
+                    }}
                   >
                     Editar
                   </button>
@@ -246,9 +309,20 @@ export function ExpensesView() {
           partners={store.materialPartners}
           busy={busy}
           error={error}
+          isNew={!store.expenses.some((expense) => expense.id === form.id)}
+          rateSource={rateSource}
+          onRateTouched={() => {
+            rateTouchedRef.current = true;
+            setRateSource('Tasa escrita manualmente');
+          }}
           onChange={(next) => { setForm(next); setError(''); }}
           onSave={() => void save()}
-          onClose={() => { if (!busy) setForm(null); }}
+          onClose={() => {
+            if (!busy) {
+              rateRequestIdRef.current = '';
+              setForm(null);
+            }
+          }}
         />
       ) : null}
 
@@ -272,6 +346,9 @@ function ExpenseForm({
   partners,
   busy,
   error,
+  isNew,
+  rateSource,
+  onRateTouched,
   onChange,
   onSave,
   onClose
@@ -281,6 +358,9 @@ function ExpenseForm({
   partners: ReturnType<typeof useStore>['materialPartners'];
   busy: boolean;
   error: string;
+  isNew: boolean;
+  rateSource: string;
+  onRateTouched: () => void;
   onChange: (expense: Expense) => void;
   onSave: () => void;
   onClose: () => void;
@@ -321,6 +401,27 @@ function ExpenseForm({
         </Field>
         <Field label="Monto en COP">
           <MoneyInput value={form.amountCop} onValue={(amountCop) => patch({ amountCop })} />
+        </Field>
+        <Field
+          label="Tasa USD/COP"
+          hint={isNew
+            ? `${rateSource}. Puedes ajustarla manualmente antes de guardar.`
+            : 'Quedó fijada al registrar el gasto.'}
+        >
+          {isNew ? (
+            <DecimalInput
+              value={form.usdRate ?? 0}
+              onValue={(value) => {
+                onRateTouched();
+                patch({ usdRate: value > 0 ? value : null });
+              }}
+              suffix="COP"
+            />
+          ) : (
+            <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+              {usdRateLabel(form.usdRate)}
+            </p>
+          )}
         </Field>
         <Field label="Forma de pago">
           <TextInput value={form.method} onChange={(method) => patch({ method })} placeholder="Efectivo, transferencia…" />

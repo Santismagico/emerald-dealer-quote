@@ -14,8 +14,8 @@ export const GRAMS_PER_TROY_OUNCE = 31.1034768;
 // absurdo NO debe convertirse en precio de cotización (auditoría de seguridad).
 const MIN_USD_PER_OUNCE = 500;
 const MAX_USD_PER_OUNCE = 20000;
-const MIN_COP_PER_USD = 1000;
-const MAX_COP_PER_USD = 20000;
+export const MIN_COP_PER_USD = 1000;
+export const MAX_COP_PER_USD = 20000;
 
 const GOLD_API_URL = 'https://api.gold-api.com/price/XAU';
 const FX_API_URL = 'https://open.er-api.com/v6/latest/USD';
@@ -36,6 +36,21 @@ export interface GoldPriceBreakdown {
   fetchedAt: string;
 }
 
+export interface UsdRateSnapshot {
+  rate: number;
+  fetchedAt: string;
+}
+
+/** Una tasa guardable usa la misma defensa que la fuente del precio del oro. */
+export function isValidUsdRate(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_COP_PER_USD &&
+    value <= MAX_COP_PER_USD
+  );
+}
+
 /**
  * Cálculo puro y testeable: convierte USD/onza a COP/gramo y suma el recargo.
  * Lanza Error con mensaje humano si los datos de entrada no son razonables.
@@ -54,7 +69,7 @@ export function computeGoldPricePerGram(
   if (usdPerOunce < MIN_USD_PER_OUNCE || usdPerOunce > MAX_USD_PER_OUNCE) {
     throw new Error('El precio internacional del oro recibido está fuera de un rango razonable. No se actualizó el precio.');
   }
-  if (copPerUsd < MIN_COP_PER_USD || copPerUsd > MAX_COP_PER_USD) {
+  if (!isValidUsdRate(copPerUsd)) {
     throw new Error('La tasa de cambio USD/COP recibida está fuera de un rango razonable. No se actualizó el precio.');
   }
   if (!Number.isFinite(markupPerGram) || markupPerGram < 0) {
@@ -84,6 +99,26 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
+function usdRateFromResponse(raw: unknown): number {
+  const fx = raw as { rates?: { COP?: number } };
+  const rate = typeof fx?.rates?.COP === 'number' ? fx.rates.COP : NaN;
+  if (!isValidUsdRate(rate)) {
+    throw new Error(
+      'La tasa de cambio USD/COP recibida está fuera de un rango razonable. No se actualizó.'
+    );
+  }
+  return rate;
+}
+
+/**
+ * Consulta exclusivamente la tasa USD→COP usando la MISMA fuente y límites ya
+ * aprobados para el precio del oro. No depende de que el proveedor de oro responda.
+ */
+export async function fetchUsdRateCOP(): Promise<UsdRateSnapshot> {
+  const rate = usdRateFromResponse(await fetchJson(FX_API_URL));
+  return { rate, fetchedAt: new Date().toISOString() };
+}
+
 /**
  * Consulta el precio internacional del oro y la tasa USD/COP del día,
  * y devuelve el precio interno por gramo (internacional + recargo).
@@ -93,10 +128,8 @@ export async function fetchGoldPriceCOP(markupPerGram: number): Promise<GoldPric
   const [goldRaw, fxRaw] = await Promise.all([fetchJson(GOLD_API_URL), fetchJson(FX_API_URL)]);
 
   const gold = goldRaw as { price?: number };
-  const fx = fxRaw as { rates?: { COP?: number } };
-
   const usdPerOunce = typeof gold?.price === 'number' ? gold.price : NaN;
-  const copPerUsd = typeof fx?.rates?.COP === 'number' ? fx.rates.COP : NaN;
+  const copPerUsd = usdRateFromResponse(fxRaw);
 
   return computeGoldPricePerGram(usdPerOunce, copPerUsd, markupPerGram);
 }

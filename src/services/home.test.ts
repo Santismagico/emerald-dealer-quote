@@ -24,7 +24,7 @@ describe('portada de inicio', () => {
     ];
     const expenses: Expense[] = [{
       id: 'g-mes', date: TODAY, concept: 'Publicidad', category: 'Publicidad',
-      amountCop: 125_001, method: 'Transferencia', paidBy: 'Santiago',
+      amountCop: 125_001, usdRate: null, method: 'Transferencia', paidBy: 'Santiago',
       partnerId: null, partnerName: '', myPercent: 100, notes: '',
       createdAt: '2026-08-03T10:00:00.000Z', updatedAt: '2026-08-03T10:00:00.000Z'
     }];

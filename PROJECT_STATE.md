@@ -258,7 +258,7 @@ de esa única verdad. Por eso el orden de fases **no es negociable**.
 | Fase | Etapas | Riesgo | Depende de |
 |---|---|---|---|
 | A | A1 Pantalla de inicio | Bajo | diseño que elija Santiago |
-| B | B1 Gastos · B2 Sociedades en piedras · B3 Tipo de producto + moneda | Bajo–Medio | 2 decisiones abiertas (solo B3) |
+| B | B1 Gastos · B2 Sociedades en piedras · B3 Tipo de producto + moneda | Bajo–Medio | Desbloqueada; A-1 y A-2 cerradas |
 | C | C1 Bruto → tallado por tandas · C2 Joyas completas + fantasía/natural | **Alto** | B |
 | D | D1 Libro del negocio | Medio | B, C |
 | E | E1 Dashboard · E2 Excel · E3 Consolidado | Medio | D |
@@ -275,8 +275,8 @@ arriba. **Inicio reemplaza a "Más"** en la barra inferior, que queda en Inicio 
 Cotizador · Taller · Agenda · Inventario (siguen siendo cinco, D-046). Registrado
 en D-052.
 
-**No quedan decisiones abiertas.** A1, B1 y B2 ya fueron implementadas; B3 sigue
-desbloqueada y es la única etapa pendiente de esta orden.
+**No quedan decisiones abiertas.** A1, B1, B2 y B3 ya fueron implementadas. La
+Fase C no se inició y conserva su orden independiente de riesgo alto.
 
 **Orden de trabajo entregada a Codex:**
 `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
@@ -337,8 +337,38 @@ agregaron dependencias, no se cambió el motor de cálculo ni el PDF del cliente
 recorrido real 60/40, persistencia, eliminación del socio y conservación del reparto
 pasó en 320, 390 y 1280 px sin desbordamiento.
 
-**Pendientes:** commit de cierre de B2; después B3. Los recorridos visuales de B1 y B2
-ya quedaron completos.
+**B3 implementada el 2026-08-03 (Codex):** las ventas de piedras y joyas en stock
+guardan un tipo de producto administrable; sus ventas anteriores siguen mostrando
+"Sin registrar" sin inferencias. Ventas, abonos de compradores y gastos guardan su
+propia tasa USD/COP, prellenada con la misma fuente que ya usa el precio del oro y
+editable solo antes del primer guardado. Sin conexión se usa la última tasa conocida
+con su fecha; una consulta tardía nunca pisa una tasa escrita a mano.
+
+La vista COP/USD vive solo en la pantalla. Convierte cada operación con su propia tasa,
+pero los totales y saldos que mezclan tasas permanecen en COP; las operaciones antiguas
+sin tasa muestran "Sin registrar". Ajustes sube a v5; IndexedDB y respaldo permanecen
+en v8. Respaldo, almacenamiento, sincronización de subida y bajada, y migración SQL
+rechazan rangos inválidos y cualquier cambio posterior de una tasa, incluido completar
+un `null` histórico. La nube sigue separada por organización y no se agregó otra fuente,
+dependencia ni permiso de red.
+
+Verificación automática B3: **846 pruebas en 56 archivos**, comprobación PWA,
+**18 controles del guard local** y compilación de **332 módulos**, todo en verde. La
+revisión independiente detectó y cerró cuatro puntos antes del commit: una venta nueva
+de joya ya no se confunde con la anterior al bajar datos; existe la prueba monetaria
+pre-B3 que faltaba; una versión anterior o un segundo dispositivo ya no puede borrar
+tipos ni tasas B3; y los nombres personalizados largos no desbordan la pantalla móvil.
+
+Duda registrada para una revisión futura, sin ampliar esta etapa: la capa general de
+descarga de nube ya trataba cualquier rechazo como modo sin conexión. Si algún día el
+servidor recibe un dato externo dañado, la pantalla puede conservar la copia local sin
+explicar la diferencia. B3 sí rechaza y protege el dato; antes de publicar una futura
+ampliación de nube conviene distinguir ese caso de una desconexión real.
+
+Recorrido visual B3 completado en 320, 390 y 1280 px: sin desbordamiento,
+botones de al menos 44 px, tipos largos conservados, tasa manual fija después de
+guardar, conversión individual a USD y regreso a COP tras recargar. Sin errores
+visibles ni errores de consola.
 No se inició la Fase C. `main`, el enlace del piloto y el workflow de despliegue no
 fueron tocados.
 
@@ -383,3 +413,4 @@ fueron tocados.
 | 2026-08-03 | Plan v2 · A1: Pantalla de inicio (Codex) | Portada agrupada con Movimiento neto mensual, todos los destinos existentes, accesos directos a Inventario/cierres y tres avisos; 754 pruebas, 326 módulos y revisión 320/390/1280 en verde; no publicado | A1 (este commit) |
 | 2026-08-03 | Plan v2 · B1: Gastos del negocio (Codex) | Registro y filtros, categorías administrables con historial, reparto opcional con socio, cierres, respaldo v8 y nube protegida; 786 pruebas, guard N6, 328 módulos y revisión 320/390/1280 en verde; no publicado | B1 (este commit) |
 | 2026-08-03 | Plan v2 · B2: Sociedades en piedras (Codex) | Reparto sobre resultado real recibido, comparación por socio, historial al renombrar/borrar, respaldo v8 y validación de nube aditiva; 807 pruebas, guard N6, 328 módulos y revisión 320/390/1280 en verde; no publicado | B2 (este commit) |
+| 2026-08-03 | Plan v2 · B3: Tipo de producto + moneda (Codex) | Tipos administrables sin inferencias, tasa fija por operación, vista COP/USD sin escrituras, fallback offline, respaldo v8 y nube protegida en ambas direcciones y entre versiones; 846 pruebas en 56 archivos, 18 controles locales, 332 módulos y revisión visual 320/390/1280 en verde; no publicado | B3 (este commit) |

@@ -927,3 +927,33 @@ La ampliación no crea otra lista de socios ni cambia versiones: IndexedDB y res
 permanecen en v8, y Ajustes en v4. La nube conserva la tabla y las operaciones protegidas
 de lotes de piedras; una migración aditiva amplía únicamente su validación para aceptar
 los campos nuevos y seguir admitiendo clientes anteriores a B2.
+
+## D-061 · La vista USD convierte cada operación con su propia tasa · 2026-08-03 · Vigente
+
+B3 reutiliza exclusivamente la fuente USD→COP que ya usa el precio del oro y sus mismos
+límites de seguridad. Ajustes sube a v5 para conservar la última tasa válida, su fecha y
+la lista administrable de tipos de producto. IndexedDB y el respaldo permanecen en v8;
+no se agrega una API, una dependencia ni un permiso de red nuevos.
+
+Cada venta de piedras, abono de comprador, venta de joya en stock y gasto nuevo guarda
+su propia tasa. La tasa puede corregirse manualmente antes del primer guardado; después
+queda fija para siempre. Esto también protege el estado histórico vacío: una operación
+anterior con tasa `null` sigue mostrando **"Sin registrar"** y no puede completarse de
+forma retroactiva. Una consulta que termina tarde no reemplaza una tasa que Santiago ya
+escribió.
+
+El interruptor COP/USD vive únicamente en la memoria de la pantalla. Los montos guardados
+siguen siendo COP enteros y cambiar la vista no escribe datos. La conversión se hace por
+operación; los totales, saldos y resultados que mezclan operaciones con tasas distintas
+permanecen en COP para no presentar una suma engañosa en dólares.
+
+Los tipos base y propios se guardan por organización. Desactivar un tipo solo impide
+ofrecerlo en ventas nuevas: su nombre permanece visible en el historial. Las ventas
+anteriores conservan `productType: ''` y muestran **"Sin registrar"**, sin deducirlo del
+módulo donde fueron creadas.
+
+Cada cambio real del catálogo guarda además su propia fecha. La operación protegida de
+la nube combina los ajustes dentro de una transacción: conserva las claves B3 que un
+cliente anterior no conoce, resuelve catálogo y tasa por sus fechas independientes,
+une los nombres de catálogos concurrentes y nunca retrocede la versión de Ajustes. Así,
+actualizar el oro o la tasa desde otro dispositivo no puede borrar un tipo personalizado.

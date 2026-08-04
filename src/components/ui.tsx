@@ -512,9 +512,11 @@ export function SummaryRow({
   valueClass?: string;
 }) {
   return (
-    <div className={`flex justify-between gap-3 text-sm ${bold ? 'font-semibold' : ''}`}>
-      <span className="text-stone-600">{label}</span>
-      <span className={valueClass ?? 'text-stone-900'}>{value}</span>
+    <div className={`flex min-w-0 justify-between gap-3 text-sm ${bold ? 'font-semibold' : ''}`}>
+      <span className="min-w-0 break-words text-stone-600">{label}</span>
+      <span className={`min-w-0 break-words text-right ${valueClass ?? 'text-stone-900'}`}>
+        {value}
+      </span>
     </div>
   );
 }

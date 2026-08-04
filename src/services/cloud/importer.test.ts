@@ -98,6 +98,7 @@ function largeBackup(): BackupFile {
       concept: 'Feria de prueba',
       category: 'Publicidad',
       amountCop: 300000,
+      usdRate: null,
       method: 'Transferencia',
       paidBy: 'Santiago',
       partnerId: 'material-partner-1',

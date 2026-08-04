@@ -31,6 +31,15 @@ import {
   type LotFilter
 } from '../services/stones';
 import { receivableStatus } from '../services/receivables';
+import { activeProductTypes } from '../services/productTypes';
+import {
+  formatOperationMoney,
+  newOperationUsdRate,
+  resolveUsdRatePrefill,
+  storedUsdRateSource,
+  usdRateLabel,
+  type CurrencyView
+} from '../services/currency';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
 import {
@@ -49,6 +58,7 @@ import {
   TextInput,
   Toggle
 } from './ui';
+import { CurrencyToggle } from './CurrencyToggle';
 
 const FILTERS: Array<{ value: LotFilter; label: string }> = [
   { value: 'existencias', label: 'Con existencias' },
@@ -284,6 +294,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   const [saleToDelete, setSaleToDelete] = useState<StoneSale | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<SupplierPayment | null>(null);
   const [busy, setBusy] = useState(false);
+  const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
   const saleReturnFocus = useRef<string | null>(null);
 
   useEffect(() => {
@@ -413,6 +424,13 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
           ) : null}
         </div>
 
+        <div className="mt-3 space-y-1">
+          <CurrencyToggle value={currencyView} onChange={setCurrencyView} />
+          <p className="text-[11px] text-stone-500">
+            Solo cambian las operaciones con tasa propia. Totales y saldos combinados siguen en COP.
+          </p>
+        </div>
+
         {lot.description ? <p className="mt-2 text-sm text-stone-600">{lot.description}</p> : null}
         {lot.notes ? <p className="mt-1 text-xs text-stone-500">{lot.notes}</p> : null}
 
@@ -505,7 +523,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                     }}
                   >
                     <p className="text-sm font-medium text-stone-800">
-                      {formatCOP(sale.valueCop)}
+                      {formatOperationMoney(sale.valueCop, sale.usdRate, currencyView)}
                       <span className="font-normal text-stone-500">
                         {' '}
                         · {formatCarats(sale.carats)} · {sale.quantity} pz
@@ -514,6 +532,9 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                     <p className="text-xs text-stone-500">
                       {formatDateCO(sale.date)}
                       {sale.buyer ? ` · ${sale.buyer}` : ''}
+                    </p>
+                    <p className="break-words text-xs text-stone-500">
+                      {sale.productType || 'Sin registrar'} · {usdRateLabel(sale.usdRate)}
                     </p>
                     {sale.onCredit ? (
                       <p
@@ -559,7 +580,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                       {sale.payments.map((payment) => (
                         <div key={payment.id} className="rounded-lg bg-white/60 p-2">
                           <p className="text-xs font-medium text-stone-700">
-                            {formatCOP(payment.amount)} · {formatDateCO(payment.date)}
+                            {formatOperationMoney(payment.amount, payment.usdRate, currencyView)} · {formatDateCO(payment.date)}
                           </p>
                           <p className="break-words text-[11px] text-stone-500">
                             {payment.method || 'Medio sin registrar'} · Recibió:{' '}
@@ -587,7 +608,12 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                 full
                 onClick={() => {
                   saleReturnFocus.current = 'new';
-                  setSaleForm(emptyStoneSale(todayISO()));
+                  setSaleForm(
+                    emptyStoneSale(
+                      todayISO(),
+                      newOperationUsdRate(store.settings.lastKnownUsdRate)
+                    )
+                  );
                 }}
               >
                 ＋ Registrar venta
@@ -964,12 +990,58 @@ function SaleForm({
   const [form, setForm] = useState<StoneSale>(initial);
   const [busy, setBusy] = useState(false);
   const isNew = !lot.sales.some((s) => s.id === initial.id);
+  const refreshUsdRate = store.refreshUsdRate;
+  const rateTouched = useRef(false);
+  const initialRateUpdatedAt = useRef(store.settings.usdRateUpdatedAt).current;
+  const [rateSource, setRateSource] = useState(
+    storedUsdRateSource(initial.usdRate, initialRateUpdatedAt)
+  );
+
+  useEffect(() => {
+    if (!isNew) return;
+    let active = true;
+    refreshUsdRate()
+      .then((snapshot) => {
+        if (!active) return;
+        setForm((current) => ({
+          ...current,
+          usdRate: resolveUsdRatePrefill(
+            current.usdRate,
+            snapshot.rate,
+            rateTouched.current
+          )
+        }));
+        if (!rateTouched.current) setRateSource('Tasa vigente consultada');
+      })
+      .catch(() => {
+        if (active && !rateTouched.current) {
+          setRateSource(
+            storedUsdRateSource(
+              initial.usdRate,
+              initialRateUpdatedAt,
+              true
+            )
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [initial.usdRate, initialRateUpdatedAt, isNew, refreshUsdRate]);
 
   const patch = (partial: Partial<StoneSale>) => setForm((current) => ({ ...current, ...partial }));
 
   const others = lot.sales.filter((s) => s.id !== initial.id);
   const available = summarizeStoneLot({ ...lot, sales: others });
   const saleSummary = summarizeStoneSale(form);
+  const availableProductTypes = activeProductTypes(store.settings.productTypes);
+  const productTypeOptions = [
+    { value: '', label: 'Selecciona un tipo' },
+    ...[...new Set([
+      ...availableProductTypes,
+      ...(form.productType ? [form.productType] : [])
+    ])].map((name) => ({ value: name, label: name }))
+  ];
 
   const save = async () => {
     const error = validateStoneSale(lot, form, isNew ? undefined : initial.id);
@@ -1023,6 +1095,33 @@ function SaleForm({
           </div>
           <Field label="Valor de la venta (total)">
             <MoneyInput value={form.valueCop} onValue={(valueCop) => patch({ valueCop })} />
+          </Field>
+          <Field label="Tipo de producto">
+            <Select
+              value={form.productType}
+              onChange={(productType) => patch({ productType })}
+              options={productTypeOptions}
+            />
+          </Field>
+          <Field
+            label="Tasa USD/COP"
+            hint={isNew ? `${rateSource}. Puedes ajustarla antes de guardar.` : 'Quedó fijada al registrar la venta.'}
+          >
+            {isNew ? (
+              <DecimalInput
+                value={form.usdRate ?? 0}
+                onValue={(value) => {
+                  rateTouched.current = true;
+                  setRateSource('Tasa escrita manualmente');
+                  patch({ usdRate: value > 0 ? value : null });
+                }}
+                suffix="COP"
+              />
+            ) : (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {usdRateLabel(form.usdRate)}
+              </p>
+            )}
           </Field>
           <Field label="A quién le vendiste">
             <Select
