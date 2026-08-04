@@ -828,7 +828,12 @@ nombre, igual que ocurre con proveedores, compradores y socios.
 Las ventas anteriores a esta decisión no tienen tipo y muestran **"Sin registrar"**
 (D-051). No se les asigna un tipo adivinado a partir del módulo de origen.
 
-## D-059 · La tasa del dólar se reutiliza de la fuente del oro, no se duplica · 2026-08-04 · Vigente
+## D-062 · La tasa del dólar se reutiliza de la fuente del oro, no se duplica · 2026-08-04 · Vigente
+
+> **Nota de numeración (2026-08-04).** Esta decisión se registró primero como D-059
+> por error de Claude: Codex ya había usado ese número para los gastos en la Fase B.
+> Se renumeró a D-062 al detectarse el choque. Si algún mensaje de commit anterior la
+> menciona como D-059, se refiere a esta.
 
 `AGENTS.md` protege `src/services/goldPrice.ts` y exige decisión escrita para tocarlo.
 La etapa B3 lo modificó, y esta decisión cierra ese registro tras la auditoría.
@@ -1041,3 +1046,42 @@ la nube combina los ajustes dentro de una transacción: conserva las claves B3 q
 cliente anterior no conoce, resuelve catálogo y tasa por sus fechas independientes,
 une los nombres de catálogos concurrentes y nunca retrocede la versión de Ajustes. Así,
 actualizar el oro o la tasa desde otro dispositivo no puede borrar un tipo personalizado.
+
+## D-063 · La ganancia cuenta el día de la venta, no el día del pago · 2026-08-04 · Vigente
+
+Santiago decidió que si vende un lote a crédito en agosto y le pagan en octubre, **la
+ganancia es de agosto**. El panel debe responder *"¿qué tan bien vendí este mes?"*, y
+un mes en que vendió muchísimo a crédito no puede aparecer vacío.
+
+**Consecuencia central, y el mayor riesgo de la Fase E:** desde esta decisión
+**ganancia y caja dejan de ser el mismo número**, y jamás deben presentarse como si lo
+fueran.
+
+- La **caja** es lo que se movió de verdad: es lo que muestran el Cierre del día y el
+  del mes, y D-045 la sigue gobernando sin cambios.
+- La **ganancia** es lo vendido menos lo que costó lo vendido, contado en la fecha de
+  la venta.
+
+Una compra de inventario **no es una pérdida**: es dinero que cambió de forma. Solo se
+vuelve costo cuando eso que se compró se vende. Por eso un mes con una compra grande
+puede tener caja muy negativa y ganancia positiva, y ambas cifras ser correctas.
+
+Lo que aún no ha cobrado **no desaparece**: se muestra aparte como cobros pendientes,
+que es lo que ya hace la sección de Cobros.
+
+## D-064 · Las sociedades se comparan por cuánto dejaron y por qué tan rentables fueron · 2026-08-04 · Vigente
+
+Para decidir qué sociedad le conviene repetir, Santiago quiere **las dos medidas a la
+vez**: la ganancia en pesos y el porcentaje sobre lo invertido.
+
+Con una sola se decide mal. Una sociedad grande puede dejar más dinero y ser menos
+rentable que una pequeña; el porcentaje solo, en cambio, hace ver enorme un negocio
+diminuto que devolvió bien. Las dos juntas permiten distinguirlos.
+
+El porcentaje se calcula sobre **lo invertido en esa sociedad** —compra más tallas
+pagadas, conforme a D-055—, y siempre acompañado del monto, nunca solo. Cuando lo
+invertido es cero, no se muestra un porcentaje inventado ni infinito: se indica que no
+aplica.
+
+Esta decisión materializa D-053 y la frase con la que Santiago resumió todo el plan:
+*"todo lo que se puede medir, se puede optimizar"*.

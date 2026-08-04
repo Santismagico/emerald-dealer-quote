@@ -294,8 +294,9 @@ auditó de forma independiente ejecutando todas las verificaciones:
 CSP exacta, sin secretos, sin dependencias nuevas, `main` intacto en `0a86e5a`, y
 recorrido real en navegador a 320/375/1280 px. **Veredicto: APROBADO.** Informe en
 `docs/AUDITORIA_CLAUDE_V2_FASES_A_B.md`. La observación O1 quedó cerrada con
-**D-059** (la tasa del dólar se reutiliza de la fuente del oro en vez de
-duplicarla).
+**D-062** (la tasa del dólar se reutiliza de la fuente del oro en vez de
+duplicarla). *Se registró primero como D-059 por error de Claude —Codex ya usaba
+ese número para los gastos— y se renumeró al detectarse el choque.*
 
 **Riesgo residual declarado:** la prueba N6 real entre dos cuentas no se pudo
 ejecutar (exige credenciales que un agente no debe manejar). El aislamiento de las
@@ -422,10 +423,38 @@ Observación anotada, sin cambio pedido: `dailyReport.ts` creció de 882 a 915
 líneas porque conserva los renglones narrativos que el PDF necesita; **el dinero
 sí quedó con una sola fuente**.
 
-**SIGUIENTE: Fase E** — panel de ventas y ganancias, exportación a Excel y
-consolidado con filtros. Las tres leen del libro, así que sus números no pueden
-discrepar. Con el libro probado, el riesgo aritmético quedó atrás y la Fase E es
-sobre todo trabajo de presentación.
+**Fase E entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_E.md`. Cuatro
+commits: **E0** prepara el libro para medir ganancia (sin pantalla), **E1** el
+panel, **E2** el Excel, **E3** el consolidado.
+
+**Decisiones nuevas de Santiago (2026-08-04):**
+
+- **D-063 — la ganancia cuenta el día de la venta, no el día del pago.** Vende en
+  agosto a crédito y le pagan en octubre: la ganancia es de agosto. Consecuencia
+  central y **mayor riesgo de la fase**: ganancia y caja **dejan de ser el mismo
+  número** y nunca deben presentarse como si lo fueran ni sumarse entre sí. Una
+  compra de inventario no es pérdida: es dinero que cambió de forma. Un mes puede
+  tener caja muy negativa y ganancia positiva, y ambas ser correctas.
+- **D-064 — las sociedades se comparan por cuánto dejaron Y por qué tan rentables
+  fueron.** El porcentaje nunca va solo; si lo invertido es cero, se indica que no
+  aplica.
+
+**E0 es la pieza técnica:** cada evento de ingreso del libro gana
+`attributedCostCop`, de modo que ganancia = `amountCop` − `attributedCostCop`,
+sumable por período, lote, sociedad o tipo de producto. Reutiliza la regla de costo
+por quilate que ya usa C2. Dos invariantes obligatorios: el costo atribuido de un
+lote nunca supera lo invertido, y al venderse completo coincide exactamente.
+Agregarlo **no puede** mover `cashIn`/`cashOut`/`net`: la prueba de equivalencia de
+D1 lo vigila.
+
+**Corrección de registro (2026-08-04):** había **dos decisiones D-059** —la de
+gastos de Codex y la del precio del oro que Claude añadió sin notar el choque—.
+La segunda se renumeró a **D-062**, con nota en `DECISIONS.md`. La orden de la Fase
+E incluye la instrucción de comprobar el número más alto antes de agregar
+decisiones nuevas.
+
+Codex **no debe seguir a la Fase F**: el catálogo es la única salida al cliente de
+todo el plan v2 y exige revisión de privacidad aparte.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre

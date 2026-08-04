@@ -165,6 +165,10 @@ el precio, que es lo que protege la regla.
 `AGENTS.md` exige decisión escrita para tocar ese archivo. Es una deuda de
 documentación, no de código.
 
+> **Cerrada con D-062.** Se registró primero como D-059, número que Codex ya había
+> usado para los gastos en la Fase B; el choque lo causó el auditor y se corrigió
+> el 2026-08-04 renumerando esta decisión.
+
 ### O2 — `BACKUP_VERSION` quedó en 8 tras B3
 
 B1 lo subió a 8 por el almacén nuevo de gastos. B3 agregó campos opcionales
