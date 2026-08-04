@@ -1111,3 +1111,11 @@ añaden un CSV editable compatible con Excel en español. El archivo usa punto y
 BOM UTF-8 y saltos CRLF; los montos se escriben como números sin símbolo ni separador
 de miles. El PDF se conserva. La descarga es local directa y no existe ruta hacia Web
 Share ni WhatsApp. E3 reutiliza este mismo mecanismo para el consolidado filtrado.
+
+Implementación E3 (2026-08-04): el **Consolidado de ventas** filtra cualquier período
+por sociedad y tipo de producto, incluyendo una opción real **“Sin registrar”** para
+encontrar datos anteriores incompletos. La comparación usa la parte de Santiago: una
+tarjeta señala la mayor ganancia en COP y otra la mayor rentabilidad sobre su inversión;
+las dos muestran monto y porcentaje juntos. El Excel conserva los filtros y el detalle
+del resultado, y omite la caja porque no puede atribuirse honestamente a esos filtros.
+Todo se deriva al consultar: no se agregó ningún campo guardado ni una decisión nueva.

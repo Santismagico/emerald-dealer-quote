@@ -149,20 +149,53 @@ export function buildCloseExcelCsv(report: BusinessReport, periodLabel: string):
   return buildExcelCsv(rows);
 }
 
-export function buildSalesExcelCsv(analytics: SalesAnalytics, periodLabel: string): string {
+export function buildSalesExcelCsv(
+  analytics: SalesAnalytics,
+  periodLabel: string,
+  options: { consolidated?: boolean } = {}
+): string {
   const rows: ExcelRow[] = [
-    ['VENTAS Y GANANCIAS'],
+    [options.consolidated ? 'CONSOLIDADO DE VENTAS' : 'VENTAS Y GANANCIAS'],
     ['Período', periodLabel],
+    ['Filtro sociedad', analytics.filters.societyLabel],
+    ['Filtro tipo de producto', analytics.filters.productTypeLabel],
     ['Documento interno', 'No entregar al cliente'],
     [],
     ['Resumen', 'Vendido COP', analytics.salesCop],
     ['Resumen', 'Costo de lo vendido COP', analytics.attributedCostCop],
-    ['Resumen', 'Ganancia COP', analytics.profitCop],
-    ['Caja', 'Entró COP', analytics.cashCop.cashIn],
-    ['Caja', 'Salió COP', analytics.cashCop.cashOut],
-    ['Caja', 'Movimiento neto COP', analytics.cashCop.net],
-    ['Cobros pendientes', 'Clientes COP', analytics.pendingClientsCop],
-    ['Cobros pendientes', 'Compradores de piedras COP', analytics.pendingStoneBuyersCop],
+    ['Resumen', 'Ganancia COP', analytics.profitCop]
+  ];
+
+  if (options.consolidated) {
+    const mostMoney = analytics.comparison.mostMoney;
+    const mostProfitable = analytics.comparison.mostProfitable;
+    rows.push(
+      [
+        'Comparación',
+        'Más dinero',
+        mostMoney?.partnerName ?? 'Sin registrar',
+        mostMoney?.myProfitCop,
+        mostMoney?.myReturnPercent
+      ],
+      [
+        'Comparación',
+        'Más rentable',
+        mostProfitable?.partnerName ?? 'Sin registrar',
+        mostProfitable?.myProfitCop,
+        mostProfitable?.myReturnPercent
+      ]
+    );
+  } else {
+    rows.push(
+      ['Caja', 'Entró COP', analytics.cashCop.cashIn],
+      ['Caja', 'Salió COP', analytics.cashCop.cashOut],
+      ['Caja', 'Movimiento neto COP', analytics.cashCop.net],
+      ['Cobros pendientes', 'Clientes COP', analytics.pendingClientsCop],
+      ['Cobros pendientes', 'Compradores de piedras COP', analytics.pendingStoneBuyersCop]
+    );
+  }
+
+  rows.push(
     [],
     [
       'Fecha',
@@ -179,7 +212,7 @@ export function buildSalesExcelCsv(analytics: SalesAnalytics, periodLabel: strin
       'Costo USD',
       'Ganancia USD'
     ]
-  ];
+  );
 
   for (const sale of analytics.sales) {
     rows.push([

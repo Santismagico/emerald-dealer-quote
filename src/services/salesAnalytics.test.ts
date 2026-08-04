@@ -43,6 +43,39 @@ function sharedCreditLot() {
   };
 }
 
+function comparisonLot(input: {
+  id: string;
+  name: string;
+  partnerId: string | null;
+  partnerName: string;
+  purchaseValueCop: number;
+  saleValueCop: number;
+  productType: string;
+}) {
+  return {
+    ...emptyStoneLot(DAY, NOW),
+    id: input.id,
+    name: input.name,
+    carats: 1,
+    quantity: 1,
+    purchaseValueCop: input.purchaseValueCop,
+    partnerId: input.partnerId,
+    partnerName: input.partnerName,
+    myPercent: 50,
+    sales: [
+      {
+        ...emptyStoneSale(DAY, 4_000),
+        id: `sale-${input.id}`,
+        buyer: 'Comprador',
+        carats: 1,
+        quantity: 1,
+        valueCop: input.saleValueCop,
+        productType: input.productType
+      }
+    ]
+  };
+}
+
 describe('E1: ventas y ganancias desde el libro', () => {
   it('construye día, semana, mes y año desde una fecha de referencia', () => {
     expect(salesPeriodRange('dia', DAY)).toEqual({ start: DAY, end: DAY });
@@ -137,5 +170,105 @@ describe('E1: ventas y ganancias desde el libro', () => {
 
     expect(analytics.partnerships[0].myReturnPercent).toBeNull();
     expect(analytics.partnerships[0].partnerReturnPercent).toBeNull();
+  });
+});
+
+describe('E3: consolidado con filtros y comparación', () => {
+  const largeSociety = comparisonLot({
+    id: 'lot-large',
+    name: 'Lote grande',
+    partnerId: 'partner-large',
+    partnerName: 'Sociedad Grande',
+    purchaseValueCop: 1_000_000,
+    saleValueCop: 2_000_000,
+    productType: 'Anillo'
+  });
+  const efficientSociety = comparisonLot({
+    id: 'lot-efficient',
+    name: 'Lote eficiente',
+    partnerId: 'partner-efficient',
+    partnerName: 'Sociedad Eficiente',
+    purchaseValueCop: 100_000,
+    saleValueCop: 300_000,
+    productType: 'Piedra suelta'
+  });
+  const unregistered = comparisonLot({
+    id: 'lot-unregistered',
+    name: 'Lote anterior',
+    partnerId: null,
+    partnerName: '',
+    purchaseValueCop: 50_000,
+    saleValueCop: 100_000,
+    productType: ''
+  });
+  const lots = [largeSociety, efficientSociety, unregistered];
+
+  it('permite filtrar sociedades y tipos viejos como Sin registrar', () => {
+    const all = buildSalesAnalytics({ period: 'mes', anchorDate: DAY, stoneLots: lots });
+    const noSocietyValue = all.filters.societies.find(
+      (option) => option.label === 'Sin registrar'
+    )?.value;
+    const noProductValue = all.filters.productTypes.find(
+      (option) => option.label === 'Sin registrar'
+    )?.value;
+
+    expect(noSocietyValue).toBe('sin-registrar');
+    expect(noProductValue).toBe('sin-registrar');
+    expect(all.filters.societies.map((option) => option.label)).toEqual(
+      expect.arrayContaining(['Todos', 'Sociedad Grande', 'Sociedad Eficiente', 'Sin registrar'])
+    );
+    expect(all.filters.productTypes.map((option) => option.label)).toEqual(
+      expect.arrayContaining(['Todos', 'Anillo', 'Piedra suelta', 'Sin registrar'])
+    );
+
+    const filtered = buildSalesAnalytics({
+      period: 'mes',
+      anchorDate: DAY,
+      stoneLots: lots,
+      societyFilter: noSocietyValue,
+      productTypeFilter: noProductValue
+    });
+
+    expect(filtered.sales).toHaveLength(1);
+    expect(filtered.sales[0]).toMatchObject({
+      lotId: 'lot-unregistered',
+      partnerName: '',
+      productType: ''
+    });
+    expect(filtered.salesCop).toBe(100_000);
+  });
+
+  it('señala por separado la sociedad que deja más dinero y la más rentable', () => {
+    const analytics = buildSalesAnalytics({ period: 'mes', anchorDate: DAY, stoneLots: lots });
+
+    expect(analytics.comparison.mostMoney).toMatchObject({
+      partnerName: 'Sociedad Grande',
+      myProfitCop: 500_000,
+      myReturnPercent: 100
+    });
+    expect(analytics.comparison.mostProfitable).toMatchObject({
+      partnerName: 'Sociedad Eficiente',
+      myProfitCop: 100_000,
+      myReturnPercent: 200
+    });
+  });
+
+  it('filtra una sociedad y un tipo de producto concretos en cualquier período', () => {
+    const all = buildSalesAnalytics({ period: 'anio', anchorDate: DAY, stoneLots: lots });
+    const society = all.filters.societies.find(
+      (option) => option.label === 'Sociedad Grande'
+    )?.value;
+    const product = all.filters.productTypes.find((option) => option.label === 'Anillo')?.value;
+    const filtered = buildSalesAnalytics({
+      period: 'anio',
+      anchorDate: DAY,
+      stoneLots: lots,
+      societyFilter: society,
+      productTypeFilter: product
+    });
+
+    expect(filtered.sales.map((sale) => sale.lotId)).toEqual(['lot-large']);
+    expect(filtered.filters.societyLabel).toBe('Sociedad Grande');
+    expect(filtered.filters.productTypeLabel).toBe('Anillo');
   });
 });

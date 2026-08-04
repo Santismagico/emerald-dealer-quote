@@ -14,6 +14,8 @@ export interface SalesPeriodRange {
 export interface SalesAnalyticsInput {
   period: SalesPeriodKind;
   anchorDate: string;
+  societyFilter?: string;
+  productTypeFilter?: string;
   quotes?: readonly Quote[];
   stoneLots?: readonly StoneLot[];
   stockJewels?: readonly StockJewel[];
@@ -76,6 +78,25 @@ export interface SalesAnalyticsPartnership {
   usdMissingCount: number;
 }
 
+export interface SalesAnalyticsFilterOption {
+  value: string;
+  label: string;
+}
+
+export interface SalesAnalyticsFilters {
+  societies: SalesAnalyticsFilterOption[];
+  productTypes: SalesAnalyticsFilterOption[];
+  societyValue: string;
+  societyLabel: string;
+  productTypeValue: string;
+  productTypeLabel: string;
+}
+
+export interface SalesAnalyticsComparison {
+  mostMoney: SalesAnalyticsPartnership | null;
+  mostProfitable: SalesAnalyticsPartnership | null;
+}
+
 export interface SalesAnalytics {
   range: SalesPeriodRange;
   sales: SalesAnalyticsSale[];
@@ -95,7 +116,12 @@ export interface SalesAnalytics {
   pendingStoneBuyersCop: number;
   byLot: SalesAnalyticsLot[];
   partnerships: SalesAnalyticsPartnership[];
+  filters: SalesAnalyticsFilters;
+  comparison: SalesAnalyticsComparison;
 }
+
+export const ALL_SALES_FILTER = 'todos';
+export const UNREGISTERED_SALES_FILTER = 'sin-registrar';
 
 const REVENUE_KINDS = new Set<LedgerEvent['kind']>([
   'cotizacion_aprobada',
@@ -160,6 +186,39 @@ function partnershipKey(event: Pick<LedgerEvent, 'partnerId' | 'partnerName'>): 
   return name ? `name:${name.toLocaleLowerCase('es')}` : null;
 }
 
+function societyFilterKey(event: Pick<LedgerEvent, 'partnerId' | 'partnerName'>): string {
+  return partnershipKey(event) ?? UNREGISTERED_SALES_FILTER;
+}
+
+function productTypeFilterKey(event: Pick<LedgerEvent, 'productType'>): string {
+  const productType = event.productType.trim();
+  return productType
+    ? `tipo:${productType.toLocaleLowerCase('es')}`
+    : UNREGISTERED_SALES_FILTER;
+}
+
+function buildFilterOptions(
+  revenueEvents: readonly LedgerEvent[],
+  keyFor: (event: LedgerEvent) => string,
+  labelFor: (event: LedgerEvent) => string
+): SalesAnalyticsFilterOption[] {
+  const labels = new Map<string, string>();
+  for (const event of revenueEvents) {
+    const key = keyFor(event);
+    if (!labels.has(key)) labels.set(key, labelFor(event));
+  }
+  return [
+    { value: ALL_SALES_FILTER, label: 'Todos' },
+    ...[...labels.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  ];
+}
+
+function selectedFilterLabel(options: readonly SalesAnalyticsFilterOption[], value: string): string {
+  return options.find((option) => option.value === value)?.label ?? 'Todos';
+}
+
 function pendingClientBalance(quotes: readonly Quote[]): number {
   return workshopJobsFromQuotes(quotes).reduce((total, job) => total + job.balance, 0);
 }
@@ -171,6 +230,8 @@ function pendingStoneBalance(lots: readonly StoneLot[]): number {
 export function buildSalesAnalytics({
   period,
   anchorDate,
+  societyFilter = ALL_SALES_FILTER,
+  productTypeFilter = ALL_SALES_FILTER,
   quotes = [],
   stoneLots = [],
   stockJewels = [],
@@ -180,7 +241,23 @@ export function buildSalesAnalytics({
   const range = salesPeriodRange(period, anchorDate);
   const allEvents = buildLedger({ quotes, stoneLots, stockJewels, materialLots, expenses });
   const periodEvents = eventsInRange(allEvents, range);
-  const revenueEvents = periodEvents.filter((entry) => REVENUE_KINDS.has(entry.kind));
+  const periodRevenueEvents = periodEvents.filter((entry) => REVENUE_KINDS.has(entry.kind));
+  const societyOptions = buildFilterOptions(
+    periodRevenueEvents,
+    societyFilterKey,
+    (entry) => entry.partnerName.trim() || 'Sin registrar'
+  );
+  const productTypeOptions = buildFilterOptions(
+    periodRevenueEvents,
+    productTypeFilterKey,
+    (entry) => entry.productType.trim() || 'Sin registrar'
+  );
+  const revenueEvents = periodRevenueEvents.filter(
+    (entry) =>
+      (societyFilter === ALL_SALES_FILTER || societyFilterKey(entry) === societyFilter) &&
+      (productTypeFilter === ALL_SALES_FILTER ||
+        productTypeFilterKey(entry) === productTypeFilter)
+  );
   const sales: SalesAnalyticsSale[] = revenueEvents.map((entry) => {
     const profitCop = entry.amountCop - entry.attributedCostCop;
     const amountUsd = copToUsd(entry.amountCop, entry.usdRate);
@@ -324,6 +401,12 @@ export function buildSalesAnalytics({
         ? (item.partnerProfitCop / item.partnerInvestedCop) * 100
         : null
   }));
+  const sortedPartnerships = partnerships.sort((a, b) => b.myProfitCop - a.myProfitCop);
+  const mostMoney = sortedPartnerships[0] ?? null;
+  const mostProfitable =
+    [...sortedPartnerships]
+      .filter((item) => item.myReturnPercent !== null)
+      .sort((a, b) => (b.myReturnPercent ?? 0) - (a.myReturnPercent ?? 0))[0] ?? null;
 
   return {
     range,
@@ -337,6 +420,15 @@ export function buildSalesAnalytics({
     pendingClientsCop: pendingClientBalance(quotes),
     pendingStoneBuyersCop: pendingStoneBalance(stoneLots),
     byLot: [...byLotMap.values()].sort((a, b) => b.profitCop - a.profitCop),
-    partnerships: partnerships.sort((a, b) => b.myProfitCop - a.myProfitCop)
+    partnerships: sortedPartnerships,
+    filters: {
+      societies: societyOptions,
+      productTypes: productTypeOptions,
+      societyValue: societyFilter,
+      societyLabel: selectedFilterLabel(societyOptions, societyFilter),
+      productTypeValue: productTypeFilter,
+      productTypeLabel: selectedFilterLabel(productTypeOptions, productTypeFilter)
+    },
+    comparison: { mostMoney, mostProfitable }
   };
 }

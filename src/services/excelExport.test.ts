@@ -63,4 +63,48 @@ describe('E2: archivos editables para Excel en español', () => {
     expect(csv).toContain('Vendido COP;0');
     expect(csv).toContain('Tasa USD/COP');
   });
+
+  it('incluye los filtros del consolidado en el mismo Excel', () => {
+    const lot = {
+      ...emptyStoneLot('2026-08-04', '2026-08-04T12:00:00.000Z'),
+      id: 'lot-filtered-excel',
+      name: 'Lote filtrado',
+      carats: 1,
+      quantity: 1,
+      purchaseValueCop: 100_000,
+      partnerId: 'partner-filtered',
+      partnerName: 'Sociedad Excel',
+      myPercent: 50,
+      sales: [{
+        ...emptyStoneSale('2026-08-04', 4_000),
+        id: 'sale-filtered-excel',
+        carats: 1,
+        quantity: 1,
+        valueCop: 250_000,
+        productType: 'Anillo'
+      }]
+    };
+    const all = buildSalesAnalytics({ period: 'dia', anchorDate: '2026-08-04', stoneLots: [lot] });
+    const societyFilter = all.filters.societies.find(
+      (option) => option.label === 'Sociedad Excel'
+    )?.value;
+    const productTypeFilter = all.filters.productTypes.find(
+      (option) => option.label === 'Anillo'
+    )?.value;
+    const analytics = buildSalesAnalytics({
+      period: 'dia',
+      anchorDate: '2026-08-04',
+      stoneLots: [lot],
+      societyFilter,
+      productTypeFilter
+    });
+    const csv = buildSalesExcelCsv(analytics, '4 de agosto de 2026', { consolidated: true });
+
+    expect(csv).toContain('CONSOLIDADO DE VENTAS');
+    expect(csv).toContain('Filtro sociedad;Sociedad Excel');
+    expect(csv).toContain('Filtro tipo de producto;Anillo');
+    expect(csv).toContain('Anillo');
+    expect(csv).toContain(';250000;100000;150000;');
+    expect(csv).not.toContain('Caja;');
+  });
 });

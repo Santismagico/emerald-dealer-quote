@@ -112,6 +112,7 @@ describe('portada de inicio', () => {
       'dailyClose',
       'monthlyClose',
       'salesDashboard',
+      'salesConsolidated',
       'expenses',
       'clients',
       'buyers',

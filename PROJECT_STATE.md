@@ -491,6 +491,25 @@ como número editable; una fórmula temporal `=E7+1` devolvió `100001` y luego 
 deshizo. El PDF siguió visible junto al nuevo botón. Sin dependencias, datos, nube,
 cliente ni publicación. **E3 no fue iniciada en este commit.**
 
+**E3 implementada el 2026-08-04 (Codex):** Inicio → La plata incorpora el
+**Consolidado de ventas**, derivado del mismo libro. Permite elegir día, semana, mes
+o año y combinar filtros por sociedad y tipo de producto. Los registros anteriores
+sin alguno de esos datos aparecen como **“Sin registrar”** en su lista y pueden
+aislarse con el filtro correspondiente.
+
+La comparación presenta una al lado de la otra la sociedad que dejó más ganancia
+para Santiago y la de mayor rentabilidad sobre su inversión; ambas tarjetas muestran
+siempre monto y porcentaje juntos, y mantienen **“No aplica”** cuando no existe una
+inversión válida. Su Excel reutiliza el CSV local de E2, registra período y filtros y
+exporta solo el resultado consolidado: no mezcla caja sin filtrar con las ventas.
+
+Verificación E3: **957 pruebas en 65 archivos**, PWA y build de **338 módulos** en
+verde. Recorrido real a **320, 390 y 1280 px**: sin desbordamiento horizontal,
+botones de al menos 44 px, campos de 16 px, cambio Mes/Año, filtros visibles,
+comparación lado a lado y descarga del consolidado presentes; cero avisos o errores
+de consola. Sin dependencias, datos, migraciones, nube, cliente ni publicación.
+**La Fase F no fue iniciada.**
+
 **Corrección de registro (2026-08-04):** había **dos decisiones D-059** —la de
 gastos de Codex y la del precio del oro que Claude añadió sin notar el choque—.
 La segunda se renumeró a **D-062**, con nota en `DECISIONS.md`. La orden de la Fase
@@ -675,3 +694,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · E0: Costo atribuido en el libro (Codex) | Cada evento derivado incorpora costo atribuido; ventas de piedras reutilizan la regla C2 con residuo exacto, joyas y cotizaciones usan su costo conocido, y cobros no duplican ganancia; 945 pruebas en 63 archivos, PWA y build en verde; caja idéntica; sin pantalla, datos, nube ni publicación; E1 no iniciada | E0 (este commit) |
 | 2026-08-04 | Plan v2 · E1: Panel de ventas y ganancias (Codex) | Día/semana/mes/año; ganancia, caja y cobros separados; ganancia por lote; sociedades con monto y rentabilidad; COP/USD por tasa propia con históricos "Sin registrar"; 950 pruebas en 64 archivos, 336 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; E2 no iniciada | E1 (este commit) |
 | 2026-08-04 | Plan v2 · E2: Excel editable (Codex) | Cierres diario/mensual y panel exportan CSV local con punto y coma, BOM UTF-8, tildes y números editables; PDF conservado; prueba física en Excel español confirmó columnas y fórmula sobre monto; 953 pruebas en 65 archivos, 337 módulos y revisión 320/390/1280 en verde; sin dependencias, datos, nube ni publicación; E3 no iniciada | E2 (este commit) |
+| 2026-08-04 | Plan v2 · E3: Consolidado con filtros (Codex) | Día/semana/mes/año; filtros combinables por sociedad y producto, incluido “Sin registrar”; comparación lado a lado por ganancia propia y rentabilidad; Excel interno sin mezclar caja; 957 pruebas en 65 archivos, 338 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; Fase F no iniciada | E3 (este commit) |
