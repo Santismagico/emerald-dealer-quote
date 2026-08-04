@@ -53,8 +53,38 @@ Exportación a **`.xlsx` real** para los cierres, el panel y el consolidado, con
 - Una fila que identifique el documento como **interno**.
 - Fechas como fechas, no como texto.
 
-La maqueta aprobada por Santiago está descrita arriba; si algo del detalle visual queda
-ambiguo, **pregunta antes de inventar**.
+### La estructura aprobada por Santiago (2026-08-04)
+
+Vio una maqueta y la aprobó tal cual. Constrúyela así; si algo queda ambiguo,
+**pregunta antes de inventar**.
+
+De arriba abajo, en cada hoja:
+
+| Fila | Contenido | Formato |
+|---|---|---|
+| 1 | `CIERRE DEL DÍA · <nombre de la joyería>` | Banda verde esmeralda de ancho completo, texto blanco, negrita |
+| 2 | `Fecha` + la fecha | Etiqueta en gris oscuro, valor normal |
+| 3 | `Documento` + `Interno · no entregar al cliente` | Gris tenue |
+| 4 | — | Fila vacía de separación |
+| 5 | Rótulo de sección, ej. `RESUMEN DEL DÍA` | Fondo gris muy claro, texto esmeralda, negrita, espaciado de letras |
+| 6 | Encabezados de columna | Fondo gris claro, negrita, **borde inferior grueso** |
+| 7+ | Los datos | Dinero a la derecha; **negativos en rojo** |
+| última | `TOTAL …` | Negrita, **borde superior grueso**, fondo apenas distinto |
+
+Y entre secciones, otra fila vacía y otro rótulo.
+
+**Reglas del formato, no negociables:**
+
+- **Los importes son números de verdad**, con formato de moneda de Excel. No los
+  escribas como texto ya formateado: Santiago tiene que poder sumarlos.
+- **Encabezados fijos** con `freeze panes`, en la fila de encabezados de la primera
+  sección.
+- **Anchos de columna calculados** según el contenido más largo de cada una.
+- Las **fechas van como fechas**, no como texto.
+- Los quilates con decimales; el dinero sin decimales (COP entero).
+
+**Una hoja por documento**, y cuando haya detalle largo, una segunda pestaña
+`Detalle`. Las pestañas llevan nombre legible en español.
 
 ### La dependencia
 
