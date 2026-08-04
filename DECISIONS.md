@@ -828,6 +828,32 @@ nombre, igual que ocurre con proveedores, compradores y socios.
 Las ventas anteriores a esta decisión no tienen tipo y muestran **"Sin registrar"**
 (D-051). No se les asigna un tipo adivinado a partir del módulo de origen.
 
+## D-059 · La tasa del dólar se reutiliza de la fuente del oro, no se duplica · 2026-08-04 · Vigente
+
+`AGENTS.md` protege `src/services/goldPrice.ts` y exige decisión escrita para tocarlo.
+La etapa B3 lo modificó, y esta decisión cierra ese registro tras la auditoría.
+
+La aplicación ya consultaba la tasa USD→COP en ese archivo para calcular el precio del
+oro: misma fuente (`open.er-api.com`), ya autorizada en la CSP, con límites de sanidad
+(1000–20000 COP por dólar) y con funcionamiento sin conexión. Guardar la tasa por
+operación (D-054) necesitaba exactamente eso.
+
+**Se eligió reutilizar en vez de duplicar.** Se exportaron las dos constantes ya
+existentes sin cambiar sus valores, y se agregaron `isValidUsdRate` —con los mismos
+límites— y `fetchUsdRateCOP` —con la misma URL—. La matemática del precio del oro no
+cambió y ninguna prueba fue eliminada ni debilitada.
+
+El único efecto observable es que una tasa fuera de rango se rechaza un paso antes, con
+un mensaje ligeramente distinto; sigue negándose a actualizar el precio, que es lo que la
+regla protege.
+
+La alternativa —una segunda función de consulta con sus propios límites— habría creado
+dos definiciones de "tasa razonable" que podrían separarse con el tiempo. Una sola
+defensa, compartida, es más segura que dos copias.
+
+Verificado en la auditoría de las Fases A y B
+(`docs/AUDITORIA_CLAUDE_V2_FASES_A_B.md`, observación O1).
+
 ## D-055 · La talla se registra por tandas, en piedras y quilates · 2026-08-03 · Vigente
 
 Al tallar una esmeralda en bruto se pierde alrededor del **70% del peso**, a veces más y
