@@ -1077,6 +1077,13 @@ la última venta que agota el lote, de modo que nunca se atribuye más de lo inv
 un lote vendido completo cierra exactamente. Abonos y demás eventos no vuelven a
 atribuir ese costo, por lo que cobrar después no duplica la ganancia.
 
+Implementación E1 (2026-08-04): el panel interno **Ventas y ganancias** permite
+leer día, semana, mes o año. Presenta vendido, costo atribuido y ganancia en un
+bloque; caja real en otro; y cobros pendientes en un tercero, con explicaciones
+visibles para impedir que se mezclen. La vista USD suma únicamente operaciones con
+tasa propia y avisa cuántas quedaron como **"Sin registrar"**; COP sigue siendo el
+valor oficial.
+
 ## D-064 · Las sociedades se comparan por cuánto dejaron y por qué tan rentables fueron · 2026-08-04 · Vigente
 
 Para decidir qué sociedad le conviene repetir, Santiago quiere **las dos medidas a la
@@ -1093,3 +1100,8 @@ aplica.
 
 Esta decisión materializa D-053 y la frase con la que Santiago resumió todo el plan:
 *"todo lo que se puede medir, se puede optimizar"*.
+
+Implementación E1 (2026-08-04): cada sociedad muestra la parte propia y la del socio
+con su monto y su porcentaje sobre la inversión correspondiente. El reparto conserva
+el residuo COP del lado propio, como en B2. Cuando la inversión es cero, la pantalla
+indica **"No aplica"** en lugar de inventar un porcentaje.

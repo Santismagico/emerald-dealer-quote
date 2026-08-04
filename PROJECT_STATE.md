@@ -461,6 +461,22 @@ cambiar esperados. Verificación E0: **945 pruebas en 63 archivos**, PWA y compi
 en verde. No hubo pantalla nueva que recorrer; cero cambios de datos, migraciones,
 nube o publicación. **E1 no fue iniciada en este commit.**
 
+**E1 implementada el 2026-08-04 (Codex):** Inicio → La plata incorpora la pantalla
+interna **Ventas y ganancias**, alimentada por el libro. Permite leer día, semana,
+mes o año y separa explícitamente: vendido/costo/ganancia; caja que realmente se
+movió; y cobros pendientes a la fecha. Incluye ganancia por lote y sociedades con
+la parte propia y la del socio, cada una acompañada del porcentaje sobre su inversión;
+con inversión cero muestra **"No aplica"**.
+
+La vista COP/USD convierte cada operación con su tasa histórica propia. Las ventas
+sin tasa dicen **"Sin registrar"**, se excluyen del total USD y quedan contadas en
+un aviso visible; nunca se aplica la tasa actual a datos viejos. Verificación E1:
+**950 pruebas en 64 archivos**, PWA y build de **336 módulos** en verde. Recorrido
+real en navegador a **320, 390 y 1280 px**: sin desbordamiento horizontal, botones
+de 44 px, input de 16 px, cambio Día/Semana/Mes/Año y COP/USD en verde, cero errores
+de consola. Sin datos, nube, cliente ni publicación. **E2 no fue iniciada en este
+commit.**
+
 **Corrección de registro (2026-08-04):** había **dos decisiones D-059** —la de
 gastos de Codex y la del precio del oro que Claude añadió sin notar el choque—.
 La segunda se renumeró a **D-062**, con nota en `DECISIONS.md`. La orden de la Fase
@@ -643,3 +659,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · D1: Libro del negocio en paralelo (Codex) | Flujo puro y normalizado de 16 tipos de evento; ids estables, dimensiones completas y caja decidida en un solo lugar; prueba rica de equivalencia diaria/mensual peso por peso; 943 pruebas en 63 archivos, 333 módulos en verde; `dailyReport.ts` intacto; sin pantalla, datos, nube ni publicación | D1 (este commit) |
 | 2026-08-04 | Plan v2 · D2: Cierres leen del libro (Codex) | Cierre diario, mensual e historial derivados del mismo flujo; toda categoría, entrada, salida y neto lee `kind`/`direction`; 54 pruebas específicas sin cambiar esperados y 943 pruebas completas en 63 archivos, 334 módulos en verde; PDF intacto; sin pantalla, datos, nube ni publicación; Fase E no iniciada | D2 (este commit) |
 | 2026-08-04 | Plan v2 · E0: Costo atribuido en el libro (Codex) | Cada evento derivado incorpora costo atribuido; ventas de piedras reutilizan la regla C2 con residuo exacto, joyas y cotizaciones usan su costo conocido, y cobros no duplican ganancia; 945 pruebas en 63 archivos, PWA y build en verde; caja idéntica; sin pantalla, datos, nube ni publicación; E1 no iniciada | E0 (este commit) |
+| 2026-08-04 | Plan v2 · E1: Panel de ventas y ganancias (Codex) | Día/semana/mes/año; ganancia, caja y cobros separados; ganancia por lote; sociedades con monto y rentabilidad; COP/USD por tasa propia con históricos "Sin registrar"; 950 pruebas en 64 archivos, 336 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; E2 no iniciada | E1 (este commit) |

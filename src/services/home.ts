@@ -14,6 +14,7 @@ export type HomeDestination =
   | 'inventoryReceivables'
   | 'dailyClose'
   | 'monthlyClose'
+  | 'salesDashboard'
   | 'expenses'
   | 'clients'
   | 'buyers'
@@ -61,6 +62,7 @@ export const HOME_GROUPS: readonly HomeGroup[] = [
     items: [
       { destination: 'dailyClose', label: 'Cierre del día' },
       { destination: 'monthlyClose', label: 'Cierre mensual' },
+      { destination: 'salesDashboard', label: 'Ventas y ganancias' },
       { destination: 'expenses', label: 'Gastos' }
     ]
   },

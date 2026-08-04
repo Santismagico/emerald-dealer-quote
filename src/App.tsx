@@ -14,6 +14,7 @@ import { AgendaView } from './components/AgendaView';
 import { InventoryView, type InventorySection } from './components/InventoryView';
 import { DailyCloseView } from './components/DailyCloseView';
 import { ExpensesView } from './components/ExpensesView';
+import { SalesDashboardView } from './components/SalesDashboardView';
 import { HomeView } from './components/HomeView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
@@ -57,6 +58,7 @@ type ViewName =
   | 'stones'
   | 'dailyClose'
   | 'expenses'
+  | 'salesDashboard'
   | 'clients'
   | 'suppliers'
   | 'buyers'
@@ -352,6 +354,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         case 'suppliers':
         case 'settings':
         case 'expenses':
+        case 'salesDashboard':
           setView(destination);
           return;
         case 'partners':
@@ -490,6 +493,12 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             <ExpensesView />
           </div>
         )}
+        {view === 'salesDashboard' && (
+          <div className="space-y-4">
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <SalesDashboardView />
+          </div>
+        )}
         {view === 'clients' && (
           <div className="space-y-4">
             <BackRow label="← Inicio" onClick={() => setView('home')} />
@@ -564,6 +573,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               view === 'home' ||
               view === 'dailyClose' ||
               view === 'expenses' ||
+              view === 'salesDashboard' ||
               view === 'clients' ||
               view === 'suppliers' ||
               view === 'buyers' ||

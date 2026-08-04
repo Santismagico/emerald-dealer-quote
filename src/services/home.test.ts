@@ -111,6 +111,7 @@ describe('portada de inicio', () => {
       'inventoryReceivables',
       'dailyClose',
       'monthlyClose',
+      'salesDashboard',
       'expenses',
       'clients',
       'buyers',
@@ -119,7 +120,6 @@ describe('portada de inicio', () => {
       'settings',
       'account'
     ]);
-    expect(destinations).not.toContain('dashboard');
     expect(destinations).not.toContain('catalog');
   });
 });
