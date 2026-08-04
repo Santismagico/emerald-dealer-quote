@@ -286,8 +286,35 @@ commits separados. Incluye un hallazgo que ahorra trabajo en B3: la aplicación
 sanidad y ya funciona sin conexión — la moneda **no necesita API, dependencia ni
 cambio de CSP nuevos**.
 
-Codex **no debe seguir a la Fase C**: es la de riesgo alto y lleva su propia
-orden después de que Claude audite estas cuatro etapas.
+**Fases A y B TERMINADAS y AUDITADAS (2026-08-04).** Codex entregó las cuatro
+etapas en cuatro commits (`c666baf`, `5e3019b`, `7f8d2d6`, `f70708a`). Claude las
+auditó de forma independiente ejecutando todas las verificaciones:
+**846 pruebas en 56 archivos**, compilación, compilación pública sin Supabase con
+CSP exacta, sin secretos, sin dependencias nuevas, `main` intacto en `0a86e5a`, y
+recorrido real en navegador a 320/375/1280 px. **Veredicto: APROBADO.** Informe en
+`docs/AUDITORIA_CLAUDE_V2_FASES_A_B.md`. La observación O1 quedó cerrada con
+**D-059** (la tasa del dólar se reutiliza de la fuente del oro en vez de
+duplicarla).
+
+**Riesgo residual declarado, decisión de Santiago:** la prueba N6 real entre dos
+cuentas no se pudo ejecutar (exige credenciales que un agente no debe manejar). El
+aislamiento de las tablas y campos nuevos está verificado **por revisión de
+código**, no de extremo a extremo. Es el mismo riesgo que Santiago aceptó en la
+ampliación de inventario anterior; una aceptación previa no se extiende sola a un
+lote nuevo.
+
+**Fase C entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_C.md`, dos
+etapas en dos commits. Es la de **riesgo alto**: cambia el comportamiento del
+inventario físico que ya está en producción. Condición central de la orden: *un
+lote sin tandas de talla y sin usos internos debe comportarse exactamente como
+hoy, hasta el último peso y el último quilate*. Modelo elegido: `cuttingBatches[]`
+y `internalUses[]` embebidos en `StoneLot` (mismo patrón que `MaterialLot.uses[]`),
+más `origin: 'bruto' | 'tallado'` en cada venta. Regla que más fácil se rompe y
+queda marcada: **la transformación fantasía→natural NO es un movimiento de caja**,
+es un traslado de costo.
+
+Codex **no debe seguir a la Fase D**: Claude audita la Fase C antes, porque el
+libro del negocio va a leer justamente lo que allí se define.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
