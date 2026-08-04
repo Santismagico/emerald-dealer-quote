@@ -19,6 +19,14 @@ import { clientPaidTotal } from './payments';
 import { formatCOP, toSafeCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
 import { expenseSplit } from './expenses';
+import {
+  buildLedger,
+  ledgerCashTotals,
+  ledgerEventsForDay,
+  ledgerEventsForMonth,
+  sumLedgerEvents,
+  type LedgerEvent
+} from './ledger';
 
 export interface DailyStonePurchase {
   lotName: string;
@@ -230,7 +238,8 @@ function buildBusinessReport(
   stockJewels: readonly StockJewel[],
   expensesInput: readonly Expense[],
   matchDate: (ymd: string) => boolean,
-  matchInstant: (iso: string) => boolean
+  matchInstant: (iso: string) => boolean,
+  periodEvents: readonly LedgerEvent[]
 ): BusinessReport {
   const stonePurchases: DailyStonePurchase[] = [];
   const stoneSales: DailyStoneSale[] = [];
@@ -410,25 +419,26 @@ function buildBusinessReport(
       };
     });
 
-  const sum = (values: number[]) => values.reduce((acc, v) => acc + v, 0);
-  const paymentsReceived = sum(payments.map((p) => p.amount));
-  const workshopPaid = sum(workshopPayments.map((w) => w.cost));
-  // Solo las ventas de CONTADO entran a caja el día de la venta. Las de crédito
-  // se informan aparte y entran cuando el comprador abona (D-045).
-  const stonesSold = sum(stoneSales.filter((s) => !s.onCredit).map((s) => s.valueCop));
-  const stonesSoldCredit = sum(stoneSales.filter((s) => s.onCredit).map((s) => s.valueCop));
-  const buyerPaymentsReceived = sum(buyerPayments.map((p) => p.amount));
-  const stonesPurchasedCash = sum(stonePurchases.filter((p) => !p.onCredit).map((p) => p.valueCop));
-  const stonesPurchasedCredit = sum(stonePurchases.filter((p) => p.onCredit).map((p) => p.valueCop));
-  const supplierPaymentsPaid = sum(supplierPayments.map((p) => p.amount));
-  const cuttingPaid = sum(cuttingPayments.map((payment) => payment.amount));
-  const jewelsAcquiredCost = sum(jewelPurchases.map((j) => j.costCop));
-  const jewelsSold = sum(jewelSales.map((j) => j.priceCop));
-  const jewelsResult = sum(jewelSales.map((j) => j.resultCop));
-  const expensesPaid = sum(expenses.map((expense) => expense.amountCop));
-  const cashIn = stonesSold + buyerPaymentsReceived + jewelsSold + paymentsReceived;
-  const cashOut =
-    stonesPurchasedCash + supplierPaymentsPaid + cuttingPaid + jewelsAcquiredCost + workshopPaid + expensesPaid;
+  // D2: el cierre conserva sus renglones narrativos, pero ningún renglón vuelve
+  // a decidir si mueve caja. Categorías, entradas, salidas y neto salen del libro.
+  const paymentsReceived = sumLedgerEvents(periodEvents, 'abono_cliente', 'entra');
+  const workshopPaid = sumLedgerEvents(periodEvents, 'pago_taller', 'sale');
+  const stonesSold = sumLedgerEvents(periodEvents, 'venta_piedras_contado', 'entra');
+  const stonesSoldCredit = sumLedgerEvents(periodEvents, 'venta_piedras_credito', 'ninguna');
+  const buyerPaymentsReceived = sumLedgerEvents(periodEvents, 'abono_comprador', 'entra');
+  const stonesPurchasedCash = sumLedgerEvents(periodEvents, 'compra_lote_piedras', 'sale');
+  const stonesPurchasedCredit = sumLedgerEvents(
+    periodEvents,
+    'compra_lote_piedras',
+    'ninguna'
+  );
+  const supplierPaymentsPaid = sumLedgerEvents(periodEvents, 'pago_proveedor', 'sale');
+  const cuttingPaid = sumLedgerEvents(periodEvents, 'pago_talla', 'sale');
+  const jewelsAcquiredCost = sumLedgerEvents(periodEvents, 'compra_joya_stock', 'sale');
+  const jewelsSold = sumLedgerEvents(periodEvents, 'venta_joya_stock', 'entra');
+  const jewelsResult = jewelSales.reduce((total, jewel) => total + jewel.resultCop, 0);
+  const expensesPaid = sumLedgerEvents(periodEvents, 'gasto', 'sale');
+  const { cashIn, cashOut, net } = ledgerCashTotals(periodEvents);
 
   return {
     stonePurchases,
@@ -459,7 +469,7 @@ function buildBusinessReport(
       expensesPaid,
       cashIn,
       cashOut,
-      net: cashIn - cashOut,
+      net,
       supplierDebt,
       clientsOwe,
       buyersOwe
@@ -487,6 +497,7 @@ export function buildDailyReport(
   stockJewels: readonly StockJewel[] = [],
   expenses: readonly Expense[] = []
 ): DailyReport {
+  const ledger = buildLedger({ quotes, stoneLots, stockJewels, expenses });
   return {
     date: day,
     ...buildBusinessReport(
@@ -495,7 +506,8 @@ export function buildDailyReport(
       stockJewels,
       expenses,
       (ymd) => ymd === day,
-      (iso) => isSameLocalDay(iso, day)
+      (iso) => isSameLocalDay(iso, day),
+      ledgerEventsForDay(ledger, day)
     )
   };
 }
@@ -508,12 +520,13 @@ function isSameLocalMonth(iso: string, month: string): boolean {
   return toISODate(parsed).slice(0, 7) === month;
 }
 
-export function buildMonthlyReport(
+function buildMonthlyReportFromLedger(
   month: string,
   quotes: readonly Quote[],
   stoneLots: readonly StoneLot[],
-  stockJewels: readonly StockJewel[] = [],
-  expenses: readonly Expense[] = []
+  stockJewels: readonly StockJewel[],
+  expenses: readonly Expense[],
+  ledger: readonly LedgerEvent[]
 ): MonthlyReport {
   return {
     month,
@@ -523,9 +536,21 @@ export function buildMonthlyReport(
       stockJewels,
       expenses,
       (ymd) => isValidISODate(ymd) && ymd.slice(0, 7) === month,
-      (iso) => isSameLocalMonth(iso, month)
+      (iso) => isSameLocalMonth(iso, month),
+      ledgerEventsForMonth(ledger, month)
     )
   };
+}
+
+export function buildMonthlyReport(
+  month: string,
+  quotes: readonly Quote[],
+  stoneLots: readonly StoneLot[],
+  stockJewels: readonly StockJewel[] = [],
+  expenses: readonly Expense[] = []
+): MonthlyReport {
+  const ledger = buildLedger({ quotes, stoneLots, stockJewels, expenses });
+  return buildMonthlyReportFromLedger(month, quotes, stoneLots, stockJewels, expenses, ledger);
 }
 
 /**
@@ -538,6 +563,7 @@ export function listMonthlySummaries(
   stockJewels: readonly StockJewel[] = [],
   expenses: readonly Expense[] = []
 ): MonthlySummary[] {
+  const ledger = buildLedger({ quotes, stoneLots, stockJewels, expenses });
   const months = new Set<string>();
   const addDate = (ymd: string) => {
     if (isValidISODate(ymd)) months.add(ymd.slice(0, 7));
@@ -575,7 +601,14 @@ export function listMonthlySummaries(
   return [...months]
     .sort((a, b) => b.localeCompare(a))
     .map((month) => {
-      const { totals } = buildMonthlyReport(month, quotes, stoneLots, stockJewels, expenses);
+      const { totals } = buildMonthlyReportFromLedger(
+        month,
+        quotes,
+        stoneLots,
+        stockJewels,
+        expenses,
+        ledger
+      );
       return { month, cashIn: totals.cashIn, cashOut: totals.cashOut, net: totals.net };
     });
 }

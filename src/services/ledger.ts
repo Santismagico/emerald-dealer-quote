@@ -123,7 +123,8 @@ export function buildLedger({
   const events: LedgerEvent[] = [];
 
   for (const quote of quotes) {
-    const total = calculateQuote(quoteToCalcInput(quote)).total;
+    const calculation = calculateQuote(quoteToCalcInput(quote));
+    const total = calculation.total;
     const clientName = quoteClientName(quote);
 
     events.push(
@@ -169,14 +170,14 @@ export function buildLedger({
       );
     }
 
-    if (toSafeCOP(quote.deposit) > 0 && quote.depositDate.trim()) {
+    if (calculation.deposit > 0 && quote.depositDate.trim()) {
       events.push(
         event({
           id: `quote:${quote.id}:deposit`,
           date: quote.depositDate,
           kind: 'abono_cliente',
           direction: 'entra',
-          amountCop: quote.deposit,
+          amountCop: calculation.deposit,
           usdRate: null,
           module: 'cotizador',
           lotId: null,

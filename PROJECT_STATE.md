@@ -275,9 +275,9 @@ arriba. **Inicio reemplaza a "Más"** en la barra inferior, que queda en Inicio 
 Cotizador · Taller · Agenda · Inventario (siguen siendo cinco, D-046). Registrado
 en D-052.
 
-**No quedan decisiones abiertas.** A1, B1, B2, B3, C1, C2 y D1 ya fueron
-implementadas. D2 queda pendiente y no se inicia hasta cerrar D1 como commit
-independiente.
+**No quedan decisiones abiertas.** A1, B1, B2, B3, C1, C2, D1 y D2 ya fueron
+implementadas. La Fase D queda detenida para auditoría independiente antes de
+cualquier trabajo de la Fase E.
 
 **Orden de trabajo entregada a Codex:**
 `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
@@ -373,6 +373,25 @@ Verificación D1: **943 pruebas en 63 archivos**, comprobación PWA y compilaci�
 **333 módulos**, todo en verde. No hubo recorrido nuevo de navegador porque D1 no
 tiene pantalla ni habilita un recorrido de usuario. Sin dependencias, datos,
 migraciones, nube ni publicación; `main`, el piloto y el workflow siguen intactos.
+
+**D2 implementada el 2026-08-04 (Codex):** los cierres diario y mensual ya
+construyen el libro completo y filtran sus eventos por período. Todos los totales
+de caja y cada categoría de dinero se derivan de `direction` y `kind` del libro;
+el cierre conserva sus renglones descriptivos y las fotos actuales de deudas, pero
+ya no vuelve a decidir si una operación entra o sale. El historial mensual calcula
+el libro una sola vez y reutiliza ese mismo flujo para cada mes.
+
+La red específica de D2 pasó **54 pruebas en 5 archivos**: la equivalencia de D1
+y todas las pruebas existentes de cierres diario, inventario, talla y
+transformación. No se cambió ningún valor esperado. Verificación completa D2:
+**943 pruebas en 63 archivos**, comprobación PWA y compilación de **334 módulos**,
+todo en verde. Los PDF internos conservan los mismos renglones y totales. Sin
+pantalla nueva, dependencias, datos, migraciones, nube ni publicación; `main`, el
+piloto, el workflow, el motor de cálculo y el detector de privacidad siguen
+intactos.
+
+**Fase D TERMINADA y pendiente de auditoría de Claude.** La Fase E no fue
+iniciada.
 
 Codex **no debe seguir a la Fase E**: Claude audita el libro antes de que tres
 pantallas empiecen a depender de él.
@@ -548,3 +567,4 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · C1: Talla por tandas (Codex) | Bruto, en talla y tallado derivados; merma, costos y pagos por tanda; historial físico protegido; compatibilidad anterior, respaldo v8 y migración de nube aditiva; 858 pruebas en 58 archivos, 332 módulos y revisión 320/390/1280 en verde; no publicado | C1 (este commit) |
 | 2026-08-04 | Plan v2 · C2: Fantasía → natural (Codex) | Ficha completa de joyas; transformación enlazada y atómica; descuento de piedras, traslado de costo sin caja, respaldo histórico y nube server-first con recepción conjunta; 940 pruebas en 62 archivos, 333 módulos y revisión 320/390/1280 en verde; migración preparada no aplicada; no publicado; Fase D no iniciada | C2 (este commit) |
 | 2026-08-04 | Plan v2 · D1: Libro del negocio en paralelo (Codex) | Flujo puro y normalizado de 16 tipos de evento; ids estables, dimensiones completas y caja decidida en un solo lugar; prueba rica de equivalencia diaria/mensual peso por peso; 943 pruebas en 63 archivos, 333 módulos en verde; `dailyReport.ts` intacto; sin pantalla, datos, nube ni publicación | D1 (este commit) |
+| 2026-08-04 | Plan v2 · D2: Cierres leen del libro (Codex) | Cierre diario, mensual e historial derivados del mismo flujo; toda categoría, entrada, salida y neto lee `kind`/`direction`; 54 pruebas específicas sin cambiar esperados y 943 pruebas completas en 63 archivos, 334 módulos en verde; PDF intacto; sin pantalla, datos, nube ni publicación; Fase E no iniciada | D2 (este commit) |

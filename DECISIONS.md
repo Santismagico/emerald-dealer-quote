@@ -955,6 +955,15 @@ al proveedor usa `sale`. Los usos de material, que guardan gramos pero no un cos
 monetario propio, conservan `amountCop: 0` antes que inventar un valor; toda actividad
 de material usa `direction: 'ninguna'` y nunca altera los cierres.
 
+Implementación D2 (2026-08-04): los cierres diario y mensual dejaron de sumar
+dinero desde sus renglones. Construyen el libro completo, lo filtran por día o mes
+y obtienen de él cada categoría, `cashIn`, `cashOut` y `net`; el historial mensual
+reutiliza una sola construcción para todos los meses. Los renglones descriptivos y
+las fotos actuales de deudas se conservan para el PDF interno, sin volver a decidir
+el sentido de caja. La equivalencia de D1 y las pruebas existentes de cierres
+pasaron sin cambiar ningún valor esperado. La Fase D termina aquí, sin pantalla ni
+avance a la Fase E.
+
 Corolario de operación: el orden de construcción no es negociable. Primero los datos que
 faltan (gastos, sociedades, tipo de producto), después los cambios de inventario, luego
 el libro, y solo al final las pantallas que lo leen. Construir el dashboard antes
