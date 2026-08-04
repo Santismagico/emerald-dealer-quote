@@ -236,6 +236,45 @@ No se agregaron dependencias, migraciones ni cambios contables. No se tocó
 `main`, `.github/workflows/deploy.yml`, el proyecto de Pruebas ni el repositorio
 de publicación.
 
+## PLAN MAESTRO v2 — de cotizador a sistema del negocio (2026-08-03, EN CURSO)
+
+Santiago dictó una tanda grande de reorganización, adiciones y mejoras. El plan
+completo está en **`docs/PLAN_MAESTRO_V2.md`**; las decisiones de negocio en
+**D-052 a D-057**. Punto de restauración: tag `punto-seguro-pre-v2-2026-08-03`
+(= `f8dc78e`).
+
+**Diagnóstico:** la app nació para cotizar y creció hasta ser el sistema del
+negocio. Quedaron dos consecuencias: la puerta de entrada engaña (abre en el
+Cotizador) y los módulos crecieron como silos, sin una forma única de responder
+"¿cómo va el negocio?".
+
+**Idea central (D-057):** un **libro del negocio** (`src/services/ledger.ts`),
+motor puro que traduce todo a un flujo normalizado de eventos con las mismas
+dimensiones. Dashboard, cierres, consolidado y Excel son cuatro presentaciones
+de esa única verdad. Por eso el orden de fases **no es negociable**.
+
+**Fases:**
+
+| Fase | Etapas | Riesgo | Depende de |
+|---|---|---|---|
+| A | A1 Pantalla de inicio | Bajo | diseño que elija Santiago |
+| B | B1 Gastos · B2 Sociedades en piedras · B3 Tipo de producto + moneda | Bajo–Medio | 2 decisiones abiertas (solo B3) |
+| C | C1 Bruto → tallado por tandas · C2 Joyas completas + fantasía/natural | **Alto** | B |
+| D | D1 Libro del negocio | Medio | B, C |
+| E | E1 Dashboard · E2 Excel · E3 Consolidado | Medio | D |
+| F | F1 Catálogo PDF automático | Bajo–Medio | C2 |
+
+**Decisiones abiertas que bloquean B3:** (A-1) si la tasa del dólar se guarda en
+cada operación —recomendado— o hay una sola en Ajustes; (A-2) si el tipo de
+producto es lista fija o Santiago crea los suyos —recomendado lista base más
+propios—.
+
+**Se puede empezar por A1 y B1**, que no dependen de nada más. El resto sigue el
+orden de la tabla.
+
+**Sin cambios de código todavía:** esta entrada registra únicamente el plan.
+`main`, el enlace del piloto y el workflow de despliegue no fueron tocados.
+
 ## Bitácora de etapas (Codex la actualiza)
 
 | Fecha | Etapa | Resultado | Commit |

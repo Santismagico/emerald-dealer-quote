@@ -737,3 +737,99 @@ Esta ampliación no cambia ningún total, saldo ni fecha contable: D-045 sigue c
 el dinero únicamente el día en que se movió. Tampoco requiere migraciones nuevas: los
 lotes y joyas ya se guardan completos y los campos nuevos son compatibles con los datos
 anteriores. No se agrega ninguna dependencia.
+
+## D-052 · El Cotizador deja de ser la puerta de entrada · 2026-08-03 · Vigente
+
+La aplicación nació para cotizar, pero creció hasta contener Taller, Agenda, Inventario
+de piedras, Material con socios, Joyas en stock, Cobros y cierres. Santiago observó que
+abrir directamente en el Cotizador da una impresión equivocada del producto: parece una
+cotizadora con anexos, cuando en realidad es el sistema del negocio.
+
+Desde esta decisión la aplicación abre en una **pantalla de inicio** que muestra todas
+las áreas, y el usuario elige la que necesita en ese momento. Cotizar pasa a ser una
+opción más entre iguales. La barra inferior se conserva como atajo una vez dentro de un
+área: ninguna ruta existente desaparece.
+
+## D-053 · Sociedad es el negocio compartido, y debe poder compararse · 2026-08-03 · Vigente
+
+Santiago compra lotes de esmeraldas solo o **con socios**. Cuando el lote es compartido
+necesita ver su ganancia y la de cada socio **por separado**, y sobre todo poder
+comparar unas sociedades con otras: cuál deja dinero, cuál lo quita, cuál conviene
+repetir.
+
+La sociedad se construye **reutilizando la entidad de socios que ya existe** para
+material (D-049), generalizada a piedras. No se crea una entidad paralela ni se migra
+destructivamente la existente. El reparto se calcula siempre sobre el **resultado real**
+(recibido − costo), nunca sobre el precio de lista. Borrar un socio conserva su nombre y
+el reparto histórico, como ya ocurre en material.
+
+Los lotes anteriores sin socio siguen siendo 100% propios y dan exactamente el mismo
+dinero que antes.
+
+## D-054 · El peso colombiano es la base; el dólar es una vista · 2026-08-03 · Vigente
+
+El negocio de esmeraldas transa con frecuencia en dólares, pero la contabilidad de
+Santiago es en pesos colombianos. Desde esta decisión el dinero se **almacena siempre en
+COP enteros** —regla que ya protege el motor y todas las pruebas existentes— y el dólar
+es exclusivamente una **forma de ver** la misma información.
+
+Cambiar la vista a dólares no modifica ni un solo dato guardado. Queda abierta la
+decisión de si la tasa se guarda por operación (historia fiel, recomendada) o si hay una
+sola tasa en Ajustes; se resuelve antes de construir la etapa B3.
+
+## D-055 · La talla se registra por tandas, en piedras y quilates · 2026-08-03 · Vigente
+
+Al tallar una esmeralda en bruto se pierde alrededor del **70% del peso**, a veces más y
+a veces menos. Además la talla **no se hace sobre el lote completo**: de un lote de diez
+piedras se pueden tallar dos este mes y dos el siguiente.
+
+Desde esta decisión un lote de piedras admite **tandas de talla**. De cada tanda se
+registra únicamente **cuántas piedras y cuántos quilates** se envían, y al regresar el
+resultado real; la merma se **deriva**, nunca se digita. Santiago descartó explícitamente
+identificar piedra por piedra dentro del lote: es más control del que necesita y demasiado
+trabajo de digitación.
+
+El lote pasa a tener dos existencias —lo que sigue en bruto y lo ya tallado y
+disponible—, y cada venta declara de cuál sale. Un lote sin tandas se comporta
+exactamente como hoy.
+
+## D-056 · Cambiar fantasía por natural descuenta del inventario de piedras · 2026-08-03 · Vigente
+
+Es práctica común del negocio comprar una joya terminada con **piedra de fantasía** y
+reemplazarla después por una **piedra natural**. Saber cuánto stock hay de cada clase es
+indispensable para saber qué se le puede ofrecer a un cliente.
+
+Desde esta decisión cada joya en stock se clasifica como fantasía o natural, y el cambio
+de una a otra es un **evento registrado con fecha** que hace tres cosas a la vez: cambia
+la clasificación de la joya, **descuenta la piedra natural del inventario de Piedras** y
+suma el costo de esa piedra al costo de la joya. Los dos módulos deben cuadrar solos: no
+se puede transformar consumiendo una piedra que no existe.
+
+Las joyas existentes se leen sin clasificación y muestran **“Sin registrar”** hasta que
+se clasifiquen, conforme a D-051. La joya conserva su historia: se ve que empezó en
+fantasía.
+
+## D-057 · Una sola verdad para los números del negocio · 2026-08-03 · Vigente
+
+Santiago pidió un dashboard de ventas y ganancias, cierres en Excel y un consolidado con
+filtros. Las tres pantallas muestran **la misma plata**. Si cada una la calculara por su
+cuenta a partir de las entidades crudas, tarde o temprano se contradirían, y en una
+aplicación de dinero eso destruye la confianza en todo lo demás.
+
+Desde esta decisión existe un **libro del negocio** (`src/services/ledger.ts`): un motor
+puro que traduce todo lo que ocurre —ventas, abonos, pagos del taller, lotes, tandas de
+talla, transformaciones de joyas, material y gastos— a un flujo normalizado de eventos
+con las mismas dimensiones: fecha, monto en COP, tasa del dólar, tipo de evento, módulo,
+lote, sociedad, tipo de producto y contraparte.
+
+El dashboard agrupa ese flujo por período; los cierres lo filtran por fecha; el
+consolidado lo agrupa por sociedad o tipo de producto; el Excel lo serializa. Una sola
+verdad, cuatro presentaciones.
+
+La prueba que valida el libro es que `dailyReport.ts` y el cierre mensual, al pasar a
+leer de él, **sigan dando exactamente los mismos totales que hoy**.
+
+Corolario de operación: el orden de construcción no es negociable. Primero los datos que
+faltan (gastos, sociedades, tipo de producto), después los cambios de inventario, luego
+el libro, y solo al final las pantallas que lo leen. Construir el dashboard antes
+obligaría a rehacerlo.
