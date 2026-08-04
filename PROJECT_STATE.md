@@ -269,11 +269,25 @@ guarda **en cada operación**, no hay tasa única en Ajustes → D-054; (A-2) el
 de producto es una **lista base ampliable** con tipos propios → D-058. Con eso
 **la Fase B completa queda desbloqueada**.
 
-**Única decisión abierta:** (A-3) el diseño de la pantalla de inicio. Claude le
-presenta 2 opciones visuales a Santiago y él elige. Solo bloquea A1.
+**Decisión A-3 cerrada el 2026-08-03:** Santiago vio dos maquetas y eligió **la
+mezcla** — portada agrupada por los pasos del negocio, con la cifra del mes
+arriba. **Inicio reemplaza a "Más"** en la barra inferior, que queda en Inicio ·
+Cotizador · Taller · Agenda · Inventario (siguen siendo cinco, D-046). Registrado
+en D-052.
 
-**Se puede empezar por B1** (sin bloqueos) **y por A1** en cuanto Santiago elija
-el diseño. El resto sigue el orden de la tabla.
+**No quedan decisiones abiertas.** Las cuatro primeras etapas están listas para
+ejecutar.
+
+**Orden de trabajo entregada a Codex:**
+`docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
+commits separados. Incluye un hallazgo que ahorra trabajo en B3: la aplicación
+**ya consulta la tasa USD→COP** en `src/services/goldPrice.ts`
+(`open.er-api.com`), ya está en la lista blanca de la CSP, ya tiene límites de
+sanidad y ya funciona sin conexión — la moneda **no necesita API, dependencia ni
+cambio de CSP nuevos**.
+
+Codex **no debe seguir a la Fase C**: es la de riesgo alto y lleva su propia
+orden después de que Claude audite estas cuatro etapas.
 
 **Sin cambios de código todavía:** esta entrada registra únicamente el plan.
 `main`, el enlace del piloto y el workflow de despliegue no fueron tocados.

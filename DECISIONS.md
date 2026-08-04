@@ -750,6 +750,30 @@ las áreas, y el usuario elige la que necesita en ese momento. Cotizar pasa a se
 opción más entre iguales. La barra inferior se conserva como atajo una vez dentro de un
 área: ninguna ruta existente desaparece.
 
+**Forma elegida (2026-08-03).** Santiago vio dos maquetas —un tablero de fichas con los
+números del día y una portada agrupada por áreas— y eligió **la mezcla**: la portada
+agrupada, con la cifra del mes arriba.
+
+- **Agrupación por los pasos del negocio**, no por módulos técnicos: Vender · Producir y
+  atender · Inventario · La plata · Tu gente · Cuenta. Esa agrupación enseña de qué se
+  trata la aplicación en cinco segundos y aguanta crecer sin desordenarse.
+- **Una sola cifra arriba**: el resultado del mes. **No es un cálculo nuevo**: reutiliza
+  exactamente el del Cierre mensual que ya existe, con el mismo nombre. Cuando llegue el
+  libro del negocio (D-057) pasará a leerse de él, y el número no debe cambiar.
+- **Números solo donde hay algo que atender** (citas de hoy, cobros vencidos, trabajos en
+  proceso). El resto de las filas van sin adorno.
+
+**Inicio reemplaza a "Más" en la barra inferior.** La pestaña "Más" existía porque no
+había una pantalla de inicio: era el cajón de todo lo que no cabía. Con la portada, ese
+cajón queda cubierto y mejor ordenado. La barra queda en **Inicio · Cotizador · Taller ·
+Agenda · Inventario**: siguen siendo cinco botones (D-046), Agenda conserva su globito de
+citas de hoy, y **todo destino que hoy se alcanza desde "Más" debe seguir alcanzándose
+desde Inicio**.
+
+El panel de ventas y ganancias (Fase E) es una pantalla distinta y responde otra pregunta
+—"¿qué necesita mi atención?"—. No se adelanta a Inicio para que las dos no compitan por
+el mismo trabajo.
+
 ## D-053 · Sociedad es el negocio compartido, y debe poder compararse · 2026-08-03 · Vigente
 
 Santiago compra lotes de esmeraldas solo o **con socios**. Cuando el lote es compartido
