@@ -264,13 +264,16 @@ de esa única verdad. Por eso el orden de fases **no es negociable**.
 | E | E1 Dashboard · E2 Excel · E3 Consolidado | Medio | D |
 | F | F1 Catálogo PDF automático | Bajo–Medio | C2 |
 
-**Decisiones abiertas que bloquean B3:** (A-1) si la tasa del dólar se guarda en
-cada operación —recomendado— o hay una sola en Ajustes; (A-2) si el tipo de
-producto es lista fija o Santiago crea los suyos —recomendado lista base más
-propios—.
+**Decisiones cerradas el 2026-08-03 por Santiago:** (A-1) la tasa del dólar se
+guarda **en cada operación**, no hay tasa única en Ajustes → D-054; (A-2) el tipo
+de producto es una **lista base ampliable** con tipos propios → D-058. Con eso
+**la Fase B completa queda desbloqueada**.
 
-**Se puede empezar por A1 y B1**, que no dependen de nada más. El resto sigue el
-orden de la tabla.
+**Única decisión abierta:** (A-3) el diseño de la pantalla de inicio. Claude le
+presenta 2 opciones visuales a Santiago y él elige. Solo bloquea A1.
+
+**Se puede empezar por B1** (sin bloqueos) **y por A1** en cuanto Santiago elija
+el diseño. El resto sigue el orden de la tabla.
 
 **Sin cambios de código todavía:** esta entrada registra únicamente el plan.
 `main`, el enlace del piloto y el workflow de despliegue no fueron tocados.

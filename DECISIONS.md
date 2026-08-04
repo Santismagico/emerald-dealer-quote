@@ -773,9 +773,36 @@ Santiago es en pesos colombianos. Desde esta decisión el dinero se **almacena s
 COP enteros** —regla que ya protege el motor y todas las pruebas existentes— y el dólar
 es exclusivamente una **forma de ver** la misma información.
 
-Cambiar la vista a dólares no modifica ni un solo dato guardado. Queda abierta la
-decisión de si la tasa se guarda por operación (historia fiel, recomendada) o si hay una
-sola tasa en Ajustes; se resuelve antes de construir la etapa B3.
+Cambiar la vista a dólares no modifica ni un solo dato guardado.
+
+**Resuelto el 2026-08-03:** la tasa se guarda **en cada operación**, con el valor del día
+en que ocurrió. Santiago eligió la historia fiel: si el dólar sube mañana, una venta de
+hace tres meses no cambia de valor sola. La alternativa —una sola tasa en Ajustes—
+habría recalculado todo el pasado cada vez que se editara la tasa, y eso vuelve inútil
+cualquier comparación entre períodos.
+
+Consecuencia para la implementación: toda operación de dinero nueva guarda su `usdRate`
+junto al monto en COP. Las operaciones anteriores no tienen tasa y muestran
+**"Sin registrar"** en la vista de dólares, conforme a D-051; no se les inventa una tasa
+retroactiva.
+
+## D-058 · Tipo de producto: lista base que Santiago puede ampliar · 2026-08-03 · Vigente
+
+Para filtrar y comparar el consolidado hace falta clasificar cada venta por tipo de
+producto. Santiago eligió una **lista base lista para usar, ampliable con tipos propios**.
+
+La lista base cubre lo que el negocio maneja hoy —esmeralda en bruto, esmeralda tallada,
+joya con piedra natural, joya con piedra de fantasía, material (oro/plata) y trabajo por
+encargo— para que el filtro sirva desde el primer día sin configurar nada. Santiago puede
+agregar los suyos cuando aparezca un producto que no encaje, de modo que la clasificación
+nunca se quede corta ni lo obligue a usar "otro".
+
+Los tipos propios se guardan por organización. Un tipo que ya se usó en una venta no se
+borra: se puede dejar de ofrecer para ventas nuevas, pero el historial conserva su
+nombre, igual que ocurre con proveedores, compradores y socios.
+
+Las ventas anteriores a esta decisión no tienen tipo y muestran **"Sin registrar"**
+(D-051). No se les asigna un tipo adivinado a partir del módulo de origen.
 
 ## D-055 · La talla se registra por tandas, en piedras y quilates · 2026-08-03 · Vigente
 

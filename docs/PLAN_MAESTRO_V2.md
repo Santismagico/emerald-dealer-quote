@@ -112,13 +112,14 @@ No volver a preguntarlas. Quedan registradas como D-052 a D-057 en `DECISIONS.md
 
 ## 5. Decisiones abiertas (bloquean su etapa, no el plan completo)
 
-| # | Pregunta | Bloquea | Recomendación de Claude |
+| # | Pregunta | Bloquea | Estado |
 |---|---|---|---|
-| A-1 | ¿La tasa del dólar se guarda en cada operación (historia fiel) o hay una sola tasa en Ajustes? | B3 | **Guardar la tasa de cada operación.** Si el dólar sube mañana, una venta de hace tres meses no debe cambiar de valor. Es el único camino honesto para un negocio que transa en dólares. |
-| A-2 | ¿"Tipo de producto" es una lista fija o Santiago crea los suyos? | B3 | **Lista base + poder agregar los propios.** La lista base garantiza que el filtro sirva desde el primer día; los tipos propios evitan que se quede corto. |
-| A-3 | ¿Cómo se ve la pantalla de inicio? | A1 | Presentarle 2 opciones visuales y que él elija. Es como mejor decide. |
+| A-1 | ¿La tasa del dólar se guarda en cada operación o hay una sola en Ajustes? | B3 | **CERRADA 2026-08-03 — tasa por operación.** Ver D-054. |
+| A-2 | ¿"Tipo de producto" es lista fija o Santiago crea los suyos? | B3 | **CERRADA 2026-08-03 — lista base ampliable.** Ver D-058. |
+| A-3 | ¿Cómo se ve la pantalla de inicio? | A1 | **Abierta.** Claude le presenta 2 opciones visuales y Santiago elige. Es como mejor decide. |
 
-Las etapas que no dependen de estas preguntas **pueden empezar ya**.
+Con A-1 y A-2 cerradas, **la Fase B completa queda desbloqueada**. Solo A1 espera el
+diseño que elija Santiago.
 
 ---
 
@@ -257,15 +258,20 @@ Cimientos. Cada etapa es aditiva y verificable por separado.
 #### B3 · Tipo de producto en las ventas + moneda COP/USD
 
 - **Objetivo:** las dos dimensiones que faltan para poder filtrar y comparar.
-- **Datos:** campo `productType` en las ventas (piedras, joyas) con lista base y
-  tipos propios; `usdRate` guardado en cada operación de dinero; ajuste de
-  moneda de visualización.
+- **Datos:** campo `productType` en las ventas (piedras, joyas) con **lista base
+  ampliable** (D-058); **`usdRate` guardado en cada operación de dinero**
+  (D-054); ajuste de moneda de visualización.
+- **Lista base de tipos:** esmeralda en bruto, esmeralda tallada, joya con piedra
+  natural, joya con piedra de fantasía, material (oro/plata), trabajo por
+  encargo. Santiago puede agregar los suyos; un tipo ya usado no se borra, solo
+  se deja de ofrecer para ventas nuevas.
 - **Pantalla:** selector de tipo de producto al registrar una venta; interruptor
   COP/USD donde se muestre dinero.
 - **Reglas:** el almacenamiento sigue siendo COP entero. Cambiar la vista a
   dólares **no** modifica ni un solo dato guardado. Las ventas antiguas sin tipo
-  muestran "Sin registrar".
-- **Riesgo:** medio. **Bloqueado por:** A-1 y A-2.
+  ni tasa muestran "Sin registrar"; **no se les inventa una tasa retroactiva ni
+  un tipo adivinado por el módulo de origen**.
+- **Riesgo:** medio. **Desbloqueada:** A-1 y A-2 cerradas el 2026-08-03.
 
 ---
 
