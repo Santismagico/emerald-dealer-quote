@@ -7,6 +7,7 @@ import {
   normalizeStoneLot,
   normalizeBuyer,
   normalizeStockJewel,
+  normalizeExpense,
   defaultSettings,
   SETTINGS_VERSION
 } from './schema';
@@ -155,6 +156,36 @@ describe('normalizeSettings: migraciones y saneamiento', () => {
     expect(s.lastBackupExportedAt).toBe('');
     expect(s.backupReminderSnoozedUntil).toBe('');
     expect(s.backupReminderFirstDataAt).toBe('');
+    expect(s.expenseCategories.map((option) => option.name)).toContain('Arriendo');
+  });
+
+  it('normaliza categorías, conserva desactivadas y elimina duplicados', () => {
+    const settings = normalizeSettings({
+      expenseCategories: [
+        { name: 'Arriendo', active: false },
+        { name: 'Ferias', active: false },
+        { name: ' ferias ', active: true },
+        { name: '', active: true }
+      ]
+    });
+    expect(settings.expenseCategories.find((option) => option.name === 'Arriendo')?.active).toBe(false);
+    expect(settings.expenseCategories.filter((option) => option.name.toLowerCase() === 'ferias')).toEqual([
+      { name: 'Ferias', active: false }
+    ]);
+  });
+});
+
+describe('normalizeExpense', () => {
+  it('redondea COP y limita el porcentaje al leer datos corruptos', () => {
+    expect(normalizeExpense({
+      id: 'g-1', amountCop: 1000.6, partnerId: 'soc-1', partnerName: 'Socio', myPercent: 140
+    })).toMatchObject({ amountCop: 1001, myPercent: 100 });
+  });
+
+  it('sin socio normaliza siempre a 100% propio', () => {
+    expect(normalizeExpense({ id: 'g-2', myPercent: 20 })).toMatchObject({
+      partnerId: null, partnerName: '', myPercent: 100
+    });
   });
 });
 

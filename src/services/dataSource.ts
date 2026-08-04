@@ -2,6 +2,7 @@ import type {
   Appointment,
   Buyer,
   Client,
+  Expense,
   MaterialLot,
   MaterialPartner,
   Quote,
@@ -50,6 +51,9 @@ export interface StoreDataSource {
   listMaterialLots: () => Promise<MaterialLot[]>;
   saveMaterialLot: (lot: MaterialLot) => Promise<void>;
   deleteMaterialLot: (id: string) => Promise<void>;
+  listExpenses: () => Promise<Expense[]>;
+  saveExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   cloudSyncStatus?: () => Promise<OutboxStatus>;
   retryCloudChanges?: (id?: string) => Promise<void>;

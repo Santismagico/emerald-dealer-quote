@@ -2,6 +2,7 @@ import type {
   Appointment,
   Buyer,
   Client,
+  Expense,
   MaterialLot,
   MaterialPartner,
   Quote,
@@ -12,6 +13,7 @@ import type {
 } from '../../types';
 import type { StoreDataSource } from '../dataSource';
 import type { GoldPriceBreakdown } from '../goldPrice';
+import { validateExpense } from '../expenses';
 import * as localStorage from '../storage';
 import { getSupabase } from './config';
 import {
@@ -68,7 +70,8 @@ const functionNames: Record<CloudTable, { upsert: string; delete: string }> = {
   buyers: { upsert: 'upsert_buyer', delete: 'delete_buyer' },
   stock_jewels: { upsert: 'upsert_stock_jewel', delete: 'delete_stock_jewel' },
   material_partners: { upsert: 'upsert_material_partner', delete: 'delete_material_partner' },
-  material_lots: { upsert: 'upsert_material_lot', delete: 'delete_material_lot' }
+  material_lots: { upsert: 'upsert_material_lot', delete: 'delete_material_lot' },
+  expenses: { upsert: 'upsert_expense', delete: 'delete_expense' }
 };
 
 function resultOrThrow<T>(result: QueryResult<T>, action: string): T {
@@ -321,21 +324,39 @@ export function createCloudDataSource(options: {
     // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en los
     // lotes que lo apuntan: esos lotes también deben subir (D-049).
     async saveMaterialPartner(partner: MaterialPartner) {
-      const before = await localStorage.listMaterialLots();
+      const [lotsBefore, expensesBefore] = await Promise.all([
+        localStorage.listMaterialLots(),
+        localStorage.listExpenses()
+      ]);
       await localStorage.saveMaterialPartner(partner);
-      const after = await localStorage.listMaterialLots();
+      const [lotsAfter, expensesAfter] = await Promise.all([
+        localStorage.listMaterialLots(),
+        localStorage.listExpenses()
+      ]);
       await cacheAndQueue('material_partners', partner.id, partner, nowIso());
-      for (const lot of changed(before, after)) {
+      for (const lot of changed(lotsBefore, lotsAfter)) {
         await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
+      for (const expense of changed(expensesBefore, expensesAfter)) {
+        await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
       }
     },
     async deleteMaterialPartner(id) {
-      const before = await localStorage.listMaterialLots();
+      const [lotsBefore, expensesBefore] = await Promise.all([
+        localStorage.listMaterialLots(),
+        localStorage.listExpenses()
+      ]);
       await localStorage.deleteMaterialPartner(id);
-      const after = await localStorage.listMaterialLots();
+      const [lotsAfter, expensesAfter] = await Promise.all([
+        localStorage.listMaterialLots(),
+        localStorage.listExpenses()
+      ]);
       await enqueue('material_partners', 'delete', id, null, nowIso());
-      for (const lot of changed(before, after)) {
+      for (const lot of changed(lotsBefore, lotsAfter)) {
         await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
+      }
+      for (const expense of changed(expensesBefore, expensesAfter)) {
+        await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
       }
     },
     listMaterialLots: () => pullThen('material_lots', localStorage.listMaterialLots),
@@ -345,6 +366,16 @@ export function createCloudDataSource(options: {
     async deleteMaterialLot(id) {
       await localStorage.deleteMaterialLot(id);
       await enqueue('material_lots', 'delete', id, null, nowIso());
+    },
+    listExpenses: () => pullThen('expenses', localStorage.listExpenses),
+    async saveExpense(expense: Expense) {
+      const error = validateExpense(expense);
+      if (error) throw new Error(error);
+      await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
+    },
+    async deleteExpense(id) {
+      await localStorage.deleteExpense(id);
+      await enqueue('expenses', 'delete', id, null, nowIso());
     },
     nextQuoteNumber: options.remote.nextQuoteNumber,
     pullAll: options.sync.pullAll,

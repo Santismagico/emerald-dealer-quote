@@ -10,7 +10,8 @@ export type CloudTable =
   | 'buyers'
   | 'stock_jewels'
   | 'material_partners'
-  | 'material_lots';
+  | 'material_lots'
+  | 'expenses';
 
 export type CloudOperationType = 'upsert' | 'delete';
 

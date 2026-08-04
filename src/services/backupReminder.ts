@@ -1,5 +1,7 @@
 ﻿import type { Appointment, Client, Quote, Settings, StoneLot } from '../types';
 
+import type { Expense } from '../types';
+
 export const BACKUP_REMINDER_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 export const BACKUP_REMINDER_SNOOZE_MS = 24 * 60 * 60 * 1000;
 
@@ -20,6 +22,8 @@ export interface BackupReminderInput {
   appointments?: ReadonlyArray<Pick<Appointment, 'createdAt'>>;
   /** Lotes de piedras; también son datos que merecen respaldo. Opcional por compatibilidad. */
   stoneLots?: ReadonlyArray<Pick<StoneLot, 'createdAt'>>;
+  /** Gastos internos; un gasto solo también merece respaldo. */
+  expenses?: ReadonlyArray<Pick<Expense, 'createdAt'>>;
   now: Date;
 }
 
@@ -39,6 +43,7 @@ export function getBackupReminderState({
   quotes,
   appointments = [],
   stoneLots = [],
+  expenses = [],
   now
 }: BackupReminderInput): BackupReminderState {
   const nowTime = now.getTime();
@@ -47,7 +52,8 @@ export function getBackupReminderState({
     clients.length === 0 &&
     quotes.length === 0 &&
     appointments.length === 0 &&
-    stoneLots.length === 0
+    stoneLots.length === 0 &&
+    expenses.length === 0
   ) {
     return { shouldShow: false, needsFirstDataAnchor: false };
   }
@@ -66,7 +72,7 @@ export function getBackupReminderState({
     };
   }
 
-  const dataTimes = [...clients, ...quotes, ...appointments, ...stoneLots]
+  const dataTimes = [...clients, ...quotes, ...appointments, ...stoneLots, ...expenses]
     .map((item) => timestamp(item.createdAt))
     .filter((value): value is number => value !== null);
   const pastOrPresentDataTimes = dataTimes.filter((value) => value <= nowTime);

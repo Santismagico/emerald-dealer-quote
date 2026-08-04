@@ -23,7 +23,7 @@ import {
 type BackupRestoreResult = 'success' | 'restore-failed' | 'reload-failed';
 
 export const BACKUP_RESTORE_WARNING =
-  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas y pagos a proveedores), proveedores, compradores, joyas en inventario, socios de material y lotes de material actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
+  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas y pagos a proveedores), proveedores, compradores, joyas en inventario, socios de material, lotes de material y gastos actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
 
 export function canReplaceFromLocalBackup(isCloudAccount: boolean): boolean {
   return !isCloudAccount;

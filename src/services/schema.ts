@@ -28,7 +28,9 @@ import type {
   StockJewelStatus,
   MaterialPartner,
   MaterialUse,
-  MaterialLot
+  MaterialLot,
+  Expense,
+  ExpenseCategoryOption
 } from '../types';
 import {
   QUOTE_STATUSES,
@@ -37,9 +39,10 @@ import {
   STOCK_JEWEL_STATUSES
 } from '../types';
 import { newId } from '../utils/id';
+import { BASE_EXPENSE_CATEGORIES } from './expenses';
 
 /** Versión del esquema de settings. Súbela al agregar una migración. */
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
 export function defaultSettings(): Settings {
   return {
@@ -66,6 +69,7 @@ export function defaultSettings(): Settings {
     defaultTaxPercent: 19,
     conditions:
       'Precios sujetos a cambio según el mercado del oro y disponibilidad de piedras. Cotización válida hasta la fecha indicada. El trabajo inicia con la confirmación del anticipo.',
+    expenseCategories: BASE_EXPENSE_CATEGORIES.map((name) => ({ name, active: true })),
     quoteCounter: 1,
     lastBackupExportedAt: '',
     backupReminderSnoozedUntil: '',
@@ -120,6 +124,7 @@ export function normalizeSettings(raw: unknown): Settings {
   }
   out.currency = 'COP';
   out.logoDataUrl = safeImageDataUrl(source.logoDataUrl);
+  out.expenseCategories = normalizeExpenseCategories(source.expenseCategories);
 
   // Migraciones ordenadas. La versión guardada indica qué le falta al registro.
   const storedVersion = safeNumber(source.settingsVersion, 1);
@@ -131,6 +136,31 @@ export function normalizeSettings(raw: unknown): Settings {
   out.settingsVersion = SETTINGS_VERSION;
 
   return out;
+}
+
+function normalizeExpenseCategories(raw: unknown): ExpenseCategoryOption[] {
+  const stored = new Map<string, ExpenseCategoryOption>();
+  for (const value of safeArray(raw)) {
+    if (typeof value !== 'object' || value === null) continue;
+    const option = value as Record<string, unknown>;
+    const name = safeString(option.name).trim();
+    if (!name) continue;
+    const key = name.toLocaleLowerCase('es');
+    if (!stored.has(key)) stored.set(key, { name, active: option.active !== false });
+  }
+
+  const normalized: ExpenseCategoryOption[] = [];
+  for (const baseName of BASE_EXPENSE_CATEGORIES) {
+    const key = baseName.toLocaleLowerCase('es');
+    normalized.push(stored.get(key) ?? { name: baseName, active: true });
+    stored.delete(key);
+  }
+  normalized.push(
+    ...[...stored.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+    )
+  );
+  return normalized;
 }
 
 // ---------- Quote: normalización ----------
@@ -355,6 +385,31 @@ function normalizeStockJewelSale(raw: unknown): StockJewelSale {
     receivedBy: safeString(s.receivedBy),
     method: safeString(s.method),
     notes: safeString(s.notes)
+  };
+}
+
+/** Garantiza COP entero y un reparto que siempre suma 100% (D-059). */
+export function normalizeExpense(raw: unknown): Expense {
+  const e = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const partnerId = typeof e.partnerId === 'string' && e.partnerId.trim() ? e.partnerId : null;
+  const partnerName = safeString(e.partnerName).trim();
+  const shared = partnerId !== null || partnerName.length > 0;
+  return {
+    id: safeString(e.id, newId()),
+    date: safeString(e.date),
+    concept: safeString(e.concept),
+    category: safeString(e.category),
+    amountCop: Math.max(0, Math.round(safeNumber(e.amountCop))),
+    method: safeString(e.method),
+    paidBy: safeString(e.paidBy),
+    partnerId,
+    partnerName,
+    myPercent: shared
+      ? Math.min(100, Math.max(0, Math.round(safeNumber(e.myPercent, 100))))
+      : 100,
+    notes: safeString(e.notes),
+    createdAt: safeString(e.createdAt),
+    updatedAt: safeString(e.updatedAt)
   };
 }
 

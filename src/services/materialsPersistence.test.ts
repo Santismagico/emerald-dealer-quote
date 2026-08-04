@@ -1,5 +1,5 @@
 // Inventario de materiales (D-048/D-049): migración IndexedDB v6→v7 (almacenes
-// de socios y lotes de material) y respaldo v7. Se prueba contra una base v6
+// de socios y lotes de material) y respaldo vigente. Se prueba contra una base v6
 // AUTÉNTICA para comprobar que al abrir la app nueva aparecen los almacenes
 // nuevos SIN perder un solo dato.
 
@@ -202,13 +202,13 @@ describe('el historial no se pierde por borrar un socio (D-049)', () => {
   });
 });
 
-describe('respaldo v7', () => {
+describe('respaldo vigente y compatibilidad v7', () => {
   it('exporta socios y lotes de material', async () => {
     await storage.saveMaterialPartner(socio());
     await storage.saveMaterialLot(loteCompartido());
 
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(7);
+    expect(backup.version).toBe(8);
     expect(backup.materialPartners.map((p) => p.id)).toEqual(['soc-1']);
     expect(backup.materialLots.map((l) => l.id)).toEqual(['l-1']);
   });
@@ -230,7 +230,7 @@ describe('respaldo v7', () => {
     const parsed = backupService.parseBackup(JSON.stringify(v6));
     expect(parsed.materialPartners).toEqual([]);
     expect(parsed.materialLots).toEqual([]);
-    expect(parsed.version).toBe(7);
+    expect(parsed.version).toBe(8);
   });
 
   it('restaurar un respaldo v7 reemplaza socios y lotes de material', async () => {
@@ -250,7 +250,8 @@ describe('respaldo v7', () => {
       buyers: [],
       stockJewels: [],
       materialPartners: [socio({ id: 'soc-import' })],
-      materialLots: [loteCompartido({ id: 'l-import' })]
+      materialLots: [loteCompartido({ id: 'l-import' })],
+      expenses: []
     };
     await backupService.importBackup(backup);
 
@@ -272,7 +273,8 @@ describe('respaldo v7', () => {
       buyers: [],
       stockJewels: [],
       materialPartners: [socio({ id: 'dup' }), socio({ id: 'dup' })],
-      materialLots: []
+      materialLots: [],
+      expenses: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

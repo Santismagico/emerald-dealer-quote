@@ -13,6 +13,7 @@ import { WorkshopJobView, type WorkshopJobViewHandle } from './components/Worksh
 import { AgendaView } from './components/AgendaView';
 import { InventoryView, type InventorySection } from './components/InventoryView';
 import { DailyCloseView } from './components/DailyCloseView';
+import { ExpensesView } from './components/ExpensesView';
 import { HomeView } from './components/HomeView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
@@ -55,6 +56,7 @@ type ViewName =
   | 'agenda'
   | 'stones'
   | 'dailyClose'
+  | 'expenses'
   | 'clients'
   | 'suppliers'
   | 'buyers'
@@ -145,6 +147,8 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
     clients: store.clients,
     quotes: store.quotes,
     appointments: store.appointments,
+    stoneLots: store.stoneLots,
+    expenses: store.expenses,
     now: reminderNow
   });
 
@@ -158,9 +162,10 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         quotes: store.quotes,
         appointments: store.appointments,
         stoneLots: store.stoneLots,
-        stockJewels: store.stockJewels
+        stockJewels: store.stockJewels,
+        expenses: store.expenses
       }),
-    [currentMonth, store.appointments, store.quotes, store.stockJewels, store.stoneLots, today]
+    [currentMonth, store.appointments, store.expenses, store.quotes, store.stockJewels, store.stoneLots, today]
   );
 
   // Aviso visual local: cuántas citas programadas hay hoy (D-020, sin notificaciones).
@@ -345,6 +350,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         case 'buyers':
         case 'suppliers':
         case 'settings':
+        case 'expenses':
           setView(destination);
           return;
         case 'partners':
@@ -477,6 +483,12 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             <DailyCloseView key={closeMode} initialMode={closeMode} />
           </div>
         )}
+        {view === 'expenses' && (
+          <div className="space-y-4">
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <ExpensesView />
+          </div>
+        )}
         {view === 'clients' && (
           <div className="space-y-4">
             <BackRow label="← Inicio" onClick={() => setView('home')} />
@@ -537,6 +549,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             active={
               view === 'home' ||
               view === 'dailyClose' ||
+              view === 'expenses' ||
               view === 'clients' ||
               view === 'suppliers' ||
               view === 'buyers' ||

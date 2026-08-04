@@ -884,3 +884,22 @@ Corolario de operación: el orden de construcción no es negociable. Primero los
 faltan (gastos, sociedades, tipo de producto), después los cambios de inventario, luego
 el libro, y solo al final las pantallas que lo leen. Construir el dashboard antes
 obligaría a rehacerlo.
+
+## D-059 · Los gastos conservan su categoría y su reparto histórico · 2026-08-03 · Vigente
+
+Santiago eligió administrar las categorías dentro de **Gastos**, con una lista base lista
+para usar y la posibilidad de agregar categorías propias. Una categoría puede dejar de
+ofrecerse para registros nuevos, pero no se borra: los gastos anteriores conservan el
+nombre con el que fueron registrados. Reactivar una categoría vuelve a ofrecer ese mismo
+nombre, sin crear duplicados.
+
+Un gasto puede ser 100% propio o compartirse con un socio existente. Cuando es
+compartido guarda una foto del nombre del socio y el porcentaje de Santiago; la parte
+del socio es el resto. Si se elimina la ficha del socio, el gasto conserva el nombre y
+el reparto originales. Un gasto sin socio es siempre 100% propio.
+
+El gasto completo sale de caja en la fecha en que se pagó. El reparto es informativo
+para saber qué parte corresponde a Santiago y cuál al socio; no reduce la salida real de
+caja. Todo se calcula en COP enteros: la parte de Santiago se redondea y el residuo queda
+de forma determinista en la parte del socio, de modo que las dos partes siempre suman
+exactamente el gasto.

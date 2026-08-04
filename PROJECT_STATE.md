@@ -301,8 +301,27 @@ recorrido de todos los destinos y revisión real en 320, 390 y 1280 px, sin
 desbordamiento, con botones mínimos de 48 px y sin errores de consola. A1 no
 modificó datos, nube, migraciones, el motor de cálculo ni el PDF del cliente.
 
-**Pendientes:** B1, B2 y B3. No se inició la Fase C. `main`, el enlace del piloto
-y el workflow de despliegue no fueron tocados.
+**B1 implementada el 2026-08-03 (Codex):** Gastos es un área propia de **La plata**
+con alta, edición, eliminación confirmada, filtros por fecha, categoría y búsqueda.
+Las categorías traen una lista base, aceptan categorías propias y pueden dejar de
+ofrecerse sin perder el historial. Cada gasto registra fecha, concepto, categoría,
+monto COP, forma de pago, quién pagó, notas y sociedad opcional. El reparto guarda
+el nombre histórico del socio y siempre conserva cada peso; el gasto completo sale
+de caja el día pagado y ya aparece en los cierres internos.
+
+La cadena de datos quedó completa y aditiva: IndexedDB **v8**, respaldo **v8** que
+sigue aceptando v1–v7, recordatorio de respaldo, almacenamiento local, sincronización,
+importación y migración SQL nueva con acceso por organización y operaciones protegidas.
+Las categorías se guardan sin que una edición simultánea de Ajustes pueda pisarlas.
+La eliminación de un socio conserva en los gastos su nombre y reparto históricos.
+
+Verificación automática B1: **786 pruebas en 50 archivos**, comprobación PWA,
+**14 controles del guard N6** y compilación de **328 módulos**, todo en verde. No se
+agregaron dependencias, no se cambió el motor de cálculo ni el PDF del cliente.
+
+**Pendientes:** recorrido visual real de B1 y su commit de cierre; después B2 y B3.
+No se inició la Fase C. `main`, el enlace del piloto y el workflow de despliegue no
+fueron tocados.
 
 ## Bitácora de etapas (Codex la actualiza)
 
@@ -343,3 +362,4 @@ y el workflow de despliegue no fueron tocados.
 | 2026-07-18 | **Corrección publicada: ventanas emergentes vs. menú inferior (Fable, orden expresa de Santiago)** | Hallazgo de Santiago en su prueba de usuario: en teléfonos, los 9 diálogos (cita, estados, lotes, confirmaciones) quedaban con sus botones incrustados tras el menú fijo y sin desplazamiento; venía de la reorganización C10/E5–E7 y estaba en producción. Regla central de overlays con colchón para el menú + diálogos max-h-full con desplazamiento interno. Verificado en dev (360×640 y 1280), 512 pruebas en la rama nube y 468 en la publicada; cherry-pick a `main` (`0a86e5a`), deploy en verde y sitio en vivo verificado con las medidas correctas. Punto de restauración: tag `punto-seguro-pre-fix-ventanas-2026-07-18` | `8818972` en nube; `0a86e5a` en main |
 | 2026-07-26 | C15 + E8/E9: trazabilidad y formulario de venta (Codex) | Forma de pago, receptor y notas revisables en ventas, abonos y cierres; protección contra borrado accidental; ventana móvil desplazable con acciones fijas; Contado/A crédito e interruptores aclarados. 751 pruebas, 324 módulos, revisión 320/390/1280 y sitio en vivo en verde; publicada solo en emerald-dealer-app | fuente `1772263` + `0aca89e`; sitio `762dc7c` |
 | 2026-08-03 | Plan v2 · A1: Pantalla de inicio (Codex) | Portada agrupada con Movimiento neto mensual, todos los destinos existentes, accesos directos a Inventario/cierres y tres avisos; 754 pruebas, 326 módulos y revisión 320/390/1280 en verde; no publicado | A1 (este commit) |
+| 2026-08-03 | Plan v2 · B1: Gastos del negocio (Codex) | Registro y filtros, categorías administrables con historial, reparto opcional con socio, cierres, respaldo v8 y nube protegida; 786 pruebas, guard N6 y 328 módulos en verde; revisión visual pendiente; no publicado | B1 (este commit) |

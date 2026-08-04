@@ -6,14 +6,15 @@
 // sí, el día en que se hacen. Documentos SOLO internos: descarga directa,
 // sin Web Share ni WhatsApp.
 
-import type { Quote, StockJewel, StoneLot, Settings } from '../types';
+import type { Expense, Quote, StockJewel, StoneLot, Settings } from '../types';
 import type { PdfContent, PdfSection } from './pdfContent';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { lotDisplayName, summarizeStoneLot } from './stones';
 import { jewelDisplayName, summarizeStockJewel } from './stockJewels';
 import { clientPaidTotal } from './payments';
-import { formatCOP } from '../utils/money';
+import { formatCOP, toSafeCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
+import { expenseSplit } from './expenses';
 
 export interface DailyStonePurchase {
   lotName: string;
@@ -104,6 +105,20 @@ export interface DailyQuoteLine {
   total: number;
 }
 
+export interface DailyExpense {
+  id: string;
+  concept: string;
+  category: string;
+  amountCop: number;
+  method: string;
+  paidBy: string;
+  partnerName: string;
+  myPercent: number;
+  myAmountCop: number;
+  partnerAmountCop: number;
+  notes: string;
+}
+
 export interface BusinessTotals {
   /** COP recibido en anticipos y abonos de clientes (Joyería, entra). */
   paymentsReceived: number;
@@ -127,6 +142,8 @@ export interface BusinessTotals {
   jewelsSold: number;
   /** Recibido − costo de las joyas vendidas en el periodo. */
   jewelsResult: number;
+  /** Gastos operativos pagados en el periodo. */
+  expensesPaid: number;
   cashIn: number;
   cashOut: number;
   /** Entradas − salidas del periodo. */
@@ -151,6 +168,7 @@ export interface BusinessReport {
   workshopPayments: DailyWorkshopPayment[];
   quotesCreated: DailyQuoteLine[];
   quotesApproved: DailyQuoteLine[];
+  expenses: DailyExpense[];
   totals: BusinessTotals;
   /** true cuando el periodo no registró ni un movimiento ni una cotización. */
   isEmpty: boolean;
@@ -194,6 +212,7 @@ function buildBusinessReport(
   quotes: readonly Quote[],
   stoneLots: readonly StoneLot[],
   stockJewels: readonly StockJewel[],
+  expensesInput: readonly Expense[],
   matchDate: (ymd: string) => boolean,
   matchInstant: (iso: string) => boolean
 ): BusinessReport {
@@ -343,6 +362,25 @@ function buildBusinessReport(
     if (matchInstant(quote.approvedAt)) quotesApproved.push(line);
   }
 
+  const expenses: DailyExpense[] = expensesInput
+    .filter((expense) => matchDate(expense.date))
+    .map((expense) => {
+      const split = expenseSplit(expense);
+      return {
+        id: expense.id,
+        concept: expense.concept,
+        category: expense.category,
+        amountCop: toSafeCOP(expense.amountCop),
+        method: expense.method,
+        paidBy: expense.paidBy,
+        partnerName: expense.partnerName,
+        myPercent: expense.myPercent,
+        myAmountCop: split.myAmountCop,
+        partnerAmountCop: split.partnerAmountCop,
+        notes: expense.notes
+      };
+    });
+
   const sum = (values: number[]) => values.reduce((acc, v) => acc + v, 0);
   const paymentsReceived = sum(payments.map((p) => p.amount));
   const workshopPaid = sum(workshopPayments.map((w) => w.cost));
@@ -357,9 +395,10 @@ function buildBusinessReport(
   const jewelsAcquiredCost = sum(jewelPurchases.map((j) => j.costCop));
   const jewelsSold = sum(jewelSales.map((j) => j.priceCop));
   const jewelsResult = sum(jewelSales.map((j) => j.resultCop));
+  const expensesPaid = sum(expenses.map((expense) => expense.amountCop));
   const cashIn = stonesSold + buyerPaymentsReceived + jewelsSold + paymentsReceived;
   const cashOut =
-    stonesPurchasedCash + supplierPaymentsPaid + jewelsAcquiredCost + workshopPaid;
+    stonesPurchasedCash + supplierPaymentsPaid + jewelsAcquiredCost + workshopPaid + expensesPaid;
 
   return {
     stonePurchases,
@@ -372,6 +411,7 @@ function buildBusinessReport(
     workshopPayments,
     quotesCreated,
     quotesApproved,
+    expenses,
     totals: {
       paymentsReceived,
       workshopPaid,
@@ -384,6 +424,7 @@ function buildBusinessReport(
       jewelsAcquiredCost,
       jewelsSold,
       jewelsResult,
+      expensesPaid,
       cashIn,
       cashOut,
       net: cashIn - cashOut,
@@ -401,7 +442,8 @@ function buildBusinessReport(
       payments.length === 0 &&
       workshopPayments.length === 0 &&
       quotesCreated.length === 0 &&
-      quotesApproved.length === 0
+      quotesApproved.length === 0 &&
+      expenses.length === 0
   };
 }
 
@@ -409,7 +451,8 @@ export function buildDailyReport(
   day: string,
   quotes: readonly Quote[],
   stoneLots: readonly StoneLot[],
-  stockJewels: readonly StockJewel[] = []
+  stockJewels: readonly StockJewel[] = [],
+  expenses: readonly Expense[] = []
 ): DailyReport {
   return {
     date: day,
@@ -417,6 +460,7 @@ export function buildDailyReport(
       quotes,
       stoneLots,
       stockJewels,
+      expenses,
       (ymd) => ymd === day,
       (iso) => isSameLocalDay(iso, day)
     )
@@ -435,7 +479,8 @@ export function buildMonthlyReport(
   month: string,
   quotes: readonly Quote[],
   stoneLots: readonly StoneLot[],
-  stockJewels: readonly StockJewel[] = []
+  stockJewels: readonly StockJewel[] = [],
+  expenses: readonly Expense[] = []
 ): MonthlyReport {
   return {
     month,
@@ -443,6 +488,7 @@ export function buildMonthlyReport(
       quotes,
       stoneLots,
       stockJewels,
+      expenses,
       (ymd) => isValidISODate(ymd) && ymd.slice(0, 7) === month,
       (iso) => isSameLocalMonth(iso, month)
     )
@@ -456,7 +502,8 @@ export function buildMonthlyReport(
 export function listMonthlySummaries(
   quotes: readonly Quote[],
   stoneLots: readonly StoneLot[],
-  stockJewels: readonly StockJewel[] = []
+  stockJewels: readonly StockJewel[] = [],
+  expenses: readonly Expense[] = []
 ): MonthlySummary[] {
   const months = new Set<string>();
   const addDate = (ymd: string) => {
@@ -488,10 +535,11 @@ export function listMonthlySummaries(
       if (stage.paid) addDate(stage.paidAt);
     }
   }
+  for (const expense of expenses) addDate(expense.date);
   return [...months]
     .sort((a, b) => b.localeCompare(a))
     .map((month) => {
-      const { totals } = buildMonthlyReport(month, quotes, stoneLots, stockJewels);
+      const { totals } = buildMonthlyReport(month, quotes, stoneLots, stockJewels, expenses);
       return { month, cashIn: totals.cashIn, cashOut: totals.cashOut, net: totals.net };
     });
 }
@@ -654,6 +702,19 @@ function businessSections(report: BusinessReport): PdfSection[] {
     });
   }
 
+  if (report.expenses.length > 0) {
+    sections.push({
+      title: 'Gastos del negocio',
+      paragraphs: report.expenses.map((expense) => {
+        const partner = expense.partnerName
+          ? ` · sociedad: ${expense.partnerName} (${expense.myPercent}% propio)`
+          : '';
+        const note = expense.notes.trim() ? ` · nota: ${expense.notes.trim()}` : '';
+        return `• ${expense.concept} · ${expense.category} — ${formatCOP(expense.amountCop)} · medio: ${expense.method || 'Sin registrar'} · pagó: ${expense.paidBy || 'Sin registrar'}${partner}${note}`;
+      })
+    });
+  }
+
   return sections;
 }
 
@@ -672,6 +733,9 @@ function businessTotalsRows(totals: BusinessTotals): Array<[string, string]> {
   }
   if (totals.jewelsAcquiredCost > 0) {
     rows.push(['Joyas en stock · salió en piezas nuevas', `- ${formatCOP(totals.jewelsAcquiredCost)}`]);
+  }
+  if (totals.expensesPaid > 0) {
+    rows.push(['Negocio · salió en gastos', `- ${formatCOP(totals.expensesPaid)}`]);
   }
   if (totals.stonesSoldCredit > 0) {
     rows.push(['Ventas a crédito (no entró a caja)', formatCOP(totals.stonesSoldCredit)]);
@@ -734,7 +798,8 @@ export function buildMonthlyReportPdfContent(
         `Cotizaciones creadas: ${report.quotesCreated.length} · aprobadas: ${report.quotesApproved.length}`,
         `Pagos de clientes: ${report.payments.length} · pagos del taller: ${report.workshopPayments.length}`,
         `Lotes comprados: ${report.stonePurchases.length} · ventas de piedras: ${report.stoneSales.length} · abonos de compradores: ${report.buyerPayments.length} · pagos a proveedores: ${report.supplierPayments.length}`,
-        `Joyas que entraron al inventario: ${report.jewelPurchases.length} · joyas vendidas: ${report.jewelSales.length}`
+        `Joyas que entraron al inventario: ${report.jewelPurchases.length} · joyas vendidas: ${report.jewelSales.length}`,
+        `Gastos del negocio: ${report.expenses.length}`
       ]
     },
     ...businessSections(report)

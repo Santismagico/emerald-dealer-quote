@@ -1,4 +1,4 @@
-import type { Appointment, Quote, StockJewel, StoneLot } from '../types';
+import type { Appointment, Expense, Quote, StockJewel, StoneLot } from '../types';
 import { todaysPendingAppointments } from './agenda';
 import { buildMonthlyReport } from './dailyReport';
 import { listBuyerDebts } from './receivables';
@@ -14,6 +14,7 @@ export type HomeDestination =
   | 'inventoryReceivables'
   | 'dailyClose'
   | 'monthlyClose'
+  | 'expenses'
   | 'clients'
   | 'buyers'
   | 'suppliers'
@@ -59,7 +60,8 @@ export const HOME_GROUPS: readonly HomeGroup[] = [
     title: 'La plata',
     items: [
       { destination: 'dailyClose', label: 'Cierre del día' },
-      { destination: 'monthlyClose', label: 'Cierre mensual' }
+      { destination: 'monthlyClose', label: 'Cierre mensual' },
+      { destination: 'expenses', label: 'Gastos' }
     ]
   },
   {
@@ -94,12 +96,14 @@ export function buildHomeSummary(input: {
   appointments: readonly Appointment[];
   stoneLots: readonly StoneLot[];
   stockJewels?: readonly StockJewel[];
+  expenses?: readonly Expense[];
 }): HomeSummary {
   const monthly = buildMonthlyReport(
     input.month,
     input.quotes,
     input.stoneLots,
-    input.stockJewels ?? []
+    input.stockJewels ?? [],
+    input.expenses ?? []
   );
   const workshopCounts = countWorkshopJobs(workshopJobsFromQuotes(input.quotes), '');
   const overdueReceivables = listBuyerDebts(input.stoneLots, input.today).filter(

@@ -223,7 +223,8 @@ describe('respaldo v4 con lotes de piedras', () => {
       buyers: [],
       stockJewels: [],
       materialPartners: [],
-      materialLots: []
+      materialLots: [],
+      expenses: []
     };
 
     await backupService.importBackup(backup);
@@ -247,7 +248,8 @@ describe('respaldo v4 con lotes de piedras', () => {
       buyers: [],
       stockJewels: [],
       materialPartners: [],
-      materialLots: []
+      materialLots: [],
+      expenses: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

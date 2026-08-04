@@ -8,6 +8,7 @@ import type {
   BackupFile,
   Buyer,
   Client,
+  Expense,
   MaterialLot,
   MaterialPartner,
   Quote,
@@ -27,6 +28,7 @@ import {
   listStockJewels,
   listMaterialPartners,
   listMaterialLots,
+  listExpenses,
   SETTINGS_KEY
 } from './storage';
 import {
@@ -39,18 +41,20 @@ import {
   normalizeBuyer,
   normalizeStockJewel,
   normalizeMaterialPartner,
-  normalizeMaterialLot
+  normalizeMaterialLot,
+  normalizeExpense
 } from './schema';
+import { validateExpense } from './expenses';
 
 /**
- * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 7.
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 8.
  * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores; v6 los
- * compradores y las joyas en stock; v7 los socios y lotes de material. Los
+ * compradores y las joyas en stock; v7 los socios y lotes de material; v8 los gastos. Los
  * respaldos más viejos se importan con las listas nuevas vacías y nunca fallan
  * por no traerlas.
  */
-export const BACKUP_VERSION = 7;
-const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7];
+export const BACKUP_VERSION = 8;
+const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
 
 export async function exportBackup(): Promise<BackupFile> {
@@ -64,7 +68,8 @@ export async function exportBackup(): Promise<BackupFile> {
     buyers,
     stockJewels,
     materialPartners,
-    materialLots
+    materialLots,
+    expenses
   ] = await Promise.all([
     loadSettings(),
     listClients(),
@@ -75,7 +80,8 @@ export async function exportBackup(): Promise<BackupFile> {
     listBuyers(),
     listStockJewels(),
     listMaterialPartners(),
-    listMaterialLots()
+    listMaterialLots(),
+    listExpenses()
   ]);
   return {
     app: 'emerald-dealer-quote',
@@ -90,7 +96,8 @@ export async function exportBackup(): Promise<BackupFile> {
     buyers,
     stockJewels,
     materialPartners,
-    materialLots
+    materialLots,
+    expenses
   };
 }
 
@@ -288,6 +295,38 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     materialLotIds.add(id);
   }
+  // Los gastos son opcionales en v1–v7 y obligatorios en el formato v8.
+  const rawExpenses = b.expenses ?? [];
+  if (!Array.isArray(rawExpenses) || (b.version === 8 && !Array.isArray(b.expenses))) {
+    throw new Error('El respaldo contiene gastos inválidos.');
+  }
+  const expenseIds = new Set<string>();
+  for (const rawExpense of rawExpenses) {
+    const expense = rawExpense as Partial<Expense>;
+    if (typeof expense.id !== 'string' || !expense.id.trim()) {
+      throw new Error('El respaldo contiene gastos con identificador inválido.');
+    }
+    if (expenseIds.has(expense.id)) {
+      throw new Error('El respaldo contiene gastos duplicados.');
+    }
+    if (
+      typeof expense.amountCop !== 'number' ||
+      !Number.isFinite(expense.amountCop) ||
+      !Number.isInteger(expense.amountCop) ||
+      typeof expense.myPercent !== 'number' ||
+      !Number.isFinite(expense.myPercent) ||
+      !Number.isInteger(expense.myPercent) ||
+      expense.myPercent < 0 ||
+      expense.myPercent > 100
+    ) {
+      throw new Error('El respaldo contiene dinero o porcentajes inválidos en gastos.');
+    }
+    const normalizedExpense = normalizeExpense(expense);
+    if (validateExpense(normalizedExpense)) {
+      throw new Error('El respaldo contiene gastos inválidos.');
+    }
+    expenseIds.add(expense.id);
+  }
   return {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
@@ -302,7 +341,8 @@ function normalizeBackup(data: unknown): BackupFile {
     buyers: rawBuyers.map(normalizeBuyer),
     stockJewels: rawStockJewels.map(normalizeStockJewel),
     materialPartners: rawMaterialPartners.map(normalizeMaterialPartner),
-    materialLots: rawMaterialLots.map(normalizeMaterialLot)
+    materialLots: rawMaterialLots.map(normalizeMaterialLot),
+    expenses: rawExpenses.map(normalizeExpense)
   };
 }
 
@@ -341,7 +381,8 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         'buyers',
         'stockJewels',
         'materialPartners',
-        'materialLots'
+        'materialLots',
+        'expenses'
       ],
       (getStore) => {
         const settingsStore = getStore('settings');
@@ -354,6 +395,7 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         const stockJewelsStore = getStore('stockJewels');
         const materialPartnersStore = getStore('materialPartners');
         const materialLotsStore = getStore('materialLots');
+        const expensesStore = getStore('expenses');
 
         settingsStore.clear();
         clientsStore.clear();
@@ -365,6 +407,7 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         stockJewelsStore.clear();
         materialPartnersStore.clear();
         materialLotsStore.clear();
+        expensesStore.clear();
 
         if (normalized.settings) {
           settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -395,6 +438,9 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         }
         for (const lot of normalized.materialLots) {
           materialLotsStore.put(lot);
+        }
+        for (const expense of normalized.expenses) {
+          expensesStore.put(expense);
         }
       }
     );

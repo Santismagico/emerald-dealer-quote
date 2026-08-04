@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
-import type { StoneLot } from '../types';
+import type { Expense, StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { contentToPlainText } from './pdfContent';
 import { appendSettlementPayment } from './payments';
@@ -168,6 +168,67 @@ describe('cierre del día: qué entra en el reporte', () => {
     const rara = sampleQuote({ approvedAt: 'no-es-fecha', date: '2026-07-01', payments: [], production: [] });
     const report = buildDailyReport(DAY, [rara], []);
     expect(report.quotesApproved).toEqual([]);
+  });
+});
+
+describe('gastos en los cierres (B1)', () => {
+  const expense: Expense = {
+    id: 'g-1',
+    date: DAY,
+    concept: 'Publicidad de feria',
+    category: 'Publicidad',
+    amountCop: 450001,
+    method: 'Transferencia',
+    paidBy: 'Santiago',
+    partnerId: 'soc-1',
+    partnerName: 'Socio Emerald',
+    myPercent: 60,
+    notes: 'Stand principal',
+    createdAt: '2026-07-15T09:00:00.000Z',
+    updatedAt: '2026-07-15T09:00:00.000Z'
+  };
+
+  it('con cero gastos devuelve exactamente el reporte y el dinero anteriores', () => {
+    const previousDaily = buildDailyReport(DAY, [], [lote()]);
+    const withExplicitZero = buildDailyReport(DAY, [], [lote()], [], []);
+    expect(withExplicitZero).toEqual(previousDaily);
+    expect(withExplicitZero.totals).toMatchObject({
+      cashIn: 0,
+      cashOut: 6000000,
+      net: -6000000,
+      expensesPaid: 0
+    });
+
+    const previousMonthly = buildMonthlyReport('2026-07', [], [lote()]);
+    expect(buildMonthlyReport('2026-07', [], [lote()], [], [])).toEqual(previousMonthly);
+  });
+
+  it('el gasto sale de caja solo en el día y mes en que se pagó', () => {
+    const day = buildDailyReport(DAY, [], [], [], [expense]);
+    expect(day.expenses).toHaveLength(1);
+    expect(day.totals).toMatchObject({ cashIn: 0, cashOut: 450001, net: -450001 });
+    expect(day.expenses[0]).toMatchObject({ myAmountCop: 270001, partnerAmountCop: 180000 });
+
+    expect(buildDailyReport('2026-07-16', [], [], [], [expense]).expenses).toEqual([]);
+    expect(buildMonthlyReport('2026-07', [], [], [], [expense]).totals.expensesPaid).toBe(450001);
+    expect(buildMonthlyReport('2026-08', [], [], [], [expense]).totals.expensesPaid).toBe(0);
+  });
+
+  it('un mes que solo tiene gastos aparece en el historial mensual', () => {
+    expect(listMonthlySummaries([], [], [], [expense])).toEqual([
+      { month: '2026-07', cashIn: 0, cashOut: 450001, net: -450001 }
+    ]);
+  });
+
+  it('el PDF interno conserva trazabilidad del gasto y su sociedad', () => {
+    const report = buildDailyReport(DAY, [], [], [], [expense]);
+    const content = buildDailyReportPdfContent(report, sampleSettings());
+    const text = contentToPlainText(content);
+    expect(content.internal).toBe(true);
+    expect(text).toContain('Publicidad de feria');
+    expect(text).toContain('Transferencia');
+    expect(text).toContain('Santiago');
+    expect(text).toContain('Socio Emerald');
   });
 });
 

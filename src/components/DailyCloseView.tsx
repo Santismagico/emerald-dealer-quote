@@ -31,21 +31,27 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
 
   const validDay = isValidISODate(day);
   const dailyReport = useMemo(
-    () => buildDailyReport(validDay ? day : today, store.quotes, store.stoneLots, store.stockJewels),
-    [day, validDay, today, store.quotes, store.stoneLots, store.stockJewels]
+    () => buildDailyReport(
+      validDay ? day : today,
+      store.quotes,
+      store.stoneLots,
+      store.stockJewels,
+      store.expenses
+    ),
+    [day, validDay, today, store.quotes, store.stoneLots, store.stockJewels, store.expenses]
   );
 
   const summaries = useMemo(
-    () => listMonthlySummaries(store.quotes, store.stoneLots, store.stockJewels),
-    [store.quotes, store.stoneLots, store.stockJewels]
+    () => listMonthlySummaries(store.quotes, store.stoneLots, store.stockJewels, store.expenses),
+    [store.quotes, store.stoneLots, store.stockJewels, store.expenses]
   );
   const monthOptions = useMemo(() => {
     const months = new Set<string>([currentMonth, ...summaries.map((s) => s.month)]);
     return [...months].sort((a, b) => b.localeCompare(a));
   }, [currentMonth, summaries]);
   const monthlyReport = useMemo(
-    () => buildMonthlyReport(month, store.quotes, store.stoneLots, store.stockJewels),
-    [month, store.quotes, store.stoneLots, store.stockJewels]
+    () => buildMonthlyReport(month, store.quotes, store.stoneLots, store.stockJewels, store.expenses),
+    [month, store.quotes, store.stoneLots, store.stockJewels, store.expenses]
   );
 
   const download = async () => {
@@ -122,6 +128,9 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
           <SectionCard title={mode === 'dia' ? 'Dinero del día' : 'Dinero del mes'}>
             <SummaryRow label="Entró en total" value={formatCOP(report.totals.cashIn)} />
             <SummaryRow label="Salió en total" value={`- ${formatCOP(report.totals.cashOut)}`} />
+            {report.totals.expensesPaid > 0 && (
+              <SummaryRow label="Gastos del negocio" value={`- ${formatCOP(report.totals.expensesPaid)}`} />
+            )}
             <div className="border-t border-stone-100 pt-1">
               <SummaryRow
                 label="Movimiento neto"
@@ -137,6 +146,19 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
               </p>
             )}
           </SectionCard>
+
+          {report.expenses.length > 0 && (
+            <SectionCard title={`Gastos del negocio (${report.expenses.length})`}>
+              {report.expenses.map((expense) => (
+                <ReportLine
+                  key={expense.id}
+                  main={expense.concept}
+                  detail={expenseDetail(expense)}
+                  value={`- ${formatCOP(expense.amountCop)}`}
+                />
+              ))}
+            </SectionCard>
+          )}
 
           <SectionCard title="Joyería (cotizador y taller)">
             <SummaryRow label="Entró por pagos de clientes" value={formatCOP(report.totals.paymentsReceived)} />
@@ -374,6 +396,17 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
       </p>
     </div>
   );
+}
+
+function expenseDetail(expense: BusinessReport['expenses'][number]): string {
+  const parts = [expense.category, `Medio: ${expense.method}`, `pagó: ${expense.paidBy}`];
+  if (expense.partnerName) {
+    parts.push(
+      `${expense.partnerName}: ${expense.myPercent}% propio · ${100 - expense.myPercent}% socio`
+    );
+  }
+  if (expense.notes) parts.push(`Nota: ${expense.notes}`);
+  return parts.join(' · ');
 }
 
 function stoneSaleDetail(sale: BusinessReport['stoneSales'][number]): string {

@@ -156,7 +156,7 @@ export function MaterialPartnersView() {
       <ConfirmDialog
         open={toDelete !== null}
         title="Eliminar socio"
-        message={`¿Eliminar a ${toDelete?.name} de la lista? Los lotes de material que comparten conservan el nombre escrito y el reparto de gramos; solo se quita el vínculo con esta ficha.`}
+        message={`¿Eliminar a ${toDelete?.name} de la lista? Los lotes de material conservan el nombre y el reparto de gramos; los gastos compartidos conservan el nombre y el porcentaje. Solo se quita el vínculo con esta ficha.`}
         confirmLabel="Eliminar"
         danger
         onCancel={() => setToDelete(null)}

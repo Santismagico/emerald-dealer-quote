@@ -15,7 +15,8 @@ export type StoreName =
   | 'buyers'
   | 'stockJewels'
   | 'materialPartners'
-  | 'materialLots';
+  | 'materialLots'
+  | 'expenses';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
 
@@ -65,6 +66,10 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   (db) => {
     createStoreIfMissing(db, 'materialPartners');
     createStoreIfMissing(db, 'materialLots');
+  },
+  // v8 — gastos del negocio (Plan v2, B1 / D-059).
+  (db) => {
+    createStoreIfMissing(db, 'expenses');
   }
 ];
 

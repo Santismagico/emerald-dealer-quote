@@ -66,7 +66,8 @@ function makeBackup(
     buyers: [],
     stockJewels: [],
     materialPartners: [],
-    materialLots: []
+    materialLots: [],
+    expenses: []
   };
 }
 
@@ -79,14 +80,15 @@ const BACKUP_ENTITY_STORE_NAMES = [
   'buyers',
   'stockJewels',
   'materialPartners',
-  'materialLots'
+  'materialLots',
+  'expenses'
 ] as const;
 const BACKUP_STORE_NAMES = ['settings', ...BACKUP_ENTITY_STORE_NAMES] as const;
 
 type BackupStoreName = (typeof BACKUP_STORE_NAMES)[number];
 
 function makeFullBackup(prefix: string): BackupFile {
-  const backup = makeBackup(prefix, { clients: 2, quotes: 2, version: 7 });
+  const backup = makeBackup(prefix, { clients: 2, quotes: 2, version: 8 });
   const createdAt = '2026-07-25T12:00:00.000Z';
   const supplierId = `${prefix}-supplier-1`;
   const buyerId = `${prefix}-buyer-1`;
@@ -184,6 +186,21 @@ function makeFullBackup(prefix: string): BackupFile {
     createdAt,
     updatedAt: createdAt
   }];
+  backup.expenses = [{
+    id: `${prefix}-expense-1`,
+    date: '2026-07-25',
+    concept: `${prefix} Publicidad`,
+    category: 'Publicidad',
+    amountCop: 300000,
+    method: 'Transferencia',
+    paidBy: 'Santiago',
+    partnerId,
+    partnerName: `${prefix} Socio`,
+    myPercent: 60,
+    notes: '',
+    createdAt,
+    updatedAt: createdAt
+  }];
   return backup;
 }
 
@@ -202,7 +219,8 @@ async function rawSnapshot() {
     buyers,
     stockJewels,
     materialPartners,
-    materialLots
+    materialLots,
+    expenses
   ] = await Promise.all([
     db.dbGetAll<Record<string, unknown>>('settings'),
     db.dbGetAll<Record<string, unknown>>('clients'),
@@ -213,7 +231,8 @@ async function rawSnapshot() {
     db.dbGetAll<Record<string, unknown>>('buyers'),
     db.dbGetAll<Record<string, unknown>>('stockJewels'),
     db.dbGetAll<Record<string, unknown>>('materialPartners'),
-    db.dbGetAll<Record<string, unknown>>('materialLots')
+    db.dbGetAll<Record<string, unknown>>('materialLots'),
+    db.dbGetAll<Record<string, unknown>>('expenses')
   ]);
   return {
     settings: sortById(settings),
@@ -225,7 +244,8 @@ async function rawSnapshot() {
     buyers: sortById(buyers),
     stockJewels: sortById(stockJewels),
     materialPartners: sortById(materialPartners),
-    materialLots: sortById(materialLots)
+    materialLots: sortById(materialLots),
+    expenses: sortById(expenses)
   };
 }
 
@@ -316,7 +336,7 @@ describe('restauración atómica de respaldos', () => {
   });
 
   it.each(BACKUP_STORE_NAMES)(
-    'un fallo al escribir %s aborta todo y conserva las diez colecciones anteriores',
+    'un fallo al escribir %s aborta todo y conserva las once colecciones anteriores',
     async (target) => {
       await backupService.importBackup(makeFullBackup(`base-${target}`));
       const before = await rawSnapshot();

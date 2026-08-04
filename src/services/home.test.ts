@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Appointment } from '../types';
+import type { Appointment, Expense } from '../types';
 import { sampleQuote } from '../test/fixtures';
 import { buildMonthlyReport } from './dailyReport';
 import { buildHomeSummary, HOME_GROUPS } from './home';
@@ -22,6 +22,12 @@ describe('portada de inicio', () => {
         production: []
       })
     ];
+    const expenses: Expense[] = [{
+      id: 'g-mes', date: TODAY, concept: 'Publicidad', category: 'Publicidad',
+      amountCop: 125_001, method: 'Transferencia', paidBy: 'Santiago',
+      partnerId: null, partnerName: '', myPercent: 100, notes: '',
+      createdAt: '2026-08-03T10:00:00.000Z', updatedAt: '2026-08-03T10:00:00.000Z'
+    }];
 
     const home = buildHomeSummary({
       month: MONTH,
@@ -29,9 +35,10 @@ describe('portada de inicio', () => {
       quotes,
       appointments: [],
       stoneLots: [],
-      stockJewels: []
+      stockJewels: [],
+      expenses
     });
-    const monthly = buildMonthlyReport(MONTH, quotes, [], []);
+    const monthly = buildMonthlyReport(MONTH, quotes, [], [], expenses);
 
     expect(home.monthlyNet).toBe(monthly.totals.net);
   });
@@ -104,6 +111,7 @@ describe('portada de inicio', () => {
       'inventoryReceivables',
       'dailyClose',
       'monthlyClose',
+      'expenses',
       'clients',
       'buyers',
       'suppliers',
@@ -111,7 +119,6 @@ describe('portada de inicio', () => {
       'settings',
       'account'
     ]);
-    expect(destinations).not.toContain('expenses');
     expect(destinations).not.toContain('dashboard');
     expect(destinations).not.toContain('catalog');
   });

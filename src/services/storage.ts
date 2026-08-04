@@ -12,7 +12,8 @@ import type {
   Buyer,
   StockJewel,
   MaterialPartner,
-  MaterialLot
+  MaterialLot,
+  Expense
 } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate, dbWriteTransaction } from './db';
@@ -27,12 +28,14 @@ import {
   normalizeBuyer,
   normalizeStockJewel,
   normalizeMaterialPartner,
-  normalizeMaterialLot
+  normalizeMaterialLot,
+  normalizeExpense
 } from './schema';
 import { compareAppointments } from './agenda';
 import { compareStoneLots } from './stones';
 import { compareStockJewels } from './stockJewels';
 import { compareMaterialLots } from './materials';
+import { compareExpenses, validateExpense } from './expenses';
 
 // Re-export para compatibilidad: el resto de la app importa defaultSettings desde aquí.
 export { defaultSettings } from './schema';
@@ -82,6 +85,7 @@ export async function saveEditableSettings(
       ? settings.goldPriceUpdatedAt
       : current.goldPriceUpdatedAt,
     quoteCounter: current.quoteCounter,
+    expenseCategories: current.expenseCategories,
     lastBackupExportedAt: current.lastBackupExportedAt,
     backupReminderSnoozedUntil: current.backupReminderSnoozedUntil,
     backupReminderFirstDataAt: current.backupReminderFirstDataAt
@@ -367,7 +371,7 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
   const normalizedPartner = normalizeMaterialPartner(partner);
   const updatedAt = new Date().toISOString();
 
-  await dbWriteTransaction(['materialPartners', 'materialLots'], (getStore) => {
+  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses'], (getStore) => {
     getStore('materialPartners').put(normalizedPartner);
 
     const lots = getStore('materialLots');
@@ -377,6 +381,20 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
         const lot = normalizeMaterialLot(stored);
         if (lot.partnerId === normalizedPartner.id && lot.partnerName !== normalizedPartner.name) {
           lots.put({ ...lot, partnerName: normalizedPartner.name, updatedAt });
+        }
+      }
+    };
+
+    const expenses = getStore('expenses');
+    const expensesRequest = expenses.getAll();
+    expensesRequest.onsuccess = () => {
+      for (const stored of expensesRequest.result as unknown[]) {
+        const expense = normalizeExpense(stored);
+        if (
+          expense.partnerId === normalizedPartner.id &&
+          expense.partnerName !== normalizedPartner.name
+        ) {
+          expenses.put({ ...expense, partnerName: normalizedPartner.name, updatedAt });
         }
       }
     };
@@ -390,7 +408,7 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
 export async function deleteMaterialPartner(id: string): Promise<void> {
   const updatedAt = new Date().toISOString();
 
-  await dbWriteTransaction(['materialPartners', 'materialLots'], (getStore) => {
+  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses'], (getStore) => {
     getStore('materialPartners').delete(id);
 
     const lots = getStore('materialLots');
@@ -400,6 +418,17 @@ export async function deleteMaterialPartner(id: string): Promise<void> {
         const lot = normalizeMaterialLot(stored);
         if (lot.partnerId === id) {
           lots.put({ ...lot, partnerId: null, updatedAt });
+        }
+      }
+    };
+
+    const expenses = getStore('expenses');
+    const expensesRequest = expenses.getAll();
+    expensesRequest.onsuccess = () => {
+      for (const stored of expensesRequest.result as unknown[]) {
+        const expense = normalizeExpense(stored);
+        if (expense.partnerId === id) {
+          expenses.put({ ...expense, partnerId: null, updatedAt });
         }
       }
     };
@@ -417,6 +446,21 @@ export async function saveMaterialLot(lot: MaterialLot): Promise<void> {
 
 export async function deleteMaterialLot(id: string): Promise<void> {
   await dbDelete('materialLots', id);
+}
+
+export async function listExpenses(): Promise<Expense[]> {
+  const expenses = await dbGetAll<unknown>('expenses');
+  return expenses.map(normalizeExpense).sort(compareExpenses);
+}
+
+export async function saveExpense(expense: Expense): Promise<void> {
+  const error = validateExpense(expense);
+  if (error) throw new Error(error);
+  await dbPut('expenses', normalizeExpense(expense));
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  await dbDelete('expenses', id);
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */

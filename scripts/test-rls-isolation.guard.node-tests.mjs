@@ -45,7 +45,7 @@ test('rechaza si falta la confirmación exacta', () => {
   assert.throws(() => validateN6Environment({ ...valid, N6_CONFIRM_TEST_PROJECT: 'SI' }))
 })
 
-test('N6 cubre las diez tablas editables, incluidas las cuatro de inventario nuevo', () => {
+test('N6 cubre las once tablas editables, incluidos los gastos', () => {
   assert.deepEqual(n6EditableTables, [
     'org_settings',
     'clients',
@@ -57,6 +57,7 @@ test('N6 cubre las diez tablas editables, incluidas las cuatro de inventario nue
     'stock_jewels',
     'material_partners',
     'material_lots',
+    'expenses',
   ])
 })
 
@@ -82,9 +83,14 @@ test('cada entidad nueva tiene sus RPC protegidas de guardar y borrar', () => {
     upsertRpc: 'upsert_material_lot',
     deleteRpc: 'delete_material_lot',
   })
+  assert.deepEqual(specs.get('expenses'), {
+    table: 'expenses',
+    upsertRpc: 'upsert_expense',
+    deleteRpc: 'delete_expense',
+  })
 })
 
-test('los payloads N6 de las cuatro tablas nuevas son válidos y completos', () => {
+test('los payloads N6 nuevos son válidos y completos', () => {
   const payloads = validPayloads('guard')
   assert.equal(payloads.buyers.id, 'guard-buyer')
   assert.equal(payloads.stock_jewels.id, 'guard-stock-jewel')
@@ -97,6 +103,10 @@ test('los payloads N6 de las cuatro tablas nuevas son válidos y completos', () 
   assert.equal(payloads.material_lots.myGrams, 6)
   assert.equal(payloads.material_lots.costCop, 5000000)
   assert.deepEqual(payloads.material_lots.uses.map(({ grams }) => grams), [2])
+  assert.equal(payloads.expenses.id, 'guard-expense')
+  assert.equal(payloads.expenses.amountCop, 300000)
+  assert.equal(payloads.expenses.myPercent, 100)
+  assert.equal(payloads.expenses.method, 'Transferencia')
 })
 
 test('un rechazo N6 solo cuenta cuando coincide con el código esperado', () => {
@@ -163,4 +173,6 @@ test('el runner distingue permisos, parámetros prohibidos y payloads inválidos
   assert.match(n6Source, /'42501'/)
   assert.match(n6Source, /'PGRST202'/)
   assert.match(n6Source, /'22023'/)
+  assert.match(n6Source, /gasto sin concepto/)
+  assert.match(n6Source, /porcentaje mayor a 100/)
 })

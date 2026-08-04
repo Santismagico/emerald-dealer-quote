@@ -155,6 +155,12 @@ export interface Quote {
   updatedAt: string;
 }
 
+/** Categoría administrable de gastos. Nunca se borra: solo cambia `active`. */
+export interface ExpenseCategoryOption {
+  name: string;
+  active: boolean;
+}
+
 export interface Settings {
   /** Nombre visible de la joyería. Por defecto: Emerald Dealer. */
   jewelryName: string;
@@ -189,6 +195,8 @@ export interface Settings {
   defaultTaxPercent: number;
   /** Condiciones comerciales que aparecen en el PDF del cliente. */
   conditions: string;
+  /** Categorías internas disponibles al crear gastos (D-059). */
+  expenseCategories: ExpenseCategoryOption[];
   /** Consecutivo para numerar cotizaciones. */
   quoteCounter: number;
   /** Última exportación de respaldo iniciada correctamente (ISO). */
@@ -300,6 +308,31 @@ export interface MaterialPartner {
   city: string;
   notes: string;
   createdAt: string;
+}
+
+/**
+ * Salida de caja del negocio (SOLO uso interno; D-059).
+ * Si pertenece a una sociedad, conserva nombre y reparto aunque se borre la ficha del socio.
+ */
+export interface Expense {
+  id: string;
+  /** Día en que el dinero salió de caja (YYYY-MM-DD). */
+  date: string;
+  concept: string;
+  category: string;
+  /** Monto total pagado, siempre COP entero. */
+  amountCop: number;
+  method: string;
+  paidBy: string;
+  /** Socio vinculado; null si es propio o si luego se borró la ficha. */
+  partnerId: string | null;
+  /** Nombre histórico del socio; se conserva al borrar la ficha. */
+  partnerName: string;
+  /** Porcentaje propio, entero 0..100. La parte del socio es 100 - myPercent. */
+  myPercent: number;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Gramos que salieron de un lote de material al usarlos (SOLO interno; D-048). */
@@ -502,6 +535,8 @@ export interface BackupFile {
   materialPartners: MaterialPartner[];
   /** Lotes de material con sus salidas. Los respaldos v1–v6 no los traen y se importan vacíos. */
   materialLots: MaterialLot[];
+  /** Gastos del negocio. Los respaldos v1–v7 no los traen y se importan vacíos. */
+  expenses: Expense[];
 }
 
 export const PIECE_TYPES: PieceType[] = [

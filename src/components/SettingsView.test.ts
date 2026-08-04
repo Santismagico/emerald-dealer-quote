@@ -24,7 +24,8 @@ describe('flujo visible de restauración', () => {
       'compradores',
       'joyas en inventario',
       'socios de material',
-      'lotes de material'
+      'lotes de material',
+      'gastos'
     ]) {
       expect(BACKUP_RESTORE_WARNING).toContain(expected);
     }

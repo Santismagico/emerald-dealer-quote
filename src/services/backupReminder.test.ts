@@ -39,6 +39,17 @@ describe('getBackupReminderState', () => {
     expect(reminderState({ quoteCreatedAt: '2026-07-01T10:00:00.000Z' }).shouldShow).toBe(true);
   });
 
+  it('un gasto por sí solo también activa el recordatorio', () => {
+    const result = getBackupReminderState({
+      settings: sampleSettings(),
+      clients: [],
+      quotes: [],
+      expenses: [{ createdAt: '2026-07-01T10:00:00.000Z' }],
+      now: NOW
+    });
+    expect(result.shouldShow).toBe(true);
+  });
+
   it('usa la fecha válida más antigua entre clientes y cotizaciones', () => {
     const result = getBackupReminderState({
       settings: sampleSettings(),

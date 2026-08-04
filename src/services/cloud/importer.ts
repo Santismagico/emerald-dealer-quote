@@ -23,6 +23,7 @@ export interface CloudImportWriter extends Pick<
   | 'saveStockJewel'
   | 'saveMaterialPartner'
   | 'saveMaterialLot'
+  | 'saveExpense'
 > {
   flush: () => Promise<void>;
   pendingCount: () => Promise<number>;
@@ -51,7 +52,8 @@ export function countImportRecords(backup: BackupFile): number {
     + backup.buyers.length
     + backup.stockJewels.length
     + backup.materialPartners.length
-    + backup.materialLots.length;
+    + backup.materialLots.length
+    + backup.expenses.length;
 }
 
 export function hasLocalDataToImport(backup: BackupFile): boolean {
@@ -65,6 +67,7 @@ export function hasLocalDataToImport(backup: BackupFile): boolean {
     || backup.stockJewels.length
     || backup.materialPartners.length
     || backup.materialLots.length
+    || backup.expenses.length
   ) return true;
   return backup.settings !== null
     && JSON.stringify(backup.settings) !== JSON.stringify(defaultSettings());
@@ -80,7 +83,8 @@ export async function isCloudEmpty(remote: Pick<CloudRemote, 'list'> = supabaseC
     'buyers',
     'stock_jewels',
     'material_partners',
-    'material_lots'
+    'material_lots',
+    'expenses'
   ] as const;
   const rows = await Promise.all(tables.map((table) => remote.list(table)));
   return rows.every((collection) => collection.length === 0);
@@ -125,6 +129,10 @@ export async function importToCloud(
   // Los socios van antes que los lotes de material: los lotes los referencian.
   for (const partner of backup.materialPartners) {
     tasks.push({ label: 'Socios de material', run: () => writer.saveMaterialPartner(partner) });
+  }
+  // Los gastos con sociedad van después de los socios que referencian.
+  for (const expense of backup.expenses) {
+    tasks.push({ label: 'Gastos', run: () => writer.saveExpense(expense) });
   }
   for (const client of backup.clients) {
     tasks.push({ label: 'Clientes', run: () => writer.saveClient(client) });

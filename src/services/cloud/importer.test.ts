@@ -4,6 +4,7 @@ import type {
   BackupFile,
   Buyer,
   Client,
+  Expense,
   MaterialLot,
   MaterialPartner,
   Quote,
@@ -25,7 +26,7 @@ function largeBackup(): BackupFile {
   const timestamp = '2026-07-18T15:00:00Z';
   return {
     app: 'emerald-dealer-quote',
-    version: 7,
+    version: 8,
     exportedAt: timestamp,
     settings: sampleSettings(),
     clients: [],
@@ -90,6 +91,21 @@ function largeBackup(): BackupFile {
       }],
       createdAt: timestamp,
       updatedAt: timestamp
+    }],
+    expenses: [{
+      id: 'expense-1',
+      date: '2026-07-18',
+      concept: 'Feria de prueba',
+      category: 'Publicidad',
+      amountCop: 300000,
+      method: 'Transferencia',
+      paidBy: 'Santiago',
+      partnerId: 'material-partner-1',
+      partnerName: 'Socio de prueba',
+      myPercent: 60,
+      notes: '',
+      createdAt: timestamp,
+      updatedAt: timestamp
     }]
   };
 }
@@ -105,7 +121,8 @@ function memoryWriter() {
     buyers: new Map<string, Buyer>(),
     stockJewels: new Map<string, StockJewel>(),
     materialPartners: new Map<string, MaterialPartner>(),
-    materialLots: new Map<string, MaterialLot>()
+    materialLots: new Map<string, MaterialLot>(),
+    expenses: new Map<string, Expense>()
   };
   let flushes = 0;
   const writer: CloudImportWriter = {
@@ -119,6 +136,7 @@ function memoryWriter() {
     saveStockJewel: async (jewel) => void values.stockJewels.set(jewel.id, jewel),
     saveMaterialPartner: async (p) => void values.materialPartners.set(p.id, p),
     saveMaterialLot: async (l) => void values.materialLots.set(l.id, l),
+    saveExpense: async (expense) => void values.expenses.set(expense.id, expense),
     flush: async () => { flushes += 1; },
     pendingCount: async () => 0
   };
@@ -133,7 +151,7 @@ describe('importación inicial a la nube', () => {
 
     await importToCloud(backup, { writer: target.writer, batchSize: 25, onProgress: progress });
 
-    expect(countImportRecords(backup)).toBe(205);
+    expect(countImportRecords(backup)).toBe(206);
     expect(target.values.quotes.size).toBe(200);
     expect(target.values.quotes.get('q-199')?.images).toEqual(['data:image/jpeg;base64,imagen-199']);
     expect([...target.values.buyers.keys()]).toEqual(['buyer-1']);
@@ -145,8 +163,13 @@ describe('importación inicial a la nube', () => {
       costCop: 5000000,
       uses: [{ grams: 2 }]
     });
+    expect(target.values.expenses.get('expense-1')).toMatchObject({
+      amountCop: 300000,
+      partnerName: 'Socio de prueba',
+      myPercent: 60
+    });
     expect(target.flushes()).toBe(9);
-    expect(progress.mock.calls.at(-1)?.[0]).toMatchObject({ completed: 205, total: 205, percent: 100 });
+    expect(progress.mock.calls.at(-1)?.[0]).toMatchObject({ completed: 206, total: 206, percent: 100 });
   });
 
   it('repetir la misma importación conserva ids y no duplica registros', async () => {

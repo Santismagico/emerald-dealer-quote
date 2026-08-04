@@ -4,6 +4,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import type {
   Settings,
+  ExpenseCategoryOption,
   Client,
   Quote,
   Appointment,
@@ -12,7 +13,8 @@ import type {
   Buyer,
   StockJewel,
   MaterialPartner,
-  MaterialLot
+  MaterialLot,
+  Expense
 } from './types';
 import { defaultSettings } from './services/storage';
 import { localDataSource, type StoreDataSource } from './services/dataSource';
@@ -23,6 +25,7 @@ import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
 import { sortStockJewels } from './services/stockJewels';
 import { sortMaterialLots } from './services/materials';
+import { sortExpenses } from './services/expenses';
 import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
 import { downloadBackupFile } from './services/backup';
 import {
@@ -42,11 +45,15 @@ interface AppStore {
   stockJewels: StockJewel[];
   materialPartners: MaterialPartner[];
   materialLots: MaterialLot[];
+  expenses: Expense[];
   toast: string | null;
   backupExporting: boolean;
   cloudSync: OutboxStatus;
   showToast: (message: string) => void;
   updateSettings: (settings: Settings, goldPriceWasEdited: boolean) => Promise<Settings>;
+  updateExpenseCategories: (
+    update: (current: ExpenseCategoryOption[]) => ExpenseCategoryOption[]
+  ) => Promise<Settings>;
   exportBackup: () => Promise<boolean>;
   snoozeBackupReminder: (snoozedUntil: string) => Promise<void>;
   ensureBackupReminderFirstDataAt: (startedAt: string) => Promise<void>;
@@ -68,6 +75,8 @@ interface AppStore {
   removeMaterialPartner: (id: string) => Promise<void>;
   upsertMaterialLot: (lot: MaterialLot) => Promise<void>;
   removeMaterialLot: (id: string) => Promise<void>;
+  upsertExpense: (expense: Expense) => Promise<void>;
+  removeExpense: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   retryCloudChanges: (id?: string) => Promise<void>;
   reloadAll: () => Promise<void>;
@@ -107,6 +116,7 @@ export function StoreProvider({
   const [stockJewels, setStockJewels] = useState<StockJewel[]>([]);
   const [materialPartners, setMaterialPartners] = useState<MaterialPartner[]>([]);
   const [materialLots, setMaterialLots] = useState<MaterialLot[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
   const [cloudSync, setCloudSync] = useState<OutboxStatus>({ pending: 0, held: 0, operations: [] });
@@ -117,7 +127,7 @@ export function StoreProvider({
   }, [dataSource]);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q, a, sm, sp, bu, jw, mp, ml] = await Promise.all([
+    const [s, c, q, a, sm, sp, bu, jw, mp, ml, ex] = await Promise.all([
       dataSource.loadSettings(),
       dataSource.listClients(),
       dataSource.listQuotes(),
@@ -127,7 +137,8 @@ export function StoreProvider({
       dataSource.listBuyers(),
       dataSource.listStockJewels(),
       dataSource.listMaterialPartners(),
-      dataSource.listMaterialLots()
+      dataSource.listMaterialLots(),
+      dataSource.listExpenses()
     ]);
     setSettings(s);
     setClients(c);
@@ -139,6 +150,7 @@ export function StoreProvider({
     setStockJewels(jw);
     setMaterialPartners(mp);
     setMaterialLots(ml);
+    setExpenses(ex);
   }, [dataSource]);
 
   const refreshGoldPrice = useCallback(async () => {
@@ -176,6 +188,17 @@ export function StoreProvider({
 
   const updateSettings = useCallback(async (next: Settings, goldPriceWasEdited: boolean) => {
     const saved = await dataSource.saveEditableSettings(next, goldPriceWasEdited);
+    setSettings(saved);
+    return saved;
+  }, [dataSource]);
+
+  const updateExpenseCategories = useCallback(async (
+    update: (current: ExpenseCategoryOption[]) => ExpenseCategoryOption[]
+  ) => {
+    const saved = await dataSource.updateSettingsAtomically((current) => ({
+      ...current,
+      expenseCategories: update(current.expenseCategories)
+    }));
     setSettings(saved);
     return saved;
   }, [dataSource]);
@@ -316,25 +339,29 @@ export function StoreProvider({
   }, [dataSource]);
 
   // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en los
-  // lotes de material que lo apuntan, así que hay que releer también los lotes.
+  // lotes de material y gastos que lo apuntan, así que hay que releer ambos.
   const upsertMaterialPartner = useCallback(async (partner: MaterialPartner) => {
     await dataSource.saveMaterialPartner(partner);
-    const [nextPartners, nextLots] = await Promise.all([
+    const [nextPartners, nextLots, nextExpenses] = await Promise.all([
       dataSource.listMaterialPartners(),
-      dataSource.listMaterialLots()
+      dataSource.listMaterialLots(),
+      dataSource.listExpenses()
     ]);
     setMaterialPartners(nextPartners);
     setMaterialLots(nextLots);
+    setExpenses(nextExpenses);
   }, [dataSource]);
 
   const removeMaterialPartner = useCallback(async (id: string) => {
     await dataSource.deleteMaterialPartner(id);
-    const [nextPartners, nextLots] = await Promise.all([
+    const [nextPartners, nextLots, nextExpenses] = await Promise.all([
       dataSource.listMaterialPartners(),
-      dataSource.listMaterialLots()
+      dataSource.listMaterialLots(),
+      dataSource.listExpenses()
     ]);
     setMaterialPartners(nextPartners);
     setMaterialLots(nextLots);
+    setExpenses(nextExpenses);
   }, [dataSource]);
 
   const upsertMaterialLot = useCallback(async (lot: MaterialLot) => {
@@ -346,6 +373,16 @@ export function StoreProvider({
   const removeMaterialLot = useCallback(async (id: string) => {
     setMaterialLots((prev) => prev.filter((l) => l.id !== id));
     await dataSource.deleteMaterialLot(id);
+  }, [dataSource]);
+
+  const upsertExpense = useCallback(async (expense: Expense) => {
+    setExpenses((prev) => sortExpenses([expense, ...prev.filter((item) => item.id !== expense.id)]));
+    await dataSource.saveExpense(expense);
+  }, [dataSource]);
+
+  const removeExpense = useCallback(async (id: string) => {
+    setExpenses((prev) => prev.filter((expense) => expense.id !== id));
+    await dataSource.deleteExpense(id);
   }, [dataSource]);
 
   const nextQuoteNumber = useCallback(async () => {
@@ -374,11 +411,13 @@ export function StoreProvider({
         stockJewels,
         materialPartners,
         materialLots,
+        expenses,
         toast,
         backupExporting,
         cloudSync,
         showToast,
         updateSettings,
+        updateExpenseCategories,
         exportBackup,
         snoozeBackupReminder,
         ensureBackupReminderFirstDataAt,
@@ -400,6 +439,8 @@ export function StoreProvider({
         removeMaterialPartner,
         upsertMaterialLot,
         removeMaterialLot,
+        upsertExpense,
+        removeExpense,
         nextQuoteNumber,
         retryCloudChanges,
         reloadAll,

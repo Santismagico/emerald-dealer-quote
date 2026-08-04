@@ -7,6 +7,7 @@ import grantClosureSource from '../../../supabase/migrations/20260718212000_clos
 import inventorySource from '../../../supabase/migrations/20260721210000_inventario_compradores_y_joyas.sql?raw'
 import materialsSource from '../../../supabase/migrations/20260724210000_inventario_materiales.sql?raw'
 import materialValidationFixSource from '../../../supabase/migrations/20260725150651_validar_suma_usos_material.sql?raw'
+import expensesSource from '../../../supabase/migrations/20260803205711_gastos_negocio.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -17,6 +18,7 @@ const grantClosure = grantClosureSource.toLowerCase()
 const inventory = inventorySource.toLowerCase()
 const materials = materialsSource.toLowerCase()
 const materialValidationFix = materialValidationFixSource.toLowerCase()
+const expenses = expensesSource.toLowerCase()
 
 const tables = [
   'organizations',
@@ -276,5 +278,61 @@ describe('migracion correctiva de validacion de materiales', () => {
   it('mantiene el texto para SQL Editor identico a la migracion versionada', () => {
     const sqlBlock = materialValidationInstructionsSource.match(/```sql\s*([\s\S]*?)```/i)
     expect(sqlBlock?.[1].trim()).toBe(materialValidationFixSource.trim())
+  })
+})
+
+describe('migracion de gastos del negocio (B1)', () => {
+  it('crea una tabla aditiva sin destruir datos existentes', () => {
+    expect(expenses).toContain('create table if not exists public.expenses')
+    expect(expenses).toContain('create index if not exists expenses_org_updated')
+    expect(expenses).not.toMatch(/drop\s+table/)
+    expect(expenses).not.toMatch(/drop\s+column/)
+    expect(expenses).not.toMatch(/truncate/)
+    expect(expenses).not.toMatch(/delete\s+from\s+public\.(clients|quotes|stone_lots|suppliers|buyers|stock_jewels|material_lots|org_settings)/)
+  })
+
+  it('activa RLS y expone solo lectura autenticada por la API', () => {
+    expect(expenses).toContain('alter table public.expenses enable row level security')
+    expect(expenses).toContain('create policy expenses_select_member')
+    expect(expenses).not.toContain('create policy expenses_insert_member')
+    expect(expenses).not.toContain('create policy expenses_update_member')
+    expect(expenses).not.toContain('create policy expenses_delete_member')
+    expect(expenses).toContain('revoke all on table public.expenses from anon')
+    expect(expenses).toContain('revoke insert, update, delete on table public.expenses from authenticated')
+    expect(expenses).toContain('grant select on table public.expenses to authenticated')
+    expect(expenses).toContain('grant select, insert, update, delete on table public.expenses to service_role')
+  })
+
+  it('protege las RPC y resuelve la organizacion exclusivamente en servidor', () => {
+    for (const name of ['upsert_expense', 'delete_expense']) {
+      expect(expenses).toContain(`function public.${name}`)
+      expect(expenses).toContain(`revoke all on function public.${name}`)
+      expect(expenses).toContain(`grant execute on function public.${name}`)
+    }
+    expect(expenses).toContain("set search_path = ''")
+    expect(expenses).toContain('private.current_organization_id_for_roles')
+    expect(expenses).not.toContain('p_organization_id')
+  })
+
+  it('valida en servidor fecha, COP, trazabilidad y reparto 0..100', () => {
+    expect(expenses).toContain('function private.assert_expense_payload')
+    expect(expenses).toContain('select coalesce(')
+    expect(expenses).toContain("p_data->'date'")
+    expect(expenses).toContain("p_data->'amountcop'")
+    expect(expenses).toContain("p_data->'method'")
+    expect(expenses).toContain("p_data->'paidby'")
+    expect(expenses).toContain("p_data->'partnername'")
+    expect(expenses).toContain("p_data->'mypercent'")
+    expect(expenses).toContain('v_my_percent > 100')
+    expect(expenses).toContain('v_my_percent <> 100')
+    expect(expenses).toContain("errcode = '22023'")
+    expect(expenses).toContain('revoke all on function private.assert_expense_payload')
+  })
+
+  it('valida también la lista administrada de categorías en org_settings', () => {
+    expect(expenses).toContain('create or replace function private.assert_settings_payload')
+    expect(expenses).toContain("p_data->'expensecategories'")
+    expect(expenses).toContain("item->'active'")
+    expect(expenses).toContain("group by lower(btrim(item->>'name'))")
   })
 })

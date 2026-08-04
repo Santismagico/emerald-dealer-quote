@@ -388,7 +388,8 @@ describe('respaldo v6', () => {
       buyers: [comprador({ id: 'buy-import' })],
       stockJewels: [joya({ id: 'j-import' })],
       materialPartners: [],
-      materialLots: []
+      materialLots: [],
+      expenses: []
     };
     await backupService.importBackup(backup);
 
@@ -410,7 +411,8 @@ describe('respaldo v6', () => {
       buyers: [comprador({ id: 'dup' }), comprador({ id: 'dup' })],
       stockJewels: [],
       materialPartners: [],
-      materialLots: []
+      materialLots: [],
+      expenses: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 
@@ -432,7 +434,8 @@ describe('respaldo v6', () => {
       buyers: [],
       stockJewels: [joya({ id: 'dup' }), joya({ id: 'dup' })],
       materialPartners: [],
-      materialLots: []
+      materialLots: [],
+      expenses: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

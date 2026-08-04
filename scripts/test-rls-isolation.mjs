@@ -23,6 +23,7 @@ export const n6EntitySpecs = Object.freeze([
     deleteRpc: 'delete_material_partner',
   },
   { table: 'material_lots', upsertRpc: 'upsert_material_lot', deleteRpc: 'delete_material_lot' },
+  { table: 'expenses', upsertRpc: 'upsert_expense', deleteRpc: 'delete_expense' },
 ])
 
 export const n6EditableTables = Object.freeze([
@@ -180,6 +181,21 @@ export function validPayloads(prefix) {
         grams: 2,
         notes: 'Prueba N6',
       }],
+    },
+    expenses: {
+      id: `${prefix}-expense`,
+      date: '2026-08-03',
+      concept: `Publicidad ${prefix}`,
+      category: 'Publicidad',
+      amountCop: 300000,
+      method: 'Transferencia',
+      paidBy: 'Santiago',
+      partnerId: null,
+      partnerName: '',
+      myPercent: 100,
+      notes: '',
+      createdAt: '2026-08-03T10:00:00.000Z',
+      updatedAt: '2026-08-03T10:00:00.000Z',
     },
   }
 }
@@ -563,6 +579,41 @@ async function verifyMalformedPayloads(api, organizationId, now) {
     missingUsesId,
     'lote sin uses'
   )
+
+  const missingConceptId = 'n6-invalid-expense-without-concept'
+  const invalidExpense = {
+    ...validPayloads('n6-invalid').expenses,
+    id: missingConceptId,
+  }
+  delete invalidExpense.concept
+  assertRejectedWithCode(
+    await api.rpc('upsert_expense', {
+      p_id: missingConceptId,
+      p_data: invalidExpense,
+      p_updated_at: now,
+    }),
+    'gasto sin concepto',
+    '22023'
+  )
+  await assertEntityAbsent(api, 'expenses', organizationId, missingConceptId, 'gasto sin concepto')
+
+  const invalidShareId = 'n6-invalid-expense-share'
+  assertRejectedWithCode(
+    await api.rpc('upsert_expense', {
+      p_id: invalidShareId,
+      p_data: {
+        ...validPayloads('n6-invalid-share').expenses,
+        id: invalidShareId,
+        partnerId: 'soc-1',
+        partnerName: 'Socio',
+        myPercent: 101,
+      },
+      p_updated_at: now,
+    }),
+    'gasto con porcentaje mayor a 100',
+    '22023'
+  )
+  await assertEntityAbsent(api, 'expenses', organizationId, invalidShareId, 'gasto con porcentaje invalido')
 }
 
 async function cleanupN6(admin, apis, organizations, users) {
@@ -672,7 +723,7 @@ export async function runN6(env = process.env) {
       checks: {
         twoOrganizations: true,
         exactCandidateCommit: true,
-        tenEditableTablesCovered: n6EditableTables.length === 10,
+        elevenEditableTablesCovered: n6EditableTables.length === 11,
         ownReads: true,
         crossTenantReadsBlocked: true,
         directWritesBlocked: true,
