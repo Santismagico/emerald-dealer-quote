@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { formatMonthCO } from '../services/dailyReport';
-import { buildSalesExcelCsv, downloadExcelCsv } from '../services/excelExport';
+import { buildSalesExcelWorkbook, downloadExcelWorkbook } from '../services/excelExport';
 import {
   ALL_SALES_FILTER,
   buildSalesAnalytics,
@@ -72,6 +72,7 @@ export function SalesConsolidatedView() {
   const [anchorDate, setAnchorDate] = useState(todayISO());
   const [societyFilter, setSocietyFilter] = useState(ALL_SALES_FILTER);
   const [productTypeFilter, setProductTypeFilter] = useState(ALL_SALES_FILTER);
+  const [excelBusy, setExcelBusy] = useState(false);
   const analytics = useMemo(
     () =>
       buildSalesAnalytics({
@@ -243,15 +244,26 @@ export function SalesConsolidatedView() {
       <Button
         variant="secondary"
         full
+        disabled={excelBusy}
         onClick={() => {
-          downloadExcelCsv(
-            buildSalesExcelCsv(analytics, label, { consolidated: true }),
-            `consolidado-ventas-${analytics.range.start}-${analytics.range.end}.csv`
-          );
-          store.showToast('Excel del consolidado generado');
+          setExcelBusy(true);
+          void downloadExcelWorkbook(
+            buildSalesExcelWorkbook(analytics, {
+              jewelryName: store.settings.jewelryName,
+              periodLabel: label,
+              consolidated: true
+            }),
+            `consolidado-ventas-${analytics.range.start}-${analytics.range.end}.xlsx`
+          ).then(() => {
+            store.showToast('Excel del consolidado generado');
+          }).catch(() => {
+            store.showToast('No se pudo generar el Excel. Intenta de nuevo.');
+          }).finally(() => {
+            setExcelBusy(false);
+          });
         }}
       >
-        Descargar Excel del consolidado
+        {excelBusy ? 'Generando Excel…' : 'Descargar Excel del consolidado'}
       </Button>
 
       <p className="text-center text-[11px] text-stone-400">

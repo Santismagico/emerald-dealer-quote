@@ -1181,6 +1181,14 @@ razón concreta: **ningún agente puede abrir Excel para comprobar el archivo**,
 `.xlsx` mal formado se manifiesta como un aviso de archivo dañado. Con una librería
 probada, la corrección del contenedor deja de ser responsabilidad nuestra.
 
+Implementación C1 (2026-08-04): se fijó `write-excel-file` en **4.1.1**, sin rango, y
+se carga únicamente al pulsar Descargar Excel. Instalada ocupa **1.812.264 bytes**; en
+la compilación queda separada en dos archivos diferidos que suman **71.185 bytes**
+minificados (**20,00 kB gzip**), por lo que no aumenta la descarga inicial ni la
+precarga pública. No se cambió la CSP ni ningún destino de red. El archivo real se abrió
+en Microsoft Excel sin reparación: fecha y dinero conservaron tipo numérico, la fila 6
+quedó congelada y los anchos calculados se aplicaron. El PDF sigue separado e intacto.
+
 ## D-067 · Un lote se compra en bruto o ya tallado, y se elige al registrarlo · 2026-08-04 · Vigente
 
 Santiago encontró que la aplicación **da por hecho que todo lote se compra en bruto**.

@@ -834,6 +834,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · E2: Excel editable (Codex) | Cierres diario/mensual y panel exportan CSV local con punto y coma, BOM UTF-8, tildes y números editables; PDF conservado; prueba física en Excel español confirmó columnas y fórmula sobre monto; 953 pruebas en 65 archivos, 337 módulos y revisión 320/390/1280 en verde; sin dependencias, datos, nube ni publicación; E3 no iniciada | E2 (este commit) |
 | 2026-08-04 | Plan v2 · E3: Consolidado con filtros (Codex) | Día/semana/mes/año; filtros combinables por sociedad y producto, incluido “Sin registrar”; comparación lado a lado por ganancia propia y rentabilidad; Excel interno sin mezclar caja; 957 pruebas en 65 archivos, 338 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; Fase F no iniciada | E3 (este commit) |
 | 2026-08-04 | Plan v2 · F1: Catálogo PDF para clientes (Codex) | Lista blanca de campos, piezas disponibles por clase, precios elegibles en cada generación, fotos reducidas, bloqueo de privacidad y peso, descarga y compartir; 970 pruebas en 66 archivos, 340 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; **plan v2 completo** | F1 (este commit) |
+| 2026-08-04 | Correcciones R1 · C1: Excel con formato real (Codex) | `.xlsx` con números y fechas reales, negativos en rojo, encabezado fijo, anchos calculados y pestaña Detalle; archivo abierto en Microsoft Excel sin reparación; dependencia 4.1.1 diferida (71.185 bytes minificados, 20,00 kB gzip); 970 pruebas, 422 módulos, controles públicos y revisión 320/390/1280 en verde; PDF intacto; no publicado | C1 (este commit) |
 
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
@@ -865,6 +866,17 @@ las revisiones técnicas no ven.
   propio costo** al transformarse (`stoneJewelTransformation.ts:245`), así que borrar el
   lote no cambia ni un peso. Se permite borrar conservando el nombre histórico del lote
   en la joya, igual que con proveedores, compradores y socios.
+
+**C1 ejecutada (2026-08-04).** Cierres, panel y consolidado descargan `.xlsx` real con
+el diseño aprobado: título esmeralda, documento interno, secciones, totales, números
+editables, pérdidas en rojo, fechas reales, anchos calculados y encabezado fijo. La
+dependencia `write-excel-file` quedó fijada en 4.1.1 y separada de la carga inicial:
+71.185 bytes minificados, 20,00 kB gzip. El archivo descargado abrió en Microsoft Excel
+sin reparación y confirmó fecha y dinero numéricos, fila 6 congelada y anchos aplicados.
+`npm test`: **970 pruebas en 66 archivos**; compilación: **422 módulos**; versión pública,
+secretos y CSP aprobados. Recorrido 320/390/1280 sin desbordamiento, botón de 48 px y sin
+errores. PDF, `main`, piloto y workflow intactos; nada publicado. **C2 no iniciada en
+este commit.**
 
 `main`, el piloto y el workflow **sin tocar**. Nada publicado.
 

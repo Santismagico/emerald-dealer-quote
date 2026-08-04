@@ -16,7 +16,7 @@ import {
   type BusinessReport
 } from '../services/dailyReport';
 import { downloadDailyReportPdf } from '../services/pdf';
-import { buildCloseExcelCsv, downloadExcelCsv } from '../services/excelExport';
+import { buildCloseExcelWorkbook, downloadExcelWorkbook } from '../services/excelExport';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, todayISO } from '../utils/dates';
 import { Button, EmptyState, Field, SectionCard, Select, SummaryRow, TextInput } from './ui';
@@ -81,13 +81,18 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
   const report: BusinessReport = mode === 'dia' ? dailyReport : monthlyReport;
   const periodLabel = mode === 'dia' ? `El ${formatDateCO(dailyReport.date)}` : formatMonthCO(month);
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     setExcelBusy(true);
     try {
       const period = mode === 'dia' ? dailyReport.date : monthlyReport.month;
-      downloadExcelCsv(
-        buildCloseExcelCsv(report, periodLabel),
-        `cierre-${mode === 'dia' ? 'dia' : 'mes'}-${period}.csv`
+      await downloadExcelWorkbook(
+        buildCloseExcelWorkbook(report, {
+          jewelryName: store.settings.jewelryName,
+          mode,
+          period,
+          periodLabel
+        }),
+        `cierre-${mode === 'dia' ? 'dia' : 'mes'}-${period}.xlsx`
       );
       store.showToast('Excel del cierre generado');
     } catch {
@@ -430,7 +435,7 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
         variant="secondary"
         full
         disabled={excelBusy || (mode === 'dia' && !validDay)}
-        onClick={downloadExcel}
+        onClick={() => void downloadExcel()}
       >
         {excelBusy
           ? 'Generando…'

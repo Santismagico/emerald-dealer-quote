@@ -9,7 +9,7 @@ import {
 import type { CurrencyView } from '../services/currency';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
-import { buildSalesExcelCsv, downloadExcelCsv } from '../services/excelExport';
+import { buildSalesExcelWorkbook, downloadExcelWorkbook } from '../services/excelExport';
 import { Button, EmptyState, Field, SectionCard, SummaryRow, TextInput } from './ui';
 
 const usdFormatter = new Intl.NumberFormat('es-CO', {
@@ -66,6 +66,7 @@ export function SalesDashboardView() {
   const [period, setPeriod] = useState<SalesPeriodKind>('mes');
   const [anchorDate, setAnchorDate] = useState(todayISO());
   const [currency, setCurrency] = useState<CurrencyView>('COP');
+  const [excelBusy, setExcelBusy] = useState(false);
   const analytics = useMemo(
     () =>
       buildSalesAnalytics({
@@ -338,15 +339,25 @@ export function SalesDashboardView() {
       <Button
         variant="secondary"
         full
+        disabled={excelBusy}
         onClick={() => {
-          downloadExcelCsv(
-            buildSalesExcelCsv(analytics, label),
-            `ventas-ganancias-${analytics.range.start}-${analytics.range.end}.csv`
-          );
-          store.showToast('Excel de ventas y ganancias generado');
+          setExcelBusy(true);
+          void downloadExcelWorkbook(
+            buildSalesExcelWorkbook(analytics, {
+              jewelryName: store.settings.jewelryName,
+              periodLabel: label
+            }),
+            `ventas-ganancias-${analytics.range.start}-${analytics.range.end}.xlsx`
+          ).then(() => {
+            store.showToast('Excel de ventas y ganancias generado');
+          }).catch(() => {
+            store.showToast('No se pudo generar el Excel. Intenta de nuevo.');
+          }).finally(() => {
+            setExcelBusy(false);
+          });
         }}
       >
-        Descargar Excel del panel
+        {excelBusy ? 'Generando Excel…' : 'Descargar Excel del panel'}
       </Button>
 
       <p className="text-center text-[11px] text-stone-400">
