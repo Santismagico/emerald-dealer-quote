@@ -591,6 +591,72 @@ el piloto y `.github/workflows/deploy.yml` permanecen intactos. **El plan v2 que
 completo**, pendiente de la auditoría de privacidad separada de Claude antes de que
 Santiago considere publicar cualquier cosa.
 
+**AUDITORÍA DE PRIVACIDAD DE LA FASE F (2026-08-04). APROBADA.** Informe en
+`docs/AUDITORIA_CLAUDE_V2_FASE_F_PRIVACIDAD.md`. **970 pruebas en 66 archivos**,
+compilación, compilación pública, sin secretos, sin dependencias, cero migraciones,
+`main` intacto.
+
+**La lista blanca no depende de disciplina: la impone el lenguaje.**
+`buildCatalogPdfContent` recibe `CatalogJewel[]`, **no** `StockJewel[]`, así que el
+sistema de tipos hace imposible que una joya completa llegue al documento. Un campo
+que alguien agregue mañana a `StockJewel` no tiene camino por donde aparecer. Está
+mejor resuelto de lo que pedía la orden: se pidió una convención y se entregó una
+garantía del compilador.
+
+**Verificación independiente del auditor, sobre PDF reales.** Claude creó en la app
+una joya trampa (costo `987654`, precio `7654321`, nota `NOTA-INTERNA-31415926`),
+generó los dos catálogos y **escaneó los bytes crudos**:
+
+| | Sin precios | Con precios |
+|---|---|---|
+| Costo `987654` | AUSENTE | AUSENTE |
+| Nota interna | AUSENTE | AUSENTE |
+| Precio `7654321` | AUSENTE (correcto) | Presente (correcto) |
+| Palabras costo/margen/utilidad | — | AUSENTES |
+
+Dos notas que hacen válida la prueba: el PDF **no está comprimido**, así que un
+resultado negativo es concluyente; y el **nombre de la pieza sí aparece**, lo que
+demuestra que la búsqueda encuentra contenido cuando lo hay.
+
+Aciertos no pedidos: el total del catálogo es un **conteo de piezas, no una suma de
+dinero** —así ni con precios se publica el valor del inventario—; los precios vienen
+**apagados por defecto**; y la prueba del número delator usa `digitsOnly`, que atrapa
+el costo aunque salga formateado como `$ 987.654` (la especificación de Claude no
+cubría ese caso).
+
+**Observación sin cambio pedido:** el catálogo lleva los datos de contacto del
+negocio, **incluido el NIT**. Es correcto y coherente con el PDF de cotización, pero
+queda dicho: el catálogo identifica públicamente al negocio.
+
+---
+
+# PLAN MAESTRO v2 COMPLETO (2026-08-04)
+
+Seis fases construidas por Codex y **auditadas de forma independiente por Claude**,
+una por una. `main` y las 7 joyerías del piloto **no fueron tocadas en ningún
+momento**. **Nada publicado.**
+
+| Fase | Contenido | Auditoría |
+|---|---|---|
+| A | Pantalla de inicio | APROBADA |
+| B | Gastos · Sociedades en piedras · Tipo de producto y moneda | APROBADA |
+| C | Talla por tandas · Joyas fantasía/natural | APROBADA |
+| D | El libro del negocio | APROBADA |
+| E | Panel · Excel · Consolidado | APROBADA |
+| F | Catálogo PDF | APROBADA (privacidad) |
+
+De **751 pruebas en 46 archivos** al empezar a **970 en 66** al terminar, sin una
+sola dependencia nueva.
+
+**LO QUE SIGUE YA NO ES TÉCNICO.** Quedan tres asuntos, todos decisión de Santiago:
+
+1. **La prueba N6 en vivo** —demostrar en un servidor real que una joyería no ve los
+   datos de otra— sigue abierta desde la Fase B. Santiago decidió el 2026-08-04
+   resolverla **al publicar**. Verificado por revisión de código, no de extremo a
+   extremo.
+2. **Abrir un Excel una vez** para cerrar el único punto indirecto de la Fase E.
+3. **Si publicar, cuándo y cómo**, y a cuál de los dos enlaces.
+
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
 mensual. Inicio conserva todos los destinos de Más, abre directamente las cuatro
