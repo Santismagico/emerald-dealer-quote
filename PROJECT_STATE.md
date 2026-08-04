@@ -390,11 +390,42 @@ pantalla nueva, dependencias, datos, migraciones, nube ni publicación; `main`, 
 piloto, el workflow, el motor de cálculo y el detector de privacidad siguen
 intactos.
 
-**Fase D TERMINADA y pendiente de auditoría de Claude.** La Fase E no fue
-iniciada.
+**Fase D TERMINADA y AUDITADA (2026-08-04). APROBADA.** Informe en
+`docs/AUDITORIA_CLAUDE_V2_FASE_D.md`. Claude ejecutó todas las verificaciones:
+**943 pruebas en 63 archivos**, compilación, compilación pública sin Supabase con
+CSP exacta, sin secretos, sin dependencias nuevas y `main` intacto en `0a86e5a`.
 
-Codex **no debe seguir a la Fase E**: Claude audita el libro antes de que tres
-pantallas empiecen a depender de él.
+Alcance respetado con exactitud: **solo dos archivos nuevos** (`ledger.ts` y
+`ledger.test.ts`), **cero** migraciones, **cero** componentes, **cero** cambios de
+tipos.
+
+Condición de aceptación de D2 cumplida al pie de la letra: `git diff` sobre las
+cuatro pruebas de cierres devuelve **vacío**, ninguna fue modificada. Resultado
+más fuerte de la fase: **las 940 pruebas anteriores ahora ejercitan el libro sin
+saberlo**.
+
+La prueba de equivalencia compara contra los cierres **y además fija valores
+absolutos** (7.900.001 / 5.150.002 / 2.749.999), lo que impide el fallo silencioso
+de que libro y reporte se dañen del mismo modo. Los importes no son redondos, así
+que el redondeo a COP entero queda ejercitado.
+
+D-045 queda honrado **por construcción**: `ledgerCashTotals` solo suma `'entra'` y
+`'sale'`, de modo que un evento `'ninguna'` no puede tocar la caja aunque alguien
+lo intente. El material genera eventos `'ninguna'` (D-048 intacto). El motor es
+puro: sin reloj, sin almacenamiento, sin red, sin aleatorios.
+
+Verificado en la app: ambos cierres renderizan y muestran **"Salió en tallas: $0"**
+pese a existir una talla registrada sin pagar — la regla de caja de la Fase C
+sobrevive intacta al pasar por el libro.
+
+Observación anotada, sin cambio pedido: `dailyReport.ts` creció de 882 a 915
+líneas porque conserva los renglones narrativos que el PDF necesita; **el dinero
+sí quedó con una sola fuente**.
+
+**SIGUIENTE: Fase E** — panel de ventas y ganancias, exportación a Excel y
+consolidado con filtros. Las tres leen del libro, así que sus números no pueden
+discrepar. Con el libro probado, el riesgo aritmético quedó atrás y la Fase E es
+sobre todo trabajo de presentación.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
