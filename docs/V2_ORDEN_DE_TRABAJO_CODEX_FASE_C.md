@@ -165,6 +165,12 @@ Cambiar una piedra de fantasía por una natural hace **tres cosas a la vez**:
    Santiago).
 3. **Suma el costo de esa piedra al costo de la joya.**
 
+**La piedra de fantasía que sale NO se rastrea** (decisión de Santiago,
+2026-08-04). No se crea existencia, entidad ni registro para ella, y **su costo se
+queda en la joya**: fue parte de lo que costó la pieza cuando se compró y no se
+descuenta de nada. No agregues un campo, una pantalla ni una pregunta al usuario
+por esa piedra: es exactamente el trabajo que Santiago pidió evitar.
+
 ### 3.3 Cómo se descuenta del inventario de piedras
 
 `StoneLot` gana **`internalUses: StoneInternalUse[]`** — una salida que **no es
