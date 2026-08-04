@@ -516,8 +516,38 @@ La segunda se renumeró a **D-062**, con nota en `DECISIONS.md`. La orden de la 
 E incluye la instrucción de comprobar el número más alto antes de agregar
 decisiones nuevas.
 
-Codex **no debe seguir a la Fase F**: el catálogo es la única salida al cliente de
-todo el plan v2 y exige revisión de privacidad aparte.
+**Fase E AUDITADA (2026-08-04). APROBADA.** Informe en
+`docs/AUDITORIA_CLAUDE_V2_FASE_E.md`. Claude ejecutó todas las verificaciones:
+**957 pruebas en 65 archivos**, compilación, compilación pública sin Supabase con
+CSP exacta, sin secretos, sin dependencias nuevas, **cero migraciones** y `main`
+intacto.
+
+**El riesgo central quedó resuelto y demostrado con datos reales.** Con el lote de
+prueba de $1.000.000 comprado y sin ventas, el panel muestra **Caja −$1.000.000 y
+Ganancia $0** a la vez: comprar inventario no es pérdida (D-063). La pantalla lo
+explica al dueño —*"Ganancia y caja son medidas distintas"*, *"No se suma con la
+ganancia"*, *"Cobros pendientes: no son ganancia que falte"*—.
+
+**El Excel se verificó sobre los bytes reales del archivo**, no sobre el código:
+BOM UTF-8 (`EF BB BF`), separador punto y coma, CRLF, tildes correctas, tipo
+`text/csv;charset=utf-8` y **números puros** sin `$` ni puntos de miles. Abrirá
+bien en Excel en español. *Nota de método: la primera medición dijo que no había
+BOM; era un artefacto de `Blob.text()`, que lo elimina al decodificar. No es un
+hallazgo.*
+
+Acierto de Codex no pedido explícitamente: el costo se atribuye en la venta y
+**lleva `attributedCostCop === 0` en todos los abonos posteriores**, evitando
+contarlo dos veces y subestimar toda ganancia a crédito. La prueba de equivalencia
+de D1 quedó intacta (47 líneas añadidas, ninguna eliminada).
+
+**Pendiente menor:** Claude verificó el archivo pero **no abrió Microsoft Excel**
+(no está disponible en el entorno). Conviene que Santiago descargue uno y lo abra
+una vez.
+
+**SIGUIENTE Y ÚLTIMA: Fase F — el catálogo en PDF.** Es **la única salida al
+cliente de todo el plan v2** y exige auditoría de privacidad aparte: será la
+primera vez desde que empezó esta tanda que algo construido aquí sale de los
+dispositivos de Santiago.
 
 **A1 terminada el 2026-08-03 (Codex):** la aplicación abre en Inicio, con la
 portada agrupada elegida en D-052 y el mismo **Movimiento neto** del Cierre
