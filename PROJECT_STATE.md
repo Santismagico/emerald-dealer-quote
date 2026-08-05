@@ -1157,7 +1157,7 @@ que a `Emerald Dealer Produccion` solo le faltan **7** migraciones, y
 real de un proyecto puede no coincidir con los papeles. **Antes de pegar nada en Producción
 hay que correr allí la misma consulta de diagnóstico de solo lectura** (las 14 tablas +
 `pg_proc`). Si Producción también está más atrás de lo documentado, ese archivo se queda
-corto y publicar rompería la app de Santiago y Héctor.
+corto y publicar rompería la app del dueño.
 
 **Git:** se commiteó `.gitignore` ignorando `PARA-SANTIAGO/` (`a03bcdf`). Sin eso, N6 se
 niega a correr: exige árbol limpio y los archivos generados lo ensuciaban.
@@ -1183,14 +1183,33 @@ Producción:
   alarma que apareció en Pruebas.
 
 **Estado tras el paso 2:** el servidor va por delante de la aplicación publicada, que es el
-orden correcto. La app que Santiago y Héctor tienen instalada **sigue funcionando igual**:
-no consulta las tablas nuevas, así que estas no le estorban.
+orden correcto. La app que el dueño tiene instalada **sigue funcionando igual**: no consulta
+las tablas nuevas, así que estas no le estorban.
 
 **Verificación local a 2026-08-05:** `npm test` → **985 pruebas en 68 archivos, todas en
 verde**, más los iconos PWA. `npm run build` → compila sin errores. El aviso de *chunks >
 500 kB* es previo y no es un fallo.
 
 **Siguiente paso — requiere orden expresa de Santiago:** publicar el enlace de la nube
-(`emerald-dealer-app`) y verificarlo en vivo. Antes hay que avisarle a Héctor, porque la
-aplicación le va a cambiar de aspecto al abrirla. El enlace de los 7 amigos sigue sin
-tocarse y va días después, como dice el plan.
+(`emerald-dealer-app`) y verificarlo en vivo. El enlace de los 7 amigos sigue sin tocarse y
+va días después, como dice el plan.
+
+### Corrección del dueño (2026-08-05): «Héctor» no es una segunda persona
+
+Santiago avisó que **no conoce a ningún Héctor** y que **él es el único usuario del enlace
+de la nube**. Revisado: el nombre aparece en 17 archivos, y en los antiguos —código,
+`DECISIONS.md`, planes de fase— se usa como **alias del propio dueño** para no poner su
+nombre real en un repositorio público ("decisión de Héctor D-044", "Héctor autorizó la
+ampliación"). Documentos posteriores leyeron mal ese alias y lo convirtieron en un segundo
+usuario real.
+
+**No lo es. Hay un solo usuario en la nube.** Se corrigieron `PROJECT_STATE.md`,
+`docs/PLAN_DE_PUBLICACION_V2.md` y `docs/PROMPT_NUEVA_SESION.md`. **Los usos antiguos como
+alias en el código y en los registros de decisiones se dejan intactos**: son deliberados y
+protegen la privacidad en un repositorio público. Nunca escribir aquí su nombre completo ni
+su correo.
+
+**Consecuencias prácticas:** publicar es menos riesgoso de lo planeado —no hay una segunda
+persona a la que avisar ni cuya información proteger—. Santiago además indicó que **no
+conserva datos del uso anterior y no necesita arrastrar historia**, así que el respaldo
+previo deja de ser un bloqueo.

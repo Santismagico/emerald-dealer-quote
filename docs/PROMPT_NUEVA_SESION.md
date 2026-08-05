@@ -52,7 +52,7 @@ reporte algo, **reprodúcelo antes de opinar**.
 
 | Proyecto | Ref | Realidad |
 |---|---|---|
-| **Emerald Dealer Produccion** | `wrvokfzrcmmlzekudypu` | Servidor **real**: a él se conecta el enlace `emerald-dealer-app` que usan Santiago, Héctor y sus socios |
+| **Emerald Dealer Produccion** | `wrvokfzrcmmlzekudypu` | Servidor **real**: a él se conecta el enlace `emerald-dealer-app`, que usa **solo Santiago** |
 | **Emerald Dealer Pruebas** | `ovfaehoeidxcjrlapioo` | Ensayo, **sin usuarios reales** |
 | enlace `emerald-dealer-quote` | — | Los 7 amigos del piloto. **No usa ningún servidor**: es 100% local, en el teléfono de cada uno |
 
@@ -62,43 +62,46 @@ bundle publicado; no confíes en variables de configuración ni en memoria previ
 
 ## Dónde estamos exactamente
 
-Santiago pidió publicar. El plan está en `docs/PLAN_DE_PUBLICACION_V2.md` y su orden
-**no se puede invertir**: primero el servidor, después la aplicación. Hay 7 migraciones
-SQL que aún no están en Produccion; publicar antes de aplicarlas rompería la app.
+**Todo el trabajo de servidor está TERMINADO. Falta solo publicar la aplicación.**
 
-### ✅ HECHO el 2026-08-05 — no pedirlo otra vez
+### ✅ HECHO el 2026-08-05 — no volver a pedirlo
 
-**El SQL ya se aplicó en Emerald Dealer Pruebas.** Santiago ejecutó
-`PARA-SANTIAGO/SQL-PRUEBAS-VERSION-2.sql` y Supabase respondió *"Success. No rows
-returned"*, que es la respuesta correcta para instrucciones que crean tablas y políticas.
-**El proyecto de Pruebas está al día.**
+| | |
+|---|---|
+| **Emerald Dealer Pruebas** | Las **15 migraciones** completas |
+| **Emerald Dealer Produccion** | Las **15 migraciones** completas |
+| **Prueba de aislamiento** | **40 controles, 0 problemas** |
+| **Código** | `npm test` 985/985 en verde · `npm run build` sin errores |
 
-Hubo dos tropiezos por el camino, ya resueltos, que no deben repetirse:
+**La trampa que costó media sesión, y que no debe repetirse:** una sesión anterior dio por
+aplicado el SQL de Pruebas porque el editor dijo *Success*. **Era falso**: de 198.240
+caracteres solo habían entrado 46.360 (5 de 15 migraciones). *Success* **no prueba que
+entró todo**. Cualquier pegado grande debe terminar en una consulta que verifique lo que
+acaba de crear, y las comprobaciones deben mirar el **contenido** (`pg_proc.prosrc like
+'%frase propia de la versión nueva%'`), nunca solo si el nombre existe: casi todas las
+migraciones *reemplazan* funciones que ya existían.
 
-- La primera versión del archivo **no era repetible** y falló con `42P07: relation
-  "organizations" already exists`. Los dos archivos de `PARA-SANTIAGO/` se hicieron
-  idempotentes: tablas e índices con `if not exists` y `drop policy if exists` antes de
-  cada política.
-- El error volvió a salir una segunda vez porque se ejecutó texto viejo que había quedado
-  en el editor. Por eso el archivo lleva ahora una **marca visible en su primera línea**
-  (`VERSION 2 - CORREGIDA`) y las instrucciones incluyen vaciar el editor con `Ctrl+A` y
-  `Suprimir` antes de pegar.
+**Cómo se aplicaron:** en **6 bloques de 21–33 mil caracteres**, en orden, sin partir ningún
+bloque `$$`, cada uno con su comprobación al final. Ver detalle en `PROJECT_STATE.md`,
+sección del 2026-08-05.
 
-Si Supabase muestra el aviso de Row Level Security, la respuesta correcta es **"Run and
-enable RLS"**: las 14 tablas activan RLS dentro del propio script y el aviso es una falsa
-alarma de su revisor estático.
+### Cómo trabaja Santiago — respetarlo
 
-### Lo que sigue, en orden
+**No quiere archivos de doble clic ni `.bat`.** Pidió expresamente SQL para copiar y pegar
+en el editor de Supabase. Funciona así, bloque por bloque, y confirma cada comprobación
+antes del siguiente. La prueba de aislamiento también se hizo **en SQL**, no con
+`npm run security:n6`.
 
-1. **Prueba de aislamiento** (siguiente paso inmediato, en manos de Santiago): doble clic
-   en `PARA-SANTIAGO/PASO-2-hacer-la-prueba-de-seguridad.bat`. Le pedirá la clave secreta
-   del proyecto de **Pruebas** por consola —sin mostrarla ni guardarla— y generará
-   `PARA-SANTIAGO/RESULTADO-DE-LA-PRUEBA.txt`. Santiago te manda ese archivo, pase o
-   falle. **Si falla, no se publica nada.**
-2. Respaldo desde la app (él y Héctor) y las 7 migraciones a **Produccion** con
-   `PARA-SANTIAGO/sql-para-produccion.sql` (doble clic en `PASO-3`, que pide escribir SI).
-3. Publicar el enlace de la nube y verificarlo en vivo.
-4. **Días después**, y solo si todo va bien, publicar el enlace de los 7 amigos —
+Rutina fija, siempre la misma pestaña: clic dentro · `Ctrl+A` · `Suprimir` · `Ctrl+V` ·
+`Run`. Si Supabase muestra el aviso de Row Level Security, la respuesta correcta es **"Run
+and enable RLS"**: los scripts activan RLS por dentro y el aviso es una falsa alarma de su
+revisor estático.
+
+### Lo que sigue
+
+1. **Publicar el enlace de la nube** (`emerald-dealer-app`) y verificarlo en vivo.
+   **Requiere orden expresa de Santiago en ese momento.**
+2. **Días después**, y solo si todo va bien, publicar el enlace de los 7 amigos —
    avisándoles antes y pidiéndoles que exporten su respaldo, porque sus datos viven solo
    en su teléfono. Su base local salta de v4 a v8; verificado: los cuatro escalones solo
    crean almacenes nuevos vacíos y no tocan sus datos.

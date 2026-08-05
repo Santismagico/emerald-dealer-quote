@@ -18,7 +18,7 @@
 
 Hay **7 migraciones SQL** del plan v2 que no están en el servidor de producción. Si se
 publica la aplicación antes de aplicarlas, **pedirá tablas y funciones que no existen** y
-se romperá para Santiago y para Héctor.
+se romperá para Santiago.
 
 Las siete, en orden: gastos · sociedades en lotes de piedras · tipo de producto y moneda ·
 tandas de talla · transformación de joyas · compra en bruto o tallado · borrado de lote
@@ -36,12 +36,17 @@ Santiago pidió publicar a los dos. **Se hará**, pero **no el mismo día**.
 
 | Enlace | Quién lo usa | Qué recibe |
 |---|---|---|
-| `emerald-dealer-app` | Santiago y Héctor | Todo el plan v2, con nube |
+| `emerald-dealer-app` | Solo Santiago | Todo el plan v2, con nube |
 | `emerald-dealer-quote` (`main`) | Los 7 amigos del piloto | Todo el plan v2, versión local sin cuentas |
 
 **Primero el de la nube, y solo cuando esté probado en vivo, el de los amigos.** Razón:
-si algo falla, falla sobre dos cuentas conocidas que pueden avisar, no sobre siete
-personas que no saben que hubo un cambio.
+si algo falla, falla sobre la única cuenta del dueño, que se da cuenta al momento, no sobre
+siete personas que no saben que hubo un cambio.
+
+> **Corrección del dueño (2026-08-05):** una versión anterior de este plan decía que el
+> enlace de la nube lo usaban «Santiago y Héctor». **Es falso.** Santiago es el único
+> usuario. «Héctor» es el alias con el que los documentos antiguos nombran al propio dueño
+> para no poner su nombre real en un repositorio público. No hay a quién avisar.
 
 ### Qué le pasa a la app de los 7 amigos — verificado
 
@@ -117,7 +122,7 @@ Solo cuando los pasos 1 y 2 estén aprobados.
 3. **Verificar en vivo:** entrar con la cuenta real, comprobar que Inicio carga con su
    gráfica, que Inventario abre sus cuatro secciones, que Dinero abre sus cinco, que un
    cierre se descarga en Excel y que la consola no tiene errores.
-4. Avisar a Héctor **antes**, no después.
+4. No hay a quién avisar: Santiago es el único usuario de este enlace.
 
 **Cómo volver atrás:** el repositorio del sitio guarda el commit anterior; revertirlo
 restaura la versión previa. Las tablas nuevas del paso 2 **no estorban** a la versión
