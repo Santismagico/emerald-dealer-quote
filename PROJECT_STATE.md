@@ -1074,3 +1074,38 @@ texto blanco— pero el proyecto exige registrar las desviaciones de identidad.
 abra uno y sume una columna para cerrar ese punto.
 
 **SIGUIENTE: R2**, ya escrita y con los nombres aprobados por Santiago.
+
+### R2 AUDITADA (2026-08-04). APROBADA.
+
+Informe en `docs/AUDITORIA_CLAUDE_CORRECCIONES_R2.md`. **985 pruebas en 68 archivos**,
+compilación, compilación pública, **`test:csp` aprobado**, sin secretos, sin dependencias,
+cero migraciones, `main` intacto.
+
+**Verificado usando la aplicación:** barra `Inicio · Cotizador · Taller · Inventario ·
+Dinero` (cinco, D-046 intacto) y el primer grupo de Inicio la refleja exactamente —el
+corazón de la corrección—. Tres grupos en vez de seis; la Agenda salió de la barra sin
+borrarse; **Dinero** agrupa los cinco destinos con el patrón de Inventario.
+
+**La gráfica funciona y las cuentas cuadran:** con una joya vendida (1.200.000, costo
+500.000) y un gasto de 300.000 fechado el 29 de julio, Caja·1 año muestra **400.000 y
+dibuja**; Caja·mes muestra 700.000 porque julio queda fuera del mes calendario. Con un
+solo día muestra el mensaje de datos insuficientes. La pantalla declara *"Es exactamente
+la misma cifra del Cierre mensual"*. Colores validados usados tal cual. El globo se dibuja
+**dentro del SVG** y con recorte en ambos ejes: imposible que se salga. Tiempo de
+construcción del libro expuesto e inspeccionable: 0,1–0,5 ms.
+
+**Los errores de CSP en consola NO son de la aplicación:** `test:csp` verifica el hash
+propio; el script bloqueado lo inyecta el entorno de pruebas.
+
+**Nota de método:** Claude tuvo **tres falsas alarmas**, todas suyas —buscar el commit del
+Excel en el rango equivocado, meter el monto en la casilla de la tasa, y leer el DOM antes
+de que la pantalla se redibujara—. La aplicación se comportó bien en los tres casos.
+
+**PREGUNTA ABIERTA PARA SANTIAGO (O1):** *"Ganancia" no descuenta los gastos del negocio.*
+Es coherente con D-063 —ganancia = lo vendido menos lo que costó lo vendido— y el código
+hace lo especificado. Pero Santiago pidió los gastos diciendo que *"sin gastos, cualquier
+ganancia sería mentira"*, así que puede esperar que "Ganancia" ya venga con el arriendo
+descontado. Dos lecturas legítimas: dejarla como margen de ventas, o agregar una tercera
+cifra **Resultado del negocio** que sí reste los gastos. **Decisión suya.**
+
+**Quedan cerradas todas las tandas de corrección de la prueba de usuario.**
