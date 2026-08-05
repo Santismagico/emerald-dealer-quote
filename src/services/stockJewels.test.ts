@@ -253,9 +253,15 @@ describe('validación de la venta de una pieza', () => {
 describe('registrar y deshacer una venta', () => {
   it('registrar la venta no muta la pieza original', () => {
     const original = joya();
-    const vendida = withJewelSale(original, venta(), '2026-07-20T10:00:00.000Z');
+    const sale = venta();
+    const vendida = withJewelSale(original, sale, '2026-07-20T10:00:00.000Z');
     expect(original.sale).toBeNull();
-    expect(vendida.sale?.priceCop).toBe(4800000);
+    expect(vendida.sale).toEqual(sale);
+    expect(vendida.sale).toMatchObject({
+      date: '2026-07-20',
+      method: 'Transferencia',
+      receivedBy: 'Santiago'
+    });
     expect(vendida.updatedAt).toBe('2026-07-20T10:00:00.000Z');
   });
 

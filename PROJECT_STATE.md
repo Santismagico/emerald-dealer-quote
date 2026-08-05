@@ -836,6 +836,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · F1: Catálogo PDF para clientes (Codex) | Lista blanca de campos, piezas disponibles por clase, precios elegibles en cada generación, fotos reducidas, bloqueo de privacidad y peso, descarga y compartir; 970 pruebas en 66 archivos, 340 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; **plan v2 completo** | F1 (este commit) |
 | 2026-08-04 | Correcciones R1 · C1: Excel con formato real (Codex) | `.xlsx` con números y fechas reales, negativos en rojo, encabezado fijo, anchos calculados y pestaña Detalle; archivo abierto en Microsoft Excel sin reparación; dependencia 4.1.1 diferida (71.185 bytes minificados, 20,00 kB gzip); 970 pruebas, 422 módulos, controles públicos y revisión 320/390/1280 en verde; PDF intacto; no publicado | C1 (este commit) |
 | 2026-08-04 | Correcciones R1 · C2: compra en bruto o ya tallada (Codex) | Campo aditivo con legado en bruto; compra tallada entra directo a tallado, sin tandas ni merma; ventas, joyas, crédito, sociedad y costo conservados; protección local y migración de servidor; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; sin cambios de dinero, PDF, datos ni publicación | C2 (este commit) |
+| 2026-08-04 | Correcciones R1 · C3: joya vendida visible (Codex) | Tras vender limpia búsqueda, cambia a Vendidas y enfoca la pieza; cuatro acciones con borde, fondo y 44 px; fecha, pago, receptor y tasa conservados; auditoría reportó el mismo riesgo en el filtro de cotizaciones y no lo amplió; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; no publicado | C3 (este commit) |
 
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
@@ -892,6 +893,20 @@ confirmó en 320, 390 y 1280 px que solo muestra existencia tallada, sin tandas 
 sin desbordamiento, con acciones de 48 px o más y sin errores de consola. `main`, piloto,
 workflow, PDF, datos existentes y dinero permanecen intactos; nada publicado. **C3 no
 iniciada en este commit.**
+
+**C3 ejecutada (2026-08-04).** Después de registrar una venta, Joyas limpia cualquier
+búsqueda, cambia automáticamente a **Vendidas** y enfoca la pieza que acaba de salir de
+la vitrina. Se comprobó con la última pieza disponible: la lista no queda vacía y Editar
+venta permanece al alcance. Editar venta, Deshacer venta, Editar pieza y Eliminar ahora
+son botones visibles con borde, fondo y 44 px de altura.
+
+La edición conserva fecha, medio de pago, receptor y tasa. `npm test`: **975 pruebas en
+67 archivos**; compilación: **422 módulos**. Recorrido real completo en 320, 390 y 1280
+px, sin desbordamiento ni errores de consola. La auditoría pedida encontró el mismo
+riesgo en el Historial de cotizaciones al cambiar de estado bajo un filtro específico;
+se reporta y queda fuera de C3. Piedras mantiene abierto su detalle y Cobros no tiene
+filtros, por lo que no repiten el defecto. `main`, piloto y workflow intactos; nada
+publicado. **C4 no iniciada en este commit.**
 
 `main`, el piloto y el workflow **sin tocar**. Nada publicado.
 

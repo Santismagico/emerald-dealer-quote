@@ -1225,6 +1225,18 @@ Además, las acciones sobre un registro —editar, deshacer, eliminar— **deben
 acciones**. Las de la ficha de joya se presentaban como texto sin borde ni fondo, lo que
 para el dueño no se lee como algo que se pueda tocar.
 
+Implementación C3 (2026-08-04): al guardar una venta, la búsqueda se limpia, el filtro
+cambia a **Vendidas** y la pieza recién vendida recibe el foco. Así queda visible incluso
+si era la última de la vitrina. Editar venta, Deshacer venta, Editar pieza y Eliminar
+ahora tienen borde, fondo, jerarquía visual y altura táctil mínima. La fecha, el medio de
+pago, el receptor y la tasa guardados siguen apareciendo al editar y conservan las
+protecciones existentes.
+
+La revisión pedida encontró el mismo riesgo en el Historial de cotizaciones: cambiar el
+estado mientras hay un filtro específico puede sacar la cotización de la lista. Se
+registró el hallazgo pero no se corrigió aquí, para no ampliar C3. Piedras conserva su
+detalle abierto tras guardar y Cobros no usa filtros, por lo que no repiten este caso.
+
 ## D-069 · Un lote se puede borrar; su historia se conserva en la joya · 2026-08-04 · Vigente
 
 Santiago no pudo eliminar un lote porque una de sus piedras estaba en una joya ya

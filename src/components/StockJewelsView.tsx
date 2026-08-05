@@ -5,7 +5,7 @@
 // La gestión sigue siendo INTERNA. El catálogo cliente sale únicamente por la
 // lista blanca de services/catalog.ts; costo, resultado y notas no llegan al PDF.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type {
   PieceType,
@@ -109,6 +109,7 @@ export function StockJewelsView() {
   const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
   const [rateSource, setRateSource] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [recentlySoldId, setRecentlySoldId] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const rateTouchedRef = useRef(false);
   const rateRequestIdRef = useRef('');
@@ -122,6 +123,20 @@ export function StockJewelsView() {
     [store.stockJewels, search]
   );
   const flow = useMemo(() => stockJewelsFlow(store.stockJewels), [store.stockJewels]);
+
+  useEffect(() => {
+    if (!recentlySoldId || selling !== null) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-stock-jewel-id]')
+      ).find((element) => element.dataset.stockJewelId === recentlySoldId);
+      if (!target) return;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'nearest' });
+      setRecentlySoldId(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [recentlySoldId, selling, visible]);
 
   const buyerOptions = [
     { value: '', label: 'Escribir el nombre' },
@@ -565,6 +580,9 @@ export function StockJewelsView() {
                     withJewelSale(jewel, sale, new Date().toISOString())
                   );
                   store.showToast('Venta registrada');
+                  setSearch('');
+                  setFilter('vendidas');
+                  setRecentlySoldId(jewel.id);
                   setSelling(null);
                   setError('');
                 }}
@@ -639,7 +657,12 @@ export function StockJewelsView() {
           {visible.map((jewel) => {
             const summary = summarizeStockJewel(jewel);
             return (
-              <li key={jewel.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
+              <li
+                key={jewel.id}
+                data-stock-jewel-id={jewel.id}
+                tabIndex={-1}
+                className="overflow-hidden rounded-2xl bg-white shadow-sm outline-none"
+              >
                 {jewel.photo ? (
                   <img
                     src={jewel.photo}
@@ -787,7 +810,7 @@ export function StockJewelsView() {
                       <>
                         <button
                           type="button"
-                          className="min-h-11 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
+                          className="min-h-11 basis-[calc(50%-0.25rem)] flex-1 rounded-lg border border-brand-200 bg-brand-50 px-2 text-sm font-semibold text-brand-900 active:bg-brand-100"
                           onClick={() => {
                             setError('');
                             rateRequestIdRef.current = '';
@@ -799,7 +822,7 @@ export function StockJewelsView() {
                         </button>
                         <button
                           type="button"
-                          className="min-h-11 flex-1 rounded-lg text-sm font-medium text-stone-600 active:bg-stone-100"
+                          className="min-h-11 basis-[calc(50%-0.25rem)] flex-1 rounded-lg border border-stone-300 bg-white px-2 text-sm font-semibold text-stone-700 active:bg-stone-100"
                           onClick={() => setToUndoSale(jewel)}
                         >
                           Deshacer venta
@@ -808,7 +831,7 @@ export function StockJewelsView() {
                     ) : (
                       <button
                         type="button"
-                        className="min-h-11 flex-1 rounded-lg text-sm font-semibold text-brand-800 active:bg-brand-50"
+                        className="min-h-11 basis-[calc(50%-0.25rem)] flex-1 rounded-lg border border-brand-200 bg-brand-50 px-2 text-sm font-semibold text-brand-900 active:bg-brand-100"
                         onClick={() => {
                           startSale(jewel);
                         }}
@@ -818,7 +841,7 @@ export function StockJewelsView() {
                     )}
                     <button
                       type="button"
-                      className="min-h-11 flex-1 rounded-lg text-sm font-medium text-brand-800 active:bg-brand-50"
+                      className="min-h-11 basis-[calc(50%-0.25rem)] flex-1 rounded-lg border border-brand-200 bg-white px-2 text-sm font-semibold text-brand-900 active:bg-brand-50"
                       onClick={() => {
                         setError('');
                         setEditing(jewel);
@@ -829,7 +852,7 @@ export function StockJewelsView() {
                     <button
                       type="button"
                       disabled={(jewel.stoneTransformations?.length ?? 0) > 0}
-                      className="min-h-11 flex-1 rounded-lg text-sm font-medium text-red-600 active:bg-red-50 disabled:cursor-not-allowed disabled:text-stone-300"
+                      className="min-h-11 basis-[calc(50%-0.25rem)] flex-1 rounded-lg border border-red-200 bg-red-50 px-2 text-sm font-semibold text-red-700 active:bg-red-100 disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-stone-50 disabled:text-stone-300"
                       onClick={() => setToDelete(jewel)}
                     >
                       Eliminar
