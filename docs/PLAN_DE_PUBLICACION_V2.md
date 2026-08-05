@@ -44,9 +44,9 @@ si algo falla, falla sobre la única cuenta del dueño, que se da cuenta al mome
 siete personas que no saben que hubo un cambio.
 
 > **Corrección del dueño (2026-08-05):** una versión anterior de este plan decía que el
-> enlace de la nube lo usaban «Santiago y Héctor». **Es falso.** Santiago es el único
-> usuario. «Héctor» es el alias con el que los documentos antiguos nombran al propio dueño
-> para no poner su nombre real en un repositorio público. No hay a quién avisar.
+> enlace de la nube lo usaban «Santiago y Héctor». **Es falso: son la misma persona.**
+> «Héctor» es su primer nombre de pila —su nombre completo está en `docs/legal/`— y él usa
+> «Santiago». Es el único usuario de este enlace. **No hay a quién avisar.**
 
 ### Qué le pasa a la app de los 7 amigos — verificado
 

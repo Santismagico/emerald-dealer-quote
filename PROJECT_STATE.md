@@ -1197,17 +1197,18 @@ va días después, como dice el plan.
 ### Corrección del dueño (2026-08-05): «Héctor» no es una segunda persona
 
 Santiago avisó que **no conoce a ningún Héctor** y que **él es el único usuario del enlace
-de la nube**. Revisado: el nombre aparece en 17 archivos, y en los antiguos —código,
-`DECISIONS.md`, planes de fase— se usa como **alias del propio dueño** para no poner su
-nombre real en un repositorio público ("decisión de Héctor D-044", "Héctor autorizó la
-ampliación"). Documentos posteriores leyeron mal ese alias y lo convirtieron en un segundo
-usuario real.
+de la nube**. Tiene razón, y la explicación está en el propio repositorio: **«Héctor» es su
+primer nombre de pila.** Su nombre completo figura en `docs/legal/` como operador del
+servicio; él usa «Santiago», otro de sus nombres. Los documentos antiguos —código,
+`DECISIONS.md`, planes de fase— lo nombran «Héctor» al registrar decisiones ("decisión de
+Héctor D-044", "Héctor autorizó la ampliación"). Documentos posteriores leyeron eso como si
+fuera **otra persona** y lo convirtieron en un segundo usuario.
 
-**No lo es. Hay un solo usuario en la nube.** Se corrigieron `PROJECT_STATE.md`,
-`docs/PLAN_DE_PUBLICACION_V2.md` y `docs/PROMPT_NUEVA_SESION.md`. **Los usos antiguos como
-alias en el código y en los registros de decisiones se dejan intactos**: son deliberados y
-protegen la privacidad en un repositorio público. Nunca escribir aquí su nombre completo ni
-su correo.
+**No lo hay. Una sola persona, un solo usuario en la nube.** Se corrigieron
+`PROJECT_STATE.md`, `docs/PLAN_DE_PUBLICACION_V2.md` y `docs/PROMPT_NUEVA_SESION.md`. Los
+usos históricos en el código y en los registros de decisiones **se dejan intactos**: son el
+registro de lo que se decidió y cuándo. No añadir aquí su nombre completo ni su correo; ya
+están donde corresponde, en los documentos legales.
 
 **Consecuencias prácticas:** publicar es menos riesgoso de lo planeado —no hay una segunda
 persona a la que avisar ni cuya información proteger—. Santiago además indicó que **no
