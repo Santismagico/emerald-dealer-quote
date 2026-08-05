@@ -1109,3 +1109,55 @@ descontado. Dos lecturas legítimas: dejarla como margen de ventas, o agregar un
 cifra **Resultado del negocio** que sí reste los gastos. **Decisión suya.**
 
 **Quedan cerradas todas las tandas de corrección de la prueba de usuario.**
+
+---
+
+## 2026-08-05 — Publicación, paso 1: el servidor de Pruebas quedó completo
+
+**Hallazgo grave: `Emerald Dealer Pruebas` estaba a medias y el editor había dicho
+*Success*.** De los 198.240 caracteres del SQL unido solo habían entrado **46.360 (23%)**,
+justo en la frontera tras la quinta migración. Existían las 9 tablas base; faltaban
+`buyers`, `stock_jewels`, `material_partners`, `material_lots` y `expenses`. El corte se
+detectó porque la prueba de aislamiento falló con `42P01: relation "public.buyers" does not
+exist`, no porque el editor avisara.
+
+**Lección operativa:** *Success* en el editor SQL de Supabase **no prueba que entró todo**.
+Cualquier pegado grande debe terminar en una consulta que verifique lo que acaba de crear.
+
+**Cómo se resolvió.** Las 10 migraciones faltantes se repartieron en 6 bloques de 21–33 mil
+caracteres (`PARA-SANTIAGO/PARTE-1.sql` … `PARTE-6.sql`), respetando el orden y sin partir
+ningún bloque `$$`. Cada bloque termina en su propia comprobación. Todas dieron verde.
+
+Dos cosas que hay que saber para repetir esto en Producción:
+
+- **La comprobación por nombre no sirve.** Casi todas las migraciones *reemplazan*
+  funciones que ya existen, así que "existe" da verde aunque el bloque no haya corrido. Las
+  comprobaciones se rehicieron sobre `pg_proc.prosrc like '%marca%'`, con una frase propia
+  de la versión nueva de cada función.
+- **`PARTE-6` no es repetible por sí sola:** contiene cuatro `alter function … rename to`.
+  Se les puso un candado (`if not exists`) para poder reintentar sin romper nada.
+- **Identificador truncado, no es un defecto.**
+  `seed_stock_jewel_transformation_import_before_deleted_lot_history` mide **65 caracteres**
+  y PostgreSQL corta a 63: en la base queda `…_before_deleted_lot_histo`. Postgres trunca
+  igual dentro del cuerpo de la función, así que la llamada resuelve bien. Viene del archivo
+  de migración original y **Producción hará exactamente lo mismo**.
+
+**Prueba de aislamiento: 40 controles, 0 problemas.** Se hizo **en SQL, no con N6**, porque
+Santiago pidió no usar los archivos de doble clic. Cubre: lectura cruzada bloqueada en las
+14 tablas en ambos sentidos, lectura propia correcta (incluidas las tablas nuevas),
+escritura directa rechazada (propia y ajena), membresía ajena rechazada, la RPC escribiendo
+solo en la joyería del que llama, y el anónimo sin leer ni escribir. Limpieza verificada.
+**No cubre** lo que sí cubre N6: la capa HTTP real con sesiones iniciadas, numeración
+concurrente, cargas malformadas e inmutabilidad de tasas USD — y **no genera**
+`security-evidence/n6-evidence.json`, que es lo que `npm run security:evidence` exige.
+
+**RIESGO ABIERTO — leer antes de tocar Producción.** El plan de publicación da por hecho
+que a `Emerald Dealer Produccion` solo le faltan **7** migraciones, y
+`PARA-SANTIAGO/sql-para-produccion.sql` contiene solo esas 7. Pruebas demostró que el estado
+real de un proyecto puede no coincidir con los papeles. **Antes de pegar nada en Producción
+hay que correr allí la misma consulta de diagnóstico de solo lectura** (las 14 tablas +
+`pg_proc`). Si Producción también está más atrás de lo documentado, ese archivo se queda
+corto y publicar rompería la app de Santiago y Héctor.
+
+**Git:** se commiteó `.gitignore` ignorando `PARA-SANTIAGO/` (`a03bcdf`). Sin eso, N6 se
+niega a correr: exige árbol limpio y los archivos generados lo ensuciaban.
