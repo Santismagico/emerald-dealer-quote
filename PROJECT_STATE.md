@@ -835,6 +835,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Plan v2 · E3: Consolidado con filtros (Codex) | Día/semana/mes/año; filtros combinables por sociedad y producto, incluido “Sin registrar”; comparación lado a lado por ganancia propia y rentabilidad; Excel interno sin mezclar caja; 957 pruebas en 65 archivos, 338 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; Fase F no iniciada | E3 (este commit) |
 | 2026-08-04 | Plan v2 · F1: Catálogo PDF para clientes (Codex) | Lista blanca de campos, piezas disponibles por clase, precios elegibles en cada generación, fotos reducidas, bloqueo de privacidad y peso, descarga y compartir; 970 pruebas en 66 archivos, 340 módulos y revisión 320/390/1280 en verde; sin datos, nube ni publicación; **plan v2 completo** | F1 (este commit) |
 | 2026-08-04 | Correcciones R1 · C1: Excel con formato real (Codex) | `.xlsx` con números y fechas reales, negativos en rojo, encabezado fijo, anchos calculados y pestaña Detalle; archivo abierto en Microsoft Excel sin reparación; dependencia 4.1.1 diferida (71.185 bytes minificados, 20,00 kB gzip); 970 pruebas, 422 módulos, controles públicos y revisión 320/390/1280 en verde; PDF intacto; no publicado | C1 (este commit) |
+| 2026-08-04 | Correcciones R1 · C2: compra en bruto o ya tallada (Codex) | Campo aditivo con legado en bruto; compra tallada entra directo a tallado, sin tandas ni merma; ventas, joyas, crédito, sociedad y costo conservados; protección local y migración de servidor; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; sin cambios de dinero, PDF, datos ni publicación | C2 (este commit) |
 
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
@@ -877,6 +878,20 @@ sin reparación y confirmó fecha y dinero numéricos, fila 6 congelada y anchos
 secretos y CSP aprobados. Recorrido 320/390/1280 sin desbordamiento, botón de 48 px y sin
 errores. PDF, `main`, piloto y workflow intactos; nada publicado. **C2 no iniciada en
 este commit.**
+
+**C2 ejecutada (2026-08-04).** Cada compra permite elegir **En bruto** o **Ya tallado**.
+Los lotes tallados entran directamente a la existencia tallada y no muestran tandas ni
+merma. Los lotes anteriores reciben “bruto” al leerlos y mantienen exactamente
+existencias, inversión, deuda, resultado y reparto. Ventas talladas, usos hacia joyas,
+crédito y sociedades siguen disponibles.
+
+La misma regla se valida en el dispositivo y en la migración aditiva del servidor; la
+migración está preparada pero **no fue aplicada**. `npm test`: **975 pruebas en 67
+archivos**; compilación: **422 módulos**. En navegador se creó un lote tallado real y se
+confirmó en 320, 390 y 1280 px que solo muestra existencia tallada, sin tandas ni merma,
+sin desbordamiento, con acciones de 48 px o más y sin errores de consola. `main`, piloto,
+workflow, PDF, datos existentes y dinero permanecen intactos; nada publicado. **C3 no
+iniciada en este commit.**
 
 `main`, el piloto y el workflow **sin tocar**. Nada publicado.
 

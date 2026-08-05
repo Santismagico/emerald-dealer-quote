@@ -9,6 +9,7 @@ import type {
   CuttingBatch,
   StoneInternalUse,
   StoneLot,
+  StoneOrigin,
   StoneSale,
   SupplierPayment
 } from '../types';
@@ -22,6 +23,11 @@ export type LotFilter = 'existencias' | 'agotados' | 'todos';
 /** Redondeo a 3 decimales para que la resta de quilates no acumule ruido flotante. */
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
+}
+
+/** Los lotes anteriores a C2 se compraron en bruto por definicion historica. */
+export function stoneLotPurchaseOrigin(lot: Pick<StoneLot, 'purchaseOrigin'>): StoneOrigin {
+  return lot.purchaseOrigin === 'tallado' ? 'tallado' : 'bruto';
 }
 
 /** Lo que se puede saber de una venta sin guardar nada: recibido y saldo (D-042). */
@@ -181,15 +187,21 @@ export function summarizeStoneLot(lot: StoneLot): StoneLotSummary {
   returnedCutCarats = round3(returnedCutCarats);
   returnedSentCarats = round3(returnedSentCarats);
 
+  const purchaseOrigin = stoneLotPurchaseOrigin(lot);
+  const purchasedRawCarats = purchaseOrigin === 'bruto' ? lot.carats : 0;
+  const purchasedRawQuantity = purchaseOrigin === 'bruto' ? lot.quantity : 0;
+  const purchasedCutCarats = purchaseOrigin === 'tallado' ? lot.carats : 0;
+  const purchasedCutQuantity = purchaseOrigin === 'tallado' ? lot.quantity : 0;
   const rawAvailableCarats = round3(
-    lot.carats - sentToCutCarats - soldRawCarats - internalUsedRawCarats
+    purchasedRawCarats - sentToCutCarats - soldRawCarats - internalUsedRawCarats
   );
   const rawAvailableQuantity =
-    lot.quantity - sentToCutQuantity - soldRawQuantity - internalUsedRawQuantity;
+    purchasedRawQuantity - sentToCutQuantity - soldRawQuantity - internalUsedRawQuantity;
   const cutAvailableCarats = round3(
-    returnedCutCarats - soldCutCarats - internalUsedCutCarats
+    purchasedCutCarats + returnedCutCarats - soldCutCarats - internalUsedCutCarats
   );
-  const cutAvailableQuantity = returnedCutQuantity - soldCutQuantity - internalUsedCutQuantity;
+  const cutAvailableQuantity =
+    purchasedCutQuantity + returnedCutQuantity - soldCutQuantity - internalUsedCutQuantity;
   const remainingCarats = round3(rawAvailableCarats + inCuttingCarats + cutAvailableCarats);
   const remainingQuantity = rawAvailableQuantity + inCuttingQuantity + cutAvailableQuantity;
 
@@ -499,6 +511,9 @@ export function validateCuttingBatch(
   batch: CuttingBatch,
   excludeBatchId?: string
 ): string | null {
+  if (stoneLotPurchaseOrigin(lot) === 'tallado') {
+    return 'Un lote comprado ya tallado no necesita tandas de talla.';
+  }
   if (!isValidISODate(batch.sentDate)) return 'La tanda necesita una fecha de envío válida.';
   if (batch.sentDate < lot.purchaseDate) {
     return 'No puedes enviar a talla antes de la compra del lote.';
@@ -618,8 +633,18 @@ function validateStoneLotInventoryBase(
   lot: StoneLot,
   previous?: StoneLot | null
 ): string | null {
+  if (
+    lot.purchaseOrigin !== undefined &&
+    lot.purchaseOrigin !== 'bruto' &&
+    lot.purchaseOrigin !== 'tallado'
+  ) {
+    return 'El estado de compra del lote no es valido.';
+  }
   if (!Array.isArray(lot.cuttingBatches)) return 'Las tandas de talla no son válidas.';
   if (!Array.isArray(lot.sales)) return 'Las ventas del lote no son válidas.';
+  if (stoneLotPurchaseOrigin(lot) === 'tallado' && lot.cuttingBatches.length > 0) {
+    return 'Un lote comprado ya tallado no puede tener tandas de talla.';
+  }
   if (new Set(lot.cuttingBatches.map((batch) => batch.id)).size !== lot.cuttingBatches.length) {
     return 'El lote contiene tandas de talla repetidas.';
   }
@@ -631,6 +656,21 @@ function validateStoneLotInventoryBase(
   for (const batch of lot.cuttingBatches) {
     const error = validateCuttingBatch(lot, batch, batch.id);
     if (error) return error;
+  }
+
+  if (previous) {
+    const purchaseOriginChanged =
+      stoneLotPurchaseOrigin(previous) !== stoneLotPurchaseOrigin(lot);
+    const hasPhysicalHistory =
+      previous.sales.length > 0 ||
+      previous.cuttingBatches.length > 0 ||
+      (previous.internalUses ?? []).length > 0 ||
+      lot.sales.length > 0 ||
+      lot.cuttingBatches.length > 0 ||
+      (lot.internalUses ?? []).length > 0;
+    if (purchaseOriginChanged && hasPhysicalHistory) {
+      return 'El estado de compra no se puede cambiar porque el lote ya tiene movimientos.';
+    }
   }
 
   const summary = summarizeStoneLot(lot);
@@ -1228,12 +1268,19 @@ export function withoutLotSale(lot: StoneLot, saleId: string, nowIso: string): S
 
 /** Un lote es válido para guardar si tiene fecha real y tipo de piedra. */
 export function isStoneLotValid(lot: StoneLot): boolean {
-  return isValidISODate(lot.purchaseDate) && lot.stoneType.trim().length > 0;
+  return (
+    isValidISODate(lot.purchaseDate) &&
+    lot.stoneType.trim().length > 0 &&
+    (lot.purchaseOrigin === undefined ||
+      lot.purchaseOrigin === 'bruto' ||
+      lot.purchaseOrigin === 'tallado')
+  );
 }
 
 /** Lote en blanco para el formulario de nueva compra. */
 export function emptyStoneLot(today: string, nowIso: string): StoneLot {
   return {
+    purchaseOrigin: 'bruto',
     id: newId(),
     name: '',
     stoneType: '',

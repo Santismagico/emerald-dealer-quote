@@ -23,6 +23,7 @@ afterEach(() => {
 
 function lot(overrides: Partial<StoneLot> = {}): StoneLot {
   return {
+    purchaseOrigin: 'bruto',
     id: 'lot-c2',
     name: 'Lote para joyas',
     stoneType: 'Esmeralda',

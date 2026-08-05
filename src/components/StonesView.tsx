@@ -15,6 +15,7 @@ import {
   filterStoneLots,
   isStoneLotValid,
   lotDisplayName,
+  stoneLotPurchaseOrigin,
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
@@ -368,6 +369,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   if (!lot) return null;
   const summary = summarizeStoneLot(lot);
   const partnership = summarizeStonePartnership(lot);
+  const purchaseOrigin = stoneLotPurchaseOrigin(lot);
   const talladoHistoryProtected =
     lot.sales.some((sale) => sale.origin === 'tallado') ||
     (lot.internalUses ?? []).some((use) => use.origin === 'tallado');
@@ -432,16 +434,24 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         </div>
 
         <div className="mt-3 space-y-1 rounded-xl bg-stone-50 p-3">
+          <SummaryRow
+            label="Estado al comprar"
+            value={purchaseOrigin === 'tallado' ? 'Ya tallado' : 'En bruto'}
+          />
           <SummaryRow label="Comprado" value={`${formatCarats(lot.carats)} · ${lot.quantity} pz`} />
           <SummaryRow label="Costo del lote" value={formatCOP(lot.purchaseValueCop)} />
-          <SummaryRow
-            label="Bruto disponible"
-            value={`${formatCarats(summary.rawAvailableCarats)} · ${summary.rawAvailableQuantity} pz`}
-          />
-          <SummaryRow
-            label="En talla"
-            value={`${formatCarats(summary.inCuttingCarats)} · ${summary.inCuttingQuantity} pz`}
-          />
+          {purchaseOrigin === 'bruto' ? (
+            <>
+              <SummaryRow
+                label="Bruto disponible"
+                value={`${formatCarats(summary.rawAvailableCarats)} · ${summary.rawAvailableQuantity} pz`}
+              />
+              <SummaryRow
+                label="En talla"
+                value={`${formatCarats(summary.inCuttingCarats)} · ${summary.inCuttingQuantity} pz`}
+              />
+            </>
+          ) : null}
           <SummaryRow
             label="Tallado disponible"
             value={`${formatCarats(summary.cutAvailableCarats)} · ${summary.cutAvailableQuantity} pz`}
@@ -457,8 +467,10 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               value={`${formatCarats(summary.internalUsedCarats)} · ${summary.internalUsedQuantity} pz · ${formatCOP(summary.internalAttributedCost)}`}
             />
           ) : null}
-          <SummaryRow label="Tallas pagadas" value={formatCOP(summary.paidCuttingCost)} />
-          {summary.unpaidCuttingCost > 0 ? (
+          {purchaseOrigin === 'bruto' ? (
+            <SummaryRow label="Tallas pagadas" value={formatCOP(summary.paidCuttingCost)} />
+          ) : null}
+          {purchaseOrigin === 'bruto' && summary.unpaidCuttingCost > 0 ? (
             <SummaryRow
               label="Tallas pendientes de pago"
               value={formatCOP(summary.unpaidCuttingCost)}
@@ -466,10 +478,12 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
             />
           ) : null}
           <SummaryRow label="Inversión registrada" value={formatCOP(summary.totalInvested)} bold />
-          <SummaryRow
-            label="Merma promedio de talla"
-            value={summary.cuttingLossRatio === null ? 'Sin dato' : formatLoss(summary.cuttingLossRatio)}
-          />
+          {purchaseOrigin === 'bruto' ? (
+            <SummaryRow
+              label="Merma promedio de talla"
+              value={summary.cuttingLossRatio === null ? 'Sin dato' : formatLoss(summary.cuttingLossRatio)}
+            />
+          ) : null}
           <div className="border-t border-stone-200 pt-1">
             <SummaryRow
               label={
@@ -524,6 +538,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         {lot.description ? <p className="mt-2 text-sm text-stone-600">{lot.description}</p> : null}
         {lot.notes ? <p className="mt-1 text-xs text-stone-500">{lot.notes}</p> : null}
 
+        {purchaseOrigin === 'bruto' ? (
         <div className="mt-4 rounded-xl border border-stone-200 p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -598,6 +613,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
             </ul>
           )}
         </div>
+        ) : null}
 
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
@@ -985,6 +1001,11 @@ function LotForm({
   const patch = (partial: Partial<StoneLot>) => setForm((current) => ({ ...current, ...partial }));
   const historicalPartner = !form.partnerId && form.partnerName.trim().length > 0;
   const partnerValue = form.partnerId ?? (historicalPartner ? '__historical__' : '');
+  const purchaseOriginLocked =
+    !isNew &&
+    (initial.sales.length > 0 ||
+      initial.cuttingBatches.length > 0 ||
+      (initial.internalUses ?? []).length > 0);
 
   const selectSupplier = (supplierId: string) => {
     if (!supplierId) {
@@ -1064,6 +1085,33 @@ function LotForm({
               placeholder="Ej: talla esmeralda, calidad alta"
             />
           </Field>
+          {purchaseOriginLocked ? (
+            <Field
+              label="Estado al comprar"
+              hint="Se conserva porque este lote ya tiene movimientos registrados."
+            >
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {stoneLotPurchaseOrigin(form) === 'tallado' ? 'Ya tallado' : 'En bruto'}
+              </p>
+            </Field>
+          ) : (
+            <div className="space-y-1">
+              <SegmentedControl
+                label="Estado al comprar"
+                value={stoneLotPurchaseOrigin(form)}
+                options={[
+                  { value: 'bruto', label: 'En bruto' },
+                  { value: 'tallado', label: 'Ya tallado' }
+                ]}
+                onChange={(purchaseOrigin) =>
+                  patch({ purchaseOrigin: purchaseOrigin as StoneLot['purchaseOrigin'] })
+                }
+              />
+              <p className="text-xs text-stone-500">
+                Si ya llegó tallado, entra directo a existencias y no necesita tandas ni merma.
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quilates">
               <DecimalInput value={form.carats} onValue={(carats) => patch({ carats })} suffix="ct" />

@@ -1203,6 +1203,13 @@ tandas de talla y no muestra merma, porque no la tuvo.
 Los lotes anteriores se normalizan como comprados **en bruto**, así que conservan
 exactamente las mismas existencias, el mismo dinero y el mismo resultado que hoy.
 
+Implementación C2 (2026-08-04): el formulario pregunta **En bruto / Ya tallado**. La
+segunda opción lleva la compra directamente a existencias talladas, oculta tandas y
+merma, y mantiene ventas, usos en joyas, crédito y reparto. La protección existe al
+guardar en el dispositivo y también en la migración preparada para el servidor. El
+campo es aditivo: si falta, significa bruto. No se cambió ningún dato existente ni se
+aplicó la migración a producción.
+
 ## D-068 · Ningún registro queda fuera de alcance por un filtro · 2026-08-04 · Vigente
 
 Santiago reportó que **no podía editar la venta de una joya**. La revisión mostró que la

@@ -18,6 +18,7 @@ import type {
   Appointment,
   AppointmentStatus,
   StoneLot,
+  StoneOrigin,
   StoneSale,
   CuttingBatch,
   StoneInternalUse,
@@ -572,6 +573,11 @@ export function normalizeStoneLot(raw: unknown): StoneLot {
     stoneType: safeString(l.stoneType),
     description: safeString(l.description),
     purchaseDate: safeString(l.purchaseDate),
+    purchaseOrigin: oneOf<StoneOrigin>(
+      l.purchaseOrigin,
+      ['bruto', 'tallado'] as const,
+      'bruto'
+    ),
     supplier: safeString(l.supplier),
     supplierId: typeof l.supplierId === 'string' ? l.supplierId : null,
     carats: Math.max(0, safeNumber(l.carats)),

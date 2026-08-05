@@ -12,6 +12,7 @@ import stonePartnershipsSource from '../../../supabase/migrations/20260803220000
 import productCurrencySource from '../../../supabase/migrations/20260803233000_tipo_producto_moneda.sql?raw'
 import cuttingBatchesSource from '../../../supabase/migrations/20260804144748_fase_c1_tandas_talla.sql?raw'
 import jewelTransformationSource from '../../../supabase/migrations/20260804151230_fase_c2_transformacion_joya.sql?raw'
+import stonePurchaseOriginSource from '../../../supabase/migrations/20260804184500_compra_lote_bruto_tallado.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -27,6 +28,7 @@ const stonePartnerships = stonePartnershipsSource.toLowerCase()
 const productCurrency = productCurrencySource.toLowerCase()
 const cuttingBatches = cuttingBatchesSource.toLowerCase()
 const jewelTransformation = jewelTransformationSource.toLowerCase()
+const stonePurchaseOrigin = stonePurchaseOriginSource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -83,6 +85,30 @@ const tables = [
 const editableTables = ['org_settings', 'clients', 'quotes', 'appointments', 'stone_lots', 'suppliers']
 
 describe('migraciones de nube', () => {
+  it('C2 valida compras en bruto o talladas sin alterar tablas ni perder compatibilidad', () => {
+    expect(stonePurchaseOrigin).toContain("coalesce(p_data->>'purchaseorigin', 'bruto')")
+    expect(stonePurchaseOrigin).toContain("not in ('bruto', 'tallado')")
+    expect(stonePurchaseOrigin).toContain('purchased cut stone lot cannot have cutting batches')
+    expect(stonePurchaseOrigin).toContain("'id', '__purchase_tallado__'")
+    expect(stonePurchaseOrigin).toContain("'returnedcarats', p_data->'carats'")
+    expect(stonePurchaseOrigin).toContain('stone lot purchase origin is immutable')
+    expect(stonePurchaseOrigin).toContain(
+      'perform private.assert_stone_lot_cutting_payload(p_id, p_data, p_updated_at)'
+    )
+    expect(stonePurchaseOrigin).toContain(
+      'perform private.assert_stone_lot_internal_uses_payload(p_data)'
+    )
+    expect(stonePurchaseOrigin).toContain(
+      'perform private.assert_stone_internal_uses_preserved(p_id, p_data)'
+    )
+    expect(stonePurchaseOrigin).toContain(
+      'grant execute on function public.upsert_stone_lot(text, jsonb, timestamptz) to authenticated'
+    )
+    expect(stonePurchaseOrigin).not.toMatch(/\b(create|alter|drop)\s+table\b/)
+    expect(stonePurchaseOrigin).not.toContain('create policy')
+    expect(stonePurchaseOrigin).not.toContain('p_organization_id')
+  })
+
   it('C1 protege tandas, orígenes e inventarios sin reescribir tablas ni datos', () => {
     expect(cuttingBatches).toContain('function private.assert_stone_lot_cutting_payload')
     expect(cuttingBatches).toContain("set search_path = ''")

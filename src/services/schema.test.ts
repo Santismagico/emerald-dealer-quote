@@ -241,6 +241,7 @@ describe('normalizeStoneLot', () => {
     expect(l.partnerId).toBeNull();
     expect(l.partnerName).toBe('');
     expect(l.myPercent).toBe(100);
+    expect(l.purchaseOrigin).toBe('bruto');
     expect(l.internalUses).toEqual([]);
     expect(l.sales).toEqual([]);
   });
@@ -252,6 +253,7 @@ describe('normalizeStoneLot', () => {
       stoneType: 'Esmeralda',
       description: 'Calidad alta',
       purchaseDate: '2026-07-15',
+      purchaseOrigin: 'bruto',
       supplier: 'Proveedor Ejemplo',
       supplierId: null,
       carats: 5,

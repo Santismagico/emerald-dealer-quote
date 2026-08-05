@@ -487,6 +487,8 @@ export interface StoneSale {
  * Nunca aparece en ningún documento del cliente.
  */
 export interface StoneLot {
+  /** Estado fisico en el que se compro. Ausente en historia antigua significa bruto. */
+  purchaseOrigin?: StoneOrigin;
   id: string;
   /** Nombre del lote, ej: "Lote Ejemplo 12". Si queda vacío, la app muestra piedra + fecha. */
   name: string;
