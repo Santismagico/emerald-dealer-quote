@@ -1214,3 +1214,54 @@ están donde corresponde, en los documentos legales.
 persona a la que avisar ni cuya información proteger—. Santiago además indicó que **no
 conserva datos del uso anterior y no necesita arrastrar historia**, así que el respaldo
 previo deja de ser un bloqueo.
+
+---
+
+## 2026-08-05 — PUBLICADO en los dos enlaces
+
+Santiago dio la orden expresa: *"publica en todos lados y que pase lo que tenga que pasar"*.
+Se publicó en el orden seguro —primero el suyo, verificado en vivo, después el de los
+amigos— para no propagar un fallo.
+
+| Enlace | Commit publicado | Punto de retorno |
+|---|---|---|
+| `emerald-dealer-app` (nube, solo Santiago) | `f9ba18a` en `Santismagico/emerald-dealer-app` | `762dc7c` |
+| `emerald-dealer-quote` (los 7 amigos) | `d3e5af4` en `main` | `0a86e5a` |
+
+**Cómo se movió `main`.** No fue un `--force`. `main` tenía un commit propio (`0a86e5a`,
+ventanas emergentes libres de la navegación inferior) que **no** era ancestro de la rama. Se
+verificó antes de tocar nada: la rama ya contiene ese arreglo como `8818972`, con la regla
+CSS idéntica (`padding-bottom` de 5.5rem en móvil, 1rem en ≥1024px), y **ningún archivo de
+`main` falta en la rama**. Se creó un commit de fusión con `git commit-tree` cuyo árbol es
+**idéntico** al de la rama aprobada y cuyos padres son `main` y la rama: conserva la historia
+y publica exactamente el árbol probado.
+
+**El despliegue falló a la primera, y el candado hizo su trabajo.** `npm audit
+--audit-level=high` encontró 3 vulnerabilidades altas: `brace-expansion`, `fast-uri` y
+`postcss` —herramientas de compilación, no viajan al navegador— más `dompurify`, la única
+que sí viaja (vía jspdf). Se corrigió con `npm audit fix` **sin `--force`**: solo
+actualizaciones compatibles, `package.json` intacto, ninguna dependencia nueva (D-066
+respetado), auditoría en cero. Las dos confirmaciones del workflow —commit exacto y
+`PUBLICAR`— sí habían pasado. Segundo intento: verde. El enlace de la nube se **volvió a
+compilar y publicar** con las dependencias ya parcheadas, para que los dos corran lo mismo.
+
+**Verificación en vivo de los dos:**
+
+- **Nube:** carga la pantalla de acceso, alcanza el servidor real
+  (`/auth/v1/settings` → 200) y el bundle lleva la URL y la llave publicable de
+  **Producción**, verificadas contra el bundle ya publicado, no contra la memoria. Sin
+  secretos en el paquete (el `sb_secret_` que aparece es código de la librería que comprueba
+  prefijos).
+- **Amigos:** pantalla de Inicio con gráfica, las cinco áreas de la barra y las tres
+  secciones del inicio. **Cero rastro de Supabase en el bundle** —ni URL ni llave—: sigue
+  siendo 100% local, como debe ser. Sin desbordamiento horizontal a 375 px.
+- Los errores de CSP en consola **no son de la aplicación**: el hash bloqueado es distinto
+  del suyo y lo inyecta el entorno del navegador. La app renderiza completa.
+
+**Lo que NO se pudo verificar y le toca a Santiago:** entrar con su cuenta y comprobar por
+dentro Inicio, las cuatro secciones de Inventario, las cinco de Dinero y que un cierre se
+descargue en Excel. Un agente **no debe** iniciar sesión con sus credenciales.
+
+**Pendiente social:** avisar a los 7 amigos. Al abrir la app la verán distinta. Sus datos
+locales saltan de v4 a v8 y los cuatro escalones solo crean almacenes nuevos vacíos, pero
+**no tienen respaldo en la nube**: conviene pedirles que exporten el suyo.
