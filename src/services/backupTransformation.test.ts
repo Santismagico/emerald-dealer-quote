@@ -138,6 +138,24 @@ describe('respaldo de transformaciones de joyas', () => {
     });
   });
 
+  it('restaura una joya con el lote eliminado si conserva su nombre histórico', () => {
+    const snapshotJewel: StockJewel = {
+      ...jewel,
+      stoneTransformations: [
+        { ...jewel.stoneTransformations[0], lotName: 'Lote natural eliminado' }
+      ]
+    };
+    const parsed = parseBackup(
+      JSON.stringify(backup({ stoneLots: [], stockJewels: [snapshotJewel] }))
+    );
+
+    expect(parsed.stoneLots).toEqual([]);
+    expect(parsed.stockJewels[0].costCop).toBe(600_000);
+    expect(parsed.stockJewels[0].stoneTransformations[0].lotName).toBe(
+      'Lote natural eliminado'
+    );
+  });
+
   it('rechaza una mitad huérfana o datos distintos antes de importar', () => {
     expect(() => parseBackup(JSON.stringify(backup({ stockJewels: [] })))).toThrow(
       /no tiene su transformación/i

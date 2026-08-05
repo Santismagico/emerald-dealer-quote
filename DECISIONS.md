@@ -1259,6 +1259,16 @@ Sigue vigente la protección que sí tiene sentido: no se pueden alterar los dat
 de una tanda ya regresada cuyo producto se vendió (Fase C). Proteger un dato es distinto
 de impedir borrar un registro completo con aviso.
 
+Implementación C4 (2026-08-04): antes de borrar el lote, la aplicación copia su nombre
+en la historia de cada joya que usó una de sus piedras. La operación local y la operación
+del servidor hacen ese resguardo y el borrado como una sola acción. Los respaldos y su
+importación también aceptan esa historia independiente cuando el lote ya no existe.
+
+El aviso confirma que se pierde la ficha del lote, no el dinero de la joya. Las pruebas
+de no regresión verifican que permanecen idénticos el costo y el resultado de la joya,
+el Cierre del día, el mensual y el panel. La migración del servidor queda preparada pero
+no fue aplicada a ningún entorno.
+
 ## D-070 · Un solo vocabulario: la barra es el primer grupo de Inicio · 2026-08-04 · Vigente
 
 Santiago reportó que la aplicación confunde. El diagnóstico no era la barra en sí: al

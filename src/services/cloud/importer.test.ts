@@ -386,6 +386,42 @@ describe('importación inicial a la nube', () => {
     expect(target.flushes()).toBe(8);
   });
 
+  it('importa la historia autosuficiente de una joya cuyo lote ya fue eliminado', async () => {
+    const backup = largeBackup();
+    const orphanJewel: StockJewel = {
+      ...backup.stockJewels[0],
+      id: 'jewel-orphan',
+      stoneCount: 1,
+      stoneKind: 'natural',
+      costCop: 900_000,
+      stoneTransformations: [
+        {
+          id: 'event-orphan',
+          date: '2026-07-18',
+          lotId: 'lot-deleted',
+          lotName: 'Lote natural eliminado',
+          jewelId: 'jewel-orphan',
+          origin: 'bruto',
+          carats: 1,
+          quantity: 1,
+          costCop: 100_000,
+          notes: '',
+          fromStoneKind: 'fantasia',
+          toStoneKind: 'natural'
+        }
+      ]
+    };
+    backup.stoneLots = [];
+    backup.stockJewels = [orphanJewel];
+    const target = memoryWriter();
+
+    await importToCloud(backup, { writer: target.writer, batchSize: 500 });
+
+    expect(countImportRecords(backup)).toBe(207);
+    expect(target.transformations).toEqual([]);
+    expect(target.values.stockJewels.get(orphanJewel.id)).toEqual(orphanJewel);
+  });
+
   it('detecta si el dispositivo tiene información y si la nube está vacía', async () => {
     expect(hasLocalDataToImport(largeBackup())).toBe(true);
     expect(await isCloudEmpty({ list: async () => [] })).toBe(true);

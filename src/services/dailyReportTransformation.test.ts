@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { StockJewel, StoneLot } from '../types';
-import { buildDailyReport } from './dailyReport';
+import { buildDailyReport, buildMonthlyReport } from './dailyReport';
+import { buildSalesAnalytics } from './salesAnalytics';
 import { summarizeStockJewel } from './stockJewels';
 import { summarizeStoneLot } from './stones';
-import { transformStockJewelToNatural } from './stoneJewelTransformation';
+import {
+  preserveDeletedStoneLotName,
+  transformStockJewelToNatural
+} from './stoneJewelTransformation';
 
 const lot: StoneLot = {
   id: 'lot-cash',
@@ -96,5 +100,71 @@ describe('una transformación no mueve caja', () => {
     expect(summarizeStoneLot(transformed.lot).rawAvailableCarats).toBe(9);
     expect(transformed.jewel.costCop).toBe(600_000);
     expect(after).toBe(before);
+  });
+
+  it('borrar el lote no cambia costo, resultado ni reportes de la joya vendida', () => {
+    const previousMonthLot = { ...lot, purchaseDate: '2026-07-30' };
+    const previousMonthJewel = { ...jewel, acquiredDate: '2026-07-31' };
+    const moved = transformStockJewelToNatural(
+      previousMonthLot,
+      previousMonthJewel,
+      {
+        id: 'event-delete',
+        date: '2026-08-01',
+        lotId: previousMonthLot.id,
+        jewelId: previousMonthJewel.id,
+        origin: 'bruto',
+        carats: 1,
+        quantity: 1,
+        notes: ''
+      },
+      '2026-08-01T12:00:00.000Z'
+    );
+    const soldJewel: StockJewel = {
+      ...moved.jewel,
+      sale: {
+        id: 'sale-delete',
+        date: '2026-08-04',
+        buyer: 'Cliente',
+        buyerId: null,
+        priceCop: 2_000_000,
+        productType: 'Anillo',
+        usdRate: 4_000,
+        receivedBy: 'Santiago',
+        method: 'Transferencia',
+        notes: ''
+      }
+    };
+    const preservedJewel = preserveDeletedStoneLotName(
+      soldJewel,
+      moved.lot.id,
+      'Lote para joya',
+      '2026-08-04T18:00:00.000Z'
+    );
+
+    expect(preservedJewel.costCop).toBe(soldJewel.costCop);
+    expect(summarizeStockJewel(preservedJewel).resultCop).toBe(
+      summarizeStockJewel(soldJewel).resultCop
+    );
+    expect(buildDailyReport('2026-08-04', [], [], [preservedJewel])).toEqual(
+      buildDailyReport('2026-08-04', [], [moved.lot], [soldJewel])
+    );
+    expect(buildMonthlyReport('2026-08', [], [], [preservedJewel])).toEqual(
+      buildMonthlyReport('2026-08', [], [moved.lot], [soldJewel])
+    );
+    expect(
+      buildSalesAnalytics({
+        period: 'mes',
+        anchorDate: '2026-08-04',
+        stockJewels: [preservedJewel]
+      })
+    ).toEqual(
+      buildSalesAnalytics({
+        period: 'mes',
+        anchorDate: '2026-08-04',
+        stoneLots: [moved.lot],
+        stockJewels: [soldJewel]
+      })
+    );
   });
 });

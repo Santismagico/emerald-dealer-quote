@@ -8,8 +8,10 @@ import {
 } from './stockJewels';
 import {
   attributedStoneCostCop,
+  preserveDeletedStoneLotName,
   transformStockJewelToNatural,
   validateStoneJewelTransformation,
+  validateStoneJewelTransformationCollections,
   validateStoneJewelTransformationLink,
   type StoneJewelTransformationInput
 } from './stoneJewelTransformation';
@@ -292,5 +294,39 @@ describe('rechazos de la transformacion C2', () => {
         first.transformation
       )
     ).toMatch(/no coinciden/i);
+  });
+
+  it('conserva una historia autosuficiente cuando el lote ya fue eliminado', () => {
+    const first = transformStockJewelToNatural(
+      lot(),
+      jewel(),
+      input(),
+      '2026-08-04T15:00:00.000Z'
+    );
+    const preserved = preserveDeletedStoneLotName(
+      first.jewel,
+      first.lot.id,
+      'Lote histórico de Santiago',
+      '2026-08-04T16:00:00.000Z'
+    );
+
+    expect(preserved.costCop).toBe(first.jewel.costCop);
+    expect(summarizeStockJewel(preserved)).toEqual({
+      ...summarizeStockJewel(first.jewel),
+      jewel: preserved
+    });
+    expect(preserved.stoneTransformations[0].lotName).toBe('Lote histórico de Santiago');
+    expect(validateStoneJewelTransformationCollections([], [preserved])).toBeNull();
+    expect(
+      validateStoneJewelTransformationCollections(
+        [],
+        [{
+          ...preserved,
+          stoneTransformations: preserved.stoneTransformations.map(
+            ({ lotName: _lotName, ...transformation }) => transformation
+          )
+        }]
+      )
+    ).toContain('no tiene su uso interno');
   });
 });

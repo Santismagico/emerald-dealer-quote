@@ -177,15 +177,22 @@ describe('persistencia atómica de la transformación de una joya', () => {
     expect(await storage.listStockJewels()).toEqual([]);
   });
 
-  it('protege ambos historiales contra borrados posteriores', async () => {
+  it('permite borrar el lote, conserva su nombre y sigue protegiendo la joya', async () => {
     await storage.saveStoneLot(lot());
     await storage.saveStockJewel(jewel());
     await storage.transformStockJewelToNatural(transformationInput());
 
-    await expect(storage.deleteStoneLot('lot-c2')).rejects.toThrow(/historia/i);
+    await storage.deleteStoneLot('lot-c2');
+    expect(await storage.listStoneLots()).toEqual([]);
+    const [preservedJewel] = await storage.listStockJewels();
+    expect(preservedJewel.costCop).toBe(5_000_000);
+    expect(preservedJewel.stoneTransformations[0]).toMatchObject({
+      lotId: 'lot-c2',
+      lotName: 'Lote para joyas',
+      costCop: 2_000_000
+    });
     await expect(storage.deleteStockJewel('jewel-c2')).rejects.toThrow(/historia/i);
 
-    expect((await storage.listStoneLots()).map((item) => item.id)).toEqual(['lot-c2']);
     expect((await storage.listStockJewels()).map((item) => item.id)).toEqual(['jewel-c2']);
   });
 

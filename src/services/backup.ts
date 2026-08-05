@@ -103,6 +103,8 @@ function isRawStoneTransformation(value: unknown): boolean {
     typeof value.id === 'string' &&
     typeof value.date === 'string' &&
     typeof value.lotId === 'string' &&
+    (!Object.prototype.hasOwnProperty.call(value, 'lotName') ||
+      (typeof value.lotName === 'string' && value.lotName.trim().length > 0)) &&
     typeof value.jewelId === 'string' &&
     isPositiveCarats(value.carats) &&
     typeof value.quantity === 'number' &&

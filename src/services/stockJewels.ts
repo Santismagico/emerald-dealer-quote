@@ -85,6 +85,9 @@ function validateStoneTransformation(
   if (!transformation.lotId.trim() || transformation.jewelId !== jewel.id) {
     return 'La transformacion no coincide con su joya y lote de origen.';
   }
+  if (transformation.lotName !== undefined && !transformation.lotName.trim()) {
+    return 'El nombre historico del lote no puede quedar vacio.';
+  }
   if (transformation.origin !== 'bruto' && transformation.origin !== 'tallado') {
     return 'El origen de la piedra transformada no es valido.';
   }

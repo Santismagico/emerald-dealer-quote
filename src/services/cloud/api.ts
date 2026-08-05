@@ -451,7 +451,12 @@ export function createCloudDataSource(options: {
       );
     },
     async deleteStoneLot(id) {
+      const jewelsBefore = await localStorage.listStockJewels();
       await localStorage.deleteStoneLot(id);
+      const jewelsAfter = await localStorage.listStockJewels();
+      for (const jewel of changed(jewelsBefore, jewelsAfter)) {
+        await cacheAndQueue('stock_jewels', jewel.id, jewel, jewel.updatedAt || nowIso());
+      }
       await enqueue('stone_lots', 'delete', id, null, nowIso());
     },
     listSuppliers: () => pullThen('suppliers', localStorage.listSuppliers),

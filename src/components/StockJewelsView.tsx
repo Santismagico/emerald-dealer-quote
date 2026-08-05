@@ -771,7 +771,9 @@ export function StockJewelsView() {
                             <li key={transformation.id} className="rounded-lg bg-white/80 p-2">
                               <p className="break-words text-xs font-medium text-stone-800">
                                 {formatDateCO(transformation.date)} ·{' '}
-                                {lot ? lotDisplayName(lot) : `Lote ${transformation.lotId}`}
+                                {lot
+                                  ? lotDisplayName(lot)
+                                  : transformation.lotName?.trim() || 'Lote eliminado'}
                               </p>
                               <p className="break-words text-xs text-stone-600">
                                 {transformation.origin === 'tallado' ? 'Tallado' : 'Bruto'} ·{' '}

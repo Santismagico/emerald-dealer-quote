@@ -90,6 +90,10 @@ export function stoneLotDeletionWarning(lot: StoneLot): string {
     summary.buyersDebt > 0
       ? ` OJO: también se borrarán ${formatCOP(summary.buyersDebt)} que te deben por ventas a crédito y desaparecerán de Cobros.`
       : '';
+  const jewelHistory =
+    (lot.internalUses?.length ?? 0) > 0
+      ? ' Las joyas conservarán el nombre histórico de este lote y todo su costo y resultado. Solo se perderá el acceso a la ficha del lote desde esa historia.'
+      : '';
   return `¿Eliminar el lote "${lotDisplayName(lot)}"? Se borrará la compra y todo su historial: ${
     lot.sales.length
   } venta(s), ${lot.cuttingBatches.length} tanda(s) de talla, ${
@@ -98,7 +102,7 @@ export function stoneLotDeletionWarning(lot: StoneLot): string {
     summary.paidCuttingCost
   )} pagados en tallas, ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
     summary.supplierDebt
-  )}.${cobro} Esta acción no se puede deshacer.`;
+  )}.${cobro}${jewelHistory} Esta acción no se puede deshacer.`;
 }
 
 /** Aviso al eliminar una venta: nombra los abonos que se pierden con ella. */
@@ -858,18 +862,12 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               <Button
                 variant="danger"
                 full
-                disabled={(lot.internalUses?.length ?? 0) > 0}
                 onClick={() => setConfirmDeleteLot(true)}
               >
                 Eliminar lote
               </Button>
             </div>
           </div>
-          {(lot.internalUses?.length ?? 0) > 0 ? (
-            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-              Este lote no se puede eliminar porque ya respalda piedras usadas en joyas.
-            </p>
-          ) : null}
           <Button variant="ghost" full onClick={onClose}>
             Cerrar
           </Button>

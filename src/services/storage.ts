@@ -34,6 +34,7 @@ import {
 import { compareAppointments } from './agenda';
 import {
   compareStoneLots,
+  lotDisplayName,
   validateStoneLotInventory,
   validateStoneLotOwnership,
   validateStoneLotSalesMetadata
@@ -47,6 +48,7 @@ import { compareMaterialLots } from './materials';
 import { compareExpenses, validateExpense } from './expenses';
 import {
   transformStockJewelToNatural as buildStockJewelTransformation,
+  preserveDeletedStoneLotName,
   validateStoneJewelTransformationCollections,
   validateStoneJewelTransformationLink,
   type StoneJewelTransformationInput,
@@ -229,22 +231,36 @@ export async function saveStoneLot(lot: StoneLot): Promise<void> {
 }
 
 export async function deleteStoneLot(id: string): Promise<void> {
-  await dbWriteTransaction(['stoneLots'], (getStore, abort) => {
-    const store = getStore('stoneLots');
-    const request = store.get(id);
+  const nowIso = new Date().toISOString();
+  await dbWriteTransaction(['stoneLots', 'stockJewels'], (getStore, abort) => {
+    const stoneLots = getStore('stoneLots');
+    const stockJewels = getStore('stockJewels');
+    const request = stoneLots.get(id);
     request.onsuccess = () => {
-      if (request.result !== undefined) {
-        const lot = normalizeStoneLot(request.result);
-        if (lot.internalUses.length > 0) {
-          abort(
-            new Error(
-              'Este lote tiene piedras usadas en joyas y no se puede eliminar sin borrar esa historia.'
-            )
-          );
-          return;
-        }
+      if (request.result === undefined) {
+        stoneLots.delete(id);
+        return;
       }
-      store.delete(id);
+      const lot = normalizeStoneLot(request.result);
+      const jewelRequest = stockJewels.getAll();
+      jewelRequest.onsuccess = () => {
+        try {
+          const historicalName = lotDisplayName(lot);
+          for (const stored of jewelRequest.result as unknown[]) {
+            const jewel = normalizeStockJewel(stored);
+            const preserved = preserveDeletedStoneLotName(
+              jewel,
+              lot.id,
+              historicalName,
+              nowIso
+            );
+            if (preserved !== jewel) stockJewels.put(preserved);
+          }
+          stoneLots.delete(id);
+        } catch (error) {
+          abort(error);
+        }
+      };
     };
   });
 }

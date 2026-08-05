@@ -10,7 +10,7 @@ import type {
 } from '../types';
 import { isValidISODate } from '../utils/dates';
 import { toSafeCOP } from '../utils/money';
-import { summarizeStoneLot, validateStoneLotInventory } from './stones';
+import { lotDisplayName, summarizeStoneLot, validateStoneLotInventory } from './stones';
 import { validateStockJewelStoneHistory } from './stockJewels';
 
 export interface StoneJewelTransformationInput {
@@ -75,6 +75,7 @@ export function validateStoneJewelTransformationCollections(
   }
 
   const useIds = new Set<string>();
+  const lotIds = new Set(stoneLots.map((lot) => lot.id));
   for (const lot of stoneLots) {
     for (const use of lot.internalUses ?? []) {
       if (useIds.has(use.id)) return 'Hay un uso interno de piedras repetido.';
@@ -94,10 +95,31 @@ export function validateStoneJewelTransformationCollections(
   }
   for (const id of transformations.keys()) {
     if (!useIds.has(id)) {
-      return 'Una transformación de joya no tiene su uso interno de piedras correspondiente.';
+      const linked = transformations.get(id)!;
+      if (lotIds.has(linked.transformation.lotId) || !linked.transformation.lotName?.trim()) {
+        return 'Una transformación de joya no tiene su uso interno de piedras correspondiente.';
+      }
     }
   }
   return null;
+}
+
+/** Conserva en la joya el nombre del lote antes de eliminarlo. */
+export function preserveDeletedStoneLotName(
+  jewel: StockJewel,
+  lotId: string,
+  lotName: string,
+  nowIso: string
+): StockJewel {
+  let changed = false;
+  const stoneTransformations = (jewel.stoneTransformations ?? []).map((transformation) => {
+    if (transformation.lotId !== lotId || transformation.lotName === lotName) {
+      return transformation;
+    }
+    changed = true;
+    return { ...transformation, lotName };
+  });
+  return changed ? { ...jewel, stoneTransformations, updatedAt: nowIso } : jewel;
 }
 
 function round3(value: number): number {
@@ -224,6 +246,7 @@ export function transformStockJewelToNatural(
     id: input.id,
     date: input.date,
     lotId: lot.id,
+    lotName: lotDisplayName(lot),
     jewelId: jewel.id,
     origin: input.origin,
     carats,

@@ -13,6 +13,7 @@ import productCurrencySource from '../../../supabase/migrations/20260803233000_t
 import cuttingBatchesSource from '../../../supabase/migrations/20260804144748_fase_c1_tandas_talla.sql?raw'
 import jewelTransformationSource from '../../../supabase/migrations/20260804151230_fase_c2_transformacion_joya.sql?raw'
 import stonePurchaseOriginSource from '../../../supabase/migrations/20260804184500_compra_lote_bruto_tallado.sql?raw'
+import deletedStoneLotHistorySource from '../../../supabase/migrations/20260804193000_eliminar_lote_con_historia_joya.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -29,6 +30,7 @@ const productCurrency = productCurrencySource.toLowerCase()
 const cuttingBatches = cuttingBatchesSource.toLowerCase()
 const jewelTransformation = jewelTransformationSource.toLowerCase()
 const stonePurchaseOrigin = stonePurchaseOriginSource.toLowerCase()
+const deletedStoneLotHistory = deletedStoneLotHistorySource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -85,6 +87,27 @@ const tables = [
 const editableTables = ['org_settings', 'clients', 'quotes', 'appointments', 'stone_lots', 'suppliers']
 
 describe('migraciones de nube', () => {
+  it('C4 permite borrar el lote y conserva nombre, costo e historia dentro de la joya', () => {
+    expect(deletedStoneLotHistory).toContain("jsonb_build_object('lotname', v_lot_name)")
+    expect(deletedStoneLotHistory).toContain("event_item->>'lotid' = p_id")
+    expect(deletedStoneLotHistory).toContain("'{stonetransformations}'")
+    expect(deletedStoneLotHistory).toContain("'{updatedat}'")
+    expect(deletedStoneLotHistory).toContain('delete from public.stone_lots')
+    expect(deletedStoneLotHistory).not.toContain(
+      'stone lot with internal uses cannot be deleted'
+    )
+    expect(deletedStoneLotHistory).toContain("old_event - 'lotname'")
+    expect(deletedStoneLotHistory).toContain(
+      'deleted-lot jewel import requires a name and an absent lot'
+    )
+    expect(deletedStoneLotHistory).toContain(
+      'grant execute on function public.delete_stone_lot(text) to authenticated'
+    )
+    expect(deletedStoneLotHistory).not.toMatch(/\b(create|alter|drop)\s+table\b/)
+    expect(deletedStoneLotHistory).not.toContain('create policy')
+    expect(deletedStoneLotHistory).not.toContain('p_organization_id')
+  })
+
   it('C2 valida compras en bruto o talladas sin alterar tablas ni perder compatibilidad', () => {
     expect(stonePurchaseOrigin).toContain("coalesce(p_data->>'purchaseorigin', 'bruto')")
     expect(stonePurchaseOrigin).toContain("not in ('bruto', 'tallado')")

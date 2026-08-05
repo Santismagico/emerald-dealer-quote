@@ -77,7 +77,9 @@ export async function readBackupImportSource(file: File): Promise<BackupFile> {
 
 export function countImportRecords(backup: BackupFile): number {
   const transformations = backup.stockJewels.flatMap((jewel) => jewel.stoneTransformations ?? []);
-  const transformedLotIds = new Set(transformations.map((item) => item.lotId));
+  const lotIds = new Set(backup.stoneLots.map((lot) => lot.id));
+  const restorableTransformations = transformations.filter((item) => lotIds.has(item.lotId));
+  const transformedLotIds = new Set(restorableTransformations.map((item) => item.lotId));
   const transformedJewelIds = new Set(transformations.map((item) => item.jewelId));
   return (backup.settings ? 1 : 0)
     + backup.clients.length
@@ -90,7 +92,7 @@ export function countImportRecords(backup: BackupFile): number {
     + backup.materialPartners.length
     + backup.materialLots.length
     + backup.expenses.length
-    + transformations.length
+    + restorableTransformations.length
     + transformedLotIds.size
     + transformedJewelIds.size;
 }
@@ -198,15 +200,21 @@ export async function importToCloud(
   for (const appointment of backup.appointments) {
     baseTasks.push({ label: 'Agenda', run: () => writer.saveAppointment(appointment) });
   }
+  const stoneLotIds = new Set(backup.stoneLots.map((lot) => lot.id));
+  const allTransformations = backup.stockJewels.flatMap(
+    (jewel) => jewel.stoneTransformations ?? []
+  );
+  const restorableTransformations = allTransformations.filter((transformation) =>
+    stoneLotIds.has(transformation.lotId)
+  );
   const transformedLotIds = new Set(
-    backup.stockJewels.flatMap((jewel) =>
-      (jewel.stoneTransformations ?? []).map((transformation) => transformation.lotId)
-    )
+    restorableTransformations.map((transformation) => transformation.lotId)
   );
   const transformedJewelIds = new Set(
-    backup.stockJewels.flatMap((jewel) =>
-      (jewel.stoneTransformations ?? []).map((transformation) => transformation.jewelId)
-    )
+    allTransformations.map((transformation) => transformation.jewelId)
+  );
+  const restorableJewelIds = new Set(
+    restorableTransformations.map((transformation) => transformation.jewelId)
   );
   const transformationTimestamps = [
     ...backup.stoneLots
@@ -233,13 +241,15 @@ export async function importToCloud(
   }
   for (const jewel of backup.stockJewels) {
     const baseline = transformedJewelIds.has(jewel.id)
-      ? {
+      ? restorableJewelIds.has(jewel.id)
+        ? {
           ...jewel,
           stoneKind: 'fantasia' as const,
           costCop: stockJewelAcquisitionCostCop(jewel),
           sale: null,
           stoneTransformations: []
         }
+        : jewel
       : jewel;
     baseTasks.push({
       label: 'Joyas en stock',

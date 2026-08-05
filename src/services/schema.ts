@@ -482,6 +482,9 @@ function normalizeStockJewelStoneTransformation(
     id: safeString(transformation.id, newId()),
     date: safeString(transformation.date),
     lotId: safeString(transformation.lotId),
+    ...(safeString(transformation.lotName).trim()
+      ? { lotName: safeString(transformation.lotName).trim() }
+      : {}),
     jewelId: safeString(transformation.jewelId),
     origin: oneOf(transformation.origin, ['bruto', 'tallado'] as const, 'bruto'),
     carats: Math.max(0, safeNumber(transformation.carats)),

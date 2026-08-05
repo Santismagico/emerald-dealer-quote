@@ -91,6 +91,27 @@ describe('aviso al eliminar un lote', () => {
     });
     expect(stoneLotDeletionWarning(lot)).not.toContain('te deben');
   });
+
+  it('explica que la joya conserva nombre, costo y resultado al perder el lote', () => {
+    const lot = loteConCobro({
+      internalUses: [
+        {
+          id: 'use-1',
+          date: '2026-07-16',
+          carats: 0.5,
+          quantity: 1,
+          origin: 'bruto',
+          jewelId: 'jewel-1',
+          costCop: 200000,
+          notes: ''
+        }
+      ]
+    });
+    const warning = stoneLotDeletionWarning(lot);
+    expect(warning).toContain('nombre histórico');
+    expect(warning).toContain('costo y resultado');
+    expect(warning).toContain('Solo se perderá el acceso a la ficha del lote');
+  });
 });
 
 describe('aviso al eliminar una venta', () => {

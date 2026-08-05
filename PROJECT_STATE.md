@@ -837,6 +837,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Correcciones R1 · C1: Excel con formato real (Codex) | `.xlsx` con números y fechas reales, negativos en rojo, encabezado fijo, anchos calculados y pestaña Detalle; archivo abierto en Microsoft Excel sin reparación; dependencia 4.1.1 diferida (71.185 bytes minificados, 20,00 kB gzip); 970 pruebas, 422 módulos, controles públicos y revisión 320/390/1280 en verde; PDF intacto; no publicado | C1 (este commit) |
 | 2026-08-04 | Correcciones R1 · C2: compra en bruto o ya tallada (Codex) | Campo aditivo con legado en bruto; compra tallada entra directo a tallado, sin tandas ni merma; ventas, joyas, crédito, sociedad y costo conservados; protección local y migración de servidor; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; sin cambios de dinero, PDF, datos ni publicación | C2 (este commit) |
 | 2026-08-04 | Correcciones R1 · C3: joya vendida visible (Codex) | Tras vender limpia búsqueda, cambia a Vendidas y enfoca la pieza; cuatro acciones con borde, fondo y 44 px; fecha, pago, receptor y tasa conservados; auditoría reportó el mismo riesgo en el filtro de cotizaciones y no lo amplió; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; no publicado | C3 (este commit) |
+| 2026-08-04 | Correcciones R1 · C4: borrar lote conservando la historia (Codex) | El nombre del lote queda guardado en cada joya antes de borrarlo; costo y resultado de la joya, Cierre del día, mensual y panel permanecen idénticos; respaldo, importación y servidor contemplados; 981 pruebas, 422 módulos y recorrido real 320/390/1280 en verde; migración preparada no aplicada; no publicado | C4 (este commit) |
 
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
@@ -907,6 +908,20 @@ riesgo en el Historial de cotizaciones al cambiar de estado bajo un filtro espec
 se reporta y queda fuera de C3. Piedras mantiene abierto su detalle y Cobros no tiene
 filtros, por lo que no repiten el defecto. `main`, piloto y workflow intactos; nada
 publicado. **C4 no iniciada en este commit.**
+
+**C4 ejecutada (2026-08-04).** Un lote puede borrarse aunque haya aportado piedras a una
+joya vendida. Antes de eliminarlo, su nombre queda guardado en la historia de la joya;
+el aviso explica que se pierde la ficha del lote, no el costo ni el resultado de la
+joya. La misma regla quedó cubierta en el dispositivo, el servidor, los respaldos y la
+importación.
+
+La prueba obligatoria dejó idénticos el costo y el resultado de la joya, el Cierre del
+día, el mensual y el panel antes y después del borrado. `npm test`: **981 pruebas en 67
+archivos**; compilación: **422 módulos**. El recorrido real creó, transformó y vendió una
+joya, borró su lote y confirmó que la historia seguía mostrando el nombre original y los
+mismos valores en 320, 390 y 1280 px, sin desbordamiento y con acciones de 44 px. La
+migración del servidor está preparada pero **no fue aplicada**. `main`, piloto, workflow,
+PDF y motor de cálculo intactos; nada publicado. **R1 completa para auditoría.**
 
 `main`, el piloto y el workflow **sin tocar**. Nada publicado.
 

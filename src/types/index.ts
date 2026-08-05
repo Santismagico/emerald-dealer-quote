@@ -567,6 +567,8 @@ export interface StockJewelStoneTransformation {
   id: string;
   date: string;
   lotId: string;
+  /** Nombre historico del lote; permite conservar la historia si el lote se elimina. */
+  lotName?: string;
   jewelId: string;
   origin: StoneOrigin;
   carats: number;
