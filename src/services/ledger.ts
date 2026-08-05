@@ -84,6 +84,24 @@ export interface LedgerCashTotals {
   net: number;
 }
 
+const PROFIT_EVENT_KINDS = new Set<LedgerEventKind>([
+  'cotizacion_aprobada',
+  'venta_piedras_contado',
+  'venta_piedras_credito',
+  'venta_joya_stock'
+]);
+
+/** Ganancia reconocida por D-063. null significa que el evento no es una venta. */
+export function ledgerSaleProfitCop(entry: LedgerEvent): number | null {
+  return PROFIT_EVENT_KINDS.has(entry.kind)
+    ? entry.amountCop - entry.attributedCostCop
+    : null;
+}
+
+export function ledgerProfitTotal(events: readonly LedgerEvent[]): number {
+  return events.reduce((total, entry) => total + (ledgerSaleProfitCop(entry) ?? 0), 0);
+}
+
 type EventFields = Omit<LedgerEvent, 'amountCop' | 'attributedCostCop' | 'myPercent'> & {
   amountCop: number;
   attributedCostCop?: number;

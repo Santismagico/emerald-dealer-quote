@@ -229,6 +229,7 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | E8 | E | En celular, hacer que “Registrar venta” sea una pantalla clara con encabezado y botones siempre visibles; en computador conservar un diálogo centrado | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
 | E9 | E | Hacer inequívoca la elección Contado/A crédito y mejorar contraste, estado y accesibilidad de todos los interruptores | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
 | R2-1 | F+E | Unificar Inicio y barra; mover Agenda a Otras cosas y reunir Panel, cierres, Consolidado y Gastos dentro de Dinero | App, HomeView, MoneyView, SettingsView, home.ts | verificada; no publicada | este commit |
+| R2-2 | F+E | Sustituir el número suelto de Inicio por cifra, cambio y gráfica de área recorrible para Ganancia o Caja, con períodos 1 día, 7 días, 30 días y 1 año | HomeBusinessChart, homeChart, ledger, HomeView | verificada; no publicada | este commit |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._

@@ -1,16 +1,17 @@
 import type { HomeDestination, HomeSummary } from '../services/home';
 import { HOME_GROUPS } from '../services/home';
-import { formatCOP } from '../utils/money';
+import type { LedgerInput } from '../services/ledger';
+import { HomeBusinessChart } from './HomeBusinessChart';
 
 export function HomeView({
-  monthLabel,
+  today,
+  ledgerInput,
   summary,
-  showAccount,
   onOpen
 }: {
-  monthLabel: string;
+  today: string;
+  ledgerInput: LedgerInput;
   summary: HomeSummary;
-  showAccount: boolean;
   onOpen: (destination: HomeDestination) => void;
 }) {
   const attention = {
@@ -21,28 +22,11 @@ export function HomeView({
 
   return (
     <div className="space-y-5">
-      <section className="luxury-card overflow-hidden rounded-3xl p-5 sm:p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Resultado de {monthLabel}</p>
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-stone-600">Movimiento neto</p>
-            <p
-              className={`mt-1 font-display text-3xl font-semibold sm:text-4xl ${
-                summary.monthlyNet < 0 ? 'text-red-700' : 'text-brand-800'
-              }`}
-            >
-              {formatCOP(summary.monthlyNet)}
-            </p>
-          </div>
-          <p className="max-w-xs text-xs leading-relaxed text-stone-500">
-            Es la misma cifra del Cierre mensual.
-          </p>
-        </div>
-      </section>
+      <HomeBusinessChart anchorDate={today} ledgerInput={ledgerInput} />
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {HOME_GROUPS.map((group) => {
-          const items = group.items.filter((item) => showAccount || !item.requiresCloudAccount);
+          const items = group.items;
           if (items.length === 0) return null;
           return (
             <section key={group.title} className="luxury-card min-w-0 rounded-2xl p-3">

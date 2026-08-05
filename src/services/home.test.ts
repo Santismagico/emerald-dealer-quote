@@ -1,48 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { Appointment, Expense } from '../types';
+import type { Appointment } from '../types';
 import { sampleQuote } from '../test/fixtures';
-import { buildMonthlyReport } from './dailyReport';
 import { buildHomeSummary, HOME_GROUPS, MONEY_SECTIONS } from './home';
 import { emptyStoneLot, emptyStoneSale } from './stones';
 
 const TODAY = '2026-08-03';
-const MONTH = '2026-08';
 
 describe('portada de inicio', () => {
-  it('usa exactamente el movimiento neto del cierre mensual', () => {
-    const quotes = [
-      sampleQuote({
-        id: 'q-mes',
-        status: 'aprobada',
-        date: TODAY,
-        approvedAt: '2026-08-03T15:00:00.000Z',
-        deposit: 450_001,
-        depositDate: TODAY,
-        payments: [],
-        production: []
-      })
-    ];
-    const expenses: Expense[] = [{
-      id: 'g-mes', date: TODAY, concept: 'Publicidad', category: 'Publicidad',
-      amountCop: 125_001, usdRate: null, method: 'Transferencia', paidBy: 'Santiago',
-      partnerId: null, partnerName: '', myPercent: 100, notes: '',
-      createdAt: '2026-08-03T10:00:00.000Z', updatedAt: '2026-08-03T10:00:00.000Z'
-    }];
-
-    const home = buildHomeSummary({
-      month: MONTH,
-      today: TODAY,
-      quotes,
-      appointments: [],
-      stoneLots: [],
-      stockJewels: [],
-      expenses
-    });
-    const monthly = buildMonthlyReport(MONTH, quotes, [], [], expenses);
-
-    expect(home.monthlyNet).toBe(monthly.totals.net);
-  });
-
   it('cuenta únicamente los tres avisos definidos por D-052', () => {
     const appointment: Appointment = {
       id: 'a-hoy',
@@ -84,7 +48,6 @@ describe('portada de inicio', () => {
     });
 
     const home = buildHomeSummary({
-      month: MONTH,
       today: TODAY,
       quotes: [quote],
       appointments: [appointment, { ...appointment, id: 'a-cancelada', status: 'cancelada' }],

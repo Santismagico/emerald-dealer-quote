@@ -1326,3 +1326,11 @@ cifra debe ser **exactamente** la del Cierre mensual, y así debe decirlo la pan
 
 La gráfica **lee del libro del negocio** (D-057) y no calcula por su cuenta. Se dibuja con
 SVG propio: **sin librería de gráficas ni dependencia nueva**.
+
+**Aplicada en R2-2:** Inicio construye el libro después del primer pintado y reutiliza
+ese mismo libro al cambiar período o medida. Caja conserva los movimientos realmente
+cobrados y Ganancia reconoce cada venta en su fecha, sin confundir ambas cifras. El
+período “30 días” representa el mes calendario para mantener exactamente el mismo valor
+del Cierre mensual. La gráfica admite arrastre táctil, mantiene el globo dentro de sus
+bordes y muestra estados claros cuando no hay datos o solo hay un día. La serie usa
+`#0b7f57` en claro y `#2fa87a` en oscuro, sin animación ni dependencia nueva.

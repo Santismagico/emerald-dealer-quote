@@ -38,7 +38,6 @@ import {
   readLocalImportSource
 } from './services/cloud/importer';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
-import { formatMonthCO } from './services/dailyReport';
 import { buildHomeSummary, type HomeDestination, type MoneySection } from './services/home';
 import {
   getBackupReminderSnoozedUntil,
@@ -152,19 +151,25 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
   });
 
   const today = todayISO();
-  const currentMonth = today.slice(0, 7);
   const homeSummary = useMemo(
     () =>
       buildHomeSummary({
-        month: currentMonth,
         today,
         quotes: store.quotes,
         appointments: store.appointments,
-        stoneLots: store.stoneLots,
-        stockJewels: store.stockJewels,
-        expenses: store.expenses
+        stoneLots: store.stoneLots
       }),
-    [currentMonth, store.appointments, store.expenses, store.quotes, store.stockJewels, store.stoneLots, today]
+    [store.appointments, store.quotes, store.stoneLots, today]
+  );
+  const homeLedgerInput = useMemo(
+    () => ({
+      quotes: store.quotes,
+      stoneLots: store.stoneLots,
+      stockJewels: store.stockJewels,
+      materialLots: store.materialLots,
+      expenses: store.expenses
+    }),
+    [store.expenses, store.materialLots, store.quotes, store.stockJewels, store.stoneLots]
   );
 
   useEffect(() => {
@@ -434,9 +439,9 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         ) : null}
         {view === 'home' && (
           <HomeView
-            monthLabel={formatMonthCO(currentMonth)}
+            today={today}
+            ledgerInput={homeLedgerInput}
             summary={homeSummary}
-            showAccount={Boolean(cloudAccount)}
             onOpen={openHomeDestination}
           />
         )}

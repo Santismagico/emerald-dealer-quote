@@ -1,6 +1,5 @@
-import type { Appointment, Expense, Quote, StockJewel, StoneLot } from '../types';
+import type { Appointment, Quote, StoneLot } from '../types';
 import { todaysPendingAppointments } from './agenda';
-import { buildMonthlyReport } from './dailyReport';
 import { listBuyerDebts } from './receivables';
 import { countWorkshopJobs, workshopJobsFromQuotes } from './workshop';
 
@@ -83,35 +82,23 @@ export const HOME_GROUPS: readonly HomeGroup[] = [
 ];
 
 export interface HomeSummary {
-  monthlyNet: number;
   appointmentsToday: number;
   overdueReceivables: number;
   workshopInProgress: number;
 }
 
 export function buildHomeSummary(input: {
-  month: string;
   today: string;
   quotes: readonly Quote[];
   appointments: readonly Appointment[];
   stoneLots: readonly StoneLot[];
-  stockJewels?: readonly StockJewel[];
-  expenses?: readonly Expense[];
 }): HomeSummary {
-  const monthly = buildMonthlyReport(
-    input.month,
-    input.quotes,
-    input.stoneLots,
-    input.stockJewels ?? [],
-    input.expenses ?? []
-  );
   const workshopCounts = countWorkshopJobs(workshopJobsFromQuotes(input.quotes), '');
   const overdueReceivables = listBuyerDebts(input.stoneLots, input.today).filter(
     (debt) => debt.status === 'vencido'
   ).length;
 
   return {
-    monthlyNet: monthly.totals.net,
     appointmentsToday: todaysPendingAppointments(input.appointments, input.today).length,
     overdueReceivables,
     workshopInProgress: workshopCounts.enTaller

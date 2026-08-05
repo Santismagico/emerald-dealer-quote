@@ -839,6 +839,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Correcciones R1 · C3: joya vendida visible (Codex) | Tras vender limpia búsqueda, cambia a Vendidas y enfoca la pieza; cuatro acciones con borde, fondo y 44 px; fecha, pago, receptor y tasa conservados; auditoría reportó el mismo riesgo en el filtro de cotizaciones y no lo amplió; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; no publicado | C3 (este commit) |
 | 2026-08-04 | Correcciones R1 · C4: borrar lote conservando la historia (Codex) | El nombre del lote queda guardado en cada joya antes de borrarlo; costo y resultado de la joya, Cierre del día, mensual y panel permanecen idénticos; respaldo, importación y servidor contemplados; 981 pruebas, 422 módulos y recorrido real 320/390/1280 en verde; migración preparada no aplicada; no publicado | C4 (este commit) |
 | 2026-08-04 | Correcciones R2 · R2-1: un solo vocabulario (Codex) | Barra e Inicio comparten Cotizador, Taller, Inventario y Dinero; Agenda pasa a Otras cosas; Dinero reúne Panel, cierres, Consolidado y Gastos; todos los destinos comprobados; 982 pruebas, 423 módulos y revisión 320/390/1280 sin desbordamiento; no publicado | R2-1 (este commit) |
+| 2026-08-04 | Correcciones R2 · R2-2: gráfica financiera en Inicio (Codex) | Cifra, cambio y área para 1 día/7 días/30 días/1 año; una medida Ganancia/Caja; Caja mensual idéntica al cierre; arrastre táctil y globo contenido; primer pintado no bloqueado y prueba con 5.000 cotizaciones; 985 pruebas en 68 archivos, 425 módulos y revisión 320/390/1280 sin desbordamiento; no publicado | R2-2 (este commit) |
 
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
@@ -1024,6 +1025,23 @@ pintado y **reportar cuánto tarda**.
 
 Claude probó la maqueta y encontró que el globo de información **se desborda a 320 px**
 sin recorte; queda exigido en la orden.
+
+**R2-2 implementada y verificada (Codex, 2026-08-04).** Inicio muestra cifra grande,
+cambio y gráfica de área con **1 día · 7 días · 30 días · 1 año**, alternando una sola
+medida entre **Ganancia** y **Caja**. La prueba obligatoria confirma que Caja con “30
+días” coincide exactamente con el Cierre mensual. Ganancia reconoce la venta en su
+fecha y Caja el dinero cuando realmente entra.
+
+La gráfica se recorre con toque o arrastre; el globo permaneció dentro de ambos bordes
+en 320 px. No hubo desbordamiento en **320, 390 ni 1280 px** y todos los controles
+midieron 44 px. Sin datos y con un solo día aparecen mensajes claros, y la gráfica no
+usa animaciones.
+
+Prueba abundante: **5.000 cotizaciones ficticias**. El primer contenido apareció con una
+mediana de **752 ms** y un máximo de **1,076 s** en tres recargas; construir el libro
+después del primer pintado tomó entre **10,2 y 13,6 ms**. Cierre: **985 pruebas en 68
+archivos**, PWA verificada y compilación de **425 módulos**. Sin dependencias,
+migraciones, campos ni publicación; `main`, piloto y workflow intactos.
 
 ### R1 AUDITADA (2026-08-04). APROBADA.
 

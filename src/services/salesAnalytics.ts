@@ -1,6 +1,11 @@
 import type { Expense, MaterialLot, Quote, StockJewel, StoneLot } from '../types';
 import { copToUsd } from './currency';
-import { buildLedger, ledgerCashTotals, type LedgerEvent } from './ledger';
+import {
+  buildLedger,
+  ledgerCashTotals,
+  ledgerSaleProfitCop,
+  type LedgerEvent
+} from './ledger';
 import { lotDisplayName, summarizeStoneLot } from './stones';
 import { workshopJobsFromQuotes } from './workshop';
 
@@ -123,13 +128,6 @@ export interface SalesAnalytics {
 export const ALL_SALES_FILTER = 'todos';
 export const UNREGISTERED_SALES_FILTER = 'sin-registrar';
 
-const REVENUE_KINDS = new Set<LedgerEvent['kind']>([
-  'cotizacion_aprobada',
-  'venta_piedras_contado',
-  'venta_piedras_credito',
-  'venta_joya_stock'
-]);
-
 function parseDate(date: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!match) return new Date(Date.UTC(1970, 0, 1));
@@ -241,7 +239,7 @@ export function buildSalesAnalytics({
   const range = salesPeriodRange(period, anchorDate);
   const allEvents = buildLedger({ quotes, stoneLots, stockJewels, materialLots, expenses });
   const periodEvents = eventsInRange(allEvents, range);
-  const periodRevenueEvents = periodEvents.filter((entry) => REVENUE_KINDS.has(entry.kind));
+  const periodRevenueEvents = periodEvents.filter((entry) => ledgerSaleProfitCop(entry) !== null);
   const societyOptions = buildFilterOptions(
     periodRevenueEvents,
     societyFilterKey,
@@ -259,7 +257,7 @@ export function buildSalesAnalytics({
         productTypeFilterKey(entry) === productTypeFilter)
   );
   const sales: SalesAnalyticsSale[] = revenueEvents.map((entry) => {
-    const profitCop = entry.amountCop - entry.attributedCostCop;
+    const profitCop = ledgerSaleProfitCop(entry) ?? 0;
     const amountUsd = copToUsd(entry.amountCop, entry.usdRate);
     const costUsd = copToUsd(entry.attributedCostCop, entry.usdRate);
     return {
