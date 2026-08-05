@@ -1,7 +1,7 @@
 {
   "name": "emerald-dealer-quote",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "description": "Emerald Dealer - PWA de cotizaciones profesionales para joyerias",
   "scripts": {
@@ -10,14 +10,24 @@
     "preview": "vite preview",
     "test": "vitest run && node scripts/verify-pwa-assets.mjs",
     "test:csp": "npm run build && node scripts/verify-csp-hash.mjs",
+    "test:public-cloud": "node scripts/verify-public-cloud-precache.mjs",
     "test:watch": "vitest",
     "icons": "node scripts/generate-app-icon-source.mjs && node scripts/generate-icons.mjs && node scripts/verify-pwa-assets.mjs",
-    "test:assets": "node scripts/verify-pwa-assets.mjs"
+    "test:assets": "node scripts/verify-pwa-assets.mjs",
+    "security:secrets:test": "node --test scripts/check-tracked-secrets.node-tests.mjs scripts/test-rls-isolation.guard.node-tests.mjs",
+    "security:secrets": "node scripts/check-tracked-secrets.mjs",
+    "security:evidence": "node scripts/verify-security-evidence.mjs",
+    "security:record": "node scripts/verify-security-evidence.mjs --write",
+    "security:n6": "node scripts/test-rls-isolation.mjs",
+    "security:n6:secure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-n6-secure.ps1",
+    "security:check": "npm audit --audit-level=high && npm run security:secrets:test && npm run security:secrets && npm run security:evidence && npm test && npm run build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.110.7",
     "jspdf": "^4.2.1",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "write-excel-file": "4.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",

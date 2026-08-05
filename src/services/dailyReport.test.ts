@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
-import type { StoneLot } from '../types';
+import type { Expense, StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { contentToPlainText } from './pdfContent';
 import { appendSettlementPayment } from './payments';
@@ -28,8 +28,13 @@ function lote(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 5,
     quantity: 4,
     purchaseValueCop: 6000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: false,
     supplierPayments: [],
+    cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [],
     createdAt: '2026-07-15T09:00:00.000Z',
@@ -47,8 +52,8 @@ describe('cierre del día: qué entra en el reporte', () => {
         id: 'l-viejo-con-venta-hoy',
         purchaseDate: '2026-07-01',
         sales: [
-          { id: 'v-hoy', date: DAY, buyer: 'Comprador', carats: 1, quantity: 1, valueCop: 2000000, notes: '' },
-          { id: 'v-ayer', date: '2026-07-14', buyer: '', carats: 1, quantity: 1, valueCop: 900000, notes: '' }
+          { id: 'v-hoy', date: DAY, buyer: 'Comprador', carats: 1, quantity: 1, origin: 'bruto', valueCop: 2000000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' },
+          { id: 'v-ayer', date: '2026-07-14', buyer: '', carats: 1, quantity: 1, origin: 'bruto', valueCop: 900000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }
         ]
       })
     ];
@@ -171,6 +176,68 @@ describe('cierre del día: qué entra en el reporte', () => {
   });
 });
 
+describe('gastos en los cierres (B1)', () => {
+  const expense: Expense = {
+    id: 'g-1',
+    date: DAY,
+    concept: 'Publicidad de feria',
+    category: 'Publicidad',
+    amountCop: 450001,
+    usdRate: null,
+    method: 'Transferencia',
+    paidBy: 'Santiago',
+    partnerId: 'soc-1',
+    partnerName: 'Socio Emerald',
+    myPercent: 60,
+    notes: 'Stand principal',
+    createdAt: '2026-07-15T09:00:00.000Z',
+    updatedAt: '2026-07-15T09:00:00.000Z'
+  };
+
+  it('con cero gastos devuelve exactamente el reporte y el dinero anteriores', () => {
+    const previousDaily = buildDailyReport(DAY, [], [lote()]);
+    const withExplicitZero = buildDailyReport(DAY, [], [lote()], [], []);
+    expect(withExplicitZero).toEqual(previousDaily);
+    expect(withExplicitZero.totals).toMatchObject({
+      cashIn: 0,
+      cashOut: 6000000,
+      net: -6000000,
+      expensesPaid: 0
+    });
+
+    const previousMonthly = buildMonthlyReport('2026-07', [], [lote()]);
+    expect(buildMonthlyReport('2026-07', [], [lote()], [], [])).toEqual(previousMonthly);
+  });
+
+  it('el gasto sale de caja solo en el día y mes en que se pagó', () => {
+    const day = buildDailyReport(DAY, [], [], [], [expense]);
+    expect(day.expenses).toHaveLength(1);
+    expect(day.totals).toMatchObject({ cashIn: 0, cashOut: 450001, net: -450001 });
+    expect(day.expenses[0]).toMatchObject({ myAmountCop: 270001, partnerAmountCop: 180000 });
+
+    expect(buildDailyReport('2026-07-16', [], [], [], [expense]).expenses).toEqual([]);
+    expect(buildMonthlyReport('2026-07', [], [], [], [expense]).totals.expensesPaid).toBe(450001);
+    expect(buildMonthlyReport('2026-08', [], [], [], [expense]).totals.expensesPaid).toBe(0);
+  });
+
+  it('un mes que solo tiene gastos aparece en el historial mensual', () => {
+    expect(listMonthlySummaries([], [], [], [expense])).toEqual([
+      { month: '2026-07', cashIn: 0, cashOut: 450001, net: -450001 }
+    ]);
+  });
+
+  it('el PDF interno conserva trazabilidad del gasto y su sociedad', () => {
+    const report = buildDailyReport(DAY, [], [], [], [expense]);
+    const content = buildDailyReportPdfContent(report, sampleSettings());
+    const text = contentToPlainText(content);
+    expect(content.internal).toBe(true);
+    expect(text).toContain('Publicidad de feria');
+    expect(text).toContain('Transferencia');
+    expect(text).toContain('Santiago');
+    expect(text).toContain('Socio Emerald');
+  });
+});
+
 describe('cierre del día: totales y día vacío', () => {
   it('suma entradas, salidas y calcula el neto', () => {
     const lots = [
@@ -178,7 +245,7 @@ describe('cierre del día: totales y día vacío', () => {
       lote({
         id: 'l-venta',
         purchaseDate: '2026-07-01',
-        sales: [{ id: 'v-1', date: DAY, buyer: '', carats: 1, quantity: 1, valueCop: 2500000, notes: '' }]
+        sales: [{ id: 'v-1', date: DAY, buyer: '', carats: 1, quantity: 1, origin: 'bruto', valueCop: 2500000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }]
       })
     ];
     const quote = sampleQuote({
@@ -354,7 +421,7 @@ describe('cierre del mes (C6)', () => {
     lote({
       id: 'l-2',
       purchaseDate: '2026-06-20',
-      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, valueCop: 3000000, notes: '' }]
+      sales: [{ id: 'v-jul', date: '2026-07-20', buyer: '', carats: 1, quantity: 1, origin: 'bruto', valueCop: 3000000, productType: '', usdRate: null, buyerId: null, onCredit: false, dueDate: '', payments: [], method: 'Efectivo', receivedBy: 'Santiago', notes: '' }]
     })
   ];
 

@@ -10,9 +10,16 @@ export type StoreName =
   | 'quotes'
   | 'appointments'
   | 'stoneLots'
-  | 'suppliers';
+  | 'suppliers'
+  | 'cloudOutbox'
+  | 'buyers'
+  | 'stockJewels'
+  | 'materialPartners'
+  | 'materialLots'
+  | 'expenses';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
+type TransactionAbort = (error: unknown) => void;
 
 type MigratableDb = Pick<IDBDatabase, 'createObjectStore' | 'objectStoreNames'>;
 
@@ -46,6 +53,24 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   // v4 — proveedores (corrección C3, 2026-07-16).
   (db) => {
     createStoreIfMissing(db, 'suppliers');
+  },
+  // v5 — cola persistente para sincronización con la nube (Fase 2 N2).
+  (db) => {
+    createStoreIfMissing(db, 'cloudOutbox');
+  },
+  // v6 — compradores y joyas en stock (ampliación de inventario, D-043/D-044).
+  (db) => {
+    createStoreIfMissing(db, 'buyers');
+    createStoreIfMissing(db, 'stockJewels');
+  },
+  // v7 — socios y lotes de material (inventario de materiales, D-048/D-049).
+  (db) => {
+    createStoreIfMissing(db, 'materialPartners');
+    createStoreIfMissing(db, 'materialLots');
+  },
+  // v8 — gastos del negocio (Plan v2, B1 / D-059).
+  (db) => {
+    createStoreIfMissing(db, 'expenses');
   }
 ];
 
@@ -95,12 +120,14 @@ function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBOb
 
 /**
  * Ejecuta varias escrituras dentro de UNA sola transacción IndexedDB.
- * El callback debe encolar sus solicitudes de forma síncrona: la promesa se
- * resuelve únicamente cuando IndexedDB confirma el commit completo.
+ * El callback debe encolar al menos una solicitud de forma síncrona. Sus
+ * manejadores pueden encadenar lecturas y escrituras dentro de la misma
+ * transacción. La promesa se resuelve únicamente cuando IndexedDB confirma el
+ * commit completo. `abort` conserva el error de negocio y espera el rollback.
  */
 export function dbWriteTransaction(
   stores: readonly StoreName[],
-  run: (getStore: StoreAccessor) => void
+  run: (getStore: StoreAccessor, abort: TransactionAbort) => void
 ): Promise<void> {
   return openDb().then(
     (db) =>
@@ -135,15 +162,20 @@ export function dbWriteTransaction(
         tx.onerror = () => {};
         tx.onabort = () => rejectOnce('La operación local fue cancelada.');
 
-        try {
-          run((store) => tx.objectStore(store));
-        } catch (error) {
-          callbackError = error;
+        const abort: TransactionAbort = (error) => {
+          if (settled) return;
+          callbackError = error instanceof Error ? error : new Error('No se pudo completar la operación local.');
           try {
             tx.abort();
           } catch {
             rejectOnce('No se pudo completar la operación local.');
           }
+        };
+
+        try {
+          run((store) => tx.objectStore(store), abort);
+        } catch (error) {
+          abort(error);
         }
       })
   );

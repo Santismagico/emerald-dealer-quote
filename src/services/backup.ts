@@ -3,7 +3,19 @@
 // anterior, editado a mano o corrupto nunca puede dejar datos malformados en la
 // base local (hallazgo de la auditoría de seguridad 2026-07-09).
 
-import type { Appointment, BackupFile, Client, Quote, StoneLot, Supplier } from '../types';
+import type {
+  Appointment,
+  BackupFile,
+  Buyer,
+  Client,
+  Expense,
+  MaterialLot,
+  MaterialPartner,
+  Quote,
+  StockJewel,
+  StoneLot,
+  Supplier
+} from '../types';
 import { dbWriteTransaction } from './db';
 import {
   loadSettings,
@@ -12,6 +24,11 @@ import {
   listAppointments,
   listStoneLots,
   listSuppliers,
+  listBuyers,
+  listStockJewels,
+  listMaterialPartners,
+  listMaterialLots,
+  listExpenses,
   SETTINGS_KEY
 } from './storage';
 import {
@@ -20,27 +37,114 @@ import {
   normalizeClient,
   normalizeAppointment,
   normalizeStoneLot,
-  normalizeSupplier
+  normalizeSupplier,
+  normalizeBuyer,
+  normalizeStockJewel,
+  normalizeMaterialPartner,
+  normalizeMaterialLot,
+  normalizeExpense
 } from './schema';
+import { validateExpense } from './expenses';
+import {
+  validateStoneLotInventory,
+  validateStoneLotOwnership,
+  validateStoneLotSalesMetadata
+} from './stones';
+import { validateStockJewelSaleMetadata } from './stockJewels';
+import { validateOptionalUsdRate } from './currency';
+import { validateSettingsMetadata } from './settingsMetadata';
+import { validateStoneJewelTransformationCollections } from './stoneJewelTransformation';
 
 /**
- * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 5.
- * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores. Los
- * respaldos más viejos se importan con las listas nuevas vacías y nunca
- * fallan por no traerlas.
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 8.
+ * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores; v6 los
+ * compradores y las joyas en stock; v7 los socios y lotes de material; v8 los gastos. Los
+ * respaldos más viejos se importan con las listas nuevas vacías y nunca fallan
+ * por no traerlas.
  */
-export const BACKUP_VERSION = 5;
-const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5];
+export const BACKUP_VERSION = 8;
+const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPositiveCarats(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    Math.abs(value * 1000 - Math.round(value * 1000)) < 1e-7
+  );
+}
+
+function isRawStoneInternalUse(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    isPositiveCarats(value.carats) &&
+    typeof value.quantity === 'number' &&
+    Number.isInteger(value.quantity) &&
+    value.quantity > 0 &&
+    (value.origin === 'bruto' || value.origin === 'tallado') &&
+    typeof value.jewelId === 'string' &&
+    typeof value.costCop === 'number' &&
+    Number.isSafeInteger(value.costCop) &&
+    value.costCop >= 0 &&
+    typeof value.notes === 'string'
+  );
+}
+
+function isRawStoneTransformation(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.lotId === 'string' &&
+    (!Object.prototype.hasOwnProperty.call(value, 'lotName') ||
+      (typeof value.lotName === 'string' && value.lotName.trim().length > 0)) &&
+    typeof value.jewelId === 'string' &&
+    isPositiveCarats(value.carats) &&
+    typeof value.quantity === 'number' &&
+    Number.isInteger(value.quantity) &&
+    value.quantity > 0 &&
+    (value.origin === 'bruto' || value.origin === 'tallado') &&
+    typeof value.costCop === 'number' &&
+    Number.isSafeInteger(value.costCop) &&
+    value.costCop >= 0 &&
+    typeof value.notes === 'string' &&
+    value.fromStoneKind === 'fantasia' &&
+    value.toStoneKind === 'natural'
+  );
+}
+
 export async function exportBackup(): Promise<BackupFile> {
-  const [settings, clients, quotes, appointments, stoneLots, suppliers] = await Promise.all([
+  const [
+    settings,
+    clients,
+    quotes,
+    appointments,
+    stoneLots,
+    suppliers,
+    buyers,
+    stockJewels,
+    materialPartners,
+    materialLots,
+    expenses
+  ] = await Promise.all([
     loadSettings(),
     listClients(),
     listQuotes(),
     listAppointments(),
     listStoneLots(),
-    listSuppliers()
+    listSuppliers(),
+    listBuyers(),
+    listStockJewels(),
+    listMaterialPartners(),
+    listMaterialLots(),
+    listExpenses()
   ]);
   return {
     app: 'emerald-dealer-quote',
@@ -51,7 +155,12 @@ export async function exportBackup(): Promise<BackupFile> {
     quotes,
     appointments,
     stoneLots,
-    suppliers
+    suppliers,
+    buyers,
+    stockJewels,
+    materialPartners,
+    materialLots,
+    expenses
   };
 }
 
@@ -94,6 +203,12 @@ function normalizeBackup(data: unknown): BackupFile {
   const rawSettings = b.settings ?? null;
   if (rawSettings !== null && (typeof rawSettings !== 'object' || Array.isArray(rawSettings))) {
     throw new Error('El respaldo contiene ajustes inválidos.');
+  }
+  if (rawSettings !== null) {
+    const settingsError = validateSettingsMetadata(rawSettings);
+    if (settingsError) {
+      throw new Error(`El respaldo contiene ajustes inválidos. ${settingsError}`);
+    }
   }
   const quoteIds = new Set<string>();
   for (const q of b.quotes) {
@@ -167,6 +282,25 @@ function normalizeBackup(data: unknown): BackupFile {
     if (stoneLotIds.has(id)) {
       throw new Error('El respaldo contiene lotes de piedras duplicados.');
     }
+    if (
+      isRecord(l) &&
+      Object.prototype.hasOwnProperty.call(l, 'internalUses') &&
+      (!Array.isArray(l.internalUses) || !l.internalUses.every(isRawStoneInternalUse))
+    ) {
+      throw new Error('El respaldo contiene usos internos de piedras inválidos.');
+    }
+    const ownershipError = validateStoneLotOwnership(l);
+    if (ownershipError) {
+      throw new Error(`El respaldo contiene un reparto de piedras inválido: ${ownershipError}`);
+    }
+    const metadataError = validateStoneLotSalesMetadata(l);
+    if (metadataError) {
+      throw new Error(`El respaldo contiene ventas de piedras inválidas: ${metadataError}`);
+    }
+    const inventoryError = validateStoneLotInventory(normalizeStoneLot(l));
+    if (inventoryError) {
+      throw new Error(`El respaldo contiene existencias de piedras inválidas: ${inventoryError}`);
+    }
     stoneLotIds.add(id);
   }
   // Los proveedores son opcionales (v1–v4 no los traen).
@@ -185,7 +319,121 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     supplierIds.add(id);
   }
-  return {
+  // Los compradores son opcionales (v1–v5 no los traen).
+  const rawBuyers = b.buyers ?? [];
+  if (!Array.isArray(rawBuyers)) {
+    throw new Error('El respaldo contiene compradores inválidos.');
+  }
+  const buyerIds = new Set<string>();
+  for (const bu of rawBuyers) {
+    const id = (bu as Buyer)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene compradores inválidos.');
+    }
+    if (buyerIds.has(id)) {
+      throw new Error('El respaldo contiene compradores duplicados.');
+    }
+    buyerIds.add(id);
+  }
+  // Las joyas en stock son opcionales (v1–v5 no las traen).
+  const rawStockJewels = b.stockJewels ?? [];
+  if (!Array.isArray(rawStockJewels)) {
+    throw new Error('El respaldo contiene joyas en stock inválidas.');
+  }
+  const jewelIds = new Set<string>();
+  for (const j of rawStockJewels) {
+    const id = (j as StockJewel)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene joyas en stock inválidas.');
+    }
+    if (jewelIds.has(id)) {
+      throw new Error('El respaldo contiene joyas en stock duplicadas.');
+    }
+    if (
+      isRecord(j) &&
+      Object.prototype.hasOwnProperty.call(j, 'stoneTransformations') &&
+      (!Array.isArray(j.stoneTransformations) ||
+        !j.stoneTransformations.every(isRawStoneTransformation))
+    ) {
+      throw new Error('El respaldo contiene transformaciones de joyas inválidas.');
+    }
+    const metadataError = validateStockJewelSaleMetadata(j);
+    if (metadataError) {
+      throw new Error(`El respaldo contiene ventas de joyas inválidas: ${metadataError}`);
+    }
+    jewelIds.add(id);
+  }
+  // Los socios de material son opcionales (v1–v6 no los traen).
+  const rawMaterialPartners = b.materialPartners ?? [];
+  if (!Array.isArray(rawMaterialPartners)) {
+    throw new Error('El respaldo contiene socios de material inválidos.');
+  }
+  const partnerIds = new Set<string>();
+  for (const p of rawMaterialPartners) {
+    const id = (p as MaterialPartner)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene socios de material inválidos.');
+    }
+    if (partnerIds.has(id)) {
+      throw new Error('El respaldo contiene socios de material duplicados.');
+    }
+    partnerIds.add(id);
+  }
+  // Los lotes de material son opcionales (v1–v6 no los traen).
+  const rawMaterialLots = b.materialLots ?? [];
+  if (!Array.isArray(rawMaterialLots)) {
+    throw new Error('El respaldo contiene lotes de material inválidos.');
+  }
+  const materialLotIds = new Set<string>();
+  for (const l of rawMaterialLots) {
+    const id = (l as MaterialLot)?.id;
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new Error('El respaldo contiene lotes de material inválidos.');
+    }
+    if (materialLotIds.has(id)) {
+      throw new Error('El respaldo contiene lotes de material duplicados.');
+    }
+    materialLotIds.add(id);
+  }
+  // Los gastos son opcionales en v1–v7 y obligatorios en el formato v8.
+  const rawExpenses = b.expenses ?? [];
+  if (!Array.isArray(rawExpenses) || (b.version === 8 && !Array.isArray(b.expenses))) {
+    throw new Error('El respaldo contiene gastos inválidos.');
+  }
+  const expenseIds = new Set<string>();
+  for (const rawExpense of rawExpenses) {
+    const expense = rawExpense as Partial<Expense>;
+    if (typeof expense.id !== 'string' || !expense.id.trim()) {
+      throw new Error('El respaldo contiene gastos con identificador inválido.');
+    }
+    if (expenseIds.has(expense.id)) {
+      throw new Error('El respaldo contiene gastos duplicados.');
+    }
+    if (
+      typeof expense.amountCop !== 'number' ||
+      !Number.isFinite(expense.amountCop) ||
+      !Number.isInteger(expense.amountCop) ||
+      typeof expense.myPercent !== 'number' ||
+      !Number.isFinite(expense.myPercent) ||
+      !Number.isInteger(expense.myPercent) ||
+      expense.myPercent < 0 ||
+      expense.myPercent > 100
+    ) {
+      throw new Error('El respaldo contiene dinero o porcentajes inválidos en gastos.');
+    }
+    const rateError = validateOptionalUsdRate(
+      Object.prototype.hasOwnProperty.call(expense, 'usdRate') ? expense.usdRate : null
+    );
+    if (rateError) {
+      throw new Error(`El respaldo contiene tasas inválidas en gastos: ${rateError}`);
+    }
+    const normalizedExpense = normalizeExpense(expense);
+    if (validateExpense(normalizedExpense)) {
+      throw new Error('El respaldo contiene gastos inválidos.');
+    }
+    expenseIds.add(expense.id);
+  }
+  const normalized: BackupFile = {
     app: 'emerald-dealer-quote',
     version: BACKUP_VERSION,
     exportedAt: typeof b.exportedAt === 'string' ? b.exportedAt : '',
@@ -195,8 +443,19 @@ function normalizeBackup(data: unknown): BackupFile {
     quotes: b.quotes.map(normalizeQuote),
     appointments: rawAppointments.map(normalizeAppointment),
     stoneLots: rawStoneLots.map(normalizeStoneLot),
-    suppliers: rawSuppliers.map(normalizeSupplier)
+    suppliers: rawSuppliers.map(normalizeSupplier),
+    buyers: rawBuyers.map(normalizeBuyer),
+    stockJewels: rawStockJewels.map(normalizeStockJewel),
+    materialPartners: rawMaterialPartners.map(normalizeMaterialPartner),
+    materialLots: rawMaterialLots.map(normalizeMaterialLot),
+    expenses: rawExpenses.map(normalizeExpense)
   };
+  const linkError = validateStoneJewelTransformationCollections(
+    normalized.stoneLots,
+    normalized.stockJewels
+  );
+  if (linkError) throw new Error(`El respaldo no cuadra entre Piedras y Joyas: ${linkError}`);
+  return normalized;
 }
 
 /** Valida, normaliza y parsea un respaldo. Lanza Error con mensaje humano si no es válido. */
@@ -224,7 +483,19 @@ export async function importBackup(backup: BackupFile): Promise<void> {
 
   try {
     await dbWriteTransaction(
-      ['settings', 'clients', 'quotes', 'appointments', 'stoneLots', 'suppliers'],
+      [
+        'settings',
+        'clients',
+        'quotes',
+        'appointments',
+        'stoneLots',
+        'suppliers',
+        'buyers',
+        'stockJewels',
+        'materialPartners',
+        'materialLots',
+        'expenses'
+      ],
       (getStore) => {
         const settingsStore = getStore('settings');
         const clientsStore = getStore('clients');
@@ -232,6 +503,11 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         const appointmentsStore = getStore('appointments');
         const stoneLotsStore = getStore('stoneLots');
         const suppliersStore = getStore('suppliers');
+        const buyersStore = getStore('buyers');
+        const stockJewelsStore = getStore('stockJewels');
+        const materialPartnersStore = getStore('materialPartners');
+        const materialLotsStore = getStore('materialLots');
+        const expensesStore = getStore('expenses');
 
         settingsStore.clear();
         clientsStore.clear();
@@ -239,6 +515,11 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         appointmentsStore.clear();
         stoneLotsStore.clear();
         suppliersStore.clear();
+        buyersStore.clear();
+        stockJewelsStore.clear();
+        materialPartnersStore.clear();
+        materialLotsStore.clear();
+        expensesStore.clear();
 
         if (normalized.settings) {
           settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -257,6 +538,21 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         }
         for (const supplier of normalized.suppliers) {
           suppliersStore.put(supplier);
+        }
+        for (const buyer of normalized.buyers) {
+          buyersStore.put(buyer);
+        }
+        for (const jewel of normalized.stockJewels) {
+          stockJewelsStore.put(jewel);
+        }
+        for (const partner of normalized.materialPartners) {
+          materialPartnersStore.put(partner);
+        }
+        for (const lot of normalized.materialLots) {
+          materialLotsStore.put(lot);
+        }
+        for (const expense of normalized.expenses) {
+          expensesStore.put(expense);
         }
       }
     );

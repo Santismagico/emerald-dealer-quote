@@ -1,10 +1,17 @@
-# Publica la app en GitHub Pages en cada push a main.
+# Publica solamente cuando Santiago o un responsable la ordena manualmente.
 name: Deploy a GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      n6_evidence_commit:
+        description: Commit exacto que aprobó la prueba real N6
+        required: true
+        type: string
+      release_confirmation:
+        description: Escribe PUBLICAR para confirmar la salida
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -25,10 +32,27 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Confirmar candidata y autorización humana
+        env:
+          N6_EVIDENCE_COMMIT: ${{ inputs.n6_evidence_commit }}
+          RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+        run: |
+          test "$N6_EVIDENCE_COMMIT" = "$GITHUB_SHA"
+          test "$RELEASE_CONFIRMATION" = "PUBLICAR"
+      - run: npm audit --audit-level=high
+      - run: npm run security:secrets:test
+      - run: npm run security:secrets
+      - run: npm run security:evidence
       - run: npm test
       - run: npm run build
         env:
           DEPLOY_BASE: /emerald-dealer-quote/
+      - run: npm run security:record
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-publicacion-${{ github.sha }}
+          path: security-evidence/release-evidence.json
+          retention-days: 90
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

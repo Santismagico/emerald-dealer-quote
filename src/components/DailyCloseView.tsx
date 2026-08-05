@@ -16,36 +16,50 @@ import {
   type BusinessReport
 } from '../services/dailyReport';
 import { downloadDailyReportPdf } from '../services/pdf';
+import { buildCloseExcelWorkbook, downloadExcelWorkbook } from '../services/excelExport';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, todayISO } from '../utils/dates';
 import { Button, EmptyState, Field, SectionCard, Select, SummaryRow, TextInput } from './ui';
 
-export function DailyCloseView() {
+export function DailyCloseView({
+  initialMode = 'dia',
+  showModeSelector = true
+}: {
+  initialMode?: 'dia' | 'mes';
+  showModeSelector?: boolean;
+}) {
   const store = useStore();
-  const [mode, setMode] = useState<'dia' | 'mes'>('dia');
+  const [mode, setMode] = useState<'dia' | 'mes'>(initialMode);
   const today = todayISO();
   const currentMonth = today.slice(0, 7);
   const [day, setDay] = useState(today);
   const [month, setMonth] = useState(currentMonth);
   const [busy, setBusy] = useState(false);
+  const [excelBusy, setExcelBusy] = useState(false);
 
   const validDay = isValidISODate(day);
   const dailyReport = useMemo(
-    () => buildDailyReport(validDay ? day : today, store.quotes, store.stoneLots),
-    [day, validDay, today, store.quotes, store.stoneLots]
+    () => buildDailyReport(
+      validDay ? day : today,
+      store.quotes,
+      store.stoneLots,
+      store.stockJewels,
+      store.expenses
+    ),
+    [day, validDay, today, store.quotes, store.stoneLots, store.stockJewels, store.expenses]
   );
 
   const summaries = useMemo(
-    () => listMonthlySummaries(store.quotes, store.stoneLots),
-    [store.quotes, store.stoneLots]
+    () => listMonthlySummaries(store.quotes, store.stoneLots, store.stockJewels, store.expenses),
+    [store.quotes, store.stoneLots, store.stockJewels, store.expenses]
   );
   const monthOptions = useMemo(() => {
     const months = new Set<string>([currentMonth, ...summaries.map((s) => s.month)]);
     return [...months].sort((a, b) => b.localeCompare(a));
   }, [currentMonth, summaries]);
   const monthlyReport = useMemo(
-    () => buildMonthlyReport(month, store.quotes, store.stoneLots),
-    [month, store.quotes, store.stoneLots]
+    () => buildMonthlyReport(month, store.quotes, store.stoneLots, store.stockJewels, store.expenses),
+    [month, store.quotes, store.stoneLots, store.stockJewels, store.expenses]
   );
 
   const download = async () => {
@@ -73,28 +87,51 @@ export function DailyCloseView() {
   const report: BusinessReport = mode === 'dia' ? dailyReport : monthlyReport;
   const periodLabel = mode === 'dia' ? `El ${formatDateCO(dailyReport.date)}` : formatMonthCO(month);
 
+  const downloadExcel = async () => {
+    setExcelBusy(true);
+    try {
+      const period = mode === 'dia' ? dailyReport.date : monthlyReport.month;
+      await downloadExcelWorkbook(
+        buildCloseExcelWorkbook(report, {
+          jewelryName: store.settings.jewelryName,
+          mode,
+          period,
+          periodLabel
+        }),
+        `cierre-${mode === 'dia' ? 'dia' : 'mes'}-${period}.xlsx`
+      );
+      store.showToast('Excel del cierre generado');
+    } catch {
+      store.showToast('No se pudo generar el Excel. Intenta de nuevo.');
+    } finally {
+      setExcelBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
-        <button
-          type="button"
-          onClick={() => setMode('dia')}
-          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
-            mode === 'dia' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
-          }`}
-        >
-          Cierre del día
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('mes')}
-          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
-            mode === 'mes' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
-          }`}
-        >
-          Cierre del mes
-        </button>
-      </div>
+      {showModeSelector ? (
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
+          <button
+            type="button"
+            onClick={() => setMode('dia')}
+            className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
+              mode === 'dia' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
+            }`}
+          >
+            Cierre del día
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('mes')}
+            className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
+              mode === 'mes' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
+            }`}
+          >
+            Cierre mensual
+          </button>
+        </div>
+      ) : null}
 
       <SectionCard subtitle="Documento interno con todo lo que pasó en el negocio. No se comparte con clientes.">
         {mode === 'dia' ? (
@@ -122,6 +159,9 @@ export function DailyCloseView() {
           <SectionCard title={mode === 'dia' ? 'Dinero del día' : 'Dinero del mes'}>
             <SummaryRow label="Entró en total" value={formatCOP(report.totals.cashIn)} />
             <SummaryRow label="Salió en total" value={`- ${formatCOP(report.totals.cashOut)}`} />
+            {report.totals.expensesPaid > 0 && (
+              <SummaryRow label="Gastos del negocio" value={`- ${formatCOP(report.totals.expensesPaid)}`} />
+            )}
             <div className="border-t border-stone-100 pt-1">
               <SummaryRow
                 label="Movimiento neto"
@@ -137,6 +177,19 @@ export function DailyCloseView() {
               </p>
             )}
           </SectionCard>
+
+          {report.expenses.length > 0 && (
+            <SectionCard title={`Gastos del negocio (${report.expenses.length})`}>
+              {report.expenses.map((expense) => (
+                <ReportLine
+                  key={expense.id}
+                  main={expense.concept}
+                  detail={expenseDetail(expense)}
+                  value={`- ${formatCOP(expense.amountCop)}`}
+                />
+              ))}
+            </SectionCard>
+          )}
 
           <SectionCard title="Joyería (cotizador y taller)">
             <SummaryRow label="Entró por pagos de clientes" value={formatCOP(report.totals.paymentsReceived)} />
@@ -200,7 +253,14 @@ export function DailyCloseView() {
           )}
 
           <SectionCard title="Piedras">
-            <SummaryRow label="Entró por ventas" value={formatCOP(report.totals.stonesSold)} />
+            <SummaryRow
+              label="Entró por ventas de contado"
+              value={formatCOP(report.totals.stonesSold)}
+            />
+            <SummaryRow
+              label="Entró por abonos de compradores"
+              value={formatCOP(report.totals.buyerPaymentsReceived)}
+            />
             <SummaryRow
               label="Salió en compras de contado"
               value={`- ${formatCOP(report.totals.stonesPurchasedCash)}`}
@@ -209,7 +269,37 @@ export function DailyCloseView() {
               label="Salió a proveedores (créditos)"
               value={`- ${formatCOP(report.totals.supplierPaymentsPaid)}`}
             />
+            <SummaryRow
+              label="Salió en tallas"
+              value={`- ${formatCOP(report.totals.cuttingPaid)}`}
+            />
+            {report.totals.stonesSoldCredit > 0 && (
+              <p className="text-[11px] text-stone-400">
+                Vendiste {formatCOP(report.totals.stonesSoldCredit)} a crédito. Ese dinero no entró
+                a caja: entrará cuando te abonen.
+              </p>
+            )}
           </SectionCard>
+
+          {(report.totals.jewelsSold > 0 || report.totals.jewelsAcquiredCost > 0) && (
+            <SectionCard title="Joyas en stock">
+              <SummaryRow label="Entró por ventas" value={formatCOP(report.totals.jewelsSold)} />
+              <SummaryRow
+                label="Salió en piezas nuevas"
+                value={`- ${formatCOP(report.totals.jewelsAcquiredCost)}`}
+              />
+              {report.jewelSales.length > 0 && (
+                <SummaryRow
+                  label="Resultado de lo vendido"
+                  value={formatCOP(report.totals.jewelsResult)}
+                  bold
+                  valueClass={
+                    report.totals.jewelsResult < 0 ? 'text-red-600' : 'text-brand-800'
+                  }
+                />
+              )}
+            </SectionCard>
+          )}
 
           {report.stonePurchases.length > 0 && (
             <SectionCard title={`Piedras compradas (${report.stonePurchases.length})`}>
@@ -229,9 +319,48 @@ export function DailyCloseView() {
               {report.stoneSales.map((s, i) => (
                 <ReportLine
                   key={i}
-                  main={`${s.lotName} · ${s.quantity} pz`}
-                  detail={s.buyer ? `a ${s.buyer}` : ''}
+                  main={`${s.lotName} · ${s.quantity} pz${s.onCredit ? ' · A CRÉDITO' : ''}`}
+                  detail={stoneSaleDetail(s)}
                   value={formatCOP(s.valueCop)}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.buyerPayments.length > 0 && (
+            <SectionCard title={`Abonos de compradores (${report.buyerPayments.length})`}>
+              {report.buyerPayments.map((p, i) => (
+                <ReportLine
+                  key={i}
+                  main={p.buyer || 'Sin nombre'}
+                  detail={buyerPaymentDetail(p)}
+                  value={formatCOP(p.amount)}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.jewelPurchases.length > 0 && (
+            <SectionCard title={`Joyas que entraron (${report.jewelPurchases.length})`}>
+              {report.jewelPurchases.map((j, i) => (
+                <ReportLine
+                  key={i}
+                  main={j.jewelName}
+                  detail={j.pieceType}
+                  value={`- ${formatCOP(j.costCop)}`}
+                />
+              ))}
+            </SectionCard>
+          )}
+
+          {report.jewelSales.length > 0 && (
+            <SectionCard title={`Joyas vendidas (${report.jewelSales.length})`}>
+              {report.jewelSales.map((j, i) => (
+                <ReportLine
+                  key={i}
+                  main={j.jewelName}
+                  detail={jewelSaleDetail(j)}
+                  value={formatCOP(j.priceCop)}
                 />
               ))}
             </SectionCard>
@@ -249,10 +378,25 @@ export function DailyCloseView() {
               ))}
             </SectionCard>
           )}
+
+          {report.cuttingPayments.length > 0 && (
+            <SectionCard title={`Pagos de talla (${report.cuttingPayments.length})`}>
+              {report.cuttingPayments.map((payment, index) => (
+                <ReportLine
+                  key={index}
+                  main={payment.lotName}
+                  detail={payment.returnedDate ? 'Tanda ya regresó' : 'Tanda todavía en talla'}
+                  value={`- ${formatCOP(payment.amount)}`}
+                />
+              ))}
+            </SectionCard>
+          )}
         </>
       )}
 
-      {(report.totals.supplierDebt > 0 || report.totals.clientsOwe > 0) && (
+      {(report.totals.supplierDebt > 0 ||
+        report.totals.clientsOwe > 0 ||
+        report.totals.buyersOwe > 0) && (
         <SectionCard title="Deudas a la fecha">
           {report.totals.supplierDebt > 0 && (
             <SummaryRow
@@ -265,6 +409,13 @@ export function DailyCloseView() {
             <SummaryRow
               label="Clientes te deben"
               value={formatCOP(report.totals.clientsOwe)}
+              valueClass="text-brand-800"
+            />
+          )}
+          {report.totals.buyersOwe > 0 && (
+            <SummaryRow
+              label="Te deben por piedras"
+              value={formatCOP(report.totals.buyersOwe)}
               valueClass="text-brand-800"
             />
           )}
@@ -288,6 +439,18 @@ export function DailyCloseView() {
       <Button full disabled={busy || (mode === 'dia' && !validDay)} onClick={() => void download()}>
         {busy ? 'Generando…' : mode === 'dia' ? 'Descargar PDF del día' : 'Descargar PDF del mes'}
       </Button>
+      <Button
+        variant="secondary"
+        full
+        disabled={excelBusy || (mode === 'dia' && !validDay)}
+        onClick={() => void downloadExcel()}
+      >
+        {excelBusy
+          ? 'Generando…'
+          : mode === 'dia'
+            ? 'Descargar Excel del día'
+            : 'Descargar Excel del mes'}
+      </Button>
       <p className="text-center text-[11px] text-stone-400">
         Documento interno: solo se descarga en este dispositivo. Nunca se envía ni se comparte.
       </p>
@@ -295,12 +458,56 @@ export function DailyCloseView() {
   );
 }
 
+function expenseDetail(expense: BusinessReport['expenses'][number]): string {
+  const parts = [expense.category, `Medio: ${expense.method}`, `pagó: ${expense.paidBy}`];
+  if (expense.partnerName) {
+    parts.push(
+      `${expense.partnerName}: ${expense.myPercent}% propio · ${100 - expense.myPercent}% socio`
+    );
+  }
+  if (expense.notes) parts.push(`Nota: ${expense.notes}`);
+  return parts.join(' · ');
+}
+
+function stoneSaleDetail(sale: BusinessReport['stoneSales'][number]): string {
+  const parts: string[] = [];
+  if (sale.buyer) parts.push(`a ${sale.buyer}`);
+  if (sale.onCredit) {
+    parts.push(`pagan el ${formatDateCO(sale.dueDate)}`);
+  } else {
+    parts.push(`Medio: ${sale.method || 'Sin registrar'}`);
+    parts.push(`recibió: ${sale.receivedBy || 'Sin registrar'}`);
+  }
+  if (sale.notes) parts.push(`Nota: ${sale.notes}`);
+  return parts.join(' · ');
+}
+
+function buyerPaymentDetail(payment: BusinessReport['buyerPayments'][number]): string {
+  const parts = [
+    payment.lotName,
+    `Medio: ${payment.method || 'Sin registrar'}`,
+    `recibió: ${payment.receivedBy || 'Sin registrar'}`
+  ];
+  if (payment.notes) parts.push(`Nota: ${payment.notes}`);
+  return parts.join(' · ');
+}
+
+function jewelSaleDetail(sale: BusinessReport['jewelSales'][number]): string {
+  const parts = [
+    sale.buyer ? `a ${sale.buyer}` : sale.pieceType,
+    `Medio: ${sale.method || 'Sin registrar'}`,
+    `recibió: ${sale.receivedBy || 'Sin registrar'}`
+  ];
+  if (sale.notes) parts.push(`Nota: ${sale.notes}`);
+  return parts.join(' · ');
+}
+
 function ReportLine({ main, detail, value }: { main: string; detail: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm">
       <div className="min-w-0">
         <p className="truncate text-stone-800">{main}</p>
-        {detail ? <p className="truncate text-xs text-stone-500">{detail}</p> : null}
+        {detail ? <p className="break-words text-xs text-stone-500">{detail}</p> : null}
       </div>
       <span className="shrink-0 font-medium text-stone-900">{value}</span>
     </div>

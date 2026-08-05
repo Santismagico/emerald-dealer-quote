@@ -8,6 +8,7 @@ import { formatCOP } from '../utils/money';
 import { formatDateCO } from '../utils/dates';
 import { parseBackup, importBackup } from '../services/backup';
 import { defaultSettings } from '../services/storage';
+import { addProductType, setProductTypeActive } from '../services/productTypes';
 import {
   Button,
   Field,
@@ -23,7 +24,56 @@ import {
 type BackupRestoreResult = 'success' | 'restore-failed' | 'reload-failed';
 
 export const BACKUP_RESTORE_WARNING =
-  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas y pagos a proveedores) y proveedores actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
+  'Esto REEMPLAZARÁ los ajustes, clientes, cotizaciones (incluidos sus abonos y seguimiento del taller), agenda, lotes de piedras (incluidas sus ventas, sociedades y pagos a proveedores), proveedores, compradores, joyas en inventario, socios, lotes de material y gastos actuales por los del archivo. Esta acción no se puede deshacer. ¿Deseas continuar?';
+
+export function canReplaceFromLocalBackup(isCloudAccount: boolean): boolean {
+  return !isCloudAccount;
+}
+
+export function BackupImportControls({
+  isCloudAccount,
+  importError,
+  onFile
+}: {
+  isCloudAccount: boolean;
+  importError: string;
+  onFile: (file: File | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  if (isCloudAccount) {
+    return (
+      <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+        Para agregar o actualizar datos usa Ajustes y cuenta → Abrir cuenta → Importar datos.
+        Esa ruta no reemplaza ni borra en bloque los registros que ya están en la nube.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        full
+        onClick={() => inputRef.current?.click()}
+      >
+        ⬆ Importar respaldo
+      </Button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/json,.json"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
+        onChange={(event) => {
+          onFile(event.target.files?.[0] ?? null);
+          event.target.value = '';
+        }}
+      />
+      {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
+    </>
+  );
+}
 
 /** Orden comprobable del flujo: restaurar, sincronizar, recargar y recién entonces avisar éxito. */
 export async function runBackupRestoreFlow(actions: {
@@ -49,8 +99,15 @@ export async function runBackupRestoreFlow(actions: {
   return 'success';
 }
 
-export function SettingsView() {
+export function SettingsView({
+  isCloudAccount = false,
+  onOpenAccount
+}: {
+  isCloudAccount?: boolean;
+  onOpenAccount?: () => void;
+}) {
   const store = useStore();
+  const allowLocalRestore = canReplaceFromLocalBackup(isCloudAccount);
   const [form, setForm] = useState<Settings>(store.settings);
   const [dirty, setDirty] = useState(false);
   const [importPending, setImportPending] = useState<BackupFile | null>(null);
@@ -58,7 +115,8 @@ export function SettingsView() {
   const [importBusy, setImportBusy] = useState(false);
   const importBusyRef = useRef(false);
   const [goldBusy, setGoldBusy] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  const [newProductType, setNewProductType] = useState('');
+  const [productTypesBusy, setProductTypesBusy] = useState(false);
   // En la PWA instalada de Android, un input file con display:none dentro de un
   // label puede no abrir el selector; el clic programático desde un botón sí.
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -181,6 +239,17 @@ export function SettingsView() {
 
   return (
     <div className="space-y-4">
+      {isCloudAccount && onOpenAccount ? (
+        <SectionCard
+          title="Cuenta del negocio"
+          subtitle="Administra el acceso, la sincronización y la importación de esta cuenta."
+        >
+          <Button variant="secondary" full onClick={onOpenAccount}>
+            Abrir cuenta
+          </Button>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Datos de la joyería" subtitle="Aparecen en el PDF que recibe el cliente.">
         <Field label="Nombre de la joyería">
           <TextInput value={form.jewelryName} onChange={(jewelryName) => patch({ jewelryName })} />
@@ -282,6 +351,76 @@ export function SettingsView() {
       </SectionCard>
 
       <SectionCard
+        title="Tipos de producto"
+        subtitle="Se ofrecen al registrar ventas. Desactivar uno conserva todo su historial."
+      >
+        <div className="flex min-w-0 gap-2">
+          <div className="min-w-0 flex-1">
+            <TextInput
+              value={newProductType}
+              onChange={setNewProductType}
+              placeholder="Nuevo tipo de producto"
+            />
+          </div>
+          <Button
+            variant="secondary"
+            disabled={productTypesBusy || !newProductType.trim()}
+            onClick={async () => {
+              if (!newProductType.trim() || productTypesBusy) return;
+              setProductTypesBusy(true);
+              try {
+                await store.updateProductTypes((current) =>
+                  addProductType(current, newProductType)
+                );
+                setNewProductType('');
+                store.showToast('Tipo de producto disponible');
+              } catch {
+                store.showToast('No se pudo guardar el tipo de producto.');
+              } finally {
+                setProductTypesBusy(false);
+              }
+            }}
+          >
+            Agregar
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {store.settings.productTypes.map((option) => (
+            <div
+              key={option.name}
+              className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-stone-50 px-3 py-2"
+            >
+              <span className="min-w-0 break-words text-sm text-stone-800">{option.name}</span>
+              <button
+                type="button"
+                disabled={productTypesBusy}
+                className={'min-h-11 shrink-0 rounded-lg px-3 text-sm font-semibold ' + (
+                  option.active
+                    ? 'text-red-600 active:bg-red-50'
+                    : 'text-brand-800 active:bg-brand-50'
+                )}
+                onClick={async () => {
+                  if (productTypesBusy) return;
+                  setProductTypesBusy(true);
+                  try {
+                    await store.updateProductTypes((current) =>
+                      setProductTypeActive(current, option.name, !option.active)
+                    );
+                  } catch {
+                    store.showToast('No se pudo actualizar el tipo de producto.');
+                  } finally {
+                    setProductTypesBusy(false);
+                  }
+                }}
+              >
+                {option.active ? 'Dejar de ofrecer' : 'Volver a ofrecer'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard
         title="Cálculo interno"
         subtitle="Confidencial. Nada de esta sección aparece en el PDF del cliente."
       >
@@ -361,31 +500,18 @@ export function SettingsView() {
 
       <SectionCard
         title="Respaldo de datos"
-        subtitle="Tus datos viven solo en este dispositivo. Exporta un respaldo con frecuencia."
+        subtitle={isCloudAccount
+          ? 'Exporta una copia de seguridad de tu cuenta con frecuencia.'
+          : 'Tus datos viven solo en este dispositivo. Exporta un respaldo con frecuencia.'}
       >
         <Button variant="secondary" full disabled={store.backupExporting} onClick={handleExport}>
           {store.backupExporting ? 'Preparando respaldo…' : '⬇ Exportar respaldo (JSON)'}
         </Button>
-        <Button
-          variant="secondary"
-          full
-          onClick={() => importInputRef.current?.click()}
-        >
-          ⬆ Importar respaldo
-        </Button>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="application/json,.json"
-          tabIndex={-1}
-          aria-hidden="true"
-          className="sr-only"
-          onChange={(e) => {
-            void handleImportFile(e.target.files?.[0] ?? null);
-            e.target.value = '';
-          }}
+        <BackupImportControls
+          isCloudAccount={isCloudAccount}
+          importError={importError}
+          onFile={(file) => void handleImportFile(file)}
         />
-        {importError ? <p className="text-sm text-red-600">{importError}</p> : null}
       </SectionCard>
 
       <SectionCard title="Instalar la app" subtitle="Emerald Dealer funciona sin internet una vez instalada.">
@@ -405,16 +531,18 @@ export function SettingsView() {
 
       <p className="pb-2 text-center text-xs text-stone-400">Emerald Dealer v{__APP_VERSION__}</p>
 
-      <ConfirmDialog
-        open={importPending !== null}
-        title="Restaurar respaldo"
-        message={BACKUP_RESTORE_WARNING}
-        confirmLabel={importBusy ? 'Restaurando…' : 'Reemplazar todo'}
-        danger
-        busy={importBusy}
-        onCancel={() => setImportPending(null)}
-        onConfirm={() => void confirmImport()}
-      />
+      {allowLocalRestore ? (
+        <ConfirmDialog
+          open={importPending !== null}
+          title="Restaurar respaldo"
+          message={BACKUP_RESTORE_WARNING}
+          confirmLabel={importBusy ? 'Restaurando…' : 'Reemplazar todo'}
+          danger
+          busy={importBusy}
+          onCancel={() => setImportPending(null)}
+          onConfirm={() => void confirmImport()}
+        />
+      ) : null}
     </div>
   );
 }

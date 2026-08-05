@@ -47,10 +47,15 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
     carats: 2,
     quantity: 2,
     purchaseValueCop: 4000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
     onCredit: true,
     supplierPayments: [
       { id: 'pay-1', date: '2026-07-16', amount: 1000000, notes: 'Transferencia' }
     ],
+    cuttingBatches: [],
+    internalUses: [],
     notes: '',
     sales: [
       {
@@ -59,7 +64,16 @@ function loteVinculado(overrides: Partial<StoneLot> = {}): StoneLot {
         buyer: 'Cliente interno',
         carats: 0.5,
         quantity: 1,
+        origin: 'bruto',
         valueCop: 1500000,
+        productType: '',
+        usdRate: null,
+        buyerId: null,
+        onCredit: false,
+        dueDate: '',
+        payments: [],
+        method: 'Efectivo',
+        receivedBy: 'Santiago',
         notes: ''
       }
     ],
@@ -195,7 +209,12 @@ describe('respaldo v5 con proveedores', () => {
       quotes: [],
       appointments: [],
       stoneLots: [],
-      suppliers: [proveedor({ id: 'sup-import' })]
+      suppliers: [proveedor({ id: 'sup-import' })],
+      buyers: [],
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: [],
+      expenses: []
     };
 
     await backupService.importBackup(backup);
@@ -213,7 +232,12 @@ describe('respaldo v5 con proveedores', () => {
       quotes: [],
       appointments: [],
       stoneLots: [],
-      suppliers: [proveedor({ id: 'dup' }), proveedor({ id: 'dup' })]
+      suppliers: [proveedor({ id: 'dup' }), proveedor({ id: 'dup' })],
+      buyers: [],
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: [],
+      expenses: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

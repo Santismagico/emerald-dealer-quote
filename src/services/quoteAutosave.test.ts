@@ -7,8 +7,10 @@ import { buildClientPdfContent } from './pdfContent';
 import { buildWhatsAppMessage } from './whatsapp';
 import { getEffectiveQuoteStatus } from './quoteStatus';
 import {
+  clientDocumentNumberError,
   createQuoteAutosaveController,
   runAfterSuccessfulFlush,
+  saveQuoteWithDeferredServerNumber,
   type QuoteAutosaveController,
   type QuoteAutosaveStatus
 } from './quoteAutosave';
@@ -52,6 +54,27 @@ describe('guardado diferido de producción y abonos', () => {
   afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+
+  it('sin red guarda una cotización nueva y al recargar sigue disponible', async () => {
+    const deviceStorage = new Map<string, Quote>();
+    const offlineQuote = sampleQuote({ id: 'q-offline', number: '' });
+
+    const saved = await saveQuoteWithDeferredServerNumber({
+      quote: offlineQuote,
+      requestNumber: async () => { throw new Error('sin red'); },
+      save: async (quote) => void deviceStorage.set(quote.id, structuredClone(quote))
+    });
+
+    expect(saved.number).toBe('');
+    expect(deviceStorage.get('q-offline')).toEqual(saved);
+  });
+
+  it('el PDF cliente queda bloqueado con un mensaje claro mientras no haya número real', () => {
+    expect(clientDocumentNumberError(sampleQuote({ number: '' }))).toBe(
+      'Esta cotización quedó guardada sin número. Conéctate a internet para recibir el número definitivo antes de generar el PDF del cliente.'
+    );
+    expect(clientDocumentNumberError(sampleQuote({ number: 'ED-2026-0042' }))).toBeNull();
   });
 
   it('agrupa varias pulsaciones rápidas en una sola escritura final', async () => {

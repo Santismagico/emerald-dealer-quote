@@ -444,3 +444,893 @@ arquitectura fijadas en esa orden:
 La cuenta de Supabase la crea Santiago guiado (etapa N5); la service key jamás entra al
 repositorio. El plan de corte del enlace público queda documentado pero NO se ejecuta
 sin su orden.
+
+## D-036 · Frontera de escritura y salida al mercado auditable · 2026-07-18 · Vigente
+
+Santiago aprobó las dos medidas de endurecimiento previas a continuar con la nube:
+
+1. **Escrituras únicamente por operaciones protegidas.** Las lecturas continúan aisladas
+   por RLS, pero el navegador pierde los permisos directos para crear, editar o eliminar.
+   La base comprueba membresía, rol, identificadores, fechas, estados y valores COP
+   críticos antes de guardar. Los objetos futuros nacen sin permisos implícitos.
+2. **Candidatas por etapas y publicación humana.** Dependencias, credenciales, migraciones,
+   pruebas, compilación y aislamiento N6 generan evidencia por commit. GitHub Pages deja
+   de publicar por un simple cambio en `main`: exige ejecución manual, el commit exacto
+   aprobado por N6 y la confirmación `PUBLICAR`.
+
+Este cambio no publica, no modifica `main` ni activa el muro de cuenta en el sitio actual.
+Antes de invitaciones debe aprobarse la matriz de permisos owner/admin/seller. Antes de
+datos reales siguen pendientes N6 en el proyecto de pruebas, revisión legal, recuperación
+y auditoría independiente.
+
+## D-037 · Proyecto aislado para pruebas reales de nube · 2026-07-18 · Vigente
+
+Santiago confirmó el costo de **US$0 al mes** y autorizó crear **Emerald Dealer -
+Pruebas Fase 2** en São Paulo dentro de su organización de Supabase. El proyecto anterior
+de Canadá queda intacto y no se considera entorno de pruebas aprobado.
+
+Las cuatro migraciones se aplicaron únicamente al nuevo proyecto. La URL y la clave
+publicable quedan en `.env.local`, ignorado por Git. La clave secreta no se extrae ni se
+guarda: N6 la solicita de forma oculta, la mantiene solo durante la ejecución y la elimina
+de la sesión al terminar. El proyecto sigue siendo desechable y no puede recibir datos
+reales de clientes. Esta decisión no publica la aplicación ni modifica `main`.
+
+## D-038 · N6 solo se aprueba con doble comprobación de aislamiento y permisos · 2026-07-18 · Vigente
+
+La primera ejecución N6 aprobó sus nueve controles en 21.800 ms y limpió todas las
+cuentas, sesiones, joyerías y registros ficticios. La revisión posterior detectó seis
+permisos directos heredados en `organizations` y `memberships`. RLS había bloqueado los
+intentos, pero conservar esos permisos contradecía D-036 y el principio de mínimo
+privilegio, por lo que la evidencia inicial se invalidó voluntariamente.
+
+Se agregó una migración nueva, sin reescribir el historial, que retira todos los
+permisos de tabla de sesiones autenticadas y reabre solo las ocho lecturas necesarias.
+La comprobación real posterior dio 9/9 tablas con RLS, cero permisos no-lectura, cero
+permisos anónimos, cero acceso a `org_counters` y las 14 operaciones protegidas
+disponibles. La repetición corregida aprobó 9/9 controles en 20.498 ms sobre el commit
+`fffa1bdbf0600c7077f473d39a90546a4926166f`; después se confirmó nuevamente la limpieza
+total y la permanencia de los permisos mínimos. N6 queda aprobado para continuar a N7.
+
+## D-039 · Cotizaciones sin señal se guardan sin numerar · 2026-07-18 · Vigente
+
+Una cotización nueva o duplicada se guarda de inmediato en el dispositivo y en la cola
+aunque no haya conexión. Mientras espera se muestra como **sin número**: nunca se inventa
+un consecutivo provisional que pueda confundirse con el definitivo. Al volver la red, la
+cola solicita el consecutivo a `next_quote_number()` y guarda esa operación ya numerada
+antes de intentar subirla; así un reintento no consume otro número ni duplica la subida.
+
+El PDF del cliente y la opción de compartirlo quedan bloqueados hasta recibir el número
+real, con una explicación clara. El PDF interno puede conservar la marca "Sin número".
+El consecutivo definitivo continúa generándose exclusivamente en el servidor.
+
+## D-040 · Los borrados remotos solo afectan registros ya reconciliados · 2026-07-18 · Vigente
+
+Para corregir la regresión A1 se elige la protección **por registro visto en la nube**,
+no una marca general de importación por dispositivo. Cada registro conserva localmente
+la señal durable `cloudUpdatedAt` cuando fue recibido de la nube o entró al proceso de
+subida. Mientras una subida siga pendiente, la cola continúa protegiéndolo.
+
+Un registro anterior al modo nube que nunca se subió no tiene esa señal y jamás se
+elimina porque falte en un `pull`. Esto protege tanto una cuenta nueva con nube vacía
+como un teléfono que entra a una joyería cuya nube ya contiene datos de otro aparato.
+Una vez que el dispositivo confirmó el registro como parte de la nube, su ausencia en
+una respuesta remota exitosa sí representa un borrado entre dispositivos y se aplica.
+
+La opción de continuar sin importar deja de llamarse "Ahora no": explica que los datos
+seguirán solamente en ese dispositivo y que no aparecerán en otros hasta subirlos desde
+Cuenta. Ante cualquier estado ambiguo, la regla sigue siendo conservar el dato.
+
+## D-041 · Contraseña temporal y aceptación legal son pasos independientes · 2026-07-20 · Vigente en candidata
+
+El cierre del trabajo incompleto de Fable separa dos necesidades que no deben confundirse:
+una cuenta creada manualmente puede tener que reemplazar una contraseña temporal, mientras
+una cuenta existente puede necesitar únicamente revisar una nueva versión legal. La app
+solo muestra y exige el paso que realmente falta. Las cuentas antiguas creadas desde la
+aplicación conservan la contraseña que ya eligieron y cambiar una clave temporal no
+sobrescribe la fecha de aceptación anterior.
+
+La aceptación contractual de los términos y la autorización de tratamiento de datos usan
+dos casillas separadas, nunca premarcadas. La segunda muestra tanto el aviso de tratamiento
+como la política de privacidad. Para continuar deben existir fecha y versión coincidentes
+de términos, política y aviso; un cambio de versión vuelve a pedir únicamente la aceptación
+del documento correspondiente, sin reemplazar la fecha vigente de los demás.
+
+La versión actual se identifica como `draft-2026-07-20` porque los tres documentos aún
+contienen campos pendientes y no tienen revisión profesional. Esta trazabilidad en metadata
+sirve para probar el recorrido técnico, pero no se presenta como evidencia jurídica final:
+antes de mercado se debe decidir con el revisor legal si hace falta un registro inmutable
+con hora del servidor. No se habilita la nube pública ni se modifica `main` con esta decisión.
+
+## D-042 · Crédito al VENDER piedras: una fecha acordada y abonos derivados · 2026-07-21 · Vigente
+
+Un comerciante grande de esmeraldas, cliente real, pidió poder revisar si sus compradores
+ya le pagaron en las fechas acordadas. Hoy `StoneSale` solo guarda `valueCop` y no existe
+ningún rastro de fecha, abonos ni saldo: era el hueco principal del inventario.
+
+Héctor decidió el modelo más simple que resuelve el problema: **una sola fecha límite de
+pago por venta, más abonos libres del comprador**, en lugar de un plan de cuotas con fecha
+y monto cada una. Un plan de cuotas obligaría a llenar varias pantallas por cada venta sin
+responder mejor la pregunta real, que es "¿ya me pagó y hace cuánto se venció?".
+
+`StoneSale` estrena `onCredit`, `dueDate`, `payments[]` y `buyerId`. `valueCop` pasa a
+significar el **precio total acordado** de la venta. Lo recibido, el saldo, el vencimiento
+y los días de atraso se **derivan** siempre, nunca se guardan (regla de D-023, igual que
+la deuda con proveedores de D-025/C4). Una cuota inicial es simplemente un abono con la
+fecha de la venta: no existe un campo aparte para ella.
+
+Las ventas anteriores a esta decisión se normalizan como de contado, sin fecha y sin
+abonos, de modo que su dinero, su resultado por lote y los cierres ya emitidos dan
+exactamente el mismo número que antes. Hay una prueba de no regresión que lo exige.
+
+## D-043 · Compradores como lista propia, separada de Clientes · 2026-07-21 · Vigente
+
+Quien compra piedras o joyas de vitrina suele ser otro joyero o comerciante, no el
+consumidor final que encarga una pieza a la medida. Mezclarlos en la lista de Clientes
+llenaría el selector del cotizador de gente que nunca va a encargar una joya.
+
+Se crea la entidad `Buyer` con la misma forma que `Supplier`, ya probada en producción.
+Es **una sola lista compartida** por las ventas de piedras y las de joyas en stock: una
+tercera lista solo para joyas sería peor, y así la ficha de un comerciante muestra todo lo
+que le compró. Sin comprador registrado, el nombre libre sigue funcionando exactamente
+como hoy.
+
+Borrar un comprador **no borra ni altera sus ventas**: dentro de una sola transacción se
+elimina el comprador y se deja `buyerId` en nulo conservando el nombre escrito, igual que
+se resolvió con los proveedores en C3. Renombrar un comprador actualiza su nombre en las
+ventas que lo apuntan. Ambas operaciones deben encolar hacia la nube también los lotes y
+joyas que cambiaron.
+
+## D-044 · Joyas en stock como área propia, siempre de contado · 2026-07-21 · Vigente
+
+Una joya de vitrina ya está fabricada: no se cotiza, no pasa por etapas de taller y no
+tiene anticipo. Héctor decidió que viva en un área propia, sin mezclarse con el cotizador
+ni con el Taller, por la misma razón por la que Piedras se separó en D-023: no arriesgar
+lo que ya usan las siete joyerías del piloto.
+
+De cada pieza se guarda **solo lo básico**: nombre, tipo, material, una foto, fecha de
+ingreso al inventario, costo, precio de venta y estado. Quedan expresamente **fuera** las
+piedras montadas, el peso en gramos, el código de vitrina y la ubicación; se conserva un
+campo de notas simple porque toda entidad de la app lo tiene.
+
+Las joyas **se venden siempre de contado**, por decisión expresa de Héctor: la pieza se
+entrega pagada. El crédito al vender queda solo para piedras.
+
+El estado "vendida" **no se guarda**: se deriva de que la pieza tenga venta. Solo
+"disponible" y "apartada" son estados escritos. El resultado de la pieza es el precio
+recibido menos su costo, y también se deriva.
+
+La foto reutiliza los límites ya probados de D-033/D-034 (una imagen por pieza, medida
+sobre lo que se guarda y no sobre el archivo original). Ninguna joya en stock genera
+documento de cliente: costo, resultado y notas no salen nunca de la app.
+
+## D-045 · El inventario cuenta en los cierres con la plata real · 2026-07-21 · Vigente
+
+Las ventas y cobros nuevos entran al Cierre del día y al del mes conservando la regla
+honesta de C5/D-025: **el dinero cuenta el día en que se mueve de verdad**.
+
+Una venta de piedras a crédito **no suma a la caja el día de la venta**; se informa aparte
+para que el comerciante la vea, y los abonos del comprador suman el día en que se reciben.
+Una venta de contado sigue sumando completa el día de la venta, como hasta ahora. Una joya
+que entra al inventario resta de la caja el día de su fecha de ingreso, igual que la
+compra de contado de un lote de piedras, y su venta suma el día en que se vende.
+
+Los cierres estrenan además la foto del momento "te deben por piedras", junto a las que ya
+existen de deuda con proveedores y saldos de clientes. Los documentos siguen siendo
+internos y de descarga directa, jamás Web Share ni WhatsApp.
+
+## D-046 · El inventario crece en profundidad, no en botones de menú · 2026-07-21 · Vigente
+
+Héctor pidió que piedras e inventario tengan más protagonismo y estrenó además joyas en
+stock. Un sexto botón en el menú inferior dejaría los nombres ilegibles en teléfonos de
+320 px, un ancho que la app cuida explícitamente desde D-030.
+
+Se elige entonces convertir la pestaña "Piedras" en **"Inventario"**, con tres secciones
+adentro: **Piedras · Joyas · Cobros**. El menú se queda en cinco botones. "Cobros" —la
+lista de quién debe, cuánto y hace cuántos días, con semáforo de color y orden por el más
+atrasado— queda a un solo toque, porque es exactamente lo que pidió el comerciante que
+originó esta ampliación.
+
+Esta ampliación **no agrega ninguna dependencia nueva**.
+
+## D-047 · El dinero ya cobrado no se borra por un cambio de interruptor · 2026-07-22 · Vigente
+
+Auditoría propia de la ampliación de inventario, hecha sobre el código escrito el
+mismo día. Dos hallazgos reales, ambos corregidos con pruebas que fallan antes y pasan
+después.
+
+**H1 (grave).** Al editar una venta a crédito, apagar el interruptor "se la vendí a
+crédito" vaciaba los abonos del formulario **antes** de validar. La validación rechaza
+ese cambio precisamente porque quedan abonos, así que al vaciarlos nadie protestaba y
+el guardado borraba pagos reales del comprador, en silencio y sin manera de deshacerlo.
+
+La regla que queda: **una función que cambia la forma de pago nunca borra el dinero ya
+recibido.** El motor puro `withSaleCredit` conserva siempre los abonos, la validación
+puede entonces rechazar el cambio, y el formulario explica en pantalla por qué no deja
+guardar. Lo mismo aplica a cualquier interruptor futuro que cambie contado por crédito.
+
+**H2.** Los avisos de borrado callaban la plata que le deben a la joyería. Borrar un
+lote con ventas a crédito hacía desaparecer ese cobro de la pantalla de Cobros sin
+mencionarlo, y borrar una venta se llevaba sus abonos igual de callada.
+
+La regla que queda: **todo aviso de borrado nombra el dinero que se pierde**, tanto el
+que se debe como el que le deben. `stoneLotDeletionWarning` y `stoneSaleDeletionWarning`
+son funciones puras con pruebas propias, no textos escritos dentro de un diálogo.
+
+Se agregó además cobertura de la cadena de nube que faltaba: renombrar o borrar un
+comprador sube también los lotes y las joyas que cambiaron de nombre, no sube lo que no
+cambió, y cada tabla nueva usa su función protegida sin enviar jamás el identificador de
+la organización desde el navegador.
+
+## D-048 · Inventario de materiales por lotes con propiedad compartida · 2026-07-24 · Vigente
+
+Héctor pidió llevar un inventario del material (oro) que tiene, clasificándolo y
+sabiendo de quién es: tiene oro compartido con su socio de Emerald Dealer y otro con
+un joyero amigo. Necesita ver, de cada material, con quién es y qué parte le toca.
+
+Se crea `MaterialLot`: cada compra de material es un lote rastreable (tipo, pureza,
+gramos, costo, fecha) con sus salidas embebidas (`MaterialUse`). Las existencias y lo
+que queda se DERIVAN del lote menos sus salidas, jamás un contador guardado a mano
+(regla de D-023), igual que las piedras.
+
+**Propiedad compartida (decisión de Héctor):** por cada lote se guarda con quién se
+comparte (`partnerId`/`partnerName`) y cuántos de los gramos son suyos (`myGrams`); el
+resto es del socio. Sin socio, el lote es 100% suyo y la interfaz no muestra reparto.
+El porcentaje y la parte del socio se derivan; el reparto se mantiene sobre el
+restante a medida que se usan gramos.
+
+**Alcance de la v1, decidido para que sea simple y seguro:** el material es una lista
+APARTE que Héctor ajusta a mano; no se descuenta solo al aprobar una cotización, no
+toca el cotizador que usan las 7 joyerías (decisión de Héctor). El dinero del material
+NO entra al Cierre del día ni del mes en v1 —porque al ser compartido, cuánto salió de
+su propio bolsillo es ambiguo, y el foco de Héctor fue gramos y dueños—; el costo se
+guarda como referencia. El material tampoco maneja crédito ni pagos en v1. Todo esto
+es ampliable más adelante sin romper nada.
+
+## D-049 · Socios de material como entidad propia · 2026-07-24 · Vigente
+
+Los dueños del material (el socio de Emerald Dealer, el joyero amigo) son un rol
+distinto de los clientes, los proveedores y los compradores: son CO-DUEÑOS del oro, no
+alguien a quien se le compra ni a quien se le vende. Van en una lista propia,
+`MaterialPartner`, con la misma forma probada de `Supplier` y `Buyer`.
+
+Vincularlos permite ver "cuánto oro comparto con Fulano en total" y su historial.
+Borrar la ficha de un socio NO borra sus lotes: se conserva el nombre escrito y solo se
+suelta el vínculo (`partnerId` a null), igual que se resolvió con proveedores (C3) y
+compradores (D-043). Renombrar un socio actualiza su nombre en los lotes que lo
+apuntan; esos lotes también deben subir a la nube.
+
+## D-050 · Joyas en stock con espacio propio y base para colecciones · 2026-07-24 · Vigente
+
+Héctor quiere que las joyas en stock tengan un espacio propio, pensando en armar
+colecciones de joyería a mediano plazo. La pestaña "Inventario" pasa a tener cuatro
+secciones —Piedras · Materiales · Joyas · Cobros—; ahí las joyas tienen su lugar. El
+menú inferior se queda en cinco botones porque un sexto se corta en teléfonos de
+320 px (D-030/D-046).
+
+Las colecciones se diseñan pero se construyen después. Para no tener que migrar datos
+más adelante, `StockJewel` estrena desde ya un campo `collectionId` (null por defecto),
+reservado; no hay entidad ni pantalla de colecciones todavía. Las joyas y respaldos
+anteriores normalizan `collectionId` a null.
+
+## D-051 · Todo dinero recibido del inventario queda trazable · 2026-07-26 · Vigente en candidata
+
+Santiago encontró que las notas de una venta sí quedaban guardadas, pero no siempre
+podían volver a consultarse, y que el inventario no separaba dos datos indispensables:
+**cómo pagaron** y **quién recibió el dinero**.
+
+Desde esta decisión, toda venta nueva de piedras de contado, toda venta nueva de una
+joya en stock y cada abono nuevo de un comprador registran `method` y `receivedBy`,
+además de la nota interna que ya existía. En una venta de piedras a crédito esos datos
+pertenecen a cada abono, porque el comprador puede pagar en días y medios distintos;
+la cabecera de la venta no inventa un pago que todavía no ocurrió.
+
+Los registros antiguos se conservan sin cambios ni datos inventados. Cuando no tengan
+forma de pago o receptor, la app los presenta como **“Sin registrar”** y permite
+revisarlos. No se intenta extraer esos datos de notas escritas anteriormente.
+
+La ficha de la venta, el historial de abonos y el Cierre del día o del mes vuelven a
+mostrar forma de pago, receptor y nota. Todo sigue siendo **exclusivamente interno**:
+ninguna nota, costo, resultado ni dato de cobro del inventario llega a documentos del
+cliente, Web Share o WhatsApp.
+
+Esta ampliación no cambia ningún total, saldo ni fecha contable: D-045 sigue contando
+el dinero únicamente el día en que se movió. Tampoco requiere migraciones nuevas: los
+lotes y joyas ya se guardan completos y los campos nuevos son compatibles con los datos
+anteriores. No se agrega ninguna dependencia.
+
+## D-052 · El Cotizador deja de ser la puerta de entrada · 2026-08-03 · Vigente
+
+La aplicación nació para cotizar, pero creció hasta contener Taller, Agenda, Inventario
+de piedras, Material con socios, Joyas en stock, Cobros y cierres. Santiago observó que
+abrir directamente en el Cotizador da una impresión equivocada del producto: parece una
+cotizadora con anexos, cuando en realidad es el sistema del negocio.
+
+Desde esta decisión la aplicación abre en una **pantalla de inicio** que muestra todas
+las áreas, y el usuario elige la que necesita en ese momento. Cotizar pasa a ser una
+opción más entre iguales. La barra inferior se conserva como atajo una vez dentro de un
+área: ninguna ruta existente desaparece.
+
+**Forma elegida (2026-08-03).** Santiago vio dos maquetas —un tablero de fichas con los
+números del día y una portada agrupada por áreas— y eligió **la mezcla**: la portada
+agrupada, con la cifra del mes arriba.
+
+- **Agrupación por los pasos del negocio**, no por módulos técnicos: Vender · Producir y
+  atender · Inventario · La plata · Tu gente · Cuenta. Esa agrupación enseña de qué se
+  trata la aplicación en cinco segundos y aguanta crecer sin desordenarse.
+- **Una sola cifra arriba**: el resultado del mes. **No es un cálculo nuevo**: reutiliza
+  exactamente el del Cierre mensual que ya existe, con el mismo nombre. Cuando llegue el
+  libro del negocio (D-057) pasará a leerse de él, y el número no debe cambiar.
+- **Números solo donde hay algo que atender** (citas de hoy, cobros vencidos, trabajos en
+  proceso). El resto de las filas van sin adorno.
+
+**Inicio reemplaza a "Más" en la barra inferior.** La pestaña "Más" existía porque no
+había una pantalla de inicio: era el cajón de todo lo que no cabía. Con la portada, ese
+cajón queda cubierto y mejor ordenado. La barra queda en **Inicio · Cotizador · Taller ·
+Agenda · Inventario**: siguen siendo cinco botones (D-046), Agenda conserva su globito de
+citas de hoy, y **todo destino que hoy se alcanza desde "Más" debe seguir alcanzándose
+desde Inicio**.
+
+El panel de ventas y ganancias (Fase E) es una pantalla distinta y responde otra pregunta
+—"¿qué necesita mi atención?"—. No se adelanta a Inicio para que las dos no compitan por
+el mismo trabajo.
+
+## D-053 · Sociedad es el negocio compartido, y debe poder compararse · 2026-08-03 · Vigente
+
+Santiago compra lotes de esmeraldas solo o **con socios**. Cuando el lote es compartido
+necesita ver su ganancia y la de cada socio **por separado**, y sobre todo poder
+comparar unas sociedades con otras: cuál deja dinero, cuál lo quita, cuál conviene
+repetir.
+
+La sociedad se construye **reutilizando la entidad de socios que ya existe** para
+material (D-049), generalizada a piedras. No se crea una entidad paralela ni se migra
+destructivamente la existente. El reparto se calcula siempre sobre el **resultado real**
+(recibido − costo), nunca sobre el precio de lista. Borrar un socio conserva su nombre y
+el reparto histórico, como ya ocurre en material.
+
+Los lotes anteriores sin socio siguen siendo 100% propios y dan exactamente el mismo
+dinero que antes.
+
+## D-054 · El peso colombiano es la base; el dólar es una vista · 2026-08-03 · Vigente
+
+El negocio de esmeraldas transa con frecuencia en dólares, pero la contabilidad de
+Santiago es en pesos colombianos. Desde esta decisión el dinero se **almacena siempre en
+COP enteros** —regla que ya protege el motor y todas las pruebas existentes— y el dólar
+es exclusivamente una **forma de ver** la misma información.
+
+Cambiar la vista a dólares no modifica ni un solo dato guardado.
+
+**Resuelto el 2026-08-03:** la tasa se guarda **en cada operación**, con el valor del día
+en que ocurrió. Santiago eligió la historia fiel: si el dólar sube mañana, una venta de
+hace tres meses no cambia de valor sola. La alternativa —una sola tasa en Ajustes—
+habría recalculado todo el pasado cada vez que se editara la tasa, y eso vuelve inútil
+cualquier comparación entre períodos.
+
+Consecuencia para la implementación: toda operación de dinero nueva guarda su `usdRate`
+junto al monto en COP. Las operaciones anteriores no tienen tasa y muestran
+**"Sin registrar"** en la vista de dólares, conforme a D-051; no se les inventa una tasa
+retroactiva.
+
+## D-058 · Tipo de producto: lista base que Santiago puede ampliar · 2026-08-03 · Vigente
+
+Para filtrar y comparar el consolidado hace falta clasificar cada venta por tipo de
+producto. Santiago eligió una **lista base lista para usar, ampliable con tipos propios**.
+
+La lista base cubre lo que el negocio maneja hoy —esmeralda en bruto, esmeralda tallada,
+joya con piedra natural, joya con piedra de fantasía, material (oro/plata) y trabajo por
+encargo— para que el filtro sirva desde el primer día sin configurar nada. Santiago puede
+agregar los suyos cuando aparezca un producto que no encaje, de modo que la clasificación
+nunca se quede corta ni lo obligue a usar "otro".
+
+Los tipos propios se guardan por organización. Un tipo que ya se usó en una venta no se
+borra: se puede dejar de ofrecer para ventas nuevas, pero el historial conserva su
+nombre, igual que ocurre con proveedores, compradores y socios.
+
+Las ventas anteriores a esta decisión no tienen tipo y muestran **"Sin registrar"**
+(D-051). No se les asigna un tipo adivinado a partir del módulo de origen.
+
+## D-062 · La tasa del dólar se reutiliza de la fuente del oro, no se duplica · 2026-08-04 · Vigente
+
+> **Nota de numeración (2026-08-04).** Esta decisión se registró primero como D-059
+> por error de Claude: Codex ya había usado ese número para los gastos en la Fase B.
+> Se renumeró a D-062 al detectarse el choque. Si algún mensaje de commit anterior la
+> menciona como D-059, se refiere a esta.
+
+`AGENTS.md` protege `src/services/goldPrice.ts` y exige decisión escrita para tocarlo.
+La etapa B3 lo modificó, y esta decisión cierra ese registro tras la auditoría.
+
+La aplicación ya consultaba la tasa USD→COP en ese archivo para calcular el precio del
+oro: misma fuente (`open.er-api.com`), ya autorizada en la CSP, con límites de sanidad
+(1000–20000 COP por dólar) y con funcionamiento sin conexión. Guardar la tasa por
+operación (D-054) necesitaba exactamente eso.
+
+**Se eligió reutilizar en vez de duplicar.** Se exportaron las dos constantes ya
+existentes sin cambiar sus valores, y se agregaron `isValidUsdRate` —con los mismos
+límites— y `fetchUsdRateCOP` —con la misma URL—. La matemática del precio del oro no
+cambió y ninguna prueba fue eliminada ni debilitada.
+
+El único efecto observable es que una tasa fuera de rango se rechaza un paso antes, con
+un mensaje ligeramente distinto; sigue negándose a actualizar el precio, que es lo que la
+regla protege.
+
+La alternativa —una segunda función de consulta con sus propios límites— habría creado
+dos definiciones de "tasa razonable" que podrían separarse con el tiempo. Una sola
+defensa, compartida, es más segura que dos copias.
+
+Verificado en la auditoría de las Fases A y B
+(`docs/AUDITORIA_CLAUDE_V2_FASES_A_B.md`, observación O1).
+
+## D-055 · La talla se registra por tandas, en piedras y quilates · 2026-08-03 · Vigente
+
+Al tallar una esmeralda en bruto se pierde alrededor del **70% del peso**, a veces más y
+a veces menos. Además la talla **no se hace sobre el lote completo**: de un lote de diez
+piedras se pueden tallar dos este mes y dos el siguiente.
+
+Desde esta decisión un lote de piedras admite **tandas de talla**. De cada tanda se
+registra únicamente **cuántas piedras y cuántos quilates** se envían, y al regresar el
+resultado real; la merma se **deriva**, nunca se digita. Santiago descartó explícitamente
+identificar piedra por piedra dentro del lote: es más control del que necesita y demasiado
+trabajo de digitación.
+
+El lote pasa a tener dos existencias —lo que sigue en bruto y lo ya tallado y
+disponible—, y cada venta declara de cuál sale. Un lote sin tandas se comporta
+exactamente como hoy.
+
+Implementación C1 (2026-08-04): además se muestra por separado lo que está **en
+talla**. La merma promedio del lote se pondera por los quilates enviados, para
+que una tanda pequeña no pese lo mismo que una grande. El costo de talla queda
+pendiente hasta registrar su fecha de pago; solo entonces aumenta la inversión
+del lote y sale en el cierre de caja.
+
+Cuando ya existe una venta tallada, quedan congelados los datos físicos de toda
+tanda que ya regresó —fechas, piedras y quilates enviados/devueltos— y tampoco
+puede borrarse. El costo, su fecha de pago y las notas sí pueden completarse
+después: bloquearlos impediría pagar una talla que se vendió antes de saldar al
+tallador. Esta excepción no cambia existencias y queda protegida por pruebas en
+el dispositivo y por la migración de la nube.
+
+## D-056 · Cambiar fantasía por natural descuenta del inventario de piedras · 2026-08-03 · Vigente
+
+Es práctica común del negocio comprar una joya terminada con **piedra de fantasía** y
+reemplazarla después por una **piedra natural**. Saber cuánto stock hay de cada clase es
+indispensable para saber qué se le puede ofrecer a un cliente.
+
+Desde esta decisión cada joya en stock se clasifica como fantasía o natural, y el cambio
+de una a otra es un **evento registrado con fecha** que hace tres cosas a la vez: cambia
+la clasificación de la joya, **descuenta la piedra natural del inventario de Piedras** y
+suma el costo de esa piedra al costo de la joya. Los dos módulos deben cuadrar solos: no
+se puede transformar consumiendo una piedra que no existe.
+
+Las joyas existentes se leen sin clasificación y muestran **“Sin registrar”** hasta que
+se clasifiquen, conforme a D-051. La joya conserva su historia: se ve que empezó en
+fantasía.
+
+Implementación C2 (2026-08-04): cada joya guarda peso, talla o medida libre,
+número de piedras y clase, sin inferir datos anteriores. La transformación crea
+un solo evento enlazado en la joya y el lote: descuenta bruto o tallado, conserva
+la cantidad de piedras registrada y traslada un costo COP entero. La piedra de
+fantasía retirada no se rastrea y su costo original permanece en la joya.
+
+El traslado **no mueve caja**. El costo atribuido sale del resultado contable del
+lote y entra al costo de la joya; el resultado combinado no cambia. En local las
+dos mitades se guardan en una transacción. En nube se exige conexión, se resuelven
+primero cambios pendientes y el servidor confirma la pareja antes de escribirla
+en el dispositivo. Las descargas de Piedras y Joyas también se validan y guardan
+juntas para no mostrar media transformación.
+
+Si un cambio de Piedras o Joyas queda retenido por conflicto, la cuenta ofrece
+usar la versión confirmada en la nube. Esa decisión descarta únicamente la cola
+de esos dos módulos: espera el envío que ya hubiera empezado, trae y valida la
+pareja completa, y confirma a la vez los dos inventarios y la retirada de esa
+cola. Si falla la red, la validación o el guardado, conserva íntegros los datos y
+los cambios locales; los demás módulos nunca se incluyen en el descarte.
+
+Deshacer y borrar quedan bloqueados: quitar una sola mitad dejaría inventario o
+costo huérfano. Una reversa futura tendría que ser otra operación doble y
+protegida. Los respaldos reconstruyen el costo histórico exacto mediante puertas
+de importación reservadas a owner/admin; un corte común impide que repetir un
+respaldo antiguo reactive una venta o pise una edición posterior.
+
+## D-057 · Una sola verdad para los números del negocio · 2026-08-03 · Vigente
+
+Santiago pidió un dashboard de ventas y ganancias, cierres en Excel y un consolidado con
+filtros. Las tres pantallas muestran **la misma plata**. Si cada una la calculara por su
+cuenta a partir de las entidades crudas, tarde o temprano se contradirían, y en una
+aplicación de dinero eso destruye la confianza en todo lo demás.
+
+Desde esta decisión existe un **libro del negocio** (`src/services/ledger.ts`): un motor
+puro que traduce todo lo que ocurre —ventas, abonos, pagos del taller, lotes, tandas de
+talla, transformaciones de joyas, material y gastos— a un flujo normalizado de eventos
+con las mismas dimensiones: fecha, monto en COP, tasa del dólar, tipo de evento, módulo,
+lote, sociedad, tipo de producto y contraparte.
+
+El dashboard agrupa ese flujo por período; los cierres lo filtran por fecha; el
+consolidado lo agrupa por sociedad o tipo de producto; el Excel lo serializa. Una sola
+verdad, cuatro presentaciones.
+
+La prueba que valida el libro es que `dailyReport.ts` y el cierre mensual, al pasar a
+leer de él, **sigan dando exactamente los mismos totales que hoy**.
+
+Implementación D1 (2026-08-04): el libro se construyó en paralelo, sin tocar los
+cierres. La prueba de equivalencia reúne en un mismo período contado, crédito,
+abonos, proveedor, talla pagada y pendiente, usos internos, transformación de joya,
+taller, gastos, cotizaciones y material, y obtuvo igualdad exacta en `cashIn`,
+`cashOut` y `net`. Al aplicar el catálogo a la caja honesta de D-045, una compra de
+piedras de contado usa `sale`, una compra a crédito usa `ninguna`, y cada pago real
+al proveedor usa `sale`. Los usos de material, que guardan gramos pero no un costo
+monetario propio, conservan `amountCop: 0` antes que inventar un valor; toda actividad
+de material usa `direction: 'ninguna'` y nunca altera los cierres.
+
+Implementación D2 (2026-08-04): los cierres diario y mensual dejaron de sumar
+dinero desde sus renglones. Construyen el libro completo, lo filtran por día o mes
+y obtienen de él cada categoría, `cashIn`, `cashOut` y `net`; el historial mensual
+reutiliza una sola construcción para todos los meses. Los renglones descriptivos y
+las fotos actuales de deudas se conservan para el PDF interno, sin volver a decidir
+el sentido de caja. La equivalencia de D1 y las pruebas existentes de cierres
+pasaron sin cambiar ningún valor esperado. La Fase D termina aquí, sin pantalla ni
+avance a la Fase E.
+
+Corolario de operación: el orden de construcción no es negociable. Primero los datos que
+faltan (gastos, sociedades, tipo de producto), después los cambios de inventario, luego
+el libro, y solo al final las pantallas que lo leen. Construir el dashboard antes
+obligaría a rehacerlo.
+
+## D-059 · Los gastos conservan su categoría y su reparto histórico · 2026-08-03 · Vigente
+
+Santiago eligió administrar las categorías dentro de **Gastos**, con una lista base lista
+para usar y la posibilidad de agregar categorías propias. Una categoría puede dejar de
+ofrecerse para registros nuevos, pero no se borra: los gastos anteriores conservan el
+nombre con el que fueron registrados. Reactivar una categoría vuelve a ofrecer ese mismo
+nombre, sin crear duplicados.
+
+Un gasto puede ser 100% propio o compartirse con un socio existente. Cuando es
+compartido guarda una foto del nombre del socio y el porcentaje de Santiago; la parte
+del socio es el resto. Si se elimina la ficha del socio, el gasto conserva el nombre y
+el reparto originales. Un gasto sin socio es siempre 100% propio.
+
+El gasto completo sale de caja en la fecha en que se pagó. El reparto es informativo
+para saber qué parte corresponde a Santiago y cuál al socio; no reduce la salida real de
+caja. Todo se calcula en COP enteros: la parte de Santiago se redondea y el residuo queda
+de forma determinista en la parte del socio, de modo que las dos partes siempre suman
+exactamente el gasto.
+
+## D-060 · Las sociedades de piedras se reparten sobre dinero realmente recibido · 2026-08-03 · Vigente
+
+Los socios de Material pasan a ser la lista general de **Socios** del negocio. La misma
+ficha puede vincularse a material, gastos y lotes de piedras. Renombrarla actualiza el
+nombre en los registros vinculados; eliminarla suelta el vínculo, pero conserva en cada
+registro la foto del nombre y el reparto histórico.
+
+Cada lote de piedras guarda el socio, su nombre histórico y el porcentaje de Santiago.
+Un lote anterior, o uno sin socio, se lee como 100% propio. Los porcentajes válidos son
+enteros entre 0 y 100; un valor inválido se rechaza antes de guardar y nunca se corrige
+silenciosamente.
+
+El resultado histórico del lote sigue significando **precio acordado menos costo** y no
+cambia. Para una sociedad se muestra además un resultado separado basado únicamente en
+dinero real: **recibido de compradores menos costo del lote**. La parte del socio es
+`Math.trunc(resultado real × (100 − porcentaje de Santiago) / 100)`; la parte de
+Santiago es el residuo exacto. Así las dos partes siempre suman el resultado real,
+también cuando es negativo o no divide exactamente.
+
+La ampliación no crea otra lista de socios ni cambia versiones: IndexedDB y respaldo
+permanecen en v8, y Ajustes en v4. La nube conserva la tabla y las operaciones protegidas
+de lotes de piedras; una migración aditiva amplía únicamente su validación para aceptar
+los campos nuevos y seguir admitiendo clientes anteriores a B2.
+
+## D-061 · La vista USD convierte cada operación con su propia tasa · 2026-08-03 · Vigente
+
+B3 reutiliza exclusivamente la fuente USD→COP que ya usa el precio del oro y sus mismos
+límites de seguridad. Ajustes sube a v5 para conservar la última tasa válida, su fecha y
+la lista administrable de tipos de producto. IndexedDB y el respaldo permanecen en v8;
+no se agrega una API, una dependencia ni un permiso de red nuevos.
+
+Cada venta de piedras, abono de comprador, venta de joya en stock y gasto nuevo guarda
+su propia tasa. La tasa puede corregirse manualmente antes del primer guardado; después
+queda fija para siempre. Esto también protege el estado histórico vacío: una operación
+anterior con tasa `null` sigue mostrando **"Sin registrar"** y no puede completarse de
+forma retroactiva. Una consulta que termina tarde no reemplaza una tasa que Santiago ya
+escribió.
+
+El interruptor COP/USD vive únicamente en la memoria de la pantalla. Los montos guardados
+siguen siendo COP enteros y cambiar la vista no escribe datos. La conversión se hace por
+operación; los totales, saldos y resultados que mezclan operaciones con tasas distintas
+permanecen en COP para no presentar una suma engañosa en dólares.
+
+Los tipos base y propios se guardan por organización. Desactivar un tipo solo impide
+ofrecerlo en ventas nuevas: su nombre permanece visible en el historial. Las ventas
+anteriores conservan `productType: ''` y muestran **"Sin registrar"**, sin deducirlo del
+módulo donde fueron creadas.
+
+Cada cambio real del catálogo guarda además su propia fecha. La operación protegida de
+la nube combina los ajustes dentro de una transacción: conserva las claves B3 que un
+cliente anterior no conoce, resuelve catálogo y tasa por sus fechas independientes,
+une los nombres de catálogos concurrentes y nunca retrocede la versión de Ajustes. Así,
+actualizar el oro o la tasa desde otro dispositivo no puede borrar un tipo personalizado.
+
+## D-063 · La ganancia cuenta el día de la venta, no el día del pago · 2026-08-04 · Vigente
+
+Santiago decidió que si vende un lote a crédito en agosto y le pagan en octubre, **la
+ganancia es de agosto**. El panel debe responder *"¿qué tan bien vendí este mes?"*, y
+un mes en que vendió muchísimo a crédito no puede aparecer vacío.
+
+**Consecuencia central, y el mayor riesgo de la Fase E:** desde esta decisión
+**ganancia y caja dejan de ser el mismo número**, y jamás deben presentarse como si lo
+fueran.
+
+- La **caja** es lo que se movió de verdad: es lo que muestran el Cierre del día y el
+  del mes, y D-045 la sigue gobernando sin cambios.
+- La **ganancia** es lo vendido menos lo que costó lo vendido, contado en la fecha de
+  la venta.
+
+Una compra de inventario **no es una pérdida**: es dinero que cambió de forma. Solo se
+vuelve costo cuando eso que se compró se vende. Por eso un mes con una compra grande
+puede tener caja muy negativa y ganancia positiva, y ambas cifras ser correctas.
+
+Lo que aún no ha cobrado **no desaparece**: se muestra aparte como cobros pendientes,
+que es lo que ya hace la sección de Cobros.
+
+Implementación E0 (2026-08-04): el evento derivado del libro incorpora
+`attributedCostCop` sin cambiar ninguna entidad guardada. La cotización aprobada
+reconoce su costo base; la venta de una joya reconoce el costo total de la pieza; y la
+venta de piedras reutiliza la regla por quilate de C2. El residuo de redondeo queda en
+la última venta que agota el lote, de modo que nunca se atribuye más de lo invertido y
+un lote vendido completo cierra exactamente. Abonos y demás eventos no vuelven a
+atribuir ese costo, por lo que cobrar después no duplica la ganancia.
+
+Implementación E1 (2026-08-04): el panel interno **Ventas y ganancias** permite
+leer día, semana, mes o año. Presenta vendido, costo atribuido y ganancia en un
+bloque; caja real en otro; y cobros pendientes en un tercero, con explicaciones
+visibles para impedir que se mezclen. La vista USD suma únicamente operaciones con
+tasa propia y avisa cuántas quedaron como **"Sin registrar"**; COP sigue siendo el
+valor oficial.
+
+## D-064 · Las sociedades se comparan por cuánto dejaron y por qué tan rentables fueron · 2026-08-04 · Vigente
+
+Para decidir qué sociedad le conviene repetir, Santiago quiere **las dos medidas a la
+vez**: la ganancia en pesos y el porcentaje sobre lo invertido.
+
+Con una sola se decide mal. Una sociedad grande puede dejar más dinero y ser menos
+rentable que una pequeña; el porcentaje solo, en cambio, hace ver enorme un negocio
+diminuto que devolvió bien. Las dos juntas permiten distinguirlos.
+
+El porcentaje se calcula sobre **lo invertido en esa sociedad** —compra más tallas
+pagadas, conforme a D-055—, y siempre acompañado del monto, nunca solo. Cuando lo
+invertido es cero, no se muestra un porcentaje inventado ni infinito: se indica que no
+aplica.
+
+Esta decisión materializa D-053 y la frase con la que Santiago resumió todo el plan:
+*"todo lo que se puede medir, se puede optimizar"*.
+
+Implementación E1 (2026-08-04): cada sociedad muestra la parte propia y la del socio
+con su monto y su porcentaje sobre la inversión correspondiente. El reparto conserva
+el residuo COP del lado propio, como en B2. Cuando la inversión es cero, la pantalla
+indica **"No aplica"** en lugar de inventar un porcentaje.
+
+Implementación E2 (2026-08-04): los cierres diario y mensual, y el panel de ventas,
+añaden un CSV editable compatible con Excel en español. El archivo usa punto y coma,
+BOM UTF-8 y saltos CRLF; los montos se escriben como números sin símbolo ni separador
+de miles. El PDF se conserva. La descarga es local directa y no existe ruta hacia Web
+Share ni WhatsApp. E3 reutiliza este mismo mecanismo para el consolidado filtrado.
+
+Implementación E3 (2026-08-04): el **Consolidado de ventas** filtra cualquier período
+por sociedad y tipo de producto, incluyendo una opción real **“Sin registrar”** para
+encontrar datos anteriores incompletos. La comparación usa la parte de Santiago: una
+tarjeta señala la mayor ganancia en COP y otra la mayor rentabilidad sobre su inversión;
+las dos muestran monto y porcentaje juntos. El Excel conserva los filtros y el detalle
+del resultado, y omite la caja porque no puede atribuirse honestamente a esos filtros.
+Todo se deriva al consultar: no se agregó ningún campo guardado ni una decisión nueva.
+
+## D-065 · El catálogo lleva precio solo si Santiago lo decide al generarlo · 2026-08-04 · Vigente
+
+El catálogo se arma solo desde el inventario real y se entrega en PDF. Santiago decidió
+que **el precio es opcional y se elige en cada generación**, no una configuración fija.
+
+La razón es comercial: a un cliente de confianza le manda el catálogo con precios para
+que decida solo; a un desconocido prefiere mandarlo sin precios y cotizar aparte según
+el caso. Fijar la decisión de una vez lo encerraría en uno de los dos usos.
+
+Cuando el catálogo se genera sin precios, **el precio no debe aparecer en ninguna parte
+del archivo**, ni siquiera en un pie, un resumen o un total. Omitirlo de la vista pero
+dejarlo en el documento sería peor que mostrarlo, porque nadie lo revisaría.
+
+El costo, el margen, los socios, el reparto y las notas internas **nunca** aparecen, con
+precios o sin ellos. Eso no es una opción configurable: es la regla de privacidad que
+protege `src/services/pdfContent.test.ts` desde el primer día del proyecto.
+
+Implementación F1 (2026-08-04): cada generación vuelve a preguntar si incluye precio.
+Antes del PDF, las piezas disponibles se reducen campo por campo a `name`, `pieceType`,
+`material`, `photo`, `weightGrams`, `size`, `stoneCount`, `stoneKind` y, únicamente si
+la opción está activa, `priceCop`. `status` y `sale` solo se consultan para excluir
+apartadas y vendidas y no llegan al documento. El contenido final pasa por el detector
+sin posibilidad de continuar ante un hallazgo. No se agregó otra decisión: esta es la
+ejecución literal de D-065.
+
+## D-066 · El Excel se entrega con formato real, y por eso se acepta la primera dependencia · 2026-08-04 · Vigente
+
+Santiago probó la exportación y **rechazó el resultado**: quería una hoja presentable y
+recibió un archivo sin formato.
+
+La causa no es corregible dentro del formato elegido. El archivo actual es un **CSV**,
+que es texto plano: no admite negritas, colores, anchos de columna, formato de moneda ni
+encabezados fijos. Mejorarlo "un poco" no es posible; o se cambia de formato o se queda
+como está.
+
+Desde esta decisión los cierres, el panel y el consolidado se exportan como un
+**archivo Excel real (.xlsx)** con: dinero formateado como dinero, negativos en rojo,
+anchos de columna calculados, encabezados fijos al desplazarse, secciones distinguibles
+y totales resaltados. **Sigue siendo editable**, que era el motivo original de pedir
+Excel en vez de PDF.
+
+**Se acepta la primera dependencia de todo el proyecto**, conforme a la exigencia de
+`AGENTS.md` de justificarla por escrito. Se evaluaron tres candidatas y se eligió
+`write-excel-file` por ser la más liviana con diferencia (1,8 MB desempaquetada frente a
+21,8 MB de `exceljs`), tener **una sola dependencia interna**, licencia MIT, mantenimiento
+al día y estar pensada para el navegador. Se descartó `xlsx-js-style` por arrastrar diez
+dependencias y derivar de una base con antecedentes de vulnerabilidades.
+
+Condiciones de la aceptación, que forman parte de la decisión:
+
+- **Carga diferida**, con el mismo patrón que ya usa Supabase: la herramienta solo se
+  descarga cuando el dueño exporta, así la aplicación no se vuelve más pesada de abrir
+  ni de instalar.
+- **Versión exacta fijada**, sin rango.
+- Sin cambios en la política de seguridad del navegador ni destinos de red nuevos.
+
+Se consideró escribir el generador a mano para no depender de nadie. Se descartó por una
+razón concreta: **ningún agente puede abrir Excel para comprobar el archivo**, y un
+`.xlsx` mal formado se manifiesta como un aviso de archivo dañado. Con una librería
+probada, la corrección del contenedor deja de ser responsabilidad nuestra.
+
+Implementación C1 (2026-08-04): se fijó `write-excel-file` en **4.1.1**, sin rango, y
+se carga únicamente al pulsar Descargar Excel. Instalada ocupa **1.812.264 bytes**; en
+la compilación queda separada en dos archivos diferidos que suman **71.185 bytes**
+minificados (**20,00 kB gzip**), por lo que no aumenta la descarga inicial ni la
+precarga pública. No se cambió la CSP ni ningún destino de red. El archivo real se abrió
+en Microsoft Excel sin reparación: fecha y dinero conservaron tipo numérico, la fila 6
+quedó congelada y los anchos calculados se aplicaron. El PDF sigue separado e intacto.
+
+## D-067 · Un lote se compra en bruto o ya tallado, y se elige al registrarlo · 2026-08-04 · Vigente
+
+Santiago encontró que la aplicación **da por hecho que todo lote se compra en bruto**.
+Comprar piedras ya talladas obligaba a inventar una tanda de talla con 0% de merma para
+que las existencias cuadraran. Es un vacío del modelo de D-055, no un error de
+implementación.
+
+Desde esta decisión, al registrar la compra se elige si el lote entró **en bruto** o **ya
+tallado**. Un lote comprado tallado entra directo a la existencia de talladas, no admite
+tandas de talla y no muestra merma, porque no la tuvo.
+
+Los lotes anteriores se normalizan como comprados **en bruto**, así que conservan
+exactamente las mismas existencias, el mismo dinero y el mismo resultado que hoy.
+
+Implementación C2 (2026-08-04): el formulario pregunta **En bruto / Ya tallado**. La
+segunda opción lleva la compra directamente a existencias talladas, oculta tandas y
+merma, y mantiene ventas, usos en joyas, crédito y reparto. La protección existe al
+guardar en el dispositivo y también en la migración preparada para el servidor. El
+campo es aditivo: si falta, significa bruto. No se cambió ningún dato existente ni se
+aplicó la migración a producción.
+
+## D-068 · Ningún registro queda fuera de alcance por un filtro · 2026-08-04 · Vigente
+
+Santiago reportó que **no podía editar la venta de una joya**. La revisión mostró que la
+función existía: el problema es que, al vender, la pieza sale del filtro "En vitrina"
+—que es el que está puesto por defecto— y **desaparece de la vista**. Desde el lado del
+dueño, una función que no se puede alcanzar es una función que no existe.
+
+Desde esta decisión, **registrar algo nunca hace que ese algo se pierda de vista**. Tras
+una venta, la aplicación deja visible la pieza recién vendida y ofrece llegar a ella, en
+vez de devolver una lista vacía.
+
+Además, las acciones sobre un registro —editar, deshacer, eliminar— **deben verse como
+acciones**. Las de la ficha de joya se presentaban como texto sin borde ni fondo, lo que
+para el dueño no se lee como algo que se pueda tocar.
+
+Implementación C3 (2026-08-04): al guardar una venta, la búsqueda se limpia, el filtro
+cambia a **Vendidas** y la pieza recién vendida recibe el foco. Así queda visible incluso
+si era la última de la vitrina. Editar venta, Deshacer venta, Editar pieza y Eliminar
+ahora tienen borde, fondo, jerarquía visual y altura táctil mínima. La fecha, el medio de
+pago, el receptor y la tasa guardados siguen apareciendo al editar y conservan las
+protecciones existentes.
+
+La revisión pedida encontró el mismo riesgo en el Historial de cotizaciones: cambiar el
+estado mientras hay un filtro específico puede sacar la cotización de la lista. Se
+registró el hallazgo pero no se corrigió aquí, para no ampliar C3. Piedras conserva su
+detalle abierto tras guardar y Cobros no usa filtros, por lo que no repiten este caso.
+
+## D-069 · Un lote se puede borrar; su historia se conserva en la joya · 2026-08-04 · Vigente
+
+Santiago no pudo eliminar un lote porque una de sus piedras estaba en una joya ya
+vendida. El bloqueo pretendía proteger la historia, pero dejaba al dueño sin salida ante
+un lote creado por error.
+
+La protección resulta innecesaria: cuando una piedra pasa a una joya, **la joya guarda su
+propio costo** (`jewel.costCop` se incrementa al transformar). Borrar el lote no cambia
+ni un peso del costo, del resultado ni de ningún cierre.
+
+Desde esta decisión, un lote **se puede eliminar** aunque respalde piedras usadas en
+joyas. Al hacerlo:
+
+- El aviso dice con claridad qué se pierde: la trazabilidad hacia ese lote.
+- La joya **conserva el nombre histórico del lote** y su costo, exactamente como ya
+  ocurre al borrar un proveedor, un comprador o un socio (D-043, D-049).
+- **Ningún dinero cambia** en ninguna pantalla ni en ningún cierre.
+
+Sigue vigente la protección que sí tiene sentido: no se pueden alterar los datos físicos
+de una tanda ya regresada cuyo producto se vendió (Fase C). Proteger un dato es distinto
+de impedir borrar un registro completo con aviso.
+
+Implementación C4 (2026-08-04): antes de borrar el lote, la aplicación copia su nombre
+en la historia de cada joya que usó una de sus piedras. La operación local y la operación
+del servidor hacen ese resguardo y el borrado como una sola acción. Los respaldos y su
+importación también aceptan esa historia independiente cuando el lote ya no existe.
+
+El aviso confirma que se pierde la ficha del lote, no el dinero de la joya. Las pruebas
+de no regresión verifican que permanecen idénticos el costo y el resultado de la joya,
+el Cierre del día, el mensual y el panel. La migración del servidor queda preparada pero
+no fue aplicada a ningún entorno.
+
+## D-070 · Un solo vocabulario: la barra es el primer grupo de Inicio · 2026-08-04 · Vigente
+
+Santiago reportó que la aplicación confunde. El diagnóstico no era la barra en sí: al
+agregar la pantalla de inicio (D-052) quedaron **dos vocabularios para las mismas cosas**.
+Inicio hablaba de acciones —Vender, Producir y atender, La plata— y la barra inferior de
+lugares —Cotizador, Taller, Agenda—. Solo "Inventario" coincidía. Es un error de diseño de
+Claude: la barra venía de antes de que existiera Inicio y nunca se revisó.
+
+Desde esta decisión hay **un solo nombre por cada lugar**, y **el primer grupo de Inicio
+es exactamente la barra inferior**: mismos nombres, mismo orden. Así la barra deja de
+leerse como un segundo mapa y se lee como lo que es, un atajo a lo de todos los días.
+
+La barra queda en **Inicio · Cotizador · Taller · Inventario · Dinero** — cinco botones,
+D-046 respetado. "La plata" pasa a llamarse **Dinero** arriba y abajo; Santiago aprobó el
+nombre.
+
+**La Agenda sale de la barra** y pasa a "Otras cosas" dentro de Inicio. Preguntado qué usa
+a diario, Santiago respondió cotizar, taller, inventario y la plata; la agenda no. No se
+borra nada: sigue con sus citas y sigue alcanzable.
+
+Los seis grupos de Inicio pasan a tres —lo de todos los días, tu gente y el resto—.
+**Ninguna ruta desaparece:** todo lo que hoy se alcanza se sigue alcanzando.
+
+**Aplicada en R2-1:** Inicio quedó en tres grupos y la barra replica literalmente el
+primero. Dinero reúne Panel, Cierre del día, Cierre mensual, Consolidado y Gastos con el
+mismo patrón de secciones de Inventario. Agenda conserva su aviso dentro de Inicio;
+Ajustes conserva el paso a Cuenta cuando existe una cuenta en la nube. No cambió ningún
+dato, cálculo ni ruta interna de cotizaciones o taller.
+
+## D-071 · El inicio muestra una gráfica, con una sola medida a la vez · 2026-08-04 · Vigente
+
+Santiago pidió que el inicio no muestre un número suelto sino una **gráfica** que pueda
+recorrer por períodos, como la de una aplicación de inversiones: **1 día · 7 días ·
+30 días · 1 año**.
+
+Desde esta decisión el inicio muestra la cifra grande, cuánto cambió en el período y una
+gráfica de área con esos cuatro rangos, que responde al tacto mostrando el valor de cada
+punto.
+
+**Dibuja una sola medida a la vez, con un interruptor entre Ganancia y Caja.** Nunca las
+dos superpuestas, por dos razones:
+
+1. **Medida, no opinada:** los dos colores de la identidad —el verde esmeralda y el
+   latón— se validaron con un simulador de daltonismo y quedan a ΔE 4.5 en protanopía y
+   15.0 en visión normal, por debajo del mínimo legible. Dos líneas con esos colores serían
+   indistinguibles para mucha gente.
+2. **Ganancia y caja son cifras distintas** (D-063). Superponerlas invita justo a la
+   confusión que el plan v2 evitó en todas sus fases.
+
+Colores validados para la serie única: **`#0b7f57`** en claro y **`#2fa87a`** en oscuro,
+ambos aprobados en banda de luminosidad, croma y contraste contra su superficie.
+
+**Se conserva la promesa de D-052:** con **Caja** seleccionada y el mes como período, la
+cifra debe ser **exactamente** la del Cierre mensual, y así debe decirlo la pantalla.
+
+La gráfica **lee del libro del negocio** (D-057) y no calcula por su cuenta. Se dibuja con
+SVG propio: **sin librería de gráficas ni dependencia nueva**.
+
+**Aplicada en R2-2:** Inicio construye el libro después del primer pintado y reutiliza
+ese mismo libro al cambiar período o medida. Caja conserva los movimientos realmente
+cobrados y Ganancia reconoce cada venta en su fecha, sin confundir ambas cifras. El
+período “30 días” representa el mes calendario para mantener exactamente el mismo valor
+del Cierre mensual. La gráfica admite arrastre táctil, mantiene el globo dentro de sus
+bordes y muestra estados claros cuando no hay datos o solo hay un día. La serie usa
+`#0b7f57` en claro y `#2fa87a` en oscuro, sin animación ni dependencia nueva.

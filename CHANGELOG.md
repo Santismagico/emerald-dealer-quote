@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/). Versionado semántico.
 
+## [1.1.0] — 2026-07-18
+
+### Fase 2 — cuentas y sincronización en la nube
+
+- Modo nube opcional con Supabase Auth: registro con aceptación legal, confirmación de correo, inicio y cierre de sesión, recuperación de contraseña y creación de la primera joyería. Sin variables de nube, la aplicación pública conserva el modo local anterior.
+- Nueve tablas aisladas por joyería con RLS, permisos mínimos y una única frontera de escritura mediante operaciones protegidas. El navegador nunca elige el identificador de otra joyería ni contiene una clave secreta.
+- Consecutivos de cotización generados en el servidor, validación de identificadores, fechas, estados y valores COP, y pruebas reales de aislamiento entre dos cuentas.
+- Caché local y cola persistente para trabajar sin conexión. Los cambios se conservan, se procesan en serie y se reintentan al recuperar la red o volver a la aplicación.
+- Importación controlada de datos locales y respaldos v1–v5, por lotes, con progreso e identificadores estables para que repetirla no duplique información.
+- N6 aprobado con 9/9 controles sobre el commit `fffa1bdbf0600c7077f473d39a90546a4926166f`, después de retirar permisos heredados innecesarios.
+- N7 aprobado en el proyecto desechable: cuenta y joyería de prueba, recorrido de las cinco áreas, cotización `ED-2026-0001`, Taller, Agenda, Piedras, lectura local sin red, envío posterior de una operación pendiente exactamente una vez e importación repetida sin duplicados.
+- Publicación endurecida: el despliegue solo puede iniciarse manualmente, exige autorización humana y debe coincidir con el commit exacto aprobado por N6.
+- Candidata no publicada. Antes de mercado siguen siendo obligatorios un SMTP propio probado, la aprobación profesional de los documentos legales, un revisor independiente y una nueva ejecución N6 sobre el commit final que se pretenda publicar.
+
 ## [1.0.0] — 2026-07-17
 
 ### Fase 1 pre-SaaS

@@ -155,6 +155,18 @@ export interface Quote {
   updatedAt: string;
 }
 
+/** Categoría administrable de gastos. Nunca se borra: solo cambia `active`. */
+export interface ExpenseCategoryOption {
+  name: string;
+  active: boolean;
+}
+
+/** Tipo de producto administrable. Nunca se borra: solo cambia `active` (D-058). */
+export interface ProductTypeOption {
+  name: string;
+  active: boolean;
+}
+
 export interface Settings {
   /** Nombre visible de la joyería. Por defecto: Emerald Dealer. */
   jewelryName: string;
@@ -189,6 +201,16 @@ export interface Settings {
   defaultTaxPercent: number;
   /** Condiciones comerciales que aparecen en el PDF del cliente. */
   conditions: string;
+  /** Categorías internas disponibles al crear gastos (D-059). */
+  expenseCategories: ExpenseCategoryOption[];
+  /** Tipos de producto disponibles en ventas nuevas (D-058). */
+  productTypes: ProductTypeOption[];
+  /** Momento del último cambio real al catálogo de tipos de producto. */
+  productTypesUpdatedAt: string;
+  /** Última tasa USD→COP válida conocida; null hasta la primera consulta exitosa. */
+  lastKnownUsdRate: number | null;
+  /** Momento de la última consulta exitosa de la tasa USD→COP. */
+  usdRateUpdatedAt: string;
   /** Consecutivo para numerar cotizaciones. */
   quoteCounter: number;
   /** Última exportación de respaldo iniciada correctamente (ISO). */
@@ -257,22 +279,203 @@ export interface SupplierPayment {
 }
 
 /**
+ * Comprador de piedras o de joyas en stock (SOLO uso interno; decisión D-043).
+ * Lista aparte de los clientes del cotizador: quien compra piedras suele ser
+ * otro joyero o comerciante, no el consumidor final que encarga una pieza.
+ */
+export interface Buyer {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  notes: string;
+  createdAt: string;
+}
+
+/**
+ * Abono recibido DEL COMPRADOR por una venta a crédito (D-042).
+ * Vive dentro de su venta: el saldo siempre es precio − abonos, nunca un
+ * contador guardado a mano.
+ */
+export interface BuyerPayment {
+  id: string;
+  /** Fecha del abono (YYYY-MM-DD). */
+  date: string;
+  /** Monto recibido en COP entero. */
+  amount: number;
+  /** Tasa USD→COP propia de este abono. null significa histórico sin registrar. */
+  usdRate: number | null;
+  /** Quién recibió el dinero en la joyería. */
+  receivedBy: string;
+  /** Medio: efectivo, transferencia, etc. */
+  method: string;
+  notes: string;
+}
+
+/**
+ * Socio con quien se comparte material, gastos o lotes de piedras. SOLO uso interno.
+ * Lista aparte de proveedores y compradores: es un CO-DUEÑO del negocio, no
+ * alguien a quien se le compra ni a quien se le vende (D-049/D-053).
+ */
+export interface MaterialPartner {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  notes: string;
+  createdAt: string;
+}
+
+/**
+ * Salida de caja del negocio (SOLO uso interno; D-059).
+ * Si pertenece a una sociedad, conserva nombre y reparto aunque se borre la ficha del socio.
+ */
+export interface Expense {
+  id: string;
+  /** Día en que el dinero salió de caja (YYYY-MM-DD). */
+  date: string;
+  concept: string;
+  category: string;
+  /** Monto total pagado, siempre COP entero. */
+  amountCop: number;
+  /** Tasa USD→COP propia de esta salida. null significa histórico sin registrar. */
+  usdRate: number | null;
+  method: string;
+  paidBy: string;
+  /** Socio vinculado; null si es propio o si luego se borró la ficha. */
+  partnerId: string | null;
+  /** Nombre histórico del socio; se conserva al borrar la ficha. */
+  partnerName: string;
+  /** Porcentaje propio, entero 0..100. La parte del socio es 100 - myPercent. */
+  myPercent: number;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Gramos que salieron de un lote de material al usarlos (SOLO interno; D-048). */
+export interface MaterialUse {
+  id: string;
+  /** Fecha del uso (YYYY-MM-DD). */
+  date: string;
+  /** Gramos usados. */
+  grams: number;
+  /** En qué se usó (texto libre). */
+  notes: string;
+}
+
+/**
+ * Lote de material comprado: oro, plata, etc. (SOLO uso interno; D-048).
+ * Cada compra es un lote rastreable; las existencias se DERIVAN del lote menos
+ * sus salidas, jamás un contador guardado a mano (regla de D-023). El material
+ * es una lista aparte que se ajusta a mano y no toca el cotizador (decisión de
+ * Héctor). Nunca aparece en ningún documento del cliente.
+ */
+export interface MaterialLot {
+  id: string;
+  /** Nombre opcional del lote. Si queda vacío, la app arma material + fecha. */
+  name: string;
+  /** Tipo de material: Oro, Plata, etc. Agrupa el inventario. */
+  materialType: string;
+  /** Pureza o ley: "18K", "24K", "925"… Libre y opcional. */
+  purity: string;
+  /** Fecha de la compra (YYYY-MM-DD). */
+  purchaseDate: string;
+  /** Gramos comprados en este lote. */
+  grams: number;
+  /** Costo total de la compra en COP entero. Referencia; no entra a caja en v1. */
+  costCop: number;
+  /** Socio con quien se comparte el lote, o null si el lote es todo suyo (D-049). */
+  partnerId: string | null;
+  /** Nombre visible del socio (copiado o escrito libre); se conserva al borrar la ficha. */
+  partnerName: string;
+  /**
+   * Cuántos de los `grams` son SUYOS. El resto es del socio. Sin socio,
+   * `myGrams === grams` (todo suyo). Se guarda en gramos (exacto); el
+   * porcentaje se DERIVA para mostrarlo.
+   */
+  myGrams: number;
+  notes: string;
+  /** Salidas del lote, en el orden en que se registraron. */
+  uses: MaterialUse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * Venta parcial o total de un lote de piedras (SOLO uso interno).
  * Vive DENTRO de su lote (como los abonos dentro de una cotización): así una
  * venta nunca puede quedar huérfana ni superar lo que el lote tiene.
  */
+/** Tanda parcial enviada a talla dentro de un lote de piedras (D-055). */
+export interface CuttingBatch {
+  id: string;
+  sentDate: string;
+  sentCarats: number;
+  sentQuantity: number;
+  returnedDate: string;
+  returnedCarats: number;
+  /** Puede superar sentQuantity si una piedra se divide durante la talla. */
+  returnedQuantity: number;
+  /** Costo total de esta talla, COP entero. */
+  cuttingCostCop: number;
+  /** Fecha en que el costo salió de caja; vacía mientras no se pague. */
+  cuttingPaidDate: string;
+  notes: string;
+}
+
+/** Existencia fisica de piedras antes o despues de pasar por talla. */
+export type StoneOrigin = 'bruto' | 'tallado';
+
+/**
+ * Piedra retirada de un lote para incorporarla a una joya del inventario.
+ * No es una venta ni un movimiento de caja: es un traslado interno de costo.
+ */
+export interface StoneInternalUse {
+  id: string;
+  date: string;
+  carats: number;
+  quantity: number;
+  origin: StoneOrigin;
+  jewelId: string;
+  /** Costo atribuido a la joya en el momento del traslado, COP entero. */
+  costCop: number;
+  notes: string;
+}
+
 export interface StoneSale {
   id: string;
   /** Fecha de la venta (YYYY-MM-DD). */
   date: string;
-  /** A quién se le vendió (texto libre). */
+  /** A quién se le vendió (nombre visible; copiado del comprador o escrito libre). */
   buyer: string;
+  /** Comprador registrado vinculado, o null si fue texto libre (D-043). */
+  buyerId: string | null;
   /** Quilates vendidos en esta venta. */
   carats: number;
   /** Número de piedras vendidas. */
   quantity: number;
-  /** Valor total recibido en COP entero. */
+  /** Existencia física de la que salió la venta (D-055). */
+  origin: StoneOrigin;
+  /**
+   * Precio TOTAL acordado de la venta, en COP entero. De contado equivale a lo
+   * recibido; a crédito lo recibido es la suma de `payments` (D-042).
+   */
   valueCop: number;
+  /** Clasificación histórica elegida al vender. Vacío significa sin registrar. */
+  productType: string;
+  /** Tasa USD→COP propia de esta venta. null significa histórico sin registrar. */
+  usdRate: number | null;
+  /** Quién recibió el dinero cuando la venta fue de contado (D-051). */
+  receivedBy: string;
+  /** Medio de pago de la venta de contado. En crédito vive en cada abono. */
+  method: string;
+  /** true si se vendió a crédito: el comprador debe hasta saldar (D-042). */
+  onCredit: boolean;
+  /** Fecha acordada de pago (YYYY-MM-DD). Vacía cuando es de contado. */
+  dueDate: string;
+  /** Abonos recibidos del comprador (aplican cuando es a crédito). */
+  payments: BuyerPayment[];
   notes: string;
 }
 
@@ -284,6 +487,8 @@ export interface StoneSale {
  * Nunca aparece en ningún documento del cliente.
  */
 export interface StoneLot {
+  /** Estado fisico en el que se compro. Ausente en historia antigua significa bruto. */
+  purchaseOrigin?: StoneOrigin;
   id: string;
   /** Nombre del lote, ej: "Lote Ejemplo 12". Si queda vacío, la app muestra piedra + fecha. */
   name: string;
@@ -303,13 +508,113 @@ export interface StoneLot {
   quantity: number;
   /** Costo total de la compra en COP entero. */
   purchaseValueCop: number;
+  /** Socio vinculado; null si es propio o si luego se borró la ficha. */
+  partnerId: string | null;
+  /** Nombre histórico del socio; se conserva al borrar la ficha. */
+  partnerName: string;
+  /** Porcentaje propio, entero 0..100. La parte del socio es 100 - myPercent. */
+  myPercent: number;
   /** true si la compra fue a crédito: se debe al proveedor hasta saldar (C4). */
   onCredit: boolean;
   /** Pagos hechos al proveedor de este lote (aplican cuando es a crédito). */
   supplierPayments: SupplierPayment[];
+  /** Envíos parciales a talla, en el orden en que se registraron. */
+  cuttingBatches: CuttingBatch[];
+  /** Salidas hacia joyas propias. Nunca se mezclan con ventas. */
+  internalUses: StoneInternalUse[];
   notes: string;
   /** Ventas del lote, en el orden en que se registraron. */
   sales: StoneSale[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Estado GUARDADO de una joya en stock. "Vendida" no está aquí a propósito:
+ * se DERIVA de que la pieza tenga venta (D-044, regla de D-023).
+ */
+export type StockJewelStatus = 'disponible' | 'apartada';
+
+/**
+ * Venta de una joya en stock (SOLO uso interno). Siempre de contado por
+ * decisión de Héctor: la pieza se entrega pagada (D-044).
+ */
+export interface StockJewelSale {
+  id: string;
+  /** Fecha de la venta (YYYY-MM-DD). */
+  date: string;
+  /** A quién se le vendió (nombre visible; copiado del comprador o escrito libre). */
+  buyer: string;
+  /** Comprador registrado vinculado, o null si fue texto libre (D-043). */
+  buyerId: string | null;
+  /** Valor recibido en COP entero. */
+  priceCop: number;
+  /** Clasificación histórica elegida al vender. Vacío significa sin registrar. */
+  productType: string;
+  /** Tasa USD→COP propia de esta venta. null significa histórico sin registrar. */
+  usdRate: number | null;
+  /** Quién recibió el dinero en la joyería (D-051). */
+  receivedBy: string;
+  /** Medio: efectivo, transferencia, etc. */
+  method: string;
+  notes: string;
+}
+
+export type StockJewelStoneKind = 'fantasia' | 'natural' | '';
+
+/** Historia inmutable de un cambio de piedra de fantasia por una natural. */
+export interface StockJewelStoneTransformation {
+  id: string;
+  date: string;
+  lotId: string;
+  /** Nombre historico del lote; permite conservar la historia si el lote se elimina. */
+  lotName?: string;
+  jewelId: string;
+  origin: StoneOrigin;
+  carats: number;
+  quantity: number;
+  /** Costo trasladado desde el lote, COP entero. */
+  costCop: number;
+  notes: string;
+  fromStoneKind: 'fantasia';
+  toStoneKind: 'natural';
+}
+
+/**
+ * Joya YA FABRICADA que está en vitrina para vender (SOLO uso interno).
+ * No es una cotización a la medida: no tiene etapas de taller, ni anticipo, ni
+ * documento de cliente. Área propia por decisión de Héctor (D-044). El costo,
+ * el resultado y las notas jamás salen de la aplicación.
+ */
+export interface StockJewel {
+  id: string;
+  name: string;
+  pieceType: PieceType;
+  material: string;
+  /** Foto en data URL comprimida por la app. Nunca una URL externa. */
+  photo: string;
+  /** Fecha en que la pieza entró al inventario (YYYY-MM-DD). Es cuando salió el dinero. */
+  acquiredDate: string;
+  /** Peso total de la pieza. 0 significa historico sin registrar. */
+  weightGrams: number;
+  /** Talla, largo o medida en texto libre. */
+  size: string;
+  /** Numero de piedras que lleva. 0 significa historico sin registrar. */
+  stoneCount: number;
+  /** Clase de piedra; vacio conserva honestamente los registros anteriores. */
+  stoneKind: StockJewelStoneKind;
+  /** Lo que costó la pieza, en COP entero. INTERNO. */
+  costCop: number;
+  /** Precio de venta que se pide, en COP entero. */
+  priceCop: number;
+  status: StockJewelStatus;
+  notes: string;
+  /** Venta de la pieza. null mientras siga disponible o apartada. */
+  sale: StockJewelSale | null;
+  /** Colección a la que pertenece, o null. Reservado para D-050 (aún sin usar). */
+  collectionId: string | null;
+  /** Cambios fantasia -> natural, en orden historico. No se pueden deshacer. */
+  stoneTransformations: StockJewelStoneTransformation[];
   createdAt: string;
   updatedAt: string;
 }
@@ -328,6 +633,16 @@ export interface BackupFile {
   stoneLots: StoneLot[];
   /** Proveedores. Los respaldos v1–v4 no los traen y se importan vacíos. */
   suppliers: Supplier[];
+  /** Compradores. Los respaldos v1–v5 no los traen y se importan vacíos. */
+  buyers: Buyer[];
+  /** Joyas en stock. Los respaldos v1–v5 no las traen y se importan vacías. */
+  stockJewels: StockJewel[];
+  /** Socios de material. Los respaldos v1–v6 no los traen y se importan vacíos. */
+  materialPartners: MaterialPartner[];
+  /** Lotes de material con sus salidas. Los respaldos v1–v6 no los traen y se importan vacíos. */
+  materialLots: MaterialLot[];
+  /** Gastos del negocio. Los respaldos v1–v7 no los traen y se importan vacíos. */
+  expenses: Expense[];
 }
 
 export const PIECE_TYPES: PieceType[] = [
@@ -355,3 +670,5 @@ export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
   'cancelada',
   'noAsistio'
 ];
+
+export const STOCK_JEWEL_STATUSES: StockJewelStatus[] = ['disponible', 'apartada'];

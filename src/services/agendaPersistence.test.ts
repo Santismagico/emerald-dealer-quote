@@ -84,10 +84,10 @@ describe('escalera de migraciones', () => {
   }
 
   it('la versión actual coincide con la cantidad de migraciones', () => {
-    expect(db.DB_VERSION).toBe(4);
+    expect(db.DB_VERSION).toBe(8);
   });
 
-  it('una base nueva (v0) crea los seis almacenes', () => {
+  it('una base nueva (v0) crea los doce almacenes', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 0);
     expect(fake.created).toEqual([
@@ -96,32 +96,105 @@ describe('escalera de migraciones', () => {
       'quotes',
       'appointments',
       'stoneLots',
-      'suppliers'
+      'suppliers',
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots',
+      'expenses'
     ]);
   });
 
-  it('una base v1 agrega citas, lotes y proveedores', () => {
+  it('una base v1 agrega citas, lotes, proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 1);
-    expect(fake.created).toEqual(['appointments', 'stoneLots', 'suppliers']);
+    expect(fake.created).toEqual([
+      'appointments',
+      'stoneLots',
+      'suppliers',
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots',
+      'expenses'
+    ]);
   });
 
-  it('una base v2 agrega lotes y proveedores', () => {
+  it('una base v2 agrega lotes, proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 2);
-    expect(fake.created).toEqual(['stoneLots', 'suppliers']);
+    expect(fake.created).toEqual([
+      'stoneLots',
+      'suppliers',
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots',
+      'expenses'
+    ]);
   });
 
-  it('una base v3 solo agrega los proveedores', () => {
+  it('una base v3 agrega proveedores y cola de nube', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 3);
-    expect(fake.created).toEqual(['suppliers']);
+    expect(fake.created).toEqual([
+      'suppliers',
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots',
+      'expenses'
+    ]);
   });
 
-  it('una base ya migrada no crea nada', () => {
+  it('una base v4 agrega la cola de nube, compradores y joyas', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 4);
-    expect(fake.created).toEqual([]);
+    expect(fake.created).toEqual([
+      'cloudOutbox',
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots',
+      'expenses'
+    ]);
+  });
+
+  it('una base v5 agrega compradores, joyas, socios y lotes de material', () => {
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 5);
+    expect(fake.created).toEqual([
+      'buyers',
+      'stockJewels',
+      'materialPartners',
+      'materialLots',
+      'expenses'
+    ]);
+  });
+
+  it('una base v6 solo agrega socios y lotes de material', () => {
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 6);
+    expect(fake.created).toEqual(['materialPartners', 'materialLots', 'expenses']);
+  });
+
+  it('una base v7 solo agrega gastos', () => {
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 7);
+    expect(fake.created).toEqual(['expenses']);
+  });
+
+  it('los escalones anteriores nunca se modifican al agregar el de v6', () => {
+    // Una base ya migrada no vuelve a crear nada: la escalera es idempotente.
+    const fake = fakeMigratableDb();
+    db.applyDbMigrations(fake.db, 0);
+    const created = [...fake.created];
+    db.applyDbMigrations(fake.db, 0);
+    expect(fake.created).toEqual(created);
   });
 });
 
@@ -242,7 +315,12 @@ describe('respaldo v3 con agenda', () => {
       quotes: [sampleQuote()],
       appointments: [cita({ id: 'a-import', status: 'cumplida' })],
       stoneLots: [],
-      suppliers: []
+      suppliers: [],
+      buyers: [],
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: [],
+      expenses: []
     };
 
     await backupService.importBackup(backup);
@@ -262,7 +340,12 @@ describe('respaldo v3 con agenda', () => {
       quotes: [],
       appointments: [cita({ id: 'a-dup' }), cita({ id: 'a-dup' })],
       stoneLots: [],
-      suppliers: []
+      suppliers: [],
+      buyers: [],
+      stockJewels: [],
+      materialPartners: [],
+      materialLots: [],
+      expenses: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

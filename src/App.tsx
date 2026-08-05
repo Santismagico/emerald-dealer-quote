@@ -1,7 +1,8 @@
 ﻿import { useEffect, useRef, useState } from 'react';
-import { StoreProvider, useStore } from './store';
+import { useMemo } from 'react';
+import { StoreProvider, selectStoreDataSource, useStore } from './store';
 import type { ReactNode } from 'react';
-import type { Quote } from './types';
+import type { BackupFile, Quote } from './types';
 import { newId } from './utils/id';
 import { todayISO, addDays } from './utils/dates';
 import { HistoryView } from './components/HistoryView';
@@ -10,20 +11,41 @@ import { PreviewView, type PreviewViewHandle } from './components/PreviewView';
 import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { AgendaView } from './components/AgendaView';
-import { StonesView } from './components/StonesView';
-import { DailyCloseView } from './components/DailyCloseView';
+import { InventoryView, type InventorySection } from './components/InventoryView';
+import { MoneyView } from './components/MoneyView';
+import { HomeView } from './components/HomeView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
+import { BuyersView } from './components/BuyersView';
+import { MaterialPartnersView } from './components/MaterialPartnersView';
 import { SettingsView } from './components/SettingsView';
+import {
+  AccountView,
+  CloudAccessView,
+  CloudLoadingView,
+  CreateOrganizationView,
+  FirstAccessView,
+  PasswordRecoveryView
+} from './components/CloudAccountViews';
+import { CloudImportView } from './components/CloudImportView';
 import { Toast } from './components/ui';
+import { CloudAuthProvider, useCloudAuth } from './cloudAuthContext';
+import { cloudEnabled } from './services/cloud/config';
+import { startCloudLifecycle } from './services/cloud/api';
+import {
+  hasLocalDataToImport,
+  isCloudEmpty,
+  readLocalImportSource
+} from './services/cloud/importer';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
-import { todaysPendingAppointments } from './services/agenda';
+import { buildHomeSummary, type HomeDestination, type MoneySection } from './services/home';
 import {
   getBackupReminderSnoozedUntil,
   getBackupReminderState
 } from './services/backupReminder';
 
 type ViewName =
+  | 'home'
   | 'history'
   | 'form'
   | 'preview'
@@ -31,11 +53,21 @@ type ViewName =
   | 'workshopJob'
   | 'agenda'
   | 'stones'
-  | 'more'
-  | 'dailyClose'
+  | 'money'
   | 'clients'
   | 'suppliers'
-  | 'settings';
+  | 'buyers'
+  | 'materialPartners'
+  | 'settings'
+  | 'account'
+  | 'cloudImport';
+
+interface CloudAccountInfo {
+  email: string;
+  organizationName: string;
+  canImport: boolean;
+  signOut: () => Promise<void>;
+}
 
 const APP_URL = 'https://santismagico.github.io/emerald-dealer-quote/';
 
@@ -91,9 +123,11 @@ function emptyQuote(defaults: {
   };
 }
 
-function AppShell() {
+function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
   const store = useStore();
-  const [view, setView] = useState<ViewName>('history');
+  const [view, setView] = useState<ViewName>('home');
+  const [inventorySection, setInventorySection] = useState<InventorySection>('piedras');
+  const [moneySection, setMoneySection] = useState<MoneySection>('panel');
   const [draft, setDraft] = useState<Quote | null>(null);
   const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
   // Desde dónde se abrió la vista previa, para que "Volver" regrese al lugar correcto.
@@ -111,11 +145,32 @@ function AppShell() {
     clients: store.clients,
     quotes: store.quotes,
     appointments: store.appointments,
+    stoneLots: store.stoneLots,
+    expenses: store.expenses,
     now: reminderNow
   });
 
-  // Aviso visual local: cuántas citas programadas hay hoy (D-020, sin notificaciones).
-  const todayAppointments = todaysPendingAppointments(store.appointments, todayISO()).length;
+  const today = todayISO();
+  const homeSummary = useMemo(
+    () =>
+      buildHomeSummary({
+        today,
+        quotes: store.quotes,
+        appointments: store.appointments,
+        stoneLots: store.stoneLots
+      }),
+    [store.appointments, store.quotes, store.stoneLots, today]
+  );
+  const homeLedgerInput = useMemo(
+    () => ({
+      quotes: store.quotes,
+      stoneLots: store.stoneLots,
+      stockJewels: store.stockJewels,
+      materialLots: store.materialLots,
+      expenses: store.expenses
+    }),
+    [store.expenses, store.materialLots, store.quotes, store.stockJewels, store.stoneLots]
+  );
 
   useEffect(() => {
     const refresh = () => setReminderNow(new Date());
@@ -212,10 +267,16 @@ function AppShell() {
 
   const duplicateQuote = async (quote: Quote) => {
     const now = new Date().toISOString();
+    let number = '';
+    try {
+      number = await store.nextQuoteNumber();
+    } catch {
+      // La copia también puede guardarse sin señal y recibirá el consecutivo al reconectar.
+    }
     const copy: Quote = {
       ...quote,
       id: newId(),
-      number: await store.nextQuoteNumber(),
+      number,
       status: 'borrador',
       // La copia es una pieza nueva: aprobación, entrega, taller y abonos no se heredan.
       approvedAt: '',
@@ -230,7 +291,7 @@ function AppShell() {
       updatedAt: now
     };
     await store.upsertQuote(copy);
-    store.showToast(`Copia creada: ${copy.number}`);
+    store.showToast(copy.number ? `Copia creada: ${copy.number}` : 'Copia guardada sin número. Se numerará al volver la conexión.');
     setDraft(copy);
     setView('form');
   };
@@ -280,6 +341,70 @@ function AppShell() {
     action();
   };
 
+  const openHomeDestination = (destination: HomeDestination) => {
+    void runAfterViewFlush(() => {
+      switch (destination) {
+        case 'history':
+        case 'workshop':
+        case 'agenda':
+        case 'clients':
+        case 'buyers':
+        case 'suppliers':
+        case 'settings':
+          setView(destination);
+          return;
+        case 'partners':
+          setView('materialPartners');
+          return;
+        case 'account':
+          if (cloudAccount) setView('account');
+          return;
+        case 'inventory':
+          setInventorySection('piedras');
+          setView('stones');
+          return;
+        case 'money':
+          setMoneySection('panel');
+          setView('money');
+          return;
+        case 'inventoryStones':
+        case 'inventoryMaterials':
+        case 'inventoryJewels':
+        case 'inventoryReceivables': {
+          const section = ({
+            inventoryStones: 'piedras',
+            inventoryMaterials: 'materiales',
+            inventoryJewels: 'joyas',
+            inventoryReceivables: 'cobros'
+          } as const)[destination];
+          setInventorySection(section);
+          setView('stones');
+          return;
+        }
+        case 'dailyClose':
+        case 'monthlyClose':
+        case 'expenses':
+        case 'salesDashboard':
+        case 'salesConsolidated': {
+          const section = ({
+            dailyClose: 'dailyClose',
+            monthlyClose: 'monthlyClose',
+            expenses: 'expenses',
+            salesDashboard: 'panel',
+            salesConsolidated: 'consolidated'
+          } as const)[destination];
+          setMoneySection(section);
+          setView('money');
+          return;
+        }
+        default: {
+          const unreachable: never = destination;
+          return unreachable;
+        }
+      }
+    });
+  };
+
   return (
     <div className="atelier app-shell mx-auto flex h-dvh max-w-lg flex-col overflow-hidden">
       <header className="luxury-header safe-top top-0 z-40">
@@ -312,6 +437,14 @@ function AppShell() {
             onSnooze={() => void snoozeBackupReminder()}
           />
         ) : null}
+        {view === 'home' && (
+          <HomeView
+            today={today}
+            ledgerInput={homeLedgerInput}
+            summary={homeSummary}
+            onOpen={openHomeDestination}
+          />
+        )}
         {view === 'history' && (
           <HistoryView
             onNew={startNewQuote}
@@ -349,7 +482,8 @@ function AppShell() {
         )}
         {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
         {view === 'agenda' && <AgendaView />}
-        {view === 'stones' && <StonesView />}
+        {view === 'stones' && <InventoryView key={inventorySection} initialSection={inventorySection} />}
+        {view === 'money' && <MoneyView key={moneySection} initialSection={moneySection} />}
         {view === 'workshopJob' && draft && (
           <WorkshopJobView
             ref={workshopJobRef}
@@ -363,42 +497,92 @@ function AppShell() {
             onOpenQuote={(quote) => openPreview(quote, 'interno', 'workshop')}
           />
         )}
-        {view === 'more' && (
-          <MoreView
-            onDailyClose={() => setView('dailyClose')}
-            onClients={() => setView('clients')}
-            onSuppliers={() => setView('suppliers')}
-            onSettings={() => setView('settings')}
-          />
-        )}
-        {view === 'dailyClose' && (
-          <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
-            <DailyCloseView />
-          </div>
-        )}
         {view === 'clients' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <ClientsView />
           </div>
         )}
         {view === 'suppliers' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
             <SuppliersView />
+          </div>
+        )}
+        {view === 'buyers' && (
+          <div className="space-y-4">
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <BuyersView />
+          </div>
+        )}
+        {view === 'materialPartners' && (
+          <div className="space-y-4">
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <MaterialPartnersView />
           </div>
         )}
         {view === 'settings' && (
           <div className="space-y-4">
-            <BackRow label="← Más" onClick={() => setView('more')} />
-            <SettingsView />
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <SettingsView
+              isCloudAccount={Boolean(cloudAccount)}
+              onOpenAccount={cloudAccount ? () => setView('account') : undefined}
+            />
           </div>
+        )}
+        {view === 'account' && cloudAccount && (
+          <div className="space-y-4">
+            <BackRow label="← Ajustes y cuenta" onClick={() => setView('settings')} />
+            <AccountView
+              email={cloudAccount.email}
+              organizationName={cloudAccount.organizationName}
+              canImport={cloudAccount.canImport}
+              onSignOut={cloudAccount.signOut}
+              onImport={() => {
+                if (cloudAccount.canImport) setView('cloudImport');
+              }}
+              pendingChanges={store.cloudSync.pending}
+              heldChanges={store.cloudSync.held}
+              heldInventoryChanges={store.cloudSync.operations.filter(
+                (operation) =>
+                  operation.state === 'held' &&
+                  (operation.table === 'stone_lots' || operation.table === 'stock_jewels')
+              ).length}
+              inventoryChangesToReplace={store.cloudSync.operations.filter(
+                (operation) =>
+                  (operation.table === 'stone_lots' || operation.table === 'stock_jewels')
+              ).length}
+              onRetryChanges={() => store.retryCloudChanges()}
+              onUseCloudInventoryVersion={() => store.useCloudInventoryVersion()}
+            />
+          </div>
+        )}
+        {view === 'cloudImport' && cloudAccount?.canImport && (
+          <CloudImportView
+            onDone={() => setView('account')}
+            onCancel={() => setView('account')}
+          />
         )}
       </main>
 
       <nav className="luxury-nav safe-bottom fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg">
         <div className="grid grid-cols-5">
+          <NavButton
+            label="Inicio"
+            icon={<LineIcon name="home" />}
+            active={
+              view === 'home' ||
+              view === 'agenda' ||
+              view === 'clients' ||
+              view === 'suppliers' ||
+              view === 'buyers' ||
+              view === 'materialPartners' ||
+              view === 'settings' ||
+              view === 'account' ||
+              view === 'cloudImport'
+            }
+            onClick={() => void runAfterViewFlush(() => setView('home'))}
+          />
           <NavButton
             label="Cotizador"
             icon={<LineIcon name="quotes" />}
@@ -412,29 +596,16 @@ function AppShell() {
             onClick={() => void runAfterViewFlush(() => setView('workshop'))}
           />
           <NavButton
-            label="Agenda"
-            icon={<LineIcon name="calendar" />}
-            badge={todayAppointments}
-            active={view === 'agenda'}
-            onClick={() => void runAfterViewFlush(() => setView('agenda'))}
-          />
-          <NavButton
-            label="Piedras"
+            label="Inventario"
             icon={<LineIcon name="gem" />}
             active={view === 'stones'}
             onClick={() => void runAfterViewFlush(() => setView('stones'))}
           />
           <NavButton
-            label="Más"
-            icon={<LineIcon name="menu" />}
-            active={
-              view === 'more' ||
-              view === 'dailyClose' ||
-              view === 'clients' ||
-              view === 'suppliers' ||
-              view === 'settings'
-            }
-            onClick={() => void runAfterViewFlush(() => setView('more'))}
+            label="Dinero"
+            icon={<LineIcon name="report" />}
+            active={view === 'money'}
+            onClick={() => void runAfterViewFlush(() => setView('money'))}
           />
         </div>
       </nav>
@@ -521,6 +692,7 @@ function InAppBrowserBanner() {
 }
 
 type LineIconName =
+  | 'home'
   | 'quotes'
   | 'workshop'
   | 'calendar'
@@ -533,7 +705,14 @@ type LineIconName =
 
 function LineIcon({ name, size = 22 }: { name: LineIconName; size?: number }) {
   let drawing: ReactNode;
-  if (name === 'quotes') {
+  if (name === 'home') {
+    drawing = (
+      <>
+        <path d="m3.5 11 8.5-7 8.5 7" />
+        <path d="M5.5 9.5V20h13V9.5M9.5 20v-6h5v6" />
+      </>
+    );
+  } else if (name === 'quotes') {
     drawing = (
       <>
         <path d="M3.8 7.2h6.1l1.8 2H20v9.3H3.8z" />
@@ -621,78 +800,6 @@ function LineIcon({ name, size = 22 }: { name: LineIconName; size?: number }) {
   );
 }
 
-function MoreView({
-  onDailyClose,
-  onClients,
-  onSuppliers,
-  onSettings
-}: {
-  onDailyClose: () => void;
-  onClients: () => void;
-  onSuppliers: () => void;
-  onSettings: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <MoreItem
-        icon={<LineIcon name="report" />}
-        title="Cierre del día"
-        subtitle="PDF interno con todos los movimientos del negocio"
-        onClick={onDailyClose}
-      />
-      <MoreItem
-        icon={<LineIcon name="client" />}
-        title="Clientes"
-        subtitle="Datos de contacto y notas de tus clientes"
-        onClick={onClients}
-      />
-      <MoreItem
-        icon={<LineIcon name="supplier" />}
-        title="Proveedores"
-        subtitle="A quiénes les compras piedras y servicios"
-        onClick={onSuppliers}
-      />
-      <MoreItem
-        icon={<LineIcon name="settings" />}
-        title="Ajustes"
-        subtitle="Datos de la joyería, precio del oro y respaldos"
-        onClick={onSettings}
-      />
-    </div>
-  );
-}
-
-function MoreItem({
-  icon,
-  title,
-  subtitle,
-  onClick
-}: {
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="luxury-card flex min-h-[4.75rem] w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.99]"
-    >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-800" aria-hidden>
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-base font-semibold text-stone-900">{title}</span>
-        <span className="block truncate text-xs text-stone-500">{subtitle}</span>
-      </span>
-      <span className="text-stone-400" aria-hidden>
-        ›
-      </span>
-    </button>
-  );
-}
-
 function BackRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button type="button" className="min-h-11 rounded-lg px-1 text-sm font-semibold text-brand-800" onClick={onClick}>
@@ -736,7 +843,89 @@ function NavButton({
   );
 }
 
+function ReadyCloudWorkspace() {
+  const auth = useCloudAuth();
+
+  useEffect(() => startCloudLifecycle(), []);
+
+  return (
+    <StoreProvider dataSource={selectStoreDataSource({ hasSession: true })}>
+      <AppShell cloudAccount={{
+        email: auth.session?.user.email ?? '',
+        organizationName: auth.organization?.name ?? '',
+        canImport: auth.organization?.role === 'owner' || auth.organization?.role === 'admin',
+        signOut: auth.signOut
+      }} />
+    </StoreProvider>
+  );
+}
+
+function CloudWorkspace() {
+  const auth = useCloudAuth();
+  const [importState, setImportState] = useState<'checking' | 'offer' | 'ready'>('checking');
+  const [localSource, setLocalSource] = useState<BackupFile | null>(null);
+  const organizationId = auth.organization?.id ?? '';
+  const canImport = auth.organization?.role === 'owner' || auth.organization?.role === 'admin';
+  const marker = `emerald-cloud-import-reviewed:${organizationId}`;
+
+  useEffect(() => {
+    let mounted = true;
+    if (!organizationId || !canImport || window.localStorage.getItem(marker) === 'yes') {
+      setImportState('ready');
+      return;
+    }
+    void Promise.all([readLocalImportSource(), isCloudEmpty()])
+      .then(([local, empty]) => {
+        if (!mounted) return;
+        if (empty && hasLocalDataToImport(local)) {
+          setLocalSource(local);
+          setImportState('offer');
+        } else {
+          setImportState('ready');
+        }
+      })
+      .catch(() => {
+        // Una persona que ya trabajó en nube debe poder entrar con la caché aun sin internet.
+        if (mounted) setImportState('ready');
+      });
+    return () => { mounted = false; };
+  }, [canImport, marker, organizationId]);
+
+  if (importState === 'checking') return <CloudLoadingView />;
+  if (importState === 'offer') {
+    const continueToApp = () => {
+      window.localStorage.setItem(marker, 'yes');
+      setImportState('ready');
+    };
+    return (
+      <CloudImportView
+        initialSource={localSource}
+        onDone={continueToApp}
+        onCancel={continueToApp}
+      />
+    );
+  }
+  return <ReadyCloudWorkspace />;
+}
+
+function CloudEntry() {
+  const auth = useCloudAuth();
+  if (!auth.ready) return <CloudLoadingView />;
+  if (!auth.session) return <CloudAccessView />;
+  if (auth.passwordRecovery) return <PasswordRecoveryView />;
+  if (auth.needsFirstAccess) return <FirstAccessView />;
+  if (!auth.organization) return <CreateOrganizationView />;
+  return <CloudWorkspace />;
+}
+
 export default function App() {
+  if (cloudEnabled()) {
+    return (
+      <CloudAuthProvider>
+        <CloudEntry />
+      </CloudAuthProvider>
+    );
+  }
   return (
     <StoreProvider>
       <AppShell />

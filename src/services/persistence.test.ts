@@ -212,6 +212,10 @@ describe('settings', () => {
         goldPricePerGram: 777000,
         goldPriceUpdatedAt: '2026-07-11T18:01:00.000Z'
       })),
+      updateSettingsAtomically((current) => ({
+        ...current,
+        expenseCategories: [...current.expenseCategories, { name: 'Ferias', active: true }]
+      })),
       saveEditableSettings({ ...staleForm, jewelryName: 'Ajustes nuevos' }, false)
     ]);
 
@@ -223,6 +227,7 @@ describe('settings', () => {
     expect(current.goldPricePerGram).toBe(777000);
     expect(current.goldPriceUpdatedAt).toBe('2026-07-11T18:01:00.000Z');
     expect(current.jewelryName).toBe('Ajustes nuevos');
+    expect(current.expenseCategories).toContainEqual({ name: 'Ferias', active: true });
   });
 
   it('aplica una consulta de oro con el recargo más reciente', async () => {

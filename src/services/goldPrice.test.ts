@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { computeGoldPricePerGram, GRAMS_PER_TROY_OUNCE } from './goldPrice';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  computeGoldPricePerGram,
+  fetchUsdRateCOP,
+  GRAMS_PER_TROY_OUNCE
+} from './goldPrice';
 
 describe('precio del oro: internacional + recargo por gramo', () => {
   it('convierte USD/onza a COP/gramo y suma el recargo de $100.000', () => {
@@ -44,5 +48,30 @@ describe('precio del oro: internacional + recargo por gramo', () => {
     expect(() => computeGoldPricePerGram(4000, 0, 100000)).toThrow('tasa de cambio');
     expect(() => computeGoldPricePerGram(4000, 3300, -1)).toThrow('recargo');
     expect(() => computeGoldPricePerGram(4000, 3300, NaN)).toThrow('recargo');
+  });
+
+  it('consulta la misma fuente USD/COP aprobada sin depender del proveedor de oro', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => ({
+      ok: true,
+      json: async () => ({ rates: { COP: 4100.25 } })
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const snapshot = await fetchUsdRateCOP();
+
+    expect(snapshot.rate).toBe(4100.25);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://open.er-api.com/v6/latest/USD');
+    vi.unstubAllGlobals();
+  });
+
+  it('rechaza una tasa consultada fuera de los límites existentes', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ rates: { COP: 999 } })
+    })));
+
+    await expect(fetchUsdRateCOP()).rejects.toThrow(/fuera de un rango razonable/);
+    vi.unstubAllGlobals();
   });
 });

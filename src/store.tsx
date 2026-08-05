@@ -2,11 +2,42 @@
 // sincronizado con IndexedDB a través de services/storage.
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import type { Settings, Client, Quote, Appointment, StoneLot, Supplier } from './types';
-import * as storage from './services/storage';
+import type {
+  Settings,
+  ExpenseCategoryOption,
+  ProductTypeOption,
+  Client,
+  Quote,
+  Appointment,
+  StoneLot,
+  Supplier,
+  Buyer,
+  StockJewel,
+  MaterialPartner,
+  MaterialLot,
+  Expense
+} from './types';
+import { defaultSettings } from './services/storage';
+import { localDataSource, type StoreDataSource } from './services/dataSource';
+import { CLOUD_DATA_CHANGED_EVENT, cloudDataSource } from './services/cloud/api';
+import type { OutboxStatus } from './services/cloud/outbox';
+import { cloudEnabled } from './services/cloud/config';
 import { sortAgenda } from './services/agenda';
 import { sortStoneLots } from './services/stones';
-import { fetchGoldPriceCOP, type GoldPriceBreakdown } from './services/goldPrice';
+import { sortStockJewels } from './services/stockJewels';
+import type {
+  StoneJewelTransformationInput,
+  StoneJewelTransformationResult
+} from './services/stoneJewelTransformation';
+import { sortMaterialLots } from './services/materials';
+import { sortExpenses } from './services/expenses';
+import { withProductTypesUpdate } from './services/productTypes';
+import {
+  fetchGoldPriceCOP,
+  fetchUsdRateCOP,
+  type GoldPriceBreakdown,
+  type UsdRateSnapshot
+} from './services/goldPrice';
 import { downloadBackupFile } from './services/backup';
 import {
   createBackupExportController,
@@ -21,10 +52,22 @@ interface AppStore {
   appointments: Appointment[];
   stoneLots: StoneLot[];
   suppliers: Supplier[];
+  buyers: Buyer[];
+  stockJewels: StockJewel[];
+  materialPartners: MaterialPartner[];
+  materialLots: MaterialLot[];
+  expenses: Expense[];
   toast: string | null;
   backupExporting: boolean;
+  cloudSync: OutboxStatus;
   showToast: (message: string) => void;
   updateSettings: (settings: Settings, goldPriceWasEdited: boolean) => Promise<Settings>;
+  updateExpenseCategories: (
+    update: (current: ExpenseCategoryOption[]) => ExpenseCategoryOption[]
+  ) => Promise<Settings>;
+  updateProductTypes: (
+    update: (current: ProductTypeOption[]) => ProductTypeOption[]
+  ) => Promise<Settings>;
   exportBackup: () => Promise<boolean>;
   snoozeBackupReminder: (snoozedUntil: string) => Promise<void>;
   ensureBackupReminderFirstDataAt: (startedAt: string) => Promise<void>;
@@ -38,33 +81,84 @@ interface AppStore {
   removeStoneLot: (id: string) => Promise<void>;
   upsertSupplier: (supplier: Supplier) => Promise<void>;
   removeSupplier: (id: string) => Promise<void>;
+  upsertBuyer: (buyer: Buyer) => Promise<void>;
+  removeBuyer: (id: string) => Promise<void>;
+  upsertStockJewel: (jewel: StockJewel) => Promise<void>;
+  removeStockJewel: (id: string) => Promise<void>;
+  transformStockJewelToNatural: (
+    input: StoneJewelTransformationInput
+  ) => Promise<StoneJewelTransformationResult>;
+  upsertMaterialPartner: (partner: MaterialPartner) => Promise<void>;
+  removeMaterialPartner: (id: string) => Promise<void>;
+  upsertMaterialLot: (lot: MaterialLot) => Promise<void>;
+  removeMaterialLot: (id: string) => Promise<void>;
+  upsertExpense: (expense: Expense) => Promise<void>;
+  removeExpense: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
+  retryCloudChanges: (id?: string) => Promise<void>;
+  useCloudInventoryVersion: () => Promise<void>;
   reloadAll: () => Promise<void>;
   /** Consulta el precio internacional del oro del día y actualiza el precio interno. */
   refreshGoldPrice: () => Promise<GoldPriceBreakdown>;
+  /** Consulta solo la tasa USD→COP y conserva la última válida para operar sin conexión. */
+  refreshUsdRate: () => Promise<UsdRateSnapshot>;
 }
 
 const StoreContext = createContext<AppStore | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function selectStoreDataSource(options: {
+  hasSession: boolean;
+  cloudConfigured?: boolean;
+  local?: StoreDataSource;
+  cloud?: StoreDataSource;
+}): StoreDataSource {
+  const local = options.local ?? localDataSource;
+  const cloud = options.cloud ?? cloudDataSource;
+  const configured = options.cloudConfigured ?? cloudEnabled();
+  return configured && options.hasSession ? cloud : local;
+}
+
+export function StoreProvider({
+  children,
+  dataSource = localDataSource
+}: {
+  children: ReactNode;
+  dataSource?: StoreDataSource;
+}) {
   const [ready, setReady] = useState(false);
-  const [settings, setSettings] = useState<Settings>(storage.defaultSettings());
+  const [settings, setSettings] = useState<Settings>(defaultSettings());
   const [clients, setClients] = useState<Client[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [stoneLots, setStoneLots] = useState<StoneLot[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [stockJewels, setStockJewels] = useState<StockJewel[]>([]);
+  const [materialPartners, setMaterialPartners] = useState<MaterialPartner[]>([]);
+  const [materialLots, setMaterialLots] = useState<MaterialLot[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
+  const [cloudSync, setCloudSync] = useState<OutboxStatus>({ pending: 0, held: 0, operations: [] });
+
+  const refreshCloudSync = useCallback(async () => {
+    if (!dataSource.cloudSyncStatus) return;
+    setCloudSync(await dataSource.cloudSyncStatus());
+  }, [dataSource]);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q, a, sm, sp] = await Promise.all([
-      storage.loadSettings(),
-      storage.listClients(),
-      storage.listQuotes(),
-      storage.listAppointments(),
-      storage.listStoneLots(),
-      storage.listSuppliers()
+    const [s, c, q, a, sm, sp, bu, jw, mp, ml, ex] = await Promise.all([
+      dataSource.loadSettings(),
+      dataSource.listClients(),
+      dataSource.listQuotes(),
+      dataSource.listAppointments(),
+      dataSource.listStoneLots(),
+      dataSource.listSuppliers(),
+      dataSource.listBuyers(),
+      dataSource.listStockJewels(),
+      dataSource.listMaterialPartners(),
+      dataSource.listMaterialLots(),
+      dataSource.listExpenses()
     ]);
     setSettings(s);
     setClients(c);
@@ -72,15 +166,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAppointments(a);
     setStoneLots(sm);
     setSuppliers(sp);
-  }, []);
+    setBuyers(bu);
+    setStockJewels(jw);
+    setMaterialPartners(mp);
+    setMaterialLots(ml);
+    setExpenses(ex);
+  }, [dataSource]);
 
   const refreshGoldPrice = useCallback(async () => {
-    const markup = (await storage.loadSettings()).goldMarkupPerGram;
+    const markup = (await dataSource.loadSettings()).goldMarkupPerGram;
     const fetched = await fetchGoldPriceCOP(markup);
-    const { settings: next, info } = await storage.saveFetchedGoldPrice(fetched);
+    const { settings: next, info } = await dataSource.saveFetchedGoldPrice(fetched);
     setSettings(next);
     return info;
-  }, []);
+  }, [dataSource]);
+
+  const refreshUsdRate = useCallback(async () => {
+    const fetched = await fetchUsdRateCOP();
+    const next = await dataSource.updateSettingsAtomically((current) => ({
+      ...current,
+      lastKnownUsdRate: fetched.rate,
+      usdRateUpdatedAt: fetched.fetchedAt
+    }));
+    setSettings(next);
+    return fetched;
+  }, [dataSource]);
 
   useEffect(() => {
     reloadAll()
@@ -90,9 +200,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .finally(() => setReady(true))
       // Después de cargar, actualiza el precio del oro del día (si hay internet).
       // Encadenado para no competir con la carga inicial de settings.
-      .then(() => refreshGoldPrice())
+      .then(() => Promise.all([refreshGoldPrice(), refreshCloudSync()]))
       .catch(() => {});
-  }, [reloadAll, refreshGoldPrice]);
+  }, [reloadAll, refreshCloudSync, refreshGoldPrice]);
+
+  useEffect(() => {
+    const reloadCloudChanges = () => {
+      void Promise.all([reloadAll(), refreshCloudSync()]).catch(() => {});
+    };
+    window.addEventListener(CLOUD_DATA_CHANGED_EVENT, reloadCloudChanges);
+    return () => window.removeEventListener(CLOUD_DATA_CHANGED_EVENT, reloadCloudChanges);
+  }, [reloadAll, refreshCloudSync]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -100,15 +218,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateSettings = useCallback(async (next: Settings, goldPriceWasEdited: boolean) => {
-    const saved = await storage.saveEditableSettings(next, goldPriceWasEdited);
+    const saved = await dataSource.saveEditableSettings(next, goldPriceWasEdited);
     setSettings(saved);
     return saved;
-  }, []);
+  }, [dataSource]);
+
+  const updateExpenseCategories = useCallback(async (
+    update: (current: ExpenseCategoryOption[]) => ExpenseCategoryOption[]
+  ) => {
+    const saved = await dataSource.updateSettingsAtomically((current) => ({
+      ...current,
+      expenseCategories: update(current.expenseCategories)
+    }));
+    setSettings(saved);
+    return saved;
+  }, [dataSource]);
+
+  const updateProductTypes = useCallback(async (
+    update: (current: ProductTypeOption[]) => ProductTypeOption[]
+  ) => {
+    const saved = await dataSource.updateSettingsAtomically((current) =>
+      withProductTypesUpdate(current, update, new Date().toISOString())
+    );
+    setSettings(saved);
+    return saved;
+  }, [dataSource]);
 
   const recordBackupExported = useCallback(async (exportedAt: string) => {
-    const next = await storage.recordBackupExported(exportedAt);
+    const next = await dataSource.recordBackupExported(exportedAt);
     setSettings(next);
-  }, []);
+  }, [dataSource]);
 
   const backupExportControllerRef = useRef<BackupExportController | null>(null);
   if (!backupExportControllerRef.current) {
@@ -123,24 +262,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const exportBackup = useCallback(() => backupExportControllerRef.current!.start(), []);
 
   const snoozeBackupReminder = useCallback(async (snoozedUntil: string) => {
-    const next = await storage.snoozeBackupReminder(snoozedUntil);
+    const next = await dataSource.snoozeBackupReminder(snoozedUntil);
     setSettings(next);
-  }, []);
+  }, [dataSource]);
 
   const ensureBackupReminderFirstDataAt = useCallback(async (startedAt: string) => {
-    const next = await storage.ensureBackupReminderFirstDataAt(startedAt);
+    const next = await dataSource.ensureBackupReminderFirstDataAt(startedAt);
     setSettings(next);
-  }, []);
+  }, [dataSource]);
 
   const upsertClient = useCallback(async (client: Client) => {
-    await storage.saveClient(client);
-    setClients(await storage.listClients());
-  }, []);
+    await dataSource.saveClient(client);
+    setClients(await dataSource.listClients());
+  }, [dataSource]);
 
   const removeClient = useCallback(async (id: string) => {
-    await storage.deleteClient(id);
-    setClients(await storage.listClients());
-  }, []);
+    await dataSource.deleteClient(id);
+    setClients(await dataSource.listClients());
+  }, [dataSource]);
 
   const upsertQuote = useCallback(async (quote: Quote) => {
     // Se parcha el estado localmente: recargar TODAS las cotizaciones (con sus
@@ -151,63 +290,175 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         b.updatedAt.localeCompare(a.updatedAt)
       )
     );
-    await storage.saveQuote(quote);
-  }, []);
+    await dataSource.saveQuote(quote);
+  }, [dataSource]);
 
   const removeQuote = useCallback(async (id: string) => {
     setQuotes((prev) => prev.filter((q) => q.id !== id));
-    await storage.deleteQuote(id);
-  }, []);
+    await dataSource.deleteQuote(id);
+  }, [dataSource]);
 
   const upsertAppointment = useCallback(async (appointment: Appointment) => {
     // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
     // y la escritura local se confirma detrás.
     setAppointments((prev) => sortAgenda([appointment, ...prev.filter((a) => a.id !== appointment.id)]));
-    await storage.saveAppointment(appointment);
-  }, []);
+    await dataSource.saveAppointment(appointment);
+  }, [dataSource]);
 
   const removeAppointment = useCallback(async (id: string) => {
     setAppointments((prev) => prev.filter((a) => a.id !== id));
-    await storage.deleteAppointment(id);
-  }, []);
+    await dataSource.deleteAppointment(id);
+  }, [dataSource]);
 
   const upsertStoneLot = useCallback(async (lot: StoneLot) => {
     // Mismo patrón optimista que las cotizaciones: la interfaz responde ya
     // y la escritura local se confirma detrás.
     setStoneLots((prev) => sortStoneLots([lot, ...prev.filter((l) => l.id !== lot.id)]));
-    await storage.saveStoneLot(lot);
-  }, []);
+    await dataSource.saveStoneLot(lot);
+  }, [dataSource]);
 
   const removeStoneLot = useCallback(async (id: string) => {
-    setStoneLots((prev) => prev.filter((l) => l.id !== id));
-    await storage.deleteStoneLot(id);
-  }, []);
+    await dataSource.deleteStoneLot(id);
+    setStoneLots(await dataSource.listStoneLots());
+  }, [dataSource]);
 
   const upsertSupplier = useCallback(async (supplier: Supplier) => {
-    await storage.saveSupplier(supplier);
+    await dataSource.saveSupplier(supplier);
     const [nextSuppliers, nextStoneLots] = await Promise.all([
-      storage.listSuppliers(),
-      storage.listStoneLots()
+      dataSource.listSuppliers(),
+      dataSource.listStoneLots()
     ]);
     setSuppliers(nextSuppliers);
     setStoneLots(nextStoneLots);
-  }, []);
+  }, [dataSource]);
 
   const removeSupplier = useCallback(async (id: string) => {
-    await storage.deleteSupplier(id);
+    await dataSource.deleteSupplier(id);
     const [nextSuppliers, nextStoneLots] = await Promise.all([
-      storage.listSuppliers(),
-      storage.listStoneLots()
+      dataSource.listSuppliers(),
+      dataSource.listStoneLots()
     ]);
     setSuppliers(nextSuppliers);
     setStoneLots(nextStoneLots);
-  }, []);
+  }, [dataSource]);
+
+  // Guardar o borrar un comprador reescribe el nombre o suelta el vínculo en las
+  // ventas que lo apuntan, así que hay que releer también lotes y joyas (D-043).
+  const upsertBuyer = useCallback(async (buyer: Buyer) => {
+    await dataSource.saveBuyer(buyer);
+    const [nextBuyers, nextStoneLots, nextJewels] = await Promise.all([
+      dataSource.listBuyers(),
+      dataSource.listStoneLots(),
+      dataSource.listStockJewels()
+    ]);
+    setBuyers(nextBuyers);
+    setStoneLots(nextStoneLots);
+    setStockJewels(nextJewels);
+  }, [dataSource]);
+
+  const removeBuyer = useCallback(async (id: string) => {
+    await dataSource.deleteBuyer(id);
+    const [nextBuyers, nextStoneLots, nextJewels] = await Promise.all([
+      dataSource.listBuyers(),
+      dataSource.listStoneLots(),
+      dataSource.listStockJewels()
+    ]);
+    setBuyers(nextBuyers);
+    setStoneLots(nextStoneLots);
+    setStockJewels(nextJewels);
+  }, [dataSource]);
+
+  const upsertStockJewel = useCallback(async (jewel: StockJewel) => {
+    // Mismo patrón optimista que lotes y citas: la interfaz responde ya.
+    setStockJewels((prev) => sortStockJewels([jewel, ...prev.filter((j) => j.id !== jewel.id)]));
+    await dataSource.saveStockJewel(jewel);
+  }, [dataSource]);
+
+  const removeStockJewel = useCallback(async (id: string) => {
+    await dataSource.deleteStockJewel(id);
+    setStockJewels(await dataSource.listStockJewels());
+  }, [dataSource]);
+
+  const transformStockJewelToNatural = useCallback(async (
+    input: StoneJewelTransformationInput
+  ) => {
+    const result = await dataSource.transformStockJewelToNatural(input);
+    const [nextStoneLots, nextStockJewels] = await Promise.all([
+      dataSource.listStoneLots(),
+      dataSource.listStockJewels()
+    ]);
+    setStoneLots(nextStoneLots);
+    setStockJewels(nextStockJewels);
+    return result;
+  }, [dataSource]);
+
+  // Guardar o borrar un socio propaga el historial de material, gastos y piedras.
+  const upsertMaterialPartner = useCallback(async (partner: MaterialPartner) => {
+    await dataSource.saveMaterialPartner(partner);
+    const [nextPartners, nextLots, nextExpenses, nextStoneLots] = await Promise.all([
+      dataSource.listMaterialPartners(),
+      dataSource.listMaterialLots(),
+      dataSource.listExpenses(),
+      dataSource.listStoneLots()
+    ]);
+    setMaterialPartners(nextPartners);
+    setMaterialLots(nextLots);
+    setExpenses(nextExpenses);
+    setStoneLots(nextStoneLots);
+  }, [dataSource]);
+
+  const removeMaterialPartner = useCallback(async (id: string) => {
+    await dataSource.deleteMaterialPartner(id);
+    const [nextPartners, nextLots, nextExpenses, nextStoneLots] = await Promise.all([
+      dataSource.listMaterialPartners(),
+      dataSource.listMaterialLots(),
+      dataSource.listExpenses(),
+      dataSource.listStoneLots()
+    ]);
+    setMaterialPartners(nextPartners);
+    setMaterialLots(nextLots);
+    setExpenses(nextExpenses);
+    setStoneLots(nextStoneLots);
+  }, [dataSource]);
+
+  const upsertMaterialLot = useCallback(async (lot: MaterialLot) => {
+    // Mismo patrón optimista que lotes de piedras y joyas: la interfaz responde ya.
+    setMaterialLots((prev) => sortMaterialLots([lot, ...prev.filter((l) => l.id !== lot.id)]));
+    await dataSource.saveMaterialLot(lot);
+  }, [dataSource]);
+
+  const removeMaterialLot = useCallback(async (id: string) => {
+    setMaterialLots((prev) => prev.filter((l) => l.id !== id));
+    await dataSource.deleteMaterialLot(id);
+  }, [dataSource]);
+
+  const upsertExpense = useCallback(async (expense: Expense) => {
+    setExpenses((prev) => sortExpenses([expense, ...prev.filter((item) => item.id !== expense.id)]));
+    await dataSource.saveExpense(expense);
+  }, [dataSource]);
+
+  const removeExpense = useCallback(async (id: string) => {
+    setExpenses((prev) => prev.filter((expense) => expense.id !== id));
+    await dataSource.deleteExpense(id);
+  }, [dataSource]);
 
   const nextQuoteNumber = useCallback(async () => {
-    const number = await storage.nextQuoteNumber();
-    setSettings(await storage.loadSettings());
+    const number = await dataSource.nextQuoteNumber();
+    setSettings(await dataSource.loadSettings());
     return number;
-  }, []);
+  }, [dataSource]);
+
+  const retryCloudChanges = useCallback(async (id?: string) => {
+    if (!dataSource.retryCloudChanges) return;
+    await dataSource.retryCloudChanges(id);
+    await refreshCloudSync();
+  }, [dataSource, refreshCloudSync]);
+
+  const useCloudInventoryVersion = useCallback(async () => {
+    if (!dataSource.useCloudInventoryVersion) return;
+    await dataSource.useCloudInventoryVersion();
+    await Promise.all([reloadAll(), refreshCloudSync()]);
+  }, [dataSource, reloadAll, refreshCloudSync]);
 
   return (
     <StoreContext.Provider
@@ -219,10 +470,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         appointments,
         stoneLots,
         suppliers,
+        buyers,
+        stockJewels,
+        materialPartners,
+        materialLots,
+        expenses,
         toast,
         backupExporting,
+        cloudSync,
         showToast,
         updateSettings,
+        updateExpenseCategories,
+        updateProductTypes,
         exportBackup,
         snoozeBackupReminder,
         ensureBackupReminderFirstDataAt,
@@ -236,9 +495,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         removeStoneLot,
         upsertSupplier,
         removeSupplier,
+        upsertBuyer,
+        removeBuyer,
+        upsertStockJewel,
+        removeStockJewel,
+        transformStockJewelToNatural,
+        upsertMaterialPartner,
+        removeMaterialPartner,
+        upsertMaterialLot,
+        removeMaterialLot,
+        upsertExpense,
+        removeExpense,
         nextQuoteNumber,
+        retryCloudChanges,
+        useCloudInventoryVersion,
         reloadAll,
-        refreshGoldPrice
+        refreshGoldPrice,
+        refreshUsdRate
       }}
     >
       {children}

@@ -3,29 +3,50 @@
 // Todo es INTERNO (COP entero): ni los lotes ni los precios entran jamás en
 // un documento del cliente. Existencias y resultado se calculan con motor puro.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { StoneLot, StoneSale, SupplierPayment } from '../types';
+import type { CuttingBatch, StoneLot, StoneSale, SupplierPayment } from '../types';
 import {
   countStoneLots,
+  emptyCuttingBatch,
   emptyStoneLot,
   emptyStoneSale,
   emptySupplierPayment,
   filterStoneLots,
   isStoneLotValid,
   lotDisplayName,
+  stoneLotPurchaseOrigin,
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
+  summarizeStonePartnership,
+  summarizeStoneSale,
+  validateCuttingBatch,
   validateStoneSale,
+  validateStoneLotInventory,
+  validateStoneLotOwnership,
   validateStoneLotPurchaseUpdate,
   validateSupplierPayment,
   withLotSale,
+  withCuttingBatch,
+  withoutCuttingBatch,
   withoutLotSale,
+  withSaleCredit,
   withSupplierPayment,
   withoutSupplierPayment,
   type LotFilter
 } from '../services/stones';
+import { jewelDisplayName } from '../services/stockJewels';
+import { receivableStatus } from '../services/receivables';
+import { activeProductTypes } from '../services/productTypes';
+import {
+  formatOperationMoney,
+  newOperationUsdRate,
+  resolveUsdRatePrefill,
+  storedUsdRateSource,
+  usdRateLabel,
+  type CurrencyView
+} from '../services/currency';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
 import {
@@ -34,14 +55,17 @@ import {
   DecimalInput,
   EmptyState,
   Field,
+  FormDialog,
   MoneyInput,
   SectionCard,
+  SegmentedControl,
   Select,
   SummaryRow,
   TextArea,
   TextInput,
   Toggle
 } from './ui';
+import { CurrencyToggle } from './CurrencyToggle';
 
 const FILTERS: Array<{ value: LotFilter; label: string }> = [
   { value: 'existencias', label: 'Con existencias' },
@@ -53,13 +77,63 @@ function formatCarats(carats: number): string {
   return `${carats.toLocaleString('es-CO', { maximumFractionDigits: 3 })} ct`;
 }
 
+function formatLoss(ratio: number): string {
+  return `${(ratio * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })}%`;
+}
+
 export function stoneLotDeletionWarning(lot: StoneLot): string {
   const summary = summarizeStoneLot(lot);
+  // Si el lote tiene ventas a crédito sin saldar, borrarlo también borra ese
+  // cobro de la pantalla de Cobros. Callarlo sería hacer desaparecer plata
+  // que a Héctor le deben (hallazgo H2 de la auditoría propia, 2026-07-22).
+  const cobro =
+    summary.buyersDebt > 0
+      ? ` OJO: también se borrarán ${formatCOP(summary.buyersDebt)} que te deben por ventas a crédito y desaparecerán de Cobros.`
+      : '';
+  const jewelHistory =
+    (lot.internalUses?.length ?? 0) > 0
+      ? ' Las joyas conservarán el nombre histórico de este lote y todo su costo y resultado. Solo se perderá el acceso a la ficha del lote desde esa historia.'
+      : '';
   return `¿Eliminar el lote "${lotDisplayName(lot)}"? Se borrará la compra y todo su historial: ${
     lot.sales.length
-  } venta(s), ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
+  } venta(s), ${lot.cuttingBatches.length} tanda(s) de talla, ${
+    lot.internalUses?.length ?? 0
+  } uso(s) en joyas, ${formatCOP(
+    summary.paidCuttingCost
+  )} pagados en tallas, ${lot.supplierPayments.length} pago(s) al proveedor y una deuda pendiente de ${formatCOP(
     summary.supplierDebt
-  )}. Esta acción no se puede deshacer.`;
+  )}.${cobro}${jewelHistory} Esta acción no se puede deshacer.`;
+}
+
+/** Aviso al eliminar una venta: nombra los abonos que se pierden con ella. */
+export function stoneSaleDeletionWarning(sale: StoneSale): string {
+  const base = `¿Eliminar la venta de ${formatCOP(sale.valueCop)} del ${
+    formatDateCO(sale.date) || 'sin fecha'
+  }?`;
+  if (!sale.onCredit || sale.payments.length === 0) {
+    return `${base} Las existencias del lote vuelven a subir.`;
+  }
+  const summary = summarizeStoneSale(sale);
+  return `${base} Se perderán también ${sale.payments.length} abono(s) por ${formatCOP(
+    summary.receivedCop
+  )} que ya te había pagado${sale.buyer ? ` ${sale.buyer}` : ''}, y el saldo de ${formatCOP(
+    summary.balanceCop
+  )} desaparecerá de Cobros.`;
+}
+
+/** Aviso explícito: borrar una tanda elimina también su costo y su trazabilidad. */
+export function cuttingBatchDeletionWarning(batch: CuttingBatch): string {
+  const status = batch.returnedDate
+    ? `${formatCarats(batch.returnedCarats)} y ${batch.returnedQuantity} pieza(s) regresadas`
+    : `${formatCarats(batch.sentCarats)} y ${batch.sentQuantity} pieza(s) todavía en talla`;
+  const payment = batch.cuttingPaidDate
+    ? ` También desaparecerá el pago de talla por ${formatCOP(batch.cuttingCostCop)} del ${formatDateCO(
+        batch.cuttingPaidDate
+      )}.`
+    : batch.cuttingCostCop > 0
+      ? ` También desaparecerá el costo pendiente de ${formatCOP(batch.cuttingCostCop)}.`
+      : '';
+  return `¿Eliminar esta tanda? Se perderá el registro de ${status}.${payment} Las piedras enviadas volverán a quedar en bruto. Esta acción no se puede deshacer.`;
 }
 
 export function StonesView() {
@@ -82,8 +156,26 @@ export function StonesView() {
       </Button>
 
       <SectionCard title="Negocio de piedras">
-        <SummaryRow label="Invertido comprando lotes" value={formatCOP(flow.totalSpent)} />
-        <SummaryRow label="Recibido por ventas" value={formatCOP(flow.totalEarned)} />
+        <SummaryRow label="Invertido en lotes y tallas pagadas" value={formatCOP(flow.totalSpent)} />
+        {flow.totalCuttingPaid > 0 ? (
+          <SummaryRow label="De eso, pagado en tallas" value={formatCOP(flow.totalCuttingPaid)} />
+        ) : null}
+        <SummaryRow label="Vendido (valor acordado)" value={formatCOP(flow.totalEarned)} />
+        <SummaryRow label="Ya recibido de verdad" value={formatCOP(flow.totalReceived)} />
+        {flow.totalInternalAttributed > 0 ? (
+          <SummaryRow
+            label="Costo pasado a joyas (sin mover caja)"
+            value={formatCOP(flow.totalInternalAttributed)}
+          />
+        ) : null}
+        {flow.totalReceivable > 0 && (
+          <SummaryRow
+            label="Te deben por ventas a crédito"
+            value={formatCOP(flow.totalReceivable)}
+            bold
+            valueClass="text-brand-800"
+          />
+        )}
         <div className="border-t border-stone-100 pt-1">
           <SummaryRow
             label="Flujo neto (ventas − compras)"
@@ -120,6 +212,11 @@ export function StonesView() {
                   {entry.remainingQuantity} piedra(s) en {entry.activeLots}{' '}
                   {entry.activeLots === 1 ? 'lote' : 'lotes'}
                 </p>
+                <div className="mt-2 grid gap-1 text-xs text-stone-600 sm:grid-cols-3">
+                  <span>Bruto: {formatCarats(entry.rawAvailableCarats)} · {entry.rawAvailableQuantity} pz</span>
+                  <span>En talla: {formatCarats(entry.inCuttingCarats)} · {entry.inCuttingQuantity} pz</span>
+                  <span>Tallado: {formatCarats(entry.cutAvailableCarats)} · {entry.cutAvailableQuantity} pz</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -184,6 +281,7 @@ export function StonesView() {
 
 function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
   const summary = summarizeStoneLot(lot);
+  const partnership = summarizeStonePartnership(lot);
   return (
     <button type="button" className="block w-full rounded-2xl bg-white p-4 text-left shadow-sm" onClick={onOpen}>
       <div className="flex items-start justify-between gap-2">
@@ -202,13 +300,18 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
           {summary.exhausted ? 'Agotado' : 'Con existencias'}
         </span>
       </div>
+      {partnership.shared ? (
+        <p className="mt-1 text-xs font-medium text-brand-800">
+          Sociedad con {lot.partnerName || 'socio'} · tu parte {lot.myPercent}%
+        </p>
+      ) : null}
       <div className="mt-2 flex items-center justify-between text-xs text-stone-500">
         <span>
           {summary.exhausted
-            ? `Vendido todo (${formatCarats(lot.carats)} · ${lot.quantity} pz)`
+            ? `Sin existencias (${formatCarats(lot.carats)} · ${lot.quantity} pz compradas)`
             : `Quedan ${formatCarats(summary.remainingCarats)} · ${summary.remainingQuantity} pz de ${formatCarats(lot.carats)} · ${lot.quantity} pz`}
         </span>
-        {lot.sales.length > 0 ? (
+        {lot.sales.length > 0 || (lot.internalUses?.length ?? 0) > 0 ? (
           <span className={`font-semibold ${summary.result < 0 ? 'text-stone-600' : 'text-brand-800'}`}>
             {summary.exhausted ? 'Resultado: ' : 'Parcial: '}
             {formatCOP(summary.result)}
@@ -217,6 +320,11 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
           <span>Sin ventas aún</span>
         )}
       </div>
+      {lot.cuttingBatches.length > 0 ? (
+        <p className="mt-1 break-words text-xs text-stone-500">
+          Bruto {formatCarats(summary.rawAvailableCarats)} · en talla {formatCarats(summary.inCuttingCarats)} · tallado {formatCarats(summary.cutAvailableCarats)}
+        </p>
+      ) : null}
       {lot.onCredit && summary.supplierDebt > 0 && (
         <p className="mt-1 text-xs font-medium text-red-600">
           Crédito: debes {formatCOP(summary.supplierDebt)} al proveedor
@@ -233,16 +341,42 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
 function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   const store = useStore();
   const [saleForm, setSaleForm] = useState<StoneSale | null>(null);
+  const [cuttingForm, setCuttingForm] = useState<CuttingBatch | null>(null);
   const [paymentForm, setPaymentForm] = useState<SupplierPayment | null>(null);
   const [editingLot, setEditingLot] = useState(false);
   const [confirmDeleteLot, setConfirmDeleteLot] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<StoneSale | null>(null);
+  const [cuttingToDelete, setCuttingToDelete] = useState<CuttingBatch | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<SupplierPayment | null>(null);
   const [busy, setBusy] = useState(false);
+  const [currencyView, setCurrencyView] = useState<CurrencyView>('COP');
+  const saleReturnFocus = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (saleForm !== null || saleReturnFocus.current === null) return;
+    const target = saleReturnFocus.current;
+    const frame = window.requestAnimationFrame(() => {
+      const marker = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-sale-trigger]')
+      ).find((element) => element.dataset.saleTrigger === target);
+      const focusable = marker?.matches('button')
+        ? marker
+        : marker?.querySelector<HTMLElement>('button');
+      const fallback = document.querySelector<HTMLElement>('[data-lot-detail-focus]');
+      (focusable ?? fallback)?.focus();
+      saleReturnFocus.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [saleForm]);
 
   const lot = store.stoneLots.find((l) => l.id === lotId);
   if (!lot) return null;
   const summary = summarizeStoneLot(lot);
+  const partnership = summarizeStonePartnership(lot);
+  const purchaseOrigin = stoneLotPurchaseOrigin(lot);
+  const talladoHistoryProtected =
+    lot.sales.some((sale) => sale.origin === 'tallado') ||
+    (lot.internalUses ?? []).some((use) => use.origin === 'tallado');
 
   if (editingLot) {
     return <LotForm key={lot.id} initial={lot} isNew={false} onClose={() => setEditingLot(false)} />;
@@ -254,6 +388,16 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         lot={lot}
         initial={saleForm}
         onClose={() => setSaleForm(null)}
+      />
+    );
+  }
+  if (cuttingForm !== null) {
+    return (
+      <CuttingBatchForm
+        key={cuttingForm.id}
+        lot={lot}
+        initial={cuttingForm}
+        onClose={() => setCuttingForm(null)}
       />
     );
   }
@@ -273,7 +417,13 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
       <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-stone-900">{lotDisplayName(lot)}</h3>
+            <h3
+              data-lot-detail-focus
+              tabIndex={-1}
+              className="truncate text-base font-semibold text-stone-900 outline-none"
+            >
+              {lotDisplayName(lot)}
+            </h3>
             <p className="text-xs text-stone-500">
               {lot.stoneType || 'Sin especificar'} · {formatDateCO(lot.purchaseDate)}
             </p>
@@ -288,20 +438,67 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         </div>
 
         <div className="mt-3 space-y-1 rounded-xl bg-stone-50 p-3">
+          <SummaryRow
+            label="Estado al comprar"
+            value={purchaseOrigin === 'tallado' ? 'Ya tallado' : 'En bruto'}
+          />
           <SummaryRow label="Comprado" value={`${formatCarats(lot.carats)} · ${lot.quantity} pz`} />
           <SummaryRow label="Costo del lote" value={formatCOP(lot.purchaseValueCop)} />
+          {purchaseOrigin === 'bruto' ? (
+            <>
+              <SummaryRow
+                label="Bruto disponible"
+                value={`${formatCarats(summary.rawAvailableCarats)} · ${summary.rawAvailableQuantity} pz`}
+              />
+              <SummaryRow
+                label="En talla"
+                value={`${formatCarats(summary.inCuttingCarats)} · ${summary.inCuttingQuantity} pz`}
+              />
+            </>
+          ) : null}
+          <SummaryRow
+            label="Tallado disponible"
+            value={`${formatCarats(summary.cutAvailableCarats)} · ${summary.cutAvailableQuantity} pz`}
+          />
           {lot.supplier ? <SummaryRow label="Proveedor" value={lot.supplier} /> : null}
           <SummaryRow
             label="Vendido"
             value={`${formatCarats(summary.soldCarats)} · ${summary.soldQuantity} pz · ${formatCOP(summary.soldValue)}`}
           />
-          <SummaryRow
-            label="Queda"
-            value={`${formatCarats(summary.remainingCarats)} · ${summary.remainingQuantity} pz`}
-          />
+          {summary.internalUsedQuantity > 0 || summary.internalUsedCarats > 0 ? (
+            <SummaryRow
+              label="Usado en joyas"
+              value={`${formatCarats(summary.internalUsedCarats)} · ${summary.internalUsedQuantity} pz · ${formatCOP(summary.internalAttributedCost)}`}
+            />
+          ) : null}
+          {purchaseOrigin === 'bruto' ? (
+            <SummaryRow label="Tallas pagadas" value={formatCOP(summary.paidCuttingCost)} />
+          ) : null}
+          {purchaseOrigin === 'bruto' && summary.unpaidCuttingCost > 0 ? (
+            <SummaryRow
+              label="Tallas pendientes de pago"
+              value={formatCOP(summary.unpaidCuttingCost)}
+              valueClass="text-amber-700"
+            />
+          ) : null}
+          <SummaryRow label="Inversión registrada" value={formatCOP(summary.totalInvested)} bold />
+          {purchaseOrigin === 'bruto' ? (
+            <SummaryRow
+              label="Merma promedio de talla"
+              value={summary.cuttingLossRatio === null ? 'Sin dato' : formatLoss(summary.cuttingLossRatio)}
+            />
+          ) : null}
           <div className="border-t border-stone-200 pt-1">
             <SummaryRow
-              label={summary.exhausted ? 'Resultado del lote' : 'Resultado parcial'}
+              label={
+                partnership.shared
+                  ? summary.exhausted
+                    ? 'Resultado por valor acordado'
+                    : 'Parcial por valor acordado'
+                  : summary.exhausted
+                    ? 'Resultado del lote'
+                    : 'Resultado parcial'
+              }
               value={formatCOP(summary.result)}
               bold
               valueClass={summary.result < 0 ? 'text-red-600' : 'text-brand-800'}
@@ -312,10 +509,155 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               Parcial: aún quedan piedras por vender de este lote.
             </p>
           ) : null}
+          {partnership.shared ? (
+            <div className="mt-2 space-y-1 border-t border-stone-200 pt-2">
+              <SummaryRow
+                label="Resultado real para repartir"
+                value={formatCOP(partnership.realResult)}
+                bold
+                valueClass={partnership.realResult < 0 ? 'text-red-600' : 'text-brand-800'}
+              />
+              <SummaryRow
+                label={`Tu parte (${lot.myPercent}%)`}
+                value={formatCOP(partnership.myResult)}
+              />
+              <SummaryRow
+                label={`Parte de ${lot.partnerName || 'el socio'} (${100 - lot.myPercent}%)`}
+                value={formatCOP(partnership.partnerResult)}
+              />
+              <p className="text-[11px] text-stone-500">
+                Se reparte lo recibido de verdad menos la compra y las tallas pagadas, no el precio pendiente por cobrar.
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-3 space-y-1">
+          <CurrencyToggle value={currencyView} onChange={setCurrencyView} />
+          <p className="text-[11px] text-stone-500">
+            Solo cambian las operaciones con tasa propia. Totales y saldos combinados siguen en COP.
+          </p>
         </div>
 
         {lot.description ? <p className="mt-2 text-sm text-stone-600">{lot.description}</p> : null}
         {lot.notes ? <p className="mt-1 text-xs text-stone-500">{lot.notes}</p> : null}
+
+        {purchaseOrigin === 'bruto' ? (
+        <div className="mt-4 rounded-xl border border-stone-200 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Tandas de talla ({lot.cuttingBatches.length})
+            </p>
+            <button
+              type="button"
+              className="min-h-11 rounded-lg px-2 text-xs font-semibold text-brand-700 active:bg-brand-50"
+              onClick={() => setCuttingForm(emptyCuttingBatch(todayISO()))}
+            >
+              ＋ Enviar tanda
+            </button>
+          </div>
+          {lot.cuttingBatches.length === 0 ? (
+            <p className="mt-1 text-xs text-stone-500">
+              Todavía no has enviado piedras de este lote a talla.
+            </p>
+          ) : (
+            <ul className="mt-1 space-y-2">
+              {lot.cuttingBatches.map((batch) => {
+                const loss = batch.returnedDate
+                  ? batch.sentCarats > 0
+                    ? (batch.sentCarats - batch.returnedCarats) / batch.sentCarats
+                    : null
+                  : null;
+                return (
+                  <li key={batch.id} className="flex items-start gap-2 rounded-xl bg-stone-50 p-2">
+                    <button
+                      type="button"
+                      className="min-h-11 min-w-0 flex-1 text-left"
+                      onClick={() => setCuttingForm(batch)}
+                    >
+                      <p className="text-sm font-medium text-stone-800">
+                        {batch.returnedDate ? 'Regresó de talla' : 'En talla'} · {formatDateCO(batch.sentDate)}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        Enviado: {formatCarats(batch.sentCarats)} · {batch.sentQuantity} pz
+                      </p>
+                      {batch.returnedDate ? (
+                        <p className="text-xs text-stone-500">
+                          Regresó: {formatCarats(batch.returnedCarats)} · {batch.returnedQuantity} pz
+                          {loss !== null ? ` · merma ${formatLoss(loss)}` : ''}
+                        </p>
+                      ) : null}
+                      {batch.cuttingCostCop > 0 ? (
+                        <p className="text-xs text-stone-500">
+                          Talla: {formatCOP(batch.cuttingCostCop)} ·{' '}
+                          {batch.cuttingPaidDate
+                            ? `pagada el ${formatDateCO(batch.cuttingPaidDate)}`
+                            : 'pendiente de pago'}
+                        </p>
+                      ) : null}
+                      {batch.notes ? <p className="text-xs text-stone-500">{batch.notes}</p> : null}
+                      {batch.returnedDate && talladoHistoryProtected ? (
+                        <p className="text-xs font-medium text-amber-700">
+                          Historial protegido por ventas o usos en joyas
+                        </p>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Eliminar tanda de talla"
+                      disabled={Boolean(batch.returnedDate) && talladoHistoryProtected}
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50 disabled:text-stone-300"
+                      onClick={() => setCuttingToDelete(batch)}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        ) : null}
+
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            Usos en joyas ({lot.internalUses?.length ?? 0})
+          </p>
+          {(lot.internalUses?.length ?? 0) === 0 ? (
+            <p className="mt-1 text-xs text-stone-500">
+              Ninguna piedra de este lote se ha usado en una joya propia.
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {(lot.internalUses ?? []).map((use) => {
+                const jewel = store.stockJewels.find((candidate) => candidate.id === use.jewelId);
+                return (
+                  <li key={use.id} className="rounded-xl bg-white/90 p-3">
+                    <p className="break-words text-sm font-medium text-stone-800">
+                      {jewel ? jewelDisplayName(jewel) : 'Joya no disponible'}
+                    </p>
+                    <p className="break-all text-[11px] text-stone-500">
+                      ID de joya: {use.jewelId || 'Sin registrar'}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-stone-600">
+                      {formatDateCO(use.date)} · {use.origin === 'tallado' ? 'Tallado' : 'Bruto'} ·{' '}
+                      {formatCarats(use.carats)} · {use.quantity} piedra(s)
+                    </p>
+                    <p className="text-xs text-stone-600">
+                      Costo atribuido: {formatCOP(use.costCop)}
+                    </p>
+                    {use.notes ? (
+                      <p className="break-words text-xs text-stone-500">Nota: {use.notes}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="mt-2 text-[11px] text-stone-500">
+            Solo lectura: estos movimientos están unidos a la historia de cada joya.
+          </p>
+        </div>
 
         {lot.onCredit && (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
@@ -361,7 +703,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                     <button
                       type="button"
                       aria-label="Eliminar pago"
-                      className="min-h-10 min-w-10 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
                       onClick={() => setPaymentToDelete(payment)}
                     >
                       ✕
@@ -398,11 +740,15 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
+                    data-sale-trigger={sale.id}
                     className="min-h-11 min-w-0 flex-1 text-left"
-                    onClick={() => setSaleForm(sale)}
+                    onClick={() => {
+                      saleReturnFocus.current = sale.id;
+                      setSaleForm(sale);
+                    }}
                   >
                     <p className="text-sm font-medium text-stone-800">
-                      {formatCOP(sale.valueCop)}
+                      {formatOperationMoney(sale.valueCop, sale.usdRate, currencyView)}
                       <span className="font-normal text-stone-500">
                         {' '}
                         · {formatCarats(sale.carats)} · {sale.quantity} pz
@@ -412,26 +758,99 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                       {formatDateCO(sale.date)}
                       {sale.buyer ? ` · ${sale.buyer}` : ''}
                     </p>
+                    <p className="break-words text-xs text-stone-500">
+                      {sale.origin === 'tallado' ? 'Tallado' : 'Bruto'} ·{' '}
+                      {sale.productType || 'Sin registrar'} · {usdRateLabel(sale.usdRate)}
+                    </p>
+                    {sale.onCredit ? (
+                      <p
+                        className={`text-xs font-medium ${
+                          summarizeStoneSale(sale).balanceCop > 0 &&
+                          receivableStatus(sale.dueDate, todayISO()) === 'vencido'
+                            ? 'text-red-600'
+                            : 'text-stone-600'
+                        }`}
+                      >
+                        {summarizeStoneSale(sale).balanceCop > 0
+                          ? `Le debe ${formatCOP(summarizeStoneSale(sale).balanceCop)} · pagan el ${formatDateCO(sale.dueDate)}`
+                          : 'Crédito ya pagado ✓'}
+                      </p>
+                    ) : null}
+                    {!sale.onCredit ? (
+                      <p className="mt-1 break-words text-xs text-stone-600">
+                        {sale.method || 'Medio sin registrar'} · Recibió:{' '}
+                        {sale.receivedBy || 'Sin registrar'}
+                      </p>
+                    ) : null}
+                    {sale.notes ? (
+                      <p className="mt-1 break-words text-xs text-stone-600">
+                        Nota: {sale.notes}
+                      </p>
+                    ) : null}
                   </button>
                   <button
                     type="button"
                     aria-label="Eliminar venta"
-                    className="min-h-10 min-w-10 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                    className="min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
                     onClick={() => setSaleToDelete(sale)}
                   >
                     ✕
                   </button>
                 </div>
+                {sale.onCredit && sale.payments.length > 0 ? (
+                  <div className="mt-2 border-t border-stone-200 pt-2">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                      Abonos
+                    </p>
+                    <div className="space-y-2">
+                      {sale.payments.map((payment) => (
+                        <div key={payment.id} className="rounded-lg bg-white/60 p-2">
+                          <p className="text-xs font-medium text-stone-700">
+                            {formatOperationMoney(payment.amount, payment.usdRate, currencyView)} · {formatDateCO(payment.date)}
+                          </p>
+                          <p className="break-words text-[11px] text-stone-500">
+                            {payment.method || 'Medio sin registrar'} · Recibió:{' '}
+                            {payment.receivedBy || 'Sin registrar'}
+                          </p>
+                          {payment.notes ? (
+                            <p className="break-words text-[11px] text-stone-600">
+                              Nota: {payment.notes}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
 
         <div className="mt-4 space-y-2">
-          {!summary.exhausted && (
-            <Button full onClick={() => setSaleForm(emptyStoneSale(todayISO()))}>
-              ＋ Registrar venta
-            </Button>
+          {(summary.rawAvailableCarats > 0 ||
+            summary.rawAvailableQuantity > 0 ||
+            summary.cutAvailableCarats > 0 ||
+            summary.cutAvailableQuantity > 0) && (
+            <div data-sale-trigger="new">
+              <Button
+                full
+                onClick={() => {
+                  saleReturnFocus.current = 'new';
+                  const sale = emptyStoneSale(
+                    todayISO(),
+                    newOperationUsdRate(store.settings.lastKnownUsdRate)
+                  );
+                  setSaleForm(
+                    summary.rawAvailableCarats > 0 || summary.rawAvailableQuantity > 0
+                      ? sale
+                      : { ...sale, origin: 'tallado' }
+                  );
+                }}
+              >
+                ＋ Registrar venta
+              </Button>
+            </div>
           )}
           <div className="flex gap-2">
             <div className="flex-1">
@@ -440,7 +859,11 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               </Button>
             </div>
             <div className="flex-1">
-              <Button variant="danger" full onClick={() => setConfirmDeleteLot(true)}>
+              <Button
+                variant="danger"
+                full
+                onClick={() => setConfirmDeleteLot(true)}
+              >
                 Eliminar lote
               </Button>
             </div>
@@ -467,6 +890,38 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
               onClose();
             } catch {
               store.showToast('No se pudo eliminar el lote. Intenta de nuevo.');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+
+        <ConfirmDialog
+          open={cuttingToDelete !== null}
+          title="Eliminar tanda de talla"
+          message={cuttingToDelete ? cuttingBatchDeletionWarning(cuttingToDelete) : ''}
+          confirmLabel="Eliminar"
+          danger
+          busy={busy}
+          onCancel={() => setCuttingToDelete(null)}
+          onConfirm={async () => {
+            if (!cuttingToDelete) return;
+            const next = withoutCuttingBatch(lot, cuttingToDelete.id, new Date().toISOString());
+            const validationError = validateStoneLotInventory(next, lot);
+            if (validationError) {
+              store.showToast(validationError);
+              setCuttingToDelete(null);
+              return;
+            }
+            setBusy(true);
+            try {
+              await store.upsertStoneLot(next);
+              store.showToast('Tanda eliminada');
+              setCuttingToDelete(null);
+            } catch (error) {
+              store.showToast(
+                error instanceof Error ? error.message : 'No se pudo eliminar la tanda. Intenta de nuevo.'
+              );
             } finally {
               setBusy(false);
             }
@@ -503,9 +958,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
         <ConfirmDialog
           open={saleToDelete !== null}
           title="Eliminar venta"
-          message={`¿Eliminar la venta de ${formatCOP(saleToDelete?.valueCop ?? 0)} del ${
-            formatDateCO(saleToDelete?.date ?? '') || 'sin fecha'
-          }? Las piedras vuelven a quedar disponibles en el lote.`}
+          message={saleToDelete ? stoneSaleDeletionWarning(saleToDelete) : ''}
           confirmLabel="Eliminar"
           danger
           busy={busy}
@@ -544,6 +997,13 @@ function LotForm({
   const [busy, setBusy] = useState(false);
 
   const patch = (partial: Partial<StoneLot>) => setForm((current) => ({ ...current, ...partial }));
+  const historicalPartner = !form.partnerId && form.partnerName.trim().length > 0;
+  const partnerValue = form.partnerId ?? (historicalPartner ? '__historical__' : '');
+  const purchaseOriginLocked =
+    !isNew &&
+    (initial.sales.length > 0 ||
+      initial.cuttingBatches.length > 0 ||
+      (initial.internalUses ?? []).length > 0);
 
   const selectSupplier = (supplierId: string) => {
     if (!supplierId) {
@@ -554,7 +1014,23 @@ function LotForm({
     patch({ supplierId, supplier: supplier ? supplier.name : form.supplier });
   };
 
+  const selectPartner = (partnerId: string) => {
+    const partner = store.materialPartners.find((item) => item.id === partnerId);
+    if (partner) {
+      patch({ partnerId: partner.id, partnerName: partner.name });
+      return;
+    }
+    if (partnerId !== '__historical__') {
+      patch({ partnerId: null, partnerName: '', myPercent: 100 });
+    }
+  };
+
   const save = async () => {
+    const ownershipError = validateStoneLotOwnership(form);
+    if (ownershipError) {
+      store.showToast(ownershipError);
+      return;
+    }
     if (!isStoneLotValid(form)) {
       store.showToast('El lote necesita fecha de compra y tipo de piedra.');
       return;
@@ -576,8 +1052,8 @@ function LotForm({
       await store.upsertStoneLot({ ...form, updatedAt: new Date().toISOString() });
       store.showToast(isNew ? 'Lote registrado' : 'Compra actualizada');
       onClose();
-    } catch {
-      store.showToast('No se pudo guardar el lote. Intenta de nuevo.');
+    } catch (error) {
+      store.showToast(error instanceof Error ? error.message : 'No se pudo guardar el lote. Intenta de nuevo.');
     } finally {
       setBusy(false);
     }
@@ -607,6 +1083,33 @@ function LotForm({
               placeholder="Ej: talla esmeralda, calidad alta"
             />
           </Field>
+          {purchaseOriginLocked ? (
+            <Field
+              label="Estado al comprar"
+              hint="Se conserva porque este lote ya tiene movimientos registrados."
+            >
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {stoneLotPurchaseOrigin(form) === 'tallado' ? 'Ya tallado' : 'En bruto'}
+              </p>
+            </Field>
+          ) : (
+            <div className="space-y-1">
+              <SegmentedControl
+                label="Estado al comprar"
+                value={stoneLotPurchaseOrigin(form)}
+                options={[
+                  { value: 'bruto', label: 'En bruto' },
+                  { value: 'tallado', label: 'Ya tallado' }
+                ]}
+                onChange={(purchaseOrigin) =>
+                  patch({ purchaseOrigin: purchaseOrigin as StoneLot['purchaseOrigin'] })
+                }
+              />
+              <p className="text-xs text-stone-500">
+                Si ya llegó tallado, entra directo a existencias y no necesita tandas ni merma.
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quilates">
               <DecimalInput value={form.carats} onValue={(carats) => patch({ carats })} suffix="ct" />
@@ -618,6 +1121,35 @@ function LotForm({
           <Field label="Costo total del lote">
             <MoneyInput value={form.purchaseValueCop} onValue={(purchaseValueCop) => patch({ purchaseValueCop })} />
           </Field>
+          <Field label="Sociedad" hint="Sin socio, el lote queda 100% como propio.">
+            <Select
+              value={partnerValue}
+              onChange={selectPartner}
+              options={[
+                { value: '', label: 'Sin socio · 100% propio' },
+                ...(historicalPartner
+                  ? [{ value: '__historical__', label: `${form.partnerName} · ficha eliminada` }]
+                  : []),
+                ...store.materialPartners.map((partner) => ({ value: partner.id, label: partner.name }))
+              ]}
+            />
+          </Field>
+          {form.partnerId !== null || form.partnerName.trim() ? (
+            <Field
+              label="Tu porcentaje"
+              hint={
+                Number.isInteger(form.myPercent) && form.myPercent >= 0 && form.myPercent <= 100
+                  ? `Parte del socio: ${100 - form.myPercent}%`
+                  : 'Debe ser un número entero entre 0 y 100.'
+              }
+            >
+              <DecimalInput
+                value={form.myPercent}
+                onValue={(myPercent) => patch({ myPercent })}
+                suffix="%"
+              />
+            </Field>
+          ) : null}
           <Toggle
             checked={form.onCredit}
             onChange={(onCredit) => patch({ onCredit })}
@@ -663,6 +1195,227 @@ function LotForm({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Formulario de una tanda enviada a talla y de su regreso posterior. */
+function CuttingBatchForm({
+  lot,
+  initial,
+  onClose
+}: {
+  lot: StoneLot;
+  initial: CuttingBatch;
+  onClose: () => void;
+}) {
+  const store = useStore();
+  const [form, setForm] = useState<CuttingBatch>(initial);
+  const [busy, setBusy] = useState(false);
+  const isNew = !lot.cuttingBatches.some((batch) => batch.id === initial.id);
+  const physicalLocked =
+    !isNew &&
+    Boolean(initial.returnedDate) &&
+    (lot.sales.some((sale) => sale.origin === 'tallado') ||
+      (lot.internalUses ?? []).some((use) => use.origin === 'tallado'));
+  const otherBatches = lot.cuttingBatches.filter((batch) => batch.id !== initial.id);
+  const available = summarizeStoneLot({ ...lot, cuttingBatches: otherBatches });
+
+  const patch = (partial: Partial<CuttingBatch>) =>
+    setForm((current) => ({ ...current, ...partial }));
+
+  const save = async () => {
+    const error = validateCuttingBatch(lot, form, isNew ? undefined : initial.id);
+    if (error) {
+      store.showToast(error);
+      return;
+    }
+    const next = withCuttingBatch(lot, form, new Date().toISOString());
+    const inventoryError = validateStoneLotInventory(next, lot);
+    if (inventoryError) {
+      store.showToast(inventoryError);
+      return;
+    }
+    setBusy(true);
+    try {
+      await store.upsertStoneLot(next);
+      store.showToast(isNew ? 'Tanda enviada a talla' : 'Tanda actualizada');
+      onClose();
+    } catch (error) {
+      store.showToast(
+        error instanceof Error ? error.message : 'No se pudo guardar la tanda. Intenta de nuevo.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <FormDialog
+      title={isNew ? 'Enviar tanda a talla' : 'Actualizar tanda de talla'}
+      description={`${lotDisplayName(lot)} · bruto disponible ${formatCarats(
+        available.rawAvailableCarats
+      )} · ${available.rawAvailableQuantity} pz`}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <Button variant="ghost" full disabled={busy} onClick={onClose}>
+              Cancelar
+            </Button>
+          </div>
+          <div className="flex-1">
+            <Button full disabled={busy} onClick={() => void save()}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        {physicalLocked ? (
+          <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+            Los datos físicos están protegidos porque esta talla ya respalda ventas o piedras
+            usadas en joyas. Sí puedes completar el costo, el pago y las notas.
+          </p>
+        ) : null}
+        <Field label="Fecha de envío">
+          {physicalLocked ? (
+            <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+              {formatDateCO(form.sentDate)}
+            </p>
+          ) : (
+            <TextInput
+              type="date"
+              value={form.sentDate}
+              onChange={(sentDate) => patch({ sentDate })}
+            />
+          )}
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Quilates enviados">
+            {physicalLocked ? (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {formatCarats(form.sentCarats)}
+              </p>
+            ) : (
+              <DecimalInput
+                value={form.sentCarats}
+                onValue={(sentCarats) => patch({ sentCarats })}
+                suffix="ct"
+              />
+            )}
+          </Field>
+          <Field label="N.º de piedras">
+            {physicalLocked ? (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {form.sentQuantity}
+              </p>
+            ) : (
+              <DecimalInput
+                value={form.sentQuantity}
+                onValue={(sentQuantity) => patch({ sentQuantity })}
+              />
+            )}
+          </Field>
+        </div>
+
+        {!physicalLocked ? (
+          <Toggle
+            checked={Boolean(form.returnedDate)}
+            onChange={(returned) =>
+              patch(
+                returned
+                  ? { returnedDate: form.returnedDate || todayISO() }
+                  : { returnedDate: '', returnedCarats: 0, returnedQuantity: 0 }
+              )
+            }
+            label="Esta tanda ya regresó"
+          />
+        ) : null}
+        {form.returnedDate ? (
+          <div className="space-y-3 rounded-xl bg-stone-50 p-3">
+            <Field label="Fecha de regreso">
+              {physicalLocked ? (
+                <p className="min-h-11 rounded-xl bg-white px-3 py-3 text-sm text-stone-700">
+                  {formatDateCO(form.returnedDate)}
+                </p>
+              ) : (
+                <TextInput
+                  type="date"
+                  value={form.returnedDate}
+                  onChange={(returnedDate) => patch({ returnedDate })}
+                />
+              )}
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Quilates que regresaron">
+                {physicalLocked ? (
+                  <p className="min-h-11 rounded-xl bg-white px-3 py-3 text-sm text-stone-700">
+                    {formatCarats(form.returnedCarats)}
+                  </p>
+                ) : (
+                  <DecimalInput
+                    value={form.returnedCarats}
+                    onValue={(returnedCarats) => patch({ returnedCarats })}
+                    suffix="ct"
+                  />
+                )}
+              </Field>
+              <Field label="Piezas que regresaron" hint="Puede aumentar si una piedra se dividió.">
+                {physicalLocked ? (
+                  <p className="min-h-11 rounded-xl bg-white px-3 py-3 text-sm text-stone-700">
+                    {form.returnedQuantity}
+                  </p>
+                ) : (
+                  <DecimalInput
+                    value={form.returnedQuantity}
+                    onValue={(returnedQuantity) => patch({ returnedQuantity })}
+                  />
+                )}
+              </Field>
+            </div>
+            <p className="text-xs text-stone-500">
+              Merma estimada:{' '}
+              {form.sentCarats > 0
+                ? formatLoss((form.sentCarats - form.returnedCarats) / form.sentCarats)
+                : 'Sin dato'}
+            </p>
+          </div>
+        ) : null}
+
+        <Field label="Costo total de la talla">
+          <MoneyInput
+            value={form.cuttingCostCop}
+            onValue={(cuttingCostCop) => patch({ cuttingCostCop })}
+          />
+        </Field>
+        <Toggle
+          checked={Boolean(form.cuttingPaidDate)}
+          onChange={(paid) =>
+            patch({ cuttingPaidDate: paid ? form.cuttingPaidDate || todayISO() : '' })
+          }
+          label="La talla ya fue pagada"
+        />
+        {form.cuttingPaidDate ? (
+          <Field label="Fecha del pago">
+            <TextInput
+              type="date"
+              value={form.cuttingPaidDate}
+              onChange={(cuttingPaidDate) => patch({ cuttingPaidDate })}
+            />
+          </Field>
+        ) : null}
+        <Field label="Notas internas">
+          <TextArea
+            value={form.notes}
+            onChange={(notes) => patch({ notes })}
+            rows={2}
+            placeholder="Tallador, forma de corte u observaciones"
+          />
+        </Field>
+      </div>
+    </FormDialog>
   );
 }
 
@@ -758,11 +1511,58 @@ function SaleForm({
   const [form, setForm] = useState<StoneSale>(initial);
   const [busy, setBusy] = useState(false);
   const isNew = !lot.sales.some((s) => s.id === initial.id);
+  const refreshUsdRate = store.refreshUsdRate;
+  const rateTouched = useRef(false);
+  const initialRateUpdatedAt = useRef(store.settings.usdRateUpdatedAt).current;
+  const [rateSource, setRateSource] = useState(
+    storedUsdRateSource(initial.usdRate, initialRateUpdatedAt)
+  );
+
+  useEffect(() => {
+    if (!isNew) return;
+    let active = true;
+    refreshUsdRate()
+      .then((snapshot) => {
+        if (!active) return;
+        setForm((current) => ({
+          ...current,
+          usdRate: resolveUsdRatePrefill(
+            current.usdRate,
+            snapshot.rate,
+            rateTouched.current
+          )
+        }));
+        if (!rateTouched.current) setRateSource('Tasa vigente consultada');
+      })
+      .catch(() => {
+        if (active && !rateTouched.current) {
+          setRateSource(
+            storedUsdRateSource(
+              initial.usdRate,
+              initialRateUpdatedAt,
+              true
+            )
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [initial.usdRate, initialRateUpdatedAt, isNew, refreshUsdRate]);
 
   const patch = (partial: Partial<StoneSale>) => setForm((current) => ({ ...current, ...partial }));
 
   const others = lot.sales.filter((s) => s.id !== initial.id);
   const available = summarizeStoneLot({ ...lot, sales: others });
+  const saleSummary = summarizeStoneSale(form);
+  const availableProductTypes = activeProductTypes(store.settings.productTypes);
+  const productTypeOptions = [
+    { value: '', label: 'Selecciona un tipo' },
+    ...[...new Set([
+      ...availableProductTypes,
+      ...(form.productType ? [form.productType] : [])
+    ])].map((name) => ({ value: name, label: name }))
+  ];
 
   const save = async () => {
     const error = validateStoneSale(lot, form, isNew ? undefined : initial.id);
@@ -783,42 +1583,23 @@ function SaleForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-full w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl bg-white p-5 shadow-xl">
-        <h3 className="text-base font-semibold text-stone-900">
-          {isNew ? 'Registrar venta' : 'Editar venta'}
-        </h3>
-        <p className="mt-1 text-sm text-stone-600">
-          {lotDisplayName(lot)} · disponibles {formatCarats(available.remainingCarats)} ·{' '}
-          {available.remainingQuantity} pz
-        </p>
-        <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Quilates vendidos">
-              <DecimalInput value={form.carats} onValue={(carats) => patch({ carats })} suffix="ct" />
-            </Field>
-            <Field label="N.º de piedras">
-              <DecimalInput value={form.quantity} onValue={(quantity) => patch({ quantity })} />
-            </Field>
-          </div>
-          <Field label="Valor recibido (total)">
-            <MoneyInput value={form.valueCop} onValue={(valueCop) => patch({ valueCop })} />
-          </Field>
-          <Field label="A quién le vendiste">
-            <TextInput
-              value={form.buyer}
-              onChange={(buyer) => patch({ buyer })}
-              placeholder="Nombre del comprador"
-            />
-          </Field>
-          <Field label="Fecha de la venta">
-            <TextInput type="date" value={form.date} onChange={(date) => patch({ date })} />
-          </Field>
-          <Field label="Notas internas">
-            <TextArea value={form.notes} onChange={(notes) => patch({ notes })} rows={2} />
-          </Field>
-        </div>
-        <div className="mt-5 flex gap-3">
+    <FormDialog
+      title={isNew ? 'Registrar venta' : 'Editar venta'}
+      description={`${lotDisplayName(lot)} · ${
+        form.origin === 'tallado' ? 'tallado' : 'bruto'
+      } disponible ${formatCarats(
+        form.origin === 'tallado'
+          ? available.cutAvailableCarats
+          : available.rawAvailableCarats
+      )} · ${
+        form.origin === 'tallado'
+          ? available.cutAvailableQuantity
+          : available.rawAvailableQuantity
+      } pz`}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-3">
           <div className="flex-1">
             <Button variant="ghost" full disabled={busy} onClick={onClose}>
               Cancelar
@@ -830,7 +1611,191 @@ function SaleForm({
             </Button>
           </div>
         </div>
+      }
+    >
+      <div className="space-y-3">
+          <SegmentedControl
+            label="Origen de la piedra"
+            value={form.origin}
+            options={[
+              {
+                value: 'bruto',
+                label: 'En bruto',
+                disabled:
+                  isNew &&
+                  available.rawAvailableCarats <= 0 &&
+                  available.rawAvailableQuantity <= 0
+              },
+              {
+                value: 'tallado',
+                label: 'Tallada',
+                disabled:
+                  isNew &&
+                  available.cutAvailableCarats <= 0 &&
+                  available.cutAvailableQuantity <= 0
+              }
+            ]}
+            onChange={(origin) => patch({ origin: origin as StoneSale['origin'] })}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Quilates vendidos">
+              <DecimalInput value={form.carats} onValue={(carats) => patch({ carats })} suffix="ct" />
+            </Field>
+            <Field label="N.º de piedras">
+              <DecimalInput value={form.quantity} onValue={(quantity) => patch({ quantity })} />
+            </Field>
+          </div>
+          <Field label="Valor de la venta (total)">
+            <MoneyInput value={form.valueCop} onValue={(valueCop) => patch({ valueCop })} />
+          </Field>
+          <Field label="Tipo de producto">
+            <Select
+              value={form.productType}
+              onChange={(productType) => patch({ productType })}
+              options={productTypeOptions}
+            />
+          </Field>
+          <Field
+            label="Tasa USD/COP"
+            hint={isNew ? `${rateSource}. Puedes ajustarla antes de guardar.` : 'Quedó fijada al registrar la venta.'}
+          >
+            {isNew ? (
+              <DecimalInput
+                value={form.usdRate ?? 0}
+                onValue={(value) => {
+                  rateTouched.current = true;
+                  setRateSource('Tasa escrita manualmente');
+                  patch({ usdRate: value > 0 ? value : null });
+                }}
+                suffix="COP"
+              />
+            ) : (
+              <p className="min-h-11 rounded-xl bg-stone-100 px-3 py-3 text-sm text-stone-700">
+                {usdRateLabel(form.usdRate)}
+              </p>
+            )}
+          </Field>
+          <Field label="A quién le vendiste">
+            <Select
+              value={form.buyerId ?? ''}
+              onChange={(buyerId) => {
+                const buyer = store.buyers.find((b) => b.id === buyerId);
+                patch({
+                  buyerId: buyer ? buyer.id : null,
+                  buyer: buyer ? buyer.name : form.buyer
+                });
+              }}
+              options={[
+                { value: '', label: 'Escribir el nombre' },
+                ...store.buyers.map((b) => ({ value: b.id, label: b.name }))
+              ]}
+            />
+          </Field>
+          {form.buyerId === null ? (
+            <Field label="Nombre del comprador">
+              <TextInput
+                value={form.buyer}
+                onChange={(buyer) => patch({ buyer })}
+                placeholder="Nombre del comprador"
+              />
+            </Field>
+          ) : null}
+          <Field label="Fecha de la venta">
+            <TextInput type="date" value={form.date} onChange={(date) => patch({ date })} />
+          </Field>
+
+          {/* Crédito al vender (D-042): una fecha acordada y abonos libres. */}
+          <SegmentedControl
+            label="Forma de venta"
+            value={form.onCredit ? 'credit' : 'cash'}
+            options={[
+              {
+                value: 'cash',
+                label: 'Contado',
+                disabled: form.payments.length > 0
+              },
+              { value: 'credit', label: 'A crédito' }
+            ]}
+            onChange={(value) =>
+              setForm(withSaleCredit(form, value === 'credit', todayISO()))
+            }
+          />
+          {form.payments.length > 0 ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              Contado está bloqueado porque esta venta ya tiene {form.payments.length}{' '}
+              abono(s) registrados por {formatCOP(saleSummary.receivedCop)}.
+            </p>
+          ) : null}
+          {!form.onCredit ? (
+            <>
+              <Field label="¿Cómo te pagaron? *">
+                <TextInput
+                  value={form.method}
+                  onChange={(method) => patch({ method })}
+                  placeholder="Efectivo, transferencia, Nequi…"
+                />
+              </Field>
+              <Field label="¿Quién recibió el dinero? *">
+                <TextInput
+                  value={form.receivedBy}
+                  onChange={(receivedBy) => patch({ receivedBy })}
+                  placeholder="Nombre de quien recibió"
+                />
+              </Field>
+            </>
+          ) : null}
+          {form.onCredit ? (
+            <>
+              <Field label="¿Cuándo quedaron de pagarte?">
+                <TextInput
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(dueDate) => patch({ dueDate })}
+                />
+              </Field>
+              {form.payments.length > 0 ? (
+                <div className="space-y-1 rounded-xl bg-stone-50 p-3">
+                  <SummaryRow label="Ya te abonó" value={formatCOP(saleSummary.receivedCop)} />
+                  <SummaryRow
+                    label="Le falta"
+                    value={formatCOP(saleSummary.balanceCop)}
+                    bold
+                    valueClass="text-brand-800"
+                  />
+                  <p className="pt-1 text-xs text-stone-500">
+                    Los abonos se registran desde Cobros.
+                  </p>
+                  <div className="mt-2 space-y-2 border-t border-stone-200 pt-2">
+                    {form.payments.map((payment) => (
+                      <div key={payment.id} className="rounded-lg bg-white/60 p-2">
+                        <p className="text-xs font-medium text-stone-700">
+                          {formatCOP(payment.amount)} · {formatDateCO(payment.date)}
+                        </p>
+                        <p className="break-words text-[11px] text-stone-500">
+                          {payment.method || 'Medio sin registrar'} · Recibió:{' '}
+                          {payment.receivedBy || 'Sin registrar'}
+                        </p>
+                        {payment.notes ? (
+                          <p className="break-words text-[11px] text-stone-600">
+                            Nota: {payment.notes}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-xl bg-stone-50 p-3 text-xs text-stone-500">
+                  Al guardar, esta venta aparecerá en Cobros y allí podrás registrar los abonos.
+                </p>
+              )}
+            </>
+          ) : null}
+
+          <Field label="Notas internas">
+            <TextArea value={form.notes} onChange={(notes) => patch({ notes })} rows={2} />
+          </Field>
       </div>
-    </div>
+    </FormDialog>
   );
 }

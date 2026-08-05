@@ -62,8 +62,157 @@ function makeBackup(
     quotes,
     appointments: [],
     stoneLots: [],
-    suppliers: []
+    suppliers: [],
+    buyers: [],
+    stockJewels: [],
+    materialPartners: [],
+    materialLots: [],
+    expenses: []
   };
+}
+
+const BACKUP_ENTITY_STORE_NAMES = [
+  'clients',
+  'quotes',
+  'appointments',
+  'stoneLots',
+  'suppliers',
+  'buyers',
+  'stockJewels',
+  'materialPartners',
+  'materialLots',
+  'expenses'
+] as const;
+const BACKUP_STORE_NAMES = ['settings', ...BACKUP_ENTITY_STORE_NAMES] as const;
+
+type BackupStoreName = (typeof BACKUP_STORE_NAMES)[number];
+
+function makeFullBackup(prefix: string): BackupFile {
+  const backup = makeBackup(prefix, { clients: 2, quotes: 2, version: 8 });
+  const createdAt = '2026-07-25T12:00:00.000Z';
+  const supplierId = `${prefix}-supplier-1`;
+  const buyerId = `${prefix}-buyer-1`;
+  const partnerId = `${prefix}-material-partner-1`;
+
+  backup.appointments = [{
+    id: `${prefix}-appointment-1`,
+    clientId: backup.clients[0].id,
+    clientName: backup.clients[0].name,
+    date: '2026-07-25',
+    time: '10:00',
+    durationMinutes: 60,
+    reason: 'Asesoría',
+    notes: '',
+    status: 'programada',
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.suppliers = [{
+    id: supplierId,
+    name: `${prefix} Proveedor`,
+    phone: '',
+    city: '',
+    notes: '',
+    createdAt
+  }];
+  backup.buyers = [{
+    id: buyerId,
+    name: `${prefix} Comprador`,
+    phone: '',
+    city: '',
+    notes: '',
+    createdAt
+  }];
+  backup.materialPartners = [{
+    id: partnerId,
+    name: `${prefix} Socio`,
+    phone: '',
+    city: '',
+    notes: '',
+    createdAt
+  }];
+  backup.stoneLots = [{
+    id: `${prefix}-stone-lot-1`,
+    name: `${prefix} Lote de piedras`,
+    stoneType: 'Esmeralda',
+    description: '',
+    purchaseDate: '2026-07-25',
+    supplier: `${prefix} Proveedor`,
+    supplierId,
+    carats: 5,
+    quantity: 1,
+    purchaseValueCop: 1000000,
+    partnerId: null,
+    partnerName: '',
+    myPercent: 100,
+    onCredit: false,
+    supplierPayments: [],
+    cuttingBatches: [],
+    internalUses: [],
+    notes: '',
+    sales: [],
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.stockJewels = [{
+    id: `${prefix}-stock-jewel-1`,
+    name: `${prefix} Anillo`,
+    pieceType: 'anillo',
+    material: 'Oro',
+    photo: '',
+    acquiredDate: '2026-07-25',
+    weightGrams: 0,
+    size: '',
+    stoneCount: 0,
+    stoneKind: '',
+    costCop: 800000,
+    priceCop: 1200000,
+    status: 'disponible',
+    notes: '',
+    sale: null,
+    collectionId: null,
+    stoneTransformations: [],
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.materialLots = [{
+    id: `${prefix}-material-lot-1`,
+    name: `${prefix} Oro`,
+    materialType: 'Oro',
+    purity: '18K',
+    purchaseDate: '2026-07-25',
+    grams: 10,
+    costCop: 5000000,
+    partnerId,
+    partnerName: `${prefix} Socio`,
+    myGrams: 6,
+    notes: '',
+    uses: [{
+      id: `${prefix}-material-use-1`,
+      date: '2026-07-25',
+      grams: 2,
+      notes: ''
+    }],
+    createdAt,
+    updatedAt: createdAt
+  }];
+  backup.expenses = [{
+    id: `${prefix}-expense-1`,
+    date: '2026-07-25',
+    concept: `${prefix} Publicidad`,
+    category: 'Publicidad',
+    amountCop: 300000,
+    usdRate: null,
+    method: 'Transferencia',
+    paidBy: 'Santiago',
+    partnerId,
+    partnerName: `${prefix} Socio`,
+    myPercent: 60,
+    notes: '',
+    createdAt,
+    updatedAt: createdAt
+  }];
+  return backup;
 }
 
 function sortById<T extends { id?: unknown }>(items: T[]): T[] {
@@ -71,15 +220,43 @@ function sortById<T extends { id?: unknown }>(items: T[]): T[] {
 }
 
 async function rawSnapshot() {
-  const [settings, clients, quotes] = await Promise.all([
+  const [
+    settings,
+    clients,
+    quotes,
+    appointments,
+    stoneLots,
+    suppliers,
+    buyers,
+    stockJewels,
+    materialPartners,
+    materialLots,
+    expenses
+  ] = await Promise.all([
     db.dbGetAll<Record<string, unknown>>('settings'),
     db.dbGetAll<Record<string, unknown>>('clients'),
-    db.dbGetAll<Record<string, unknown>>('quotes')
+    db.dbGetAll<Record<string, unknown>>('quotes'),
+    db.dbGetAll<Record<string, unknown>>('appointments'),
+    db.dbGetAll<Record<string, unknown>>('stoneLots'),
+    db.dbGetAll<Record<string, unknown>>('suppliers'),
+    db.dbGetAll<Record<string, unknown>>('buyers'),
+    db.dbGetAll<Record<string, unknown>>('stockJewels'),
+    db.dbGetAll<Record<string, unknown>>('materialPartners'),
+    db.dbGetAll<Record<string, unknown>>('materialLots'),
+    db.dbGetAll<Record<string, unknown>>('expenses')
   ]);
   return {
     settings: sortById(settings),
     clients: sortById(clients),
-    quotes: sortById(quotes)
+    quotes: sortById(quotes),
+    appointments: sortById(appointments),
+    stoneLots: sortById(stoneLots),
+    suppliers: sortById(suppliers),
+    buyers: sortById(buyers),
+    stockJewels: sortById(stockJewels),
+    materialPartners: sortById(materialPartners),
+    materialLots: sortById(materialLots),
+    expenses: sortById(expenses)
   };
 }
 
@@ -97,7 +274,7 @@ function trackAtomicTransactions() {
     const scope = Array.from(tx.objectStoreNames);
     if (
       mode === 'readwrite' &&
-      ['settings', 'clients', 'quotes'].every((store) => scope.includes(store))
+      BACKUP_STORE_NAMES.every((store) => scope.includes(store))
     ) {
       counts.writes += 1;
       tx.addEventListener('complete', () => {
@@ -112,7 +289,7 @@ function trackAtomicTransactions() {
   return counts;
 }
 
-function abortAfterSuccessfulPut(target: 'settings' | 'clients' | 'quotes') {
+function abortAfterSuccessfulPut(target: BackupStoreName) {
   let triggers = 0;
   const original = FakeIDBObjectStore.prototype.put;
   const spy = vi.spyOn(FakeIDBObjectStore.prototype, 'put').mockImplementation(function (
@@ -138,21 +315,20 @@ function abortAfterSuccessfulPut(target: 'settings' | 'clients' | 'quotes') {
 }
 
 describe('restauración atómica de respaldos', () => {
-  it('reemplaza ajustes, clientes y cotizaciones en una única confirmación', async () => {
-    await backupService.importBackup(makeBackup('anterior', { clients: 2, quotes: 2 }));
-    const next = makeBackup('nuevo', { clients: 2, quotes: 2 });
+  it('reemplaza las diez colecciones en una única confirmación', async () => {
+    await backupService.importBackup(makeFullBackup('anterior'));
+    const next = makeFullBackup('nuevo');
     const transactions = trackAtomicTransactions();
 
     await backupService.importBackup(next);
 
-    const [settings, clients, quotes] = await Promise.all([
-      storage.loadSettings(),
-      storage.listClients(),
-      storage.listQuotes()
-    ]);
-    expect(settings.jewelryName).toBe('Joyería nuevo');
-    expect(clients.map((client) => client.id).sort()).toEqual(next.clients.map((client) => client.id).sort());
-    expect(quotes.map((quote) => quote.id).sort()).toEqual(next.quotes.map((quote) => quote.id).sort());
+    const snapshot = await rawSnapshot();
+    expect((await storage.loadSettings()).jewelryName).toBe('Joyería nuevo');
+    for (const storeName of BACKUP_ENTITY_STORE_NAMES) {
+      expect(snapshot[storeName].map(({ id }) => id).sort()).toEqual(
+        next[storeName].map(({ id }) => id).sort()
+      );
+    }
     expect(transactions).toEqual({ writes: 1, completes: 1, aborts: 0 });
   });
 
@@ -170,17 +346,17 @@ describe('restauración atómica de respaldos', () => {
     expect(snapshot.quotes.every((quote) => String(quote.id).startsWith('lote-'))).toBe(true);
   });
 
-  it.each(['settings', 'clients', 'quotes'] as const)(
-    'un fallo al escribir %s aborta todo y conserva los tres grupos anteriores',
+  it.each(BACKUP_STORE_NAMES)(
+    'un fallo al escribir %s aborta todo y conserva las once colecciones anteriores',
     async (target) => {
-      await backupService.importBackup(makeBackup(`base-${target}`, { clients: 2, quotes: 3 }));
+      await backupService.importBackup(makeFullBackup(`base-${target}`));
       const before = await rawSnapshot();
       const transactions = trackAtomicTransactions();
       const aborter = abortAfterSuccessfulPut(target);
       let successReached = false;
 
       try {
-        await backupService.importBackup(makeBackup(`nuevo-${target}`, { clients: 3, quotes: 4 }));
+        await backupService.importBackup(makeFullBackup(`nuevo-${target}`));
         successReached = true;
       } catch (error) {
         expect(error).toEqual(
@@ -213,6 +389,67 @@ describe('restauración atómica de respaldos', () => {
         quotes: []
       } as unknown as BackupFile)
     ).rejects.toThrow('faltan clientes');
+    expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
+  });
+
+  it('rechaza ajustes B3 corruptos antes de escribir', async () => {
+    const invalidRate = makeFullBackup('tasa-ajustes');
+    invalidRate.settings = {
+      ...invalidRate.settings!,
+      lastKnownUsdRate: 999
+    };
+    const invalidTypes = makeFullBackup('tipos-ajustes');
+    invalidTypes.settings = {
+      ...invalidTypes.settings!,
+      productTypes: [{ name: '', active: true }]
+    };
+    const transactions = trackAtomicTransactions();
+
+    await expect(backupService.importBackup(invalidRate)).rejects.toThrow(/tasa USD\/COP/);
+    await expect(backupService.importBackup(invalidTypes)).rejects.toThrow(/sin nombre/);
+    expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
+  });
+
+  it('rechaza tasas B3 inválidas en operaciones antes de normalizar', async () => {
+    const invalidStone = makeFullBackup('tasa-piedras');
+    invalidStone.stoneLots[0].sales = [{
+      id: 'venta-invalida',
+      date: '2026-07-25',
+      buyer: 'Comprador',
+      buyerId: null,
+      carats: 1,
+      quantity: 1,
+      origin: 'bruto',
+      valueCop: 2000000,
+      productType: 'Esmeralda tallada',
+      usdRate: 999,
+      onCredit: false,
+      dueDate: '',
+      payments: [],
+      method: 'Transferencia',
+      receivedBy: 'Santiago',
+      notes: ''
+    }];
+    const invalidStock = makeFullBackup('tasa-joya');
+    invalidStock.stockJewels[0].sale = {
+      id: 'venta-joya-invalida',
+      date: '2026-07-25',
+      buyer: 'Comprador',
+      buyerId: null,
+      priceCop: 1200000,
+      productType: 'Joya con piedra natural',
+      usdRate: 20001,
+      method: 'Efectivo',
+      receivedBy: 'Santiago',
+      notes: ''
+    };
+    const invalidExpense = makeFullBackup('tasa-gasto');
+    invalidExpense.expenses[0].usdRate = 999;
+    const transactions = trackAtomicTransactions();
+
+    await expect(backupService.importBackup(invalidStone)).rejects.toThrow(/tasa USD\/COP/);
+    await expect(backupService.importBackup(invalidStock)).rejects.toThrow(/tasa USD\/COP/);
+    await expect(backupService.importBackup(invalidExpense)).rejects.toThrow(/tasa USD\/COP/);
     expect(transactions).toEqual({ writes: 0, completes: 0, aborts: 0 });
   });
 

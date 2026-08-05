@@ -18,15 +18,39 @@ import type {
   Appointment,
   AppointmentStatus,
   StoneLot,
+  StoneOrigin,
   StoneSale,
+  CuttingBatch,
+  StoneInternalUse,
   Supplier,
-  SupplierPayment
+  SupplierPayment,
+  Buyer,
+  BuyerPayment,
+  StockJewel,
+  StockJewelSale,
+  StockJewelStatus,
+  StockJewelStoneKind,
+  StockJewelStoneTransformation,
+  MaterialPartner,
+  MaterialUse,
+  MaterialLot,
+  Expense,
+  ExpenseCategoryOption,
+  ProductTypeOption
 } from '../types';
-import { QUOTE_STATUSES, PIECE_TYPES, APPOINTMENT_STATUSES } from '../types';
+import {
+  QUOTE_STATUSES,
+  PIECE_TYPES,
+  APPOINTMENT_STATUSES,
+  STOCK_JEWEL_STATUSES
+} from '../types';
 import { newId } from '../utils/id';
+import { BASE_EXPENSE_CATEGORIES } from './expenses';
+import { BASE_PRODUCT_TYPES } from './productTypes';
+import { normalizeUsdRate } from './currency';
 
 /** Versión del esquema de settings. Súbela al agregar una migración. */
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 5;
 
 export function defaultSettings(): Settings {
   return {
@@ -53,6 +77,11 @@ export function defaultSettings(): Settings {
     defaultTaxPercent: 19,
     conditions:
       'Precios sujetos a cambio según el mercado del oro y disponibilidad de piedras. Cotización válida hasta la fecha indicada. El trabajo inicia con la confirmación del anticipo.',
+    expenseCategories: BASE_EXPENSE_CATEGORIES.map((name) => ({ name, active: true })),
+    productTypes: BASE_PRODUCT_TYPES.map((name) => ({ name, active: true })),
+    productTypesUpdatedAt: '',
+    lastKnownUsdRate: null,
+    usdRateUpdatedAt: '',
     quoteCounter: 1,
     lastBackupExportedAt: '',
     backupReminderSnoozedUntil: '',
@@ -73,6 +102,11 @@ function safeNumber(value: unknown, fallback = 0): number {
 
 function safeArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function safeOptionalTimestamp(value: unknown): string {
+  const timestamp = safeString(value).trim();
+  return timestamp && Number.isFinite(Date.parse(timestamp)) ? timestamp : '';
 }
 
 /** Solo se aceptan imágenes en data URL generadas por la app (nunca URLs externas: evita rastreo). */
@@ -107,6 +141,12 @@ export function normalizeSettings(raw: unknown): Settings {
   }
   out.currency = 'COP';
   out.logoDataUrl = safeImageDataUrl(source.logoDataUrl);
+  out.expenseCategories = normalizeExpenseCategories(source.expenseCategories);
+  out.productTypes = normalizeProductTypes(source.productTypes);
+  out.productTypesUpdatedAt = safeOptionalTimestamp(source.productTypesUpdatedAt);
+  out.lastKnownUsdRate = normalizeUsdRate(source.lastKnownUsdRate);
+  out.usdRateUpdatedAt =
+    out.lastKnownUsdRate === null ? '' : safeOptionalTimestamp(source.usdRateUpdatedAt);
 
   // Migraciones ordenadas. La versión guardada indica qué le falta al registro.
   const storedVersion = safeNumber(source.settingsVersion, 1);
@@ -118,6 +158,56 @@ export function normalizeSettings(raw: unknown): Settings {
   out.settingsVersion = SETTINGS_VERSION;
 
   return out;
+}
+
+function normalizeExpenseCategories(raw: unknown): ExpenseCategoryOption[] {
+  const stored = new Map<string, ExpenseCategoryOption>();
+  for (const value of safeArray(raw)) {
+    if (typeof value !== 'object' || value === null) continue;
+    const option = value as Record<string, unknown>;
+    const name = safeString(option.name).trim();
+    if (!name) continue;
+    const key = name.toLocaleLowerCase('es');
+    if (!stored.has(key)) stored.set(key, { name, active: option.active !== false });
+  }
+
+  const normalized: ExpenseCategoryOption[] = [];
+  for (const baseName of BASE_EXPENSE_CATEGORIES) {
+    const key = baseName.toLocaleLowerCase('es');
+    normalized.push(stored.get(key) ?? { name: baseName, active: true });
+    stored.delete(key);
+  }
+  normalized.push(
+    ...[...stored.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+    )
+  );
+  return normalized;
+}
+
+function normalizeProductTypes(raw: unknown): ProductTypeOption[] {
+  const stored = new Map<string, ProductTypeOption>();
+  for (const value of safeArray(raw)) {
+    if (typeof value !== 'object' || value === null) continue;
+    const option = value as Record<string, unknown>;
+    const name = safeString(option.name).trim();
+    if (!name) continue;
+    const key = name.toLocaleLowerCase('es');
+    if (!stored.has(key)) stored.set(key, { name, active: option.active !== false });
+  }
+
+  const normalized: ProductTypeOption[] = [];
+  for (const baseName of BASE_PRODUCT_TYPES) {
+    const key = baseName.toLocaleLowerCase('es');
+    normalized.push(stored.get(key) ?? { name: baseName, active: true });
+    stored.delete(key);
+  }
+  normalized.push(
+    ...[...stored.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+    )
+  );
+  return normalized;
 }
 
 // ---------- Quote: normalización ----------
@@ -232,16 +322,241 @@ function normalizeSupplierPayment(raw: unknown): SupplierPayment {
   };
 }
 
+export function normalizeBuyer(raw: unknown): Buyer {
+  const b = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(b.id, newId()),
+    name: safeString(b.name),
+    phone: safeString(b.phone),
+    city: safeString(b.city),
+    notes: safeString(b.notes),
+    createdAt: safeString(b.createdAt)
+  };
+}
+
+function normalizeBuyerPayment(raw: unknown): BuyerPayment {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(p.id, newId()),
+    date: safeString(p.date),
+    amount: Math.max(0, Math.round(safeNumber(p.amount))),
+    usdRate: normalizeUsdRate(p.usdRate),
+    receivedBy: safeString(p.receivedBy),
+    method: safeString(p.method),
+    notes: safeString(p.notes)
+  };
+}
+
+function normalizeCuttingBatch(raw: unknown): CuttingBatch {
+  const b = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const returnedDate = safeString(b.returnedDate);
+  return {
+    id: safeString(b.id, newId()),
+    sentDate: safeString(b.sentDate),
+    sentCarats: Math.max(0, safeNumber(b.sentCarats)),
+    sentQuantity: Math.max(0, safeNumber(b.sentQuantity)),
+    returnedDate,
+    returnedCarats: returnedDate ? Math.max(0, safeNumber(b.returnedCarats)) : 0,
+    returnedQuantity: returnedDate ? Math.max(0, safeNumber(b.returnedQuantity)) : 0,
+    cuttingCostCop: Math.max(0, Math.round(safeNumber(b.cuttingCostCop))),
+    cuttingPaidDate: safeString(b.cuttingPaidDate),
+    notes: safeString(b.notes)
+  };
+}
+
+function normalizeStoneInternalUse(raw: unknown): StoneInternalUse {
+  const use = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(use.id, newId()),
+    date: safeString(use.date),
+    carats: Math.max(0, safeNumber(use.carats)),
+    quantity: Math.max(0, Math.round(safeNumber(use.quantity))),
+    origin: oneOf(use.origin, ['bruto', 'tallado'] as const, 'bruto'),
+    jewelId: safeString(use.jewelId),
+    costCop: Math.max(0, Math.round(safeNumber(use.costCop))),
+    notes: safeString(use.notes)
+  };
+}
+
+/**
+ * Una venta sin las marcas de crédito (D-042) es de CONTADO: así las ventas
+ * anteriores a la decisión conservan exactamente el dinero y el resultado que
+ * ya tenían. Una venta de contado nunca conserva abonos: lo recibido es su
+ * precio, y un abono suelto duplicaría el dinero al calcular la caja.
+ */
 function normalizeStoneSale(raw: unknown): StoneSale {
+  const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const onCredit = s.onCredit === true;
+  return {
+    id: safeString(s.id, newId()),
+    date: safeString(s.date),
+    buyer: safeString(s.buyer),
+    buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
+    carats: Math.max(0, safeNumber(s.carats)),
+    quantity: Math.max(0, safeNumber(s.quantity)),
+    origin: oneOf(s.origin, ['bruto', 'tallado'] as const, 'bruto'),
+    valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    productType: safeString(s.productType).trim(),
+    usdRate: normalizeUsdRate(s.usdRate),
+    receivedBy: safeString(s.receivedBy),
+    method: safeString(s.method),
+    onCredit,
+    dueDate: onCredit ? safeString(s.dueDate) : '',
+    payments: onCredit ? safeArray(s.payments).map(normalizeBuyerPayment) : [],
+    notes: safeString(s.notes)
+  };
+}
+
+export function normalizeMaterialPartner(raw: unknown): MaterialPartner {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(p.id, newId()),
+    name: safeString(p.name),
+    phone: safeString(p.phone),
+    city: safeString(p.city),
+    notes: safeString(p.notes),
+    createdAt: safeString(p.createdAt)
+  };
+}
+
+function normalizeMaterialUse(raw: unknown): MaterialUse {
+  const u = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(u.id, newId()),
+    date: safeString(u.date),
+    grams: Math.max(0, safeNumber(u.grams)),
+    notes: safeString(u.notes)
+  };
+}
+
+/**
+ * Garantiza que un lote de material tenga la forma exacta del tipo actual.
+ * `myGrams` nunca puede superar los gramos del lote ni ser negativo: un dato
+ * corrupto jamás debe hacer que "mi parte" sea más de lo que existe (D-048).
+ */
+export function normalizeMaterialLot(raw: unknown): MaterialLot {
+  const l = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const grams = Math.max(0, safeNumber(l.grams));
+  const rawMine = safeNumber(l.myGrams, grams);
+  return {
+    id: safeString(l.id, newId()),
+    name: safeString(l.name),
+    materialType: safeString(l.materialType),
+    purity: safeString(l.purity),
+    purchaseDate: safeString(l.purchaseDate),
+    grams,
+    costCop: Math.max(0, Math.round(safeNumber(l.costCop))),
+    partnerId: typeof l.partnerId === 'string' ? l.partnerId : null,
+    partnerName: safeString(l.partnerName),
+    myGrams: Math.min(grams, Math.max(0, rawMine)),
+    notes: safeString(l.notes),
+    uses: safeArray(l.uses).map(normalizeMaterialUse),
+    createdAt: safeString(l.createdAt),
+    updatedAt: safeString(l.updatedAt)
+  };
+}
+
+function normalizeStockJewelSale(raw: unknown): StockJewelSale {
   const s = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   return {
     id: safeString(s.id, newId()),
     date: safeString(s.date),
     buyer: safeString(s.buyer),
-    carats: Math.max(0, safeNumber(s.carats)),
-    quantity: Math.max(0, safeNumber(s.quantity)),
-    valueCop: Math.max(0, Math.round(safeNumber(s.valueCop))),
+    buyerId: typeof s.buyerId === 'string' ? s.buyerId : null,
+    priceCop: Math.max(0, Math.round(safeNumber(s.priceCop))),
+    productType: safeString(s.productType).trim(),
+    usdRate: normalizeUsdRate(s.usdRate),
+    receivedBy: safeString(s.receivedBy),
+    method: safeString(s.method),
     notes: safeString(s.notes)
+  };
+}
+
+function normalizeStockJewelStoneTransformation(
+  raw: unknown
+): StockJewelStoneTransformation {
+  const transformation = (
+    typeof raw === 'object' && raw !== null ? raw : {}
+  ) as Record<string, unknown>;
+  return {
+    id: safeString(transformation.id, newId()),
+    date: safeString(transformation.date),
+    lotId: safeString(transformation.lotId),
+    ...(safeString(transformation.lotName).trim()
+      ? { lotName: safeString(transformation.lotName).trim() }
+      : {}),
+    jewelId: safeString(transformation.jewelId),
+    origin: oneOf(transformation.origin, ['bruto', 'tallado'] as const, 'bruto'),
+    carats: Math.max(0, safeNumber(transformation.carats)),
+    quantity: Math.max(0, Math.round(safeNumber(transformation.quantity))),
+    costCop: Math.max(0, Math.round(safeNumber(transformation.costCop))),
+    notes: safeString(transformation.notes),
+    fromStoneKind: 'fantasia',
+    toStoneKind: 'natural'
+  };
+}
+
+/** Garantiza COP entero y un reparto que siempre suma 100% (D-059). */
+export function normalizeExpense(raw: unknown): Expense {
+  const e = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const partnerId = typeof e.partnerId === 'string' && e.partnerId.trim() ? e.partnerId : null;
+  const partnerName = safeString(e.partnerName).trim();
+  const shared = partnerId !== null || partnerName.length > 0;
+  return {
+    id: safeString(e.id, newId()),
+    date: safeString(e.date),
+    concept: safeString(e.concept),
+    category: safeString(e.category),
+    amountCop: Math.max(0, Math.round(safeNumber(e.amountCop))),
+    usdRate: normalizeUsdRate(e.usdRate),
+    method: safeString(e.method),
+    paidBy: safeString(e.paidBy),
+    partnerId,
+    partnerName,
+    myPercent: shared
+      ? Math.min(100, Math.max(0, Math.round(safeNumber(e.myPercent, 100))))
+      : 100,
+    notes: safeString(e.notes),
+    createdAt: safeString(e.createdAt),
+    updatedAt: safeString(e.updatedAt)
+  };
+}
+
+/**
+ * Garantiza que una joya en stock tenga la forma exacta del tipo actual.
+ * El estado guardado solo puede ser disponible o apartada: "vendida" se deriva
+ * de tener venta (D-044), así que un dato corrupto jamás puede dejar una pieza
+ * marcada como vendida sin la venta que lo respalde.
+ */
+export function normalizeStockJewel(raw: unknown): StockJewel {
+  const j = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(j.id, newId()),
+    name: safeString(j.name),
+    pieceType: oneOf(j.pieceType, PIECE_TYPES, 'otro'),
+    material: safeString(j.material),
+    photo: safeImageDataUrl(j.photo),
+    acquiredDate: safeString(j.acquiredDate),
+    weightGrams: Math.max(0, safeNumber(j.weightGrams)),
+    size: safeString(j.size),
+    stoneCount: Math.max(0, Math.round(safeNumber(j.stoneCount))),
+    stoneKind: oneOf<StockJewelStoneKind>(
+      j.stoneKind,
+      ['fantasia', 'natural', ''] as const,
+      ''
+    ),
+    costCop: Math.max(0, Math.round(safeNumber(j.costCop))),
+    priceCop: Math.max(0, Math.round(safeNumber(j.priceCop))),
+    status: oneOf<StockJewelStatus>(j.status, STOCK_JEWEL_STATUSES, 'disponible'),
+    notes: safeString(j.notes),
+    sale:
+      typeof j.sale === 'object' && j.sale !== null ? normalizeStockJewelSale(j.sale) : null,
+    collectionId: typeof j.collectionId === 'string' ? j.collectionId : null,
+    stoneTransformations: safeArray(j.stoneTransformations).map(
+      normalizeStockJewelStoneTransformation
+    ),
+    createdAt: safeString(j.createdAt),
+    updatedAt: safeString(j.updatedAt)
   };
 }
 
@@ -252,19 +567,34 @@ function normalizeStoneSale(raw: unknown): StoneSale {
  */
 export function normalizeStoneLot(raw: unknown): StoneLot {
   const l = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const partnerId = typeof l.partnerId === 'string' && l.partnerId.trim() ? l.partnerId : null;
+  const partnerName = safeString(l.partnerName).trim();
+  const shared = partnerId !== null || partnerName.length > 0;
   return {
     id: safeString(l.id, newId()),
     name: safeString(l.name),
     stoneType: safeString(l.stoneType),
     description: safeString(l.description),
     purchaseDate: safeString(l.purchaseDate),
+    purchaseOrigin: oneOf<StoneOrigin>(
+      l.purchaseOrigin,
+      ['bruto', 'tallado'] as const,
+      'bruto'
+    ),
     supplier: safeString(l.supplier),
     supplierId: typeof l.supplierId === 'string' ? l.supplierId : null,
     carats: Math.max(0, safeNumber(l.carats)),
     quantity: Math.max(0, safeNumber(l.quantity)),
     purchaseValueCop: Math.max(0, Math.round(safeNumber(l.purchaseValueCop))),
+    partnerId,
+    partnerName,
+    myPercent: shared
+      ? Math.min(100, Math.max(0, Math.round(safeNumber(l.myPercent, 100))))
+      : 100,
     onCredit: l.onCredit === true,
     supplierPayments: safeArray(l.supplierPayments).map(normalizeSupplierPayment),
+    cuttingBatches: safeArray(l.cuttingBatches).map(normalizeCuttingBatch),
+    internalUses: safeArray(l.internalUses).map(normalizeStoneInternalUse),
     notes: safeString(l.notes),
     sales: safeArray(l.sales).map(normalizeStoneSale),
     createdAt: safeString(l.createdAt),

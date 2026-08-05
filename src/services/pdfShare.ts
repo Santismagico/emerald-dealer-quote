@@ -51,16 +51,17 @@ function downloadFallback(file: File, environment: PdfShareEnvironment): ClientP
   }
 }
 
-/** Entrega un PDF cliente ya creado al sistema operativo o lo descarga como fallback. */
-export async function shareClientPdfFile(
+/** Entrega un PDF permitido al sistema operativo o lo descarga como fallback. */
+async function sharePdfFile(
   file: File,
+  title: string,
   environment: PdfShareEnvironment = browserShareEnvironment()
 ): Promise<ClientPdfShareResult> {
   if (!environment.share || !environment.canShare) return downloadFallback(file, environment);
 
   const shareData: ShareData = {
     files: [file],
-    title: 'Cotización para cliente'
+    title
   };
 
   let compatible = false;
@@ -79,6 +80,22 @@ export async function shareClientPdfFile(
     if (isCompatibilityError(error)) return downloadFallback(file, environment);
     return { status: 'error', error };
   }
+}
+
+/** Entrega un PDF cliente ya creado al sistema operativo o lo descarga como fallback. */
+export async function shareClientPdfFile(
+  file: File,
+  environment: PdfShareEnvironment = browserShareEnvironment()
+): Promise<ClientPdfShareResult> {
+  return sharePdfFile(file, 'Cotización para cliente', environment);
+}
+
+/** El catálogo reutiliza exactamente el mismo Web Share y la misma descarga de respaldo. */
+export async function shareCatalogPdfFile(
+  file: File,
+  environment: PdfShareEnvironment = browserShareEnvironment()
+): Promise<ClientPdfShareResult> {
+  return sharePdfFile(file, 'Catálogo de joyas', environment);
 }
 
 /** Esta acción solo puede construir el PDF cliente; no acepta PDF interno ni respaldos. */

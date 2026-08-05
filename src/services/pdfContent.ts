@@ -12,6 +12,8 @@ export interface PdfSection {
   title: string;
   rows?: Array<[string, string]>;
   paragraphs?: string[];
+  /** Foto comercial opcional. No forma parte del texto que revisa privacidad. */
+  image?: string;
 }
 
 export interface PdfContent {

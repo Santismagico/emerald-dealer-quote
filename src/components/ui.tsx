@@ -1,7 +1,15 @@
 // Componentes de interfaz reutilizables, pensados para móvil:
 // botones grandes, inputs de 16px (sin zoom iOS) y confirmaciones claras.
 
-import { useEffect, useState, type ReactNode, type ChangeEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode
+} from 'react';
 import { formatThousands, parseMoney, parseDecimal } from '../utils/money';
 
 export function Button({
@@ -197,22 +205,214 @@ export function TextArea({
   );
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled = false
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="luxury-card-soft flex min-h-12 w-full items-center justify-between rounded-xl px-3"
+      className="luxury-card-soft flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
     >
       <span className="text-sm font-medium text-stone-700">{label}</span>
-      <span
-        className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${checked ? 'border-brand-700 bg-brand-600' : 'border-stone-300 bg-stone-200'}`}
-      >
+      <span className="flex shrink-0 items-center gap-2">
+        <span className="min-w-5 text-right text-xs font-semibold text-stone-600">
+          {checked ? 'Sí' : 'No'}
+        </span>
         <span
-          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
-        />
+          aria-hidden
+          className={`relative h-7 w-12 rounded-full border transition-colors ${
+            checked
+              ? 'border-brand-700 bg-brand-600'
+              : 'border-stone-400 bg-stone-300'
+          }`}
+        >
+          <span
+            className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-[#fff] shadow transition-transform ${
+              checked ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </span>
       </span>
     </button>
+  );
+}
+
+export function SegmentedControl({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string; disabled?: boolean }>;
+  onChange: (value: string) => void;
+}) {
+  const groupName = useId();
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-sm font-medium text-stone-700">{label}</legend>
+      <div className="luxury-card-soft flex gap-1 rounded-xl p-1">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <label
+              key={option.value}
+              className={`relative flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg border px-3 text-center text-sm font-semibold transition focus-within:ring-2 focus-within:ring-brand-600 focus-within:ring-offset-2 ${
+                selected
+                  ? 'border-brand-700 bg-brand-700 text-white shadow-sm'
+                  : 'border-transparent text-stone-700'
+              } ${
+                option.disabled
+                  ? 'cursor-not-allowed opacity-50'
+                  : selected
+                    ? 'cursor-pointer active:bg-brand-800'
+                    : 'cursor-pointer active:bg-stone-100'
+              }`}
+            >
+              <input
+                className="sr-only"
+                type="radio"
+                name={groupName}
+                value={option.value}
+                checked={selected}
+                disabled={option.disabled}
+                onChange={() => onChange(option.value)}
+              />
+              {selected ? <span aria-hidden>✓</span> : null}
+              <span>{option.label}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+export function FormDialog({
+  title,
+  description,
+  children,
+  footer,
+  busy = false,
+  onClose
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  footer: ReactNode;
+  busy?: boolean;
+  onClose: () => void;
+}) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const appMain = document.querySelector<HTMLElement>('.app-main');
+    const previousAppMainOverflow = appMain?.style.overflow ?? '';
+    document.body.style.overflow = 'hidden';
+    if (appMain) appMain.style.overflow = 'hidden';
+    const focusFrame = window.requestAnimationFrame(() => dialogRef.current?.focus());
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      if (appMain) appMain.style.overflow = previousAppMainOverflow;
+      previousFocus?.focus();
+    };
+  }, []);
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      if (!busy) {
+        event.preventDefault();
+        onClose();
+      }
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    ).filter((element) => !element.hasAttribute('hidden'));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || active === dialogRef.current)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <div className="form-dialog-overlay fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className="luxury-card flex h-[100dvh] w-full flex-col overflow-hidden shadow-xl outline-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-md sm:rounded-2xl"
+      >
+        <header className="safe-top shrink-0 border-b border-stone-200">
+          <div className="flex min-h-16 items-start justify-between gap-3 px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <h3 id={titleId} className="text-base font-semibold text-stone-900">
+                {title}
+              </h3>
+              {description ? (
+                <p id={descriptionId} className="mt-0.5 text-sm text-stone-600">
+                  {description}
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              aria-label="Cerrar"
+              disabled={busy}
+              onClick={onClose}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl leading-none text-stone-600 transition active:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:opacity-40"
+            >
+              ×
+            </button>
+          </div>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          {children}
+        </div>
+        <footer className="form-dialog-footer shrink-0 border-t border-stone-200 px-4 pt-3 sm:px-5">
+          {footer}
+        </footer>
+      </div>
+    </div>
   );
 }
 
@@ -312,9 +512,11 @@ export function SummaryRow({
   valueClass?: string;
 }) {
   return (
-    <div className={`flex justify-between gap-3 text-sm ${bold ? 'font-semibold' : ''}`}>
-      <span className="text-stone-600">{label}</span>
-      <span className={valueClass ?? 'text-stone-900'}>{value}</span>
+    <div className={`flex min-w-0 justify-between gap-3 text-sm ${bold ? 'font-semibold' : ''}`}>
+      <span className="min-w-0 break-words text-stone-600">{label}</span>
+      <span className={`min-w-0 break-words text-right ${valueClass ?? 'text-stone-900'}`}>
+        {value}
+      </span>
     </div>
   );
 }
