@@ -1161,3 +1161,36 @@ corto y publicar rompería la app de Santiago y Héctor.
 
 **Git:** se commiteó `.gitignore` ignorando `PARA-SANTIAGO/` (`a03bcdf`). Sin eso, N6 se
 niega a correr: exige árbol limpio y los archivos generados lo ensuciaban.
+
+### El riesgo se cerró: Producción sí estaba como decían los papeles
+
+La consulta de diagnóstico en `Emerald Dealer Produccion` confirmó el supuesto del plan:
+tenía aplicadas las migraciones **0001 a 20260725** y le faltaban exactamente **7**, con
+`expenses` como única tabla ausente. `sql-para-produccion.sql` era el archivo correcto.
+
+**Las 7 se aplicaron en 6 bloques, cada uno verificado antes de seguir al siguiente.** El
+primero fue solo `gastos`; los cinco restantes son idénticos a los bloques 2–6 usados en
+Pruebas, ya probados. Todas las comprobaciones dieron verde. **Producción tiene ahora las
+15 migraciones completas.**
+
+Dos correcciones que se aplicaron sobre los bloques de Pruebas antes de usarlos en
+Producción:
+
+- El candado del renombrado de `seed_stock_jewel_transformation_import` usa el nombre
+  **truncado a 63** (`…_before_deleted_lot_histo`). Con el nombre largo de 65 el `if not
+  exists` nunca coincide y el reintento habría fallado.
+- La comprobación de ese objeto también busca el nombre truncado, para no repetir la falsa
+  alarma que apareció en Pruebas.
+
+**Estado tras el paso 2:** el servidor va por delante de la aplicación publicada, que es el
+orden correcto. La app que Santiago y Héctor tienen instalada **sigue funcionando igual**:
+no consulta las tablas nuevas, así que estas no le estorban.
+
+**Verificación local a 2026-08-05:** `npm test` → **985 pruebas en 68 archivos, todas en
+verde**, más los iconos PWA. `npm run build` → compila sin errores. El aviso de *chunks >
+500 kB* es previo y no es un fallo.
+
+**Siguiente paso — requiere orden expresa de Santiago:** publicar el enlace de la nube
+(`emerald-dealer-app`) y verificarlo en vivo. Antes hay que avisarle a Héctor, porque la
+aplicación le va a cambiar de aspecto al abrirla. El enlace de los 7 amigos sigue sin
+tocarse y va días después, como dice el plan.
