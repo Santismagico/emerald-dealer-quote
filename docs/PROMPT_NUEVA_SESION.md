@@ -1,70 +1,127 @@
-# Prompt para abrir una sesión nueva de Claude (Fable)
+# Prompt para abrir una sesión nueva de Claude
 
-_Copiar desde la línea siguiente hasta el final y pegarlo como primer mensaje.
-Importante: abrir la sesión en la carpeta `C:\Dev\emerald-dealer` (la de
-OneDrive es una copia congelada)._
+_Actualizado: 2026-08-05. Copiar desde la línea siguiente hasta el final y pegarlo como
+primer mensaje. **Abrir la sesión en `C:\Dev\emerald-dealer`** (la carpeta de OneDrive es
+una copia congelada; si la sesión abrió allí, usa siempre rutas explícitas hacia
+`C:\Dev`)._
 
 ---
 
-Proyecto: **Emerald Dealer** (PWA de gestión para joyerías de Santiago,
-comerciante de esmeraldas en Colombia, en camino a SaaS cobrable).
-Carpeta canónica: `C:\Dev\emerald-dealer` (si la sesión abrió en la copia
-vieja de OneDrive, trabaja siempre con rutas explícitas hacia C:\Dev).
+Proyecto: **Emerald Dealer**, aplicación de gestión para el negocio de joyería y
+esmeraldas de Santiago (comerciante en Colombia).
+Carpeta canónica: `C:\Dev\emerald-dealer`.
 
-LEE PRIMERO, EN ESTE ORDEN (contienen todo el contexto; no adivines nada):
-1. CLAUDE.md y AGENTS.md — tu rol (arquitectura, planificación, auditoría;
-   Codex ejecuta) y las reglas inquebrantables.
-2. PROJECT_STATE.md — foto del estado real y el siguiente trabajo exacto.
-3. SAAS_PLAN.md — la hoja de ruta de negocio (fases 0–4, calendario a octubre).
-4. docs/FASE2_ORDEN_DE_TRABAJO_CODEX.md — el plano de la fase en curso.
-5. DECISIONS.md, D-028 a D-041 — decisiones vigentes (identidad, pagos,
-   arquitectura de la nube y cierre técnico del primer acceso legal).
-6. docs/HOJA_DE_RUTA_CORRECCIONES.md — método de correcciones y su tabla.
+## Quién es el dueño — esto manda sobre todo lo demás
 
-ESTADO VERIFICADO AL CIERRE DE LA SESIÓN ANTERIOR (2026-07-20):
-- `main` = lo PUBLICADO en https://santismagico.github.io/emerald-dealer-quote/
-  — versión 1.0.1 "Emerald Dealer": identidad "mesón del joyero" (claro/oscuro),
-  ícono "La gema viva", Fase 1 de auditoría completa (2 hallazgos altos
-  corregidos), 468 pruebas en 26 archivos, build con verificación PWA y CSP.
-- **Piloto activo:** siete joyerías reales usando la app publicada. La lista de
-  sus nombres es PRIVADA de Santiago y JAMÁS se escribe en el repositorio.
-- **Fase 2 (nube) CERRADA COMO CANDIDATA, NO PUBLICADA:** vive en
-  `codex/fase2-nube`; las tres auditorías de Fable y la regresión A1 están
-  cerradas. C14 completó la tanda legal/técnica que Fable dejó inconclusa:
-  contraseña temporal y aceptación son independientes, hay dos casillas,
-  aviso visible y versiones separadas por documento. Cierre: 521 pruebas en
-  35 archivos, PWA, build, CSP y secretos aprobados.
-- **Bloqueo legal vigente:** los tres documentos siguen como `BORRADOR` con
-  campos `[COMPLETAR]`. Faltan datos reales del negocio, revisión profesional
-  y una decisión/implementación para guardar evidencia protegida en servidor;
-  la metadata actual solo demuestra el recorrido técnico.
-- C13 EN PAUSA: en el Xiaomi de Santiago no abre el selector de fotos (ni
-  nativo); diagnóstico: permisos MIUI o app "Archivos" deshabilitada. Incluir
-  nota de ayuda para Xiaomi en la próxima tanda de correcciones.
+Santiago es **principiante absoluto**: no programa, no usa terminales, no interpreta
+errores. **Nunca le pidas que ejecute comandos ni que lea código.** Todo lo técnico lo
+haces tú. Si algo necesita sus manos, se explica como pasos visuales concretos —"doble
+clic en este archivo", "pega con Ctrl+V", "haz clic en el botón verde"— y, si se puede
+automatizar con un archivo de doble clic, se automatiza. Hay ejemplos en `PARA-SANTIAGO/`.
 
-REGLAS QUE NO SE ROMPEN:
-- NUNCA push a `main` ni tocar `.github/workflows/deploy.yml` sin la orden
-  expresa de Santiago: publica de inmediato a las siete joyerías del piloto.
-- Privacidad del cliente final: los tests de `src/services/pdfContent.test.ts`
-  son la ley. Dinero en COP enteros; motores puros; migraciones IndexedDB solo
-  agregan escalones; datos ficticios en todo el repo (es público).
-- Única dependencia nueva autorizada: `@supabase/supabase-js` (D-035). La
-  service key de Supabase jamás entra al repositorio.
-- Antes de tocar código: `git pull`, árbol limpio, `npm test && npm run build`
-  en verde (en PowerShell refrescar el PATH primero; ver CLAUDE.md). Al
-  terminar: tests + build + verificación real + commit + push de la rama.
-- El shell puede iniciar cada comando en la carpeta vieja de OneDrive:
-  prefija SIEMPRE los comandos con `cd /c/Dev/emerald-dealer &&`.
+Sus pruebas de usuario han encontrado defectos que ninguna revisión técnica vio. Cuando
+reporte algo, **reprodúcelo antes de opinar**.
 
-SOBRE SANTIAGO (importante):
-Principiante absoluto: no programa ni usa terminales. Nunca pedirle comandos ni
-código. Todo en lenguaje empresarial sencillo; preguntarle SOLO decisiones de
-negocio. Sus pendientes de calendario: registro del comercio en Wompi (con RUT
-y cuenta Bancolombia), borradores de docs/legal al contador, y enviar la
-invitación del piloto a sus colegas. Meta: primeros cobros de $50.000 COP/mes
-en octubre 2026.
+## Lee primero, en este orden
 
-TAREA DE ESTA SESIÓN:
-[Santiago: escribe aquí qué necesitas — por ejemplo: "audita la Fase 2 que
-Codex terminó", "guíame para crear la cuenta de Supabase", "hay una corrección
-que dictar", o "¿en qué vamos?"]
+1. `CLAUDE.md` y `AGENTS.md` — tu rol (arquitectura, planificación y auditoría; Codex
+   implementa) y las reglas inquebrantables.
+2. `PROJECT_STATE.md` — la foto del estado real. **Empieza por el final del archivo.**
+3. `docs/PLAN_MAESTRO_V2.md` — el plan grande, ya completo.
+4. `docs/PLAN_DE_PUBLICACION_V2.md` — dónde estamos ahora mismo.
+5. `DECISIONS.md`, de **D-052 a D-071** — las decisiones del plan v2.
+
+## Estado a 2026-08-05
+
+**Todo el trabajo está terminado y auditado. Nada publicado.**
+
+- **Plan v2 completo:** seis fases (A–F) construidas por Codex y auditadas de forma
+  independiente por Claude. Informes en `docs/AUDITORIA_CLAUDE_V2_*.md`.
+  A: pantalla de inicio · B: gastos, sociedades en piedras, tipo de producto y moneda ·
+  C: talla por tandas y joyas fantasía/natural · D: el libro del negocio (`ledger.ts`) ·
+  E: panel, Excel y consolidado · F: catálogo PDF.
+- **Dos tandas de corrección** salidas de la prueba de usuario de Santiago, también
+  auditadas: `docs/AUDITORIA_CLAUDE_CORRECCIONES_R1.md` y `..._R2.md`.
+- **985 pruebas en 68 archivos**, compilación y compilación pública en verde.
+- Rama de trabajo `codex/fase2-nube`, unos 95 commits por delante de `main`.
+- `main` sigue en `0a86e5a`. **El enlace de los 7 amigos del piloto no se ha tocado.**
+- Única dependencia nueva de todo el proyecto: `write-excel-file` 4.1.1, con carga
+  diferida y versión exacta (D-066).
+
+## El mapa de Supabase — verificado, no lo adivines
+
+| Proyecto | Ref | Realidad |
+|---|---|---|
+| **Emerald Dealer Produccion** | `wrvokfzrcmmlzekudypu` | Servidor **real**: a él se conecta el enlace `emerald-dealer-app` que usan Santiago, Héctor y sus socios |
+| **Emerald Dealer Pruebas** | `ovfaehoeidxcjrlapioo` | Ensayo, **sin usuarios reales** |
+| enlace `emerald-dealer-quote` | — | Los 7 amigos del piloto. **No usa ningún servidor**: es 100% local, en el teléfono de cada uno |
+
+Esto se verificó inspeccionando los bundles publicados. Una versión anterior de la
+información estaba equivocada y casi lleva a borrar un proyecto. **Si dudas, verifica el
+bundle publicado; no confíes en variables de configuración ni en memoria previa.**
+
+## Dónde estamos exactamente
+
+Santiago pidió publicar. El plan está en `docs/PLAN_DE_PUBLICACION_V2.md` y su orden
+**no se puede invertir**: primero el servidor, después la aplicación. Hay 7 migraciones
+SQL que aún no están en Produccion; publicar antes de aplicarlas rompería la app.
+
+**Paso inmediato, en manos de Santiago:** pegar `PARA-SANTIAGO/sql-para-pruebas.sql` en
+el editor SQL de **Emerald Dealer Pruebas** y ejecutarlo.
+
+Ya hubo un tropiezo: la primera versión de ese archivo no era repetible y falló con
+`42P07: relation "organizations" already exists`. **Ya está corregido**: los dos archivos
+de `PARA-SANTIAGO/` se hicieron idempotentes (tablas e índices con `if not exists`, y
+`drop policy if exists` antes de cada política). Si Supabase muestra el aviso de Row
+Level Security, la respuesta correcta es **"Run and enable RLS"**: las 14 tablas activan
+RLS dentro del propio script y el aviso es una falsa alarma de su revisor estático.
+
+Después, en orden:
+
+1. Prueba de aislamiento: doble clic en
+   `PARA-SANTIAGO/PASO-2-hacer-la-prueba-de-seguridad.bat`, que genera
+   `RESULTADO-DE-LA-PRUEBA.txt`. Santiago te lo manda.
+2. Respaldo desde la app (él y Héctor) y las 7 migraciones a **Produccion** con
+   `PARA-SANTIAGO/sql-para-produccion.sql`.
+3. Publicar el enlace de la nube y verificarlo en vivo.
+4. **Días después**, y solo si todo va bien, publicar el enlace de los 7 amigos —
+   avisándoles antes y pidiéndoles que exporten su respaldo, porque sus datos viven solo
+   en su teléfono. Su base local salta de v4 a v8; verificado: los cuatro escalones solo
+   crean almacenes nuevos vacíos y no tocan sus datos.
+
+## Reglas que no se rompen
+
+- **No publiques nada sin una orden expresa y separada de Santiago en ese momento.** Que
+  el plan exista no autoriza a publicar.
+- **Nunca pidas ni manejes la clave secreta de Supabase.** `npm run security:n6:secure`
+  la pide por consola sin mostrarla ni guardarla. Si un agente la solicita por chat, algo
+  está mal.
+- **No borres ningún proyecto de Supabase.**
+- `main`, `.github/workflows/deploy.yml`, `src/calc/engine.ts` y
+  `src/services/pdfContent.test.ts` no se tocan.
+- Dinero en COP enteros; motores puros; migraciones que solo agregan escalones; datos
+  ficticios en todo el repositorio (es público).
+- Punto de restauración: tag `punto-seguro-pre-v2-2026-08-03`.
+- Antes de dar algo por terminado: `npm test` y `npm run build`.
+
+## Pendientes que no bloquean la publicación
+
+- **Pregunta abierta para Santiago:** en el panel, "Ganancia" es el margen de las ventas
+  y **no descuenta los gastos** del negocio (arriendo, servicios). Es coherente con
+  D-063, pero él pidió los gastos diciendo que "sin gastos, cualquier ganancia sería
+  mentira". Debe decidir si se queda así o se agrega una tercera cifra, *Resultado del
+  negocio*. Detalle en `docs/AUDITORIA_CLAUDE_CORRECCIONES_R2.md`, observación O1.
+- Que Santiago **abra un Excel** y sume una columna: es el único punto que se verificó de
+  forma indirecta.
+- **Agenda con reserva de citas por parte del cliente**: Santiago la eligió sabiendo que
+  es un proyecto aparte. Sin planear. Su mayor riesgo: sería la primera vez que algo
+  escribe en la base de datos sin sesión iniciada, y toca el aislamiento entre joyerías.
+- Supabase está en **plan gratuito**: 2 proyectos por organización y los proyectos se
+  pausan tras una semana sin uso. Hablarlo si más gente empieza a depender de la app.
+- Bloqueos premercado anteriores: documentos legales en borrador, SMTP propio, registro
+  de cobros.
+
+## Tarea de esta sesión
+
+[Santiago: escribe aquí qué necesitas. Por ejemplo: "ya corrí el SQL en Pruebas, sigamos",
+"aquí está el resultado de la prueba de seguridad", o "¿en qué vamos?"]
