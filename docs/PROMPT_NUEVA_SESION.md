@@ -66,23 +66,37 @@ Santiago pidió publicar. El plan está en `docs/PLAN_DE_PUBLICACION_V2.md` y su
 **no se puede invertir**: primero el servidor, después la aplicación. Hay 7 migraciones
 SQL que aún no están en Produccion; publicar antes de aplicarlas rompería la app.
 
-**Paso inmediato, en manos de Santiago:** pegar `PARA-SANTIAGO/sql-para-pruebas.sql` en
-el editor SQL de **Emerald Dealer Pruebas** y ejecutarlo.
+### ✅ HECHO el 2026-08-05 — no pedirlo otra vez
 
-Ya hubo un tropiezo: la primera versión de ese archivo no era repetible y falló con
-`42P07: relation "organizations" already exists`. **Ya está corregido**: los dos archivos
-de `PARA-SANTIAGO/` se hicieron idempotentes (tablas e índices con `if not exists`, y
-`drop policy if exists` antes de cada política). Si Supabase muestra el aviso de Row
-Level Security, la respuesta correcta es **"Run and enable RLS"**: las 14 tablas activan
-RLS dentro del propio script y el aviso es una falsa alarma de su revisor estático.
+**El SQL ya se aplicó en Emerald Dealer Pruebas.** Santiago ejecutó
+`PARA-SANTIAGO/SQL-PRUEBAS-VERSION-2.sql` y Supabase respondió *"Success. No rows
+returned"*, que es la respuesta correcta para instrucciones que crean tablas y políticas.
+**El proyecto de Pruebas está al día.**
 
-Después, en orden:
+Hubo dos tropiezos por el camino, ya resueltos, que no deben repetirse:
 
-1. Prueba de aislamiento: doble clic en
-   `PARA-SANTIAGO/PASO-2-hacer-la-prueba-de-seguridad.bat`, que genera
-   `RESULTADO-DE-LA-PRUEBA.txt`. Santiago te lo manda.
+- La primera versión del archivo **no era repetible** y falló con `42P07: relation
+  "organizations" already exists`. Los dos archivos de `PARA-SANTIAGO/` se hicieron
+  idempotentes: tablas e índices con `if not exists` y `drop policy if exists` antes de
+  cada política.
+- El error volvió a salir una segunda vez porque se ejecutó texto viejo que había quedado
+  en el editor. Por eso el archivo lleva ahora una **marca visible en su primera línea**
+  (`VERSION 2 - CORREGIDA`) y las instrucciones incluyen vaciar el editor con `Ctrl+A` y
+  `Suprimir` antes de pegar.
+
+Si Supabase muestra el aviso de Row Level Security, la respuesta correcta es **"Run and
+enable RLS"**: las 14 tablas activan RLS dentro del propio script y el aviso es una falsa
+alarma de su revisor estático.
+
+### Lo que sigue, en orden
+
+1. **Prueba de aislamiento** (siguiente paso inmediato, en manos de Santiago): doble clic
+   en `PARA-SANTIAGO/PASO-2-hacer-la-prueba-de-seguridad.bat`. Le pedirá la clave secreta
+   del proyecto de **Pruebas** por consola —sin mostrarla ni guardarla— y generará
+   `PARA-SANTIAGO/RESULTADO-DE-LA-PRUEBA.txt`. Santiago te manda ese archivo, pase o
+   falle. **Si falla, no se publica nada.**
 2. Respaldo desde la app (él y Héctor) y las 7 migraciones a **Produccion** con
-   `PARA-SANTIAGO/sql-para-produccion.sql`.
+   `PARA-SANTIAGO/sql-para-produccion.sql` (doble clic en `PASO-3`, que pide escribir SI).
 3. Publicar el enlace de la nube y verificarlo en vivo.
 4. **Días después**, y solo si todo va bien, publicar el enlace de los 7 amigos —
    avisándoles antes y pidiéndoles que exporten su respaldo, porque sus datos viven solo
