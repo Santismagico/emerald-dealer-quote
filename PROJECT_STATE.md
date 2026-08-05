@@ -996,3 +996,35 @@ pintado y **reportar cuánto tarda**.
 
 Claude probó la maqueta y encontró que el globo de información **se desborda a 320 px**
 sin recorte; queda exigido en la orden.
+
+### R1 AUDITADA (2026-08-04). APROBADA.
+
+Informe en `docs/AUDITORIA_CLAUDE_CORRECCIONES_R1.md`. **981 pruebas en 67 archivos**,
+compilación, compilación pública, sin secretos, `main` intacto.
+
+**El Excel se verificó abriendo el archivo real por dentro:** se generó un cierre desde
+la aplicación, se descomprimió el `.xlsx` y se leyó su XML. Encabezados fijos
+(`<pane ySplit="6" state="frozen"/>`), anchos de columna calculados (33/34/24/11/24),
+**9 celdas numéricas sin `t="s"` —son números y se pueden sumar—**, fechas como fechas
+(`dd/mm/yyyy`) y formato de moneda `"$" #,##0;[Red]-"$" #,##0` con negativos en rojo.
+La dependencia cumple las cinco condiciones de D-066: única, versión exacta `4.1.1`,
+carga diferida, sin cambios de CSP, y en un trozo aparte de 49 kB comprimidos.
+
+**C3 se verificó usando la aplicación:** se creó y vendió una joya. Donde antes aparecía
+"Sin piezas", ahora la pieza permanece visible con toda su venta, y sus cuatro acciones
+tienen borde, fondo y 44 px de alto.
+
+**Corrección de Claude a sí mismo (O1):** le dijo a Santiago que la librería del Excel
+"no ocupa más en tu teléfono". **Es falso**: el trozo sí está en la precarga del service
+worker, unos 49 kB comprimidos al instalar. **No se pide cambio**: precargarlo es lo
+correcto, porque si no, exportar sin internet fallaría y la aplicación es de uso sin
+conexión por diseño. Lo que estuvo mal fue la frase, no el código.
+
+**Observación abierta (O2):** el verde del Excel es `#0F5B46`, más oscuro que el acento
+`#0b7f57`, sin una línea que lo explique. La elección es correcta —mejor contraste con
+texto blanco— pero el proyecto exige registrar las desviaciones de identidad.
+
+**Sigue pendiente (O3):** Claude no puede abrir Microsoft Excel. Basta con que Santiago
+abra uno y sume una columna para cerrar ese punto.
+
+**SIGUIENTE: R2**, ya escrita y con los nombres aprobados por Santiago.
