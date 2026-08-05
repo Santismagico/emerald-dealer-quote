@@ -923,3 +923,31 @@ joyería, el cliente elige entre horarios que el joyero definió y deja nombre, 
 motivo; la cita entra a la Agenda como **pendiente de confirmar**; el joyero confirma en
 la aplicación y contacta él mismo por WhatsApp. Sin correo automático, sin depender de
 nada externo.
+
+### R2 entregada a Codex (2026-08-04): navegación y gráfica
+
+Santiago aprobó los nombres. Orden en `docs/V2_ORDEN_CORRECCIONES_SANTIAGO_R2.md`, dos
+commits. Decisiones **D-070** y **D-071**. **Va después de R1**, que toca las mismas
+pantallas.
+
+- **R2-1 (D-070).** La barra queda **Inicio · Cotizador · Taller · Inventario · Dinero**
+  y es **exactamente el primer grupo de Inicio**. "La plata" pasa a **Dinero** arriba y
+  abajo; la Agenda sale de la barra; los seis grupos pasan a tres. **Dinero** se vuelve un
+  área con secciones, copiando el patrón que ya usa Inventario. Ninguna ruta desaparece.
+- **R2-2 (D-071).** El número suelto pasa a **gráfica de área** con 1 día / 7 días /
+  30 días / 1 año e interruptor **Ganancia / Caja**, alimentada por el libro (D-057).
+
+**Una sola medida a la vez, y no es preferencia:** los dos colores de la identidad se
+validaron con un simulador de daltonismo y quedan a **ΔE 4.5 en protanopía y 15.0 en
+visión normal**, por debajo del mínimo legible. Colores validados para la serie única:
+`#0b7f57` en claro y `#2fa87a` en oscuro (el `#34b583` de la app queda fuera de banda).
+
+**Promesa de D-052 conservada:** con Caja y el mes seleccionados, la cifra debe ser
+exactamente la del Cierre mensual, con prueba obligatoria.
+
+**Riesgo marcado:** el inicio es la primera pantalla; construir un libro de un año antes
+de pintar la volvería lenta justo en el peor sitio. Se exige no bloquear el primer
+pintado y **reportar cuánto tarda**.
+
+Claude probó la maqueta y encontró que el globo de información **se desborda a 320 px**
+sin recorte; queda exigido en la orden.

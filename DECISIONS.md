@@ -1239,3 +1239,55 @@ joyas. Al hacerlo:
 Sigue vigente la protección que sí tiene sentido: no se pueden alterar los datos físicos
 de una tanda ya regresada cuyo producto se vendió (Fase C). Proteger un dato es distinto
 de impedir borrar un registro completo con aviso.
+
+## D-070 · Un solo vocabulario: la barra es el primer grupo de Inicio · 2026-08-04 · Vigente
+
+Santiago reportó que la aplicación confunde. El diagnóstico no era la barra en sí: al
+agregar la pantalla de inicio (D-052) quedaron **dos vocabularios para las mismas cosas**.
+Inicio hablaba de acciones —Vender, Producir y atender, La plata— y la barra inferior de
+lugares —Cotizador, Taller, Agenda—. Solo "Inventario" coincidía. Es un error de diseño de
+Claude: la barra venía de antes de que existiera Inicio y nunca se revisó.
+
+Desde esta decisión hay **un solo nombre por cada lugar**, y **el primer grupo de Inicio
+es exactamente la barra inferior**: mismos nombres, mismo orden. Así la barra deja de
+leerse como un segundo mapa y se lee como lo que es, un atajo a lo de todos los días.
+
+La barra queda en **Inicio · Cotizador · Taller · Inventario · Dinero** — cinco botones,
+D-046 respetado. "La plata" pasa a llamarse **Dinero** arriba y abajo; Santiago aprobó el
+nombre.
+
+**La Agenda sale de la barra** y pasa a "Otras cosas" dentro de Inicio. Preguntado qué usa
+a diario, Santiago respondió cotizar, taller, inventario y la plata; la agenda no. No se
+borra nada: sigue con sus citas y sigue alcanzable.
+
+Los seis grupos de Inicio pasan a tres —lo de todos los días, tu gente y el resto—.
+**Ninguna ruta desaparece:** todo lo que hoy se alcanza se sigue alcanzando.
+
+## D-071 · El inicio muestra una gráfica, con una sola medida a la vez · 2026-08-04 · Vigente
+
+Santiago pidió que el inicio no muestre un número suelto sino una **gráfica** que pueda
+recorrer por períodos, como la de una aplicación de inversiones: **1 día · 7 días ·
+30 días · 1 año**.
+
+Desde esta decisión el inicio muestra la cifra grande, cuánto cambió en el período y una
+gráfica de área con esos cuatro rangos, que responde al tacto mostrando el valor de cada
+punto.
+
+**Dibuja una sola medida a la vez, con un interruptor entre Ganancia y Caja.** Nunca las
+dos superpuestas, por dos razones:
+
+1. **Medida, no opinada:** los dos colores de la identidad —el verde esmeralda y el
+   latón— se validaron con un simulador de daltonismo y quedan a ΔE 4.5 en protanopía y
+   15.0 en visión normal, por debajo del mínimo legible. Dos líneas con esos colores serían
+   indistinguibles para mucha gente.
+2. **Ganancia y caja son cifras distintas** (D-063). Superponerlas invita justo a la
+   confusión que el plan v2 evitó en todas sus fases.
+
+Colores validados para la serie única: **`#0b7f57`** en claro y **`#2fa87a`** en oscuro,
+ambos aprobados en banda de luminosidad, croma y contraste contra su superficie.
+
+**Se conserva la promesa de D-052:** con **Caja** seleccionada y el mes como período, la
+cifra debe ser **exactamente** la del Cierre mensual, y así debe decirlo la pantalla.
+
+La gráfica **lee del libro del negocio** (D-057) y no calcula por su cuenta. Se dibuja con
+SVG propio: **sin librería de gráficas ni dependencia nueva**.
