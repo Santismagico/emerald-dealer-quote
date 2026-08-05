@@ -21,7 +21,13 @@ import { formatCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, todayISO } from '../utils/dates';
 import { Button, EmptyState, Field, SectionCard, Select, SummaryRow, TextInput } from './ui';
 
-export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 'mes' }) {
+export function DailyCloseView({
+  initialMode = 'dia',
+  showModeSelector = true
+}: {
+  initialMode?: 'dia' | 'mes';
+  showModeSelector?: boolean;
+}) {
   const store = useStore();
   const [mode, setMode] = useState<'dia' | 'mes'>(initialMode);
   const today = todayISO();
@@ -104,26 +110,28 @@ export function DailyCloseView({ initialMode = 'dia' }: { initialMode?: 'dia' | 
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
-        <button
-          type="button"
-          onClick={() => setMode('dia')}
-          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
-            mode === 'dia' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
-          }`}
-        >
-          Cierre del día
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('mes')}
-          className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
-            mode === 'mes' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
-          }`}
-        >
-          Cierre del mes
-        </button>
-      </div>
+      {showModeSelector ? (
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-stone-200 p-1">
+          <button
+            type="button"
+            onClick={() => setMode('dia')}
+            className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
+              mode === 'dia' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
+            }`}
+          >
+            Cierre del día
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('mes')}
+            className={`min-h-11 rounded-full py-2 text-sm font-semibold ${
+              mode === 'mes' ? 'bg-white text-stone-900 shadow' : 'text-stone-500'
+            }`}
+          >
+            Cierre mensual
+          </button>
+        </div>
+      ) : null}
 
       <SectionCard subtitle="Documento interno con todo lo que pasó en el negocio. No se comparte con clientes.">
         {mode === 'dia' ? (

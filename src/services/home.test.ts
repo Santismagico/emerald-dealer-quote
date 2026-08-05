@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Appointment, Expense } from '../types';
 import { sampleQuote } from '../test/fixtures';
 import { buildMonthlyReport } from './dailyReport';
-import { buildHomeSummary, HOME_GROUPS } from './home';
+import { buildHomeSummary, HOME_GROUPS, MONEY_SECTIONS } from './home';
 import { emptyStoneLot, emptyStoneSale } from './stones';
 
 const TODAY = '2026-08-03';
@@ -98,29 +98,33 @@ describe('portada de inicio', () => {
     });
   });
 
-  it('conserva todos los destinos actuales y no adelanta fases futuras', () => {
-    const destinations = HOME_GROUPS.flatMap((group) => group.items.map((item) => item.destination));
-
-    expect(destinations).toEqual([
-      'history',
-      'workshop',
-      'agenda',
-      'inventoryStones',
-      'inventoryMaterials',
-      'inventoryJewels',
-      'inventoryReceivables',
-      'dailyClose',
-      'monthlyClose',
-      'salesDashboard',
-      'salesConsolidated',
-      'expenses',
-      'clients',
-      'buyers',
-      'suppliers',
-      'partners',
-      'settings',
-      'account'
+  it('usa en Inicio el mismo vocabulario y orden de la barra inferior', () => {
+    expect(HOME_GROUPS.map((group) => group.title)).toEqual([
+      'Tu día a día',
+      'Tu gente',
+      'Otras cosas'
     ]);
-    expect(destinations).not.toContain('catalog');
+    expect(HOME_GROUPS[0]?.items.map((item) => item.label)).toEqual([
+      'Cotizador',
+      'Taller',
+      'Inventario',
+      'Dinero'
+    ]);
+    expect(HOME_GROUPS[2]?.items.map((item) => item.label)).toEqual([
+      'Agenda',
+      'Ajustes y cuenta'
+    ]);
+    expect(JSON.stringify(HOME_GROUPS)).not.toContain('La plata');
+  });
+
+  it('mantiene los cinco destinos de Dinero en una sola área', () => {
+    expect(MONEY_SECTIONS).toEqual([
+      { key: 'panel', label: 'Panel' },
+      { key: 'dailyClose', label: 'Cierre del día' },
+      { key: 'monthlyClose', label: 'Cierre mensual' },
+      { key: 'consolidated', label: 'Consolidado' },
+      { key: 'expenses', label: 'Gastos' }
+    ]);
+    expect(new Set(MONEY_SECTIONS.map((section) => section.key)).size).toBe(5);
   });
 });

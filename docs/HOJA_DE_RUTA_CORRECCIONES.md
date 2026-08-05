@@ -228,6 +228,7 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | C15 | F | En las ventas de inventario y cada abono, guardar y volver a mostrar cómo pagaron, quién recibió y las notas; incluirlo también en el cierre interno sin cambiar la caja | types, schema, stones, stockJewels, StonesView, ReceivablesView, DailyClose | publicada solo en emerald-dealer-app | fuente 1772263; sitio 762dc7c |
 | E8 | E | En celular, hacer que “Registrar venta” sea una pantalla clara con encabezado y botones siempre visibles; en computador conservar un diálogo centrado | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
 | E9 | E | Hacer inequívoca la elección Contado/A crédito y mejorar contraste, estado y accesibilidad de todos los interruptores | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
+| R2-1 | F+E | Unificar Inicio y barra; mover Agenda a Otras cosas y reunir Panel, cierres, Consolidado y Gastos dentro de Dinero | App, HomeView, MoneyView, SettingsView, home.ts | verificada; no publicada | este commit |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._

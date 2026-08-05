@@ -1292,6 +1292,12 @@ borra nada: sigue con sus citas y sigue alcanzable.
 Los seis grupos de Inicio pasan a tres —lo de todos los días, tu gente y el resto—.
 **Ninguna ruta desaparece:** todo lo que hoy se alcanza se sigue alcanzando.
 
+**Aplicada en R2-1:** Inicio quedó en tres grupos y la barra replica literalmente el
+primero. Dinero reúne Panel, Cierre del día, Cierre mensual, Consolidado y Gastos con el
+mismo patrón de secciones de Inventario. Agenda conserva su aviso dentro de Inicio;
+Ajustes conserva el paso a Cuenta cuando existe una cuenta en la nube. No cambió ningún
+dato, cálculo ni ruta interna de cotizaciones o taller.
+
 ## D-071 · El inicio muestra una gráfica, con una sola medida a la vez · 2026-08-04 · Vigente
 
 Santiago pidió que el inicio no muestre un número suelto sino una **gráfica** que pueda

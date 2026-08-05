@@ -43,7 +43,7 @@ export function BackupImportControls({
   if (isCloudAccount) {
     return (
       <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-        Para agregar o actualizar datos en esta cuenta usa Más → Cuenta → Importar datos.
+        Para agregar o actualizar datos usa Ajustes y cuenta → Abrir cuenta → Importar datos.
         Esa ruta no reemplaza ni borra en bloque los registros que ya están en la nube.
       </p>
     );
@@ -99,7 +99,13 @@ export async function runBackupRestoreFlow(actions: {
   return 'success';
 }
 
-export function SettingsView({ isCloudAccount = false }: { isCloudAccount?: boolean }) {
+export function SettingsView({
+  isCloudAccount = false,
+  onOpenAccount
+}: {
+  isCloudAccount?: boolean;
+  onOpenAccount?: () => void;
+}) {
   const store = useStore();
   const allowLocalRestore = canReplaceFromLocalBackup(isCloudAccount);
   const [form, setForm] = useState<Settings>(store.settings);
@@ -233,6 +239,17 @@ export function SettingsView({ isCloudAccount = false }: { isCloudAccount?: bool
 
   return (
     <div className="space-y-4">
+      {isCloudAccount && onOpenAccount ? (
+        <SectionCard
+          title="Cuenta del negocio"
+          subtitle="Administra el acceso, la sincronización y la importación de esta cuenta."
+        >
+          <Button variant="secondary" full onClick={onOpenAccount}>
+            Abrir cuenta
+          </Button>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Datos de la joyería" subtitle="Aparecen en el PDF que recibe el cliente.">
         <Field label="Nombre de la joyería">
           <TextInput value={form.jewelryName} onChange={(jewelryName) => patch({ jewelryName })} />

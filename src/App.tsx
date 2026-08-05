@@ -12,10 +12,7 @@ import { WorkshopView } from './components/WorkshopView';
 import { WorkshopJobView, type WorkshopJobViewHandle } from './components/WorkshopJobView';
 import { AgendaView } from './components/AgendaView';
 import { InventoryView, type InventorySection } from './components/InventoryView';
-import { DailyCloseView } from './components/DailyCloseView';
-import { ExpensesView } from './components/ExpensesView';
-import { SalesDashboardView } from './components/SalesDashboardView';
-import { SalesConsolidatedView } from './components/SalesConsolidatedView';
+import { MoneyView } from './components/MoneyView';
 import { HomeView } from './components/HomeView';
 import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
@@ -42,7 +39,7 @@ import {
 } from './services/cloud/importer';
 import { runAfterSuccessfulFlush } from './services/quoteAutosave';
 import { formatMonthCO } from './services/dailyReport';
-import { buildHomeSummary, type HomeDestination } from './services/home';
+import { buildHomeSummary, type HomeDestination, type MoneySection } from './services/home';
 import {
   getBackupReminderSnoozedUntil,
   getBackupReminderState
@@ -57,10 +54,7 @@ type ViewName =
   | 'workshopJob'
   | 'agenda'
   | 'stones'
-  | 'dailyClose'
-  | 'expenses'
-  | 'salesDashboard'
-  | 'salesConsolidated'
+  | 'money'
   | 'clients'
   | 'suppliers'
   | 'buyers'
@@ -134,7 +128,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
   const store = useStore();
   const [view, setView] = useState<ViewName>('home');
   const [inventorySection, setInventorySection] = useState<InventorySection>('piedras');
-  const [closeMode, setCloseMode] = useState<'dia' | 'mes'>('dia');
+  const [moneySection, setMoneySection] = useState<MoneySection>('panel');
   const [draft, setDraft] = useState<Quote | null>(null);
   const [previewTab, setPreviewTab] = useState<'cliente' | 'interno'>('cliente');
   // Desde dónde se abrió la vista previa, para que "Volver" regrese al lugar correcto.
@@ -172,9 +166,6 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
       }),
     [currentMonth, store.appointments, store.expenses, store.quotes, store.stockJewels, store.stoneLots, today]
   );
-
-  // Aviso visual local: cuántas citas programadas hay hoy (D-020, sin notificaciones).
-  const todayAppointments = homeSummary.appointmentsToday;
 
   useEffect(() => {
     const refresh = () => setReminderNow(new Date());
@@ -355,9 +346,6 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         case 'buyers':
         case 'suppliers':
         case 'settings':
-        case 'expenses':
-        case 'salesDashboard':
-        case 'salesConsolidated':
           setView(destination);
           return;
         case 'partners':
@@ -365,6 +353,14 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
           return;
         case 'account':
           if (cloudAccount) setView('account');
+          return;
+        case 'inventory':
+          setInventorySection('piedras');
+          setView('stones');
+          return;
+        case 'money':
+          setMoneySection('panel');
+          setView('money');
           return;
         case 'inventoryStones':
         case 'inventoryMaterials':
@@ -382,9 +378,20 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         }
         case 'dailyClose':
         case 'monthlyClose':
-          setCloseMode(destination === 'dailyClose' ? 'dia' : 'mes');
-          setView('dailyClose');
+        case 'expenses':
+        case 'salesDashboard':
+        case 'salesConsolidated': {
+          const section = ({
+            dailyClose: 'dailyClose',
+            monthlyClose: 'monthlyClose',
+            expenses: 'expenses',
+            salesDashboard: 'panel',
+            salesConsolidated: 'consolidated'
+          } as const)[destination];
+          setMoneySection(section);
+          setView('money');
           return;
+        }
         default: {
           const unreachable: never = destination;
           return unreachable;
@@ -471,6 +478,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         {view === 'workshop' && <WorkshopView onOpenJob={openWorkshopJob} />}
         {view === 'agenda' && <AgendaView />}
         {view === 'stones' && <InventoryView key={inventorySection} initialSection={inventorySection} />}
+        {view === 'money' && <MoneyView key={moneySection} initialSection={moneySection} />}
         {view === 'workshopJob' && draft && (
           <WorkshopJobView
             ref={workshopJobRef}
@@ -483,30 +491,6 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             }}
             onOpenQuote={(quote) => openPreview(quote, 'interno', 'workshop')}
           />
-        )}
-        {view === 'dailyClose' && (
-          <div className="space-y-4">
-            <BackRow label="← Inicio" onClick={() => setView('home')} />
-            <DailyCloseView key={closeMode} initialMode={closeMode} />
-          </div>
-        )}
-        {view === 'expenses' && (
-          <div className="space-y-4">
-            <BackRow label="← Inicio" onClick={() => setView('home')} />
-            <ExpensesView />
-          </div>
-        )}
-        {view === 'salesDashboard' && (
-          <div className="space-y-4">
-            <BackRow label="← Inicio" onClick={() => setView('home')} />
-            <SalesDashboardView />
-          </div>
-        )}
-        {view === 'salesConsolidated' && (
-          <div className="space-y-4">
-            <BackRow label="← Inicio" onClick={() => setView('home')} />
-            <SalesConsolidatedView />
-          </div>
         )}
         {view === 'clients' && (
           <div className="space-y-4">
@@ -535,12 +519,15 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         {view === 'settings' && (
           <div className="space-y-4">
             <BackRow label="← Inicio" onClick={() => setView('home')} />
-            <SettingsView isCloudAccount={Boolean(cloudAccount)} />
+            <SettingsView
+              isCloudAccount={Boolean(cloudAccount)}
+              onOpenAccount={cloudAccount ? () => setView('account') : undefined}
+            />
           </div>
         )}
         {view === 'account' && cloudAccount && (
           <div className="space-y-4">
-            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <BackRow label="← Ajustes y cuenta" onClick={() => setView('settings')} />
             <AccountView
               email={cloudAccount.email}
               organizationName={cloudAccount.organizationName}
@@ -580,10 +567,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             icon={<LineIcon name="home" />}
             active={
               view === 'home' ||
-              view === 'dailyClose' ||
-              view === 'expenses' ||
-              view === 'salesDashboard' ||
-              view === 'salesConsolidated' ||
+              view === 'agenda' ||
               view === 'clients' ||
               view === 'suppliers' ||
               view === 'buyers' ||
@@ -607,17 +591,16 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             onClick={() => void runAfterViewFlush(() => setView('workshop'))}
           />
           <NavButton
-            label="Agenda"
-            icon={<LineIcon name="calendar" />}
-            badge={todayAppointments}
-            active={view === 'agenda'}
-            onClick={() => void runAfterViewFlush(() => setView('agenda'))}
-          />
-          <NavButton
             label="Inventario"
             icon={<LineIcon name="gem" />}
             active={view === 'stones'}
             onClick={() => void runAfterViewFlush(() => setView('stones'))}
+          />
+          <NavButton
+            label="Dinero"
+            icon={<LineIcon name="report" />}
+            active={view === 'money'}
+            onClick={() => void runAfterViewFlush(() => setView('money'))}
           />
         </div>
       </nav>

@@ -8,6 +8,8 @@ export type HomeDestination =
   | 'history'
   | 'workshop'
   | 'agenda'
+  | 'inventory'
+  | 'money'
   | 'inventoryStones'
   | 'inventoryMaterials'
   | 'inventoryJewels'
@@ -36,36 +38,30 @@ export interface HomeGroup {
   items: readonly HomeDestinationItem[];
 }
 
+export type MoneySection =
+  | 'panel'
+  | 'dailyClose'
+  | 'monthlyClose'
+  | 'consolidated'
+  | 'expenses';
+
+export const MONEY_SECTIONS: readonly { key: MoneySection; label: string }[] = [
+  { key: 'panel', label: 'Panel' },
+  { key: 'dailyClose', label: 'Cierre del día' },
+  { key: 'monthlyClose', label: 'Cierre mensual' },
+  { key: 'consolidated', label: 'Consolidado' },
+  { key: 'expenses', label: 'Gastos' }
+];
+
 /** Portada elegida en D-052. Solo enumera áreas que ya existen. */
 export const HOME_GROUPS: readonly HomeGroup[] = [
   {
-    title: 'Vender',
-    items: [{ destination: 'history', label: 'Cotizador' }]
-  },
-  {
-    title: 'Producir y atender',
+    title: 'Tu día a día',
     items: [
+      { destination: 'history', label: 'Cotizador' },
       { destination: 'workshop', label: 'Taller', attention: 'workshop' },
-      { destination: 'agenda', label: 'Agenda', attention: 'appointments' }
-    ]
-  },
-  {
-    title: 'Inventario',
-    items: [
-      { destination: 'inventoryStones', label: 'Piedras' },
-      { destination: 'inventoryMaterials', label: 'Material' },
-      { destination: 'inventoryJewels', label: 'Joyas' },
-      { destination: 'inventoryReceivables', label: 'Cobros', attention: 'receivables' }
-    ]
-  },
-  {
-    title: 'La plata',
-    items: [
-      { destination: 'dailyClose', label: 'Cierre del día' },
-      { destination: 'monthlyClose', label: 'Cierre mensual' },
-      { destination: 'salesDashboard', label: 'Ventas y ganancias' },
-      { destination: 'salesConsolidated', label: 'Consolidado de ventas' },
-      { destination: 'expenses', label: 'Gastos' }
+      { destination: 'inventory', label: 'Inventario' },
+      { destination: 'money', label: 'Dinero' }
     ]
   },
   {
@@ -78,10 +74,10 @@ export const HOME_GROUPS: readonly HomeGroup[] = [
     ]
   },
   {
-    title: 'Cuenta',
+    title: 'Otras cosas',
     items: [
-      { destination: 'settings', label: 'Ajustes' },
-      { destination: 'account', label: 'Cuenta', requiresCloudAccount: true }
+      { destination: 'agenda', label: 'Agenda', attention: 'appointments' },
+      { destination: 'settings', label: 'Ajustes y cuenta' }
     ]
   }
 ];

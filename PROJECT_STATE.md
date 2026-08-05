@@ -838,6 +838,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 | 2026-08-04 | Correcciones R1 · C2: compra en bruto o ya tallada (Codex) | Campo aditivo con legado en bruto; compra tallada entra directo a tallado, sin tandas ni merma; ventas, joyas, crédito, sociedad y costo conservados; protección local y migración de servidor; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; sin cambios de dinero, PDF, datos ni publicación | C2 (este commit) |
 | 2026-08-04 | Correcciones R1 · C3: joya vendida visible (Codex) | Tras vender limpia búsqueda, cambia a Vendidas y enfoca la pieza; cuatro acciones con borde, fondo y 44 px; fecha, pago, receptor y tasa conservados; auditoría reportó el mismo riesgo en el filtro de cotizaciones y no lo amplió; 975 pruebas, 422 módulos y revisión 320/390/1280 en verde; no publicado | C3 (este commit) |
 | 2026-08-04 | Correcciones R1 · C4: borrar lote conservando la historia (Codex) | El nombre del lote queda guardado en cada joya antes de borrarlo; costo y resultado de la joya, Cierre del día, mensual y panel permanecen idénticos; respaldo, importación y servidor contemplados; 981 pruebas, 422 módulos y recorrido real 320/390/1280 en verde; migración preparada no aplicada; no publicado | C4 (este commit) |
+| 2026-08-04 | Correcciones R2 · R2-1: un solo vocabulario (Codex) | Barra e Inicio comparten Cotizador, Taller, Inventario y Dinero; Agenda pasa a Otras cosas; Dinero reúne Panel, cierres, Consolidado y Gastos; todos los destinos comprobados; 982 pruebas, 423 módulos y revisión 320/390/1280 sin desbordamiento; no publicado | R2-1 (este commit) |
 
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
@@ -981,6 +982,33 @@ pantallas.
   área con secciones, copiando el patrón que ya usa Inventario. Ninguna ruta desaparece.
 - **R2-2 (D-071).** El número suelto pasa a **gráfica de área** con 1 día / 7 días /
   30 días / 1 año e interruptor **Ganancia / Caja**, alimentada por el libro (D-057).
+
+**R2-1 implementada y verificada (Codex, 2026-08-04).** La barra quedó en **Inicio ·
+Cotizador · Taller · Inventario · Dinero** y el primer grupo de Inicio repite esos cuatro
+destinos en el mismo orden. Inicio ahora solo tiene **Tu día a día · Tu gente · Otras
+cosas**. Agenda conserva su aviso dentro de Otras cosas y no ocupa la barra.
+
+Lista completa de destinos y desde dónde se alcanzan tras el cambio:
+
+- **Inicio:** botón Inicio de la barra; desde allí se abren todos los grupos.
+- **Cotizador:** barra o Inicio → Tu día a día; conserva historial, nueva cotización,
+  edición y vista previa.
+- **Taller:** barra o Inicio → Tu día a día; conserva lista y detalle de cada trabajo.
+- **Inventario:** barra o Inicio → Tu día a día; dentro están Piedras, Material, Joyas y
+  Cobros.
+- **Dinero:** barra o Inicio → Tu día a día; dentro están Panel, Cierre del día, Cierre
+  mensual, Consolidado y Gastos.
+- **Clientes, Compradores, Proveedores y Socios:** Inicio → Tu gente.
+- **Agenda:** Inicio → Otras cosas; conserva su aviso de citas del día.
+- **Ajustes y cuenta:** Inicio → Otras cosas; Ajustes conserva el acceso a Cuenta cuando
+  hay nube, y Cuenta conserva Importar datos y el regreso a Ajustes.
+
+Recorrido real: los 10 accesos de Inicio, las 4 secciones de Inventario y las 5 de
+Dinero abrieron su destino. En **320, 390 y 1280 px** no hubo desbordamiento; la barra
+midió 64 px de alto y las secciones 44 px. `runAfterViewFlush` quedó intacto. Cierre:
+**982 pruebas en 67 archivos**, PWA verificada y compilación de **423 módulos**. Sin
+migraciones, campos, dependencias ni cambios en dinero; `main`, piloto y workflow
+intactos. Nada publicado.
 
 **Una sola medida a la vez, y no es preferencia:** los dos colores de la identidad se
 validaron con un simulador de daltonismo y quedan a **ΔE 4.5 en protanopía y 15.0 en
