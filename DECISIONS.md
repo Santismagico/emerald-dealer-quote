@@ -1334,3 +1334,68 @@ período “30 días” representa el mes calendario para mantener exactamente e
 del Cierre mensual. La gráfica admite arrastre táctil, mantiene el globo dentro de sus
 bordes y muestra estados claros cuando no hay datos o solo hay un día. La serie usa
 `#0b7f57` en claro y `#2fa87a` en oscuro, sin animación ni dependencia nueva.
+
+---
+
+## D-072 · El negocio tiene dos figuras distintas: fondo de inversión y socio de igualdad · 2026-08-05 · Vigente
+
+Al pedir Santiago varios socios por lote apareció, al preguntarle qué significaba "plata
+pendiente", una figura que **no estaba en ningún documento del proyecto**: amigos y conocidos
+que le entregan dinero esperando un rendimiento a plazo. Sus palabras: *"al fondo de
+inversión le devuelvo su plata más sus rendimientos pase lo que pase, pero si estoy yendo en
+condiciones de igualdad con otro socio […] asumimos ganancias o pérdidas."*
+
+Desde esta decisión la aplicación distingue **dos relaciones que no se pueden mezclar**:
+
+- **Fondo de inversión** — le prestan al negocio. Cobran capital más el rendimiento pactado
+  aunque el lote pierda. Contablemente es un **pasivo**.
+- **Socio de igualdad** — entra al lote. Gana o pierde en proporción a lo que puso.
+  Contablemente es **patrimonio**.
+
+**Consecuencia que gobierna todo el modelo: la plata del fondo NO diluye el reparto entre
+socios de igualdad.** Financia la compra; su costo es el rendimiento pactado, no una parte
+de la ganancia.
+
+Se rechazó tratarlo todo como una sola figura con porcentajes: habría hecho que un préstamo
+con rendimiento fijo apareciera perdiendo dinero cuando un lote sale mal, que es exactamente
+lo contrario de lo pactado.
+
+## D-073 · La participación se declara en plata puesta, no en porcentaje · 2026-08-05 · Vigente
+
+Con varios socios en un lote hay dos formas de decir cuánto le toca a cada uno: el porcentaje
+o la plata que puso. **Se elige la plata puesta** y el porcentaje se DERIVA para mostrarlo.
+
+Razones, en orden:
+
+1. **Es como ocurre el trato.** Nadie dice "entro con el 30%": dice "pongo tres millones".
+2. **No hay que cuadrar a 100.** El usuario no puede equivocarse sumando.
+3. **No hay centavos sueltos.** Tres partes iguales en porcentaje dejan residuo; en plata,
+   no. Encaja con la regla de COP enteros de AGENTS.md.
+
+Coherente con D-049, donde el material ya se guarda en **gramos** y el porcentaje se deriva:
+la aplicación ya prefiere la cantidad exacta al porcentaje.
+
+Los lotes que existen hoy guardan `myPercent`. Se convierten una sola vez de forma
+determinista y **se conserva el `myPercent` original como verdad histórica**. Requisito
+innegociable: ninguna cifra mostrada hoy puede cambiar tras la conversión.
+
+## D-074 · El fondo es un bolsillo común, y por eso resulta simple · 2026-08-05 · Vigente
+
+Santiago eligió que la plata del fondo **no quede amarrada a un lote**: entra a un bolsillo
+común del que se compra.
+
+En un fondo donde el rendimiento dependiera del resultado esto sería lo caro del proyecto:
+obligaría a repartir utilidades entre quienes entran y salen en fechas distintas —unidades,
+valor de la unidad, cortes—. **Aquí no hace falta**, porque se paga pase lo que pase (D-072).
+
+Cada aporte se lleva como un préstamo independiente: capital, fecha, trato pactado y pagos.
+El "bolsillo" es solo **cuánta plata hay disponible para comprar**: un saldo de caja, no un
+problema de reparto. El rendimiento se pacta **distinto con cada persona** —porcentaje
+mensual o cifra fija a plazo—, porque así ocurre en la realidad.
+
+Un mismo lote **puede mezclar** plata del fondo, de socios de igualdad y propia.
+
+**Punto abierto que Santiago debe confirmar:** cuando un lote lleva plata del fondo y además
+un socio de igualdad, el rendimiento del fondo se tratará como **costo del lote** —igual que
+el corte, descontado antes de repartir—, salvo que él indique que es un costo personal suyo.
+Detalle en `docs/PLAN_SOCIOS_Y_FONDO.md` §7.
