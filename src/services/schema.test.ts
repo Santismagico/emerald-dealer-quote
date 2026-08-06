@@ -262,6 +262,8 @@ describe('normalizeStoneLot', () => {
       partnerId: 'soc-1',
       partnerName: 'Socio Emerald',
       myPercent: 60,
+      partners: [],
+      fundedFromFundCop: 0,
       onCredit: false,
       supplierPayments: [],
       cuttingBatches: [],

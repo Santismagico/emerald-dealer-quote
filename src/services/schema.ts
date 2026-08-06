@@ -36,13 +36,18 @@ import type {
   MaterialLot,
   Expense,
   ExpenseCategoryOption,
-  ProductTypeOption
+  ProductTypeOption,
+  FundContribution,
+  FundPayment,
+  LotPartner
 } from '../types';
 import {
   QUOTE_STATUSES,
   PIECE_TYPES,
   APPOINTMENT_STATUSES,
-  STOCK_JEWEL_STATUSES
+  STOCK_JEWEL_STATUSES,
+  FUND_RETURN_KINDS,
+  FUND_PAYMENT_KINDS
 } from '../types';
 import { newId } from '../utils/id';
 import { BASE_EXPENSE_CATEGORIES } from './expenses';
@@ -591,6 +596,13 @@ export function normalizeStoneLot(raw: unknown): StoneLot {
     myPercent: shared
       ? Math.min(100, Math.max(0, Math.round(safeNumber(l.myPercent, 100))))
       : 100,
+    partners: normalizeLotPartners(l.partners),
+    // Deuda, no participación: se limita al costo para que nunca deje una base
+    // de reparto negativa (D-072).
+    fundedFromFundCop: Math.min(
+      Math.max(0, Math.round(safeNumber(l.fundedFromFundCop))),
+      Math.max(0, Math.round(safeNumber(l.purchaseValueCop)))
+    ),
     onCredit: l.onCredit === true,
     supplierPayments: safeArray(l.supplierPayments).map(normalizeSupplierPayment),
     cuttingBatches: safeArray(l.cuttingBatches).map(normalizeCuttingBatch),
@@ -644,5 +656,72 @@ export function normalizeQuote(raw: unknown): Quote {
     payments: safeArray(q.payments).map(normalizePayment),
     createdAt: safeString(q.createdAt),
     updatedAt: safeString(q.updatedAt)
+  };
+}
+
+/**
+ * Socio de igualdad dentro de un lote o un gasto (D-073). Guarda la PLATA que
+ * puso; el porcentaje se deriva y nunca se almacena.
+ */
+export function normalizeLotPartner(raw: unknown): LotPartner {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const partnerId = typeof p.partnerId === 'string' && p.partnerId.trim() ? p.partnerId : null;
+  return {
+    id: safeString(p.id, newId()),
+    partnerId,
+    partnerName: safeString(p.partnerName).trim(),
+    amountCop: Math.max(0, Math.round(safeNumber(p.amountCop)))
+  };
+}
+
+/** Lista de socios de un lote. Descarta filas sin nombre, sin ficha y sin plata. */
+export function normalizeLotPartners(raw: unknown): LotPartner[] {
+  return safeArray(raw)
+    .map(normalizeLotPartner)
+    .filter((partner) => partner.partnerId !== null || partner.partnerName.length > 0 || partner.amountCop > 0);
+}
+
+/** Un pago hecho a un inversionista del fondo. */
+export function normalizeFundPayment(raw: unknown): FundPayment {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    id: safeString(p.id, newId()),
+    date: safeString(p.date),
+    amountCop: Math.max(0, Math.round(safeNumber(p.amountCop))),
+    kind: oneOf(p.kind, FUND_PAYMENT_KINDS, 'rendimiento'),
+    notes: safeString(p.notes)
+  };
+}
+
+/**
+ * Aporte de una persona al fondo (D-074, D-076).
+ *
+ * Los dos campos del trato se excluyen entre sí y se limpian según el tipo, para
+ * que un dato corrupto no deje, por ejemplo, una tasa mensual colgando en un
+ * aporte pactado a cifra fija: el motor leería una cosa y la pantalla otra.
+ */
+export function normalizeFundContribution(raw: unknown): FundContribution {
+  const c = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const personId = typeof c.personId === 'string' && c.personId.trim() ? c.personId : null;
+  const returnKind = oneOf(c.returnKind, FUND_RETURN_KINDS, 'mensual');
+  const amountCop = Math.max(0, Math.round(safeNumber(c.amountCop)));
+  const rawRate = safeNumber(c.monthlyRatePercent, -1);
+  const rawAgreed = Math.round(safeNumber(c.agreedTotalCop, -1));
+
+  return {
+    id: safeString(c.id, newId()),
+    personId,
+    personName: safeString(c.personName).trim(),
+    date: safeString(c.date),
+    amountCop,
+    returnKind,
+    monthlyRatePercent:
+      returnKind === 'mensual' && rawRate >= 0 ? Math.min(100, rawRate) : null,
+    agreedTotalCop: returnKind === 'fijo' && rawAgreed >= 0 ? Math.max(amountCop, rawAgreed) : null,
+    dueDate: safeString(c.dueDate),
+    payments: safeArray(c.payments).map(normalizeFundPayment),
+    notes: safeString(c.notes),
+    createdAt: safeString(c.createdAt),
+    updatedAt: safeString(c.updatedAt)
   };
 }

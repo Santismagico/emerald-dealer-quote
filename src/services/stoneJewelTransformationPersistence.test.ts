@@ -37,6 +37,8 @@ function lot(overrides: Partial<StoneLot> = {}): StoneLot {
     partnerId: null,
     partnerName: '',
     myPercent: 100,
+    partners: [],
+    fundedFromFundCop: 0,
     onCredit: false,
     supplierPayments: [],
     cuttingBatches: [],

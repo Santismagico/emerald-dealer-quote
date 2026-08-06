@@ -84,10 +84,10 @@ describe('escalera de migraciones', () => {
   }
 
   it('la versión actual coincide con la cantidad de migraciones', () => {
-    expect(db.DB_VERSION).toBe(8);
+    expect(db.DB_VERSION).toBe(9);
   });
 
-  it('una base nueva (v0) crea los doce almacenes', () => {
+  it('una base nueva (v0) crea los trece almacenes', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 0);
     expect(fake.created).toEqual([
@@ -102,7 +102,8 @@ describe('escalera de migraciones', () => {
       'stockJewels',
       'materialPartners',
       'materialLots',
-      'expenses'
+      'expenses',
+      'fundContributions'
     ]);
   });
 
@@ -118,7 +119,8 @@ describe('escalera de migraciones', () => {
       'stockJewels',
       'materialPartners',
       'materialLots',
-      'expenses'
+      'expenses',
+      'fundContributions'
     ]);
   });
 
@@ -133,7 +135,8 @@ describe('escalera de migraciones', () => {
       'stockJewels',
       'materialPartners',
       'materialLots',
-      'expenses'
+      'expenses',
+      'fundContributions'
     ]);
   });
 
@@ -147,7 +150,8 @@ describe('escalera de migraciones', () => {
       'stockJewels',
       'materialPartners',
       'materialLots',
-      'expenses'
+      'expenses',
+      'fundContributions'
     ]);
   });
 
@@ -160,7 +164,8 @@ describe('escalera de migraciones', () => {
       'stockJewels',
       'materialPartners',
       'materialLots',
-      'expenses'
+      'expenses',
+      'fundContributions'
     ]);
   });
 
@@ -172,20 +177,21 @@ describe('escalera de migraciones', () => {
       'stockJewels',
       'materialPartners',
       'materialLots',
-      'expenses'
+      'expenses',
+      'fundContributions'
     ]);
   });
 
   it('una base v6 solo agrega socios y lotes de material', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 6);
-    expect(fake.created).toEqual(['materialPartners', 'materialLots', 'expenses']);
+    expect(fake.created).toEqual(['materialPartners', 'materialLots', 'expenses', 'fundContributions']);
   });
 
   it('una base v7 solo agrega gastos', () => {
     const fake = fakeMigratableDb();
     db.applyDbMigrations(fake.db, 7);
-    expect(fake.created).toEqual(['expenses']);
+    expect(fake.created).toEqual(['expenses', 'fundContributions']);
   });
 
   it('los escalones anteriores nunca se modifican al agregar el de v6', () => {
@@ -320,7 +326,8 @@ describe('respaldo v3 con agenda', () => {
       stockJewels: [],
       materialPartners: [],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
 
     await backupService.importBackup(backup);
@@ -345,7 +352,8 @@ describe('respaldo v3 con agenda', () => {
       stockJewels: [],
       materialPartners: [],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicadas/);
 

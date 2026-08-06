@@ -86,6 +86,7 @@ function backup(overrides: Partial<BackupFile> = {}): BackupFile {
     materialPartners: [],
     materialLots: [],
     expenses: [],
+    fundContributions: [],
     ...overrides
   };
 }

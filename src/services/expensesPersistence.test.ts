@@ -126,7 +126,7 @@ describe('respaldo v8 de gastos', () => {
   it('exporta y restaura gastos completos', async () => {
     await storage.saveExpense(expense());
     const exported = await backupService.exportBackup();
-    expect(exported.version).toBe(8);
+    expect(exported.version).toBe(9);
     const parsed = backupService.parseBackup(backupService.serializeBackup(exported));
     expect(parsed.expenses).toEqual([expense()]);
   });
@@ -136,7 +136,7 @@ describe('respaldo v8 de gastos', () => {
       const parsed = backupService.parseBackup(JSON.stringify({
         app: 'emerald-dealer-quote', version, exportedAt: '', settings: null, clients: [], quotes: []
       }));
-      expect(parsed.version).toBe(8);
+      expect(parsed.version).toBe(9);
       expect(parsed.expenses).toEqual([]);
     }
   });
@@ -145,14 +145,16 @@ describe('respaldo v8 de gastos', () => {
     const base: BackupFile = {
       app: 'emerald-dealer-quote', version: 8, exportedAt: '', settings: null,
       clients: [], quotes: [], appointments: [], stoneLots: [], suppliers: [], buyers: [],
-      stockJewels: [], materialPartners: [], materialLots: [], expenses: [expense()]
+      stockJewels: [], materialPartners: [], materialLots: [], expenses: [expense()],
+      fundContributions: []
     };
     expect(() => backupService.parseBackup(JSON.stringify({
       ...base, expenses: [expense(), expense()]
     }))).toThrow(/duplicados/);
     expect(() => backupService.parseBackup(JSON.stringify({
       ...base,
-      expenses: [expense({ partnerId: 'soc-1', partnerName: 'Socio', myPercent: 101 })]
+      expenses: [expense({ partnerId: 'soc-1', partnerName: 'Socio', myPercent: 101 })],
+      fundContributions: []
     }))).toThrow(/porcentajes/);
   });
 });

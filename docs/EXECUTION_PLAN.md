@@ -265,8 +265,12 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
 
 ## Etapas siguientes (detalle al abrir cada una)
 
-- [ ] S2 — Base local y respaldo v9. Escalón nuevo para `fundContributions`; importar un
-      respaldo v8 sigue funcionando.
+- [x] S2 — Base local y respaldo v9 — ✅ COMPLETADA 2026-08-05. Escalón v9 con el almacén
+      `fundContributions` (solo crea, no toca nada existente); `normalizeFundContribution`,
+      `normalizeLotPartner(s)` y los campos nuevos del lote en `schema.ts`; guardado y
+      lectura en `storage.ts`; `BACKUP_VERSION` 8 → 9 aceptando v1–v9, con los aportes en la
+      exportación y en la restauración atómica. Un respaldo v8 se importa y estrena la lista
+      vacía. 13 pruebas nuevas.
 - [ ] S3 — Pantalla de lotes de piedras: añadir y quitar socios, porcentaje derivado a la
       vista, y de dónde salió la plata.
 - [ ] S4 — Material y gastos, mismo patrón.

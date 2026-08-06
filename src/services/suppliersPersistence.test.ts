@@ -214,7 +214,8 @@ describe('respaldo v5 con proveedores', () => {
       stockJewels: [],
       materialPartners: [],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
 
     await backupService.importBackup(backup);
@@ -237,7 +238,8 @@ describe('respaldo v5 con proveedores', () => {
       stockJewels: [],
       materialPartners: [],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

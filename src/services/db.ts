@@ -16,7 +16,8 @@ export type StoreName =
   | 'stockJewels'
   | 'materialPartners'
   | 'materialLots'
-  | 'expenses';
+  | 'expenses'
+  | 'fundContributions';
 
 type StoreAccessor = (store: StoreName) => IDBObjectStore;
 type TransactionAbort = (error: unknown) => void;
@@ -71,6 +72,10 @@ const DB_MIGRATIONS: Array<(db: MigratableDb) => void> = [
   // v8 — gastos del negocio (Plan v2, B1 / D-059).
   (db) => {
     createStoreIfMissing(db, 'expenses');
+  },
+  // v9 — aportes al fondo de inversión (fase Socios y Fondo, D-074/D-076).
+  (db) => {
+    createStoreIfMissing(db, 'fundContributions');
   }
 ];
 

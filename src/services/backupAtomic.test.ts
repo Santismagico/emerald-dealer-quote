@@ -67,7 +67,8 @@ function makeBackup(
     stockJewels: [],
     materialPartners: [],
     materialLots: [],
-    expenses: []
+    expenses: [],
+    fundContributions: []
   };
 }
 

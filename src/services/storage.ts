@@ -13,7 +13,8 @@ import type {
   StockJewel,
   MaterialPartner,
   MaterialLot,
-  Expense
+  Expense,
+  FundContribution
 } from '../types';
 import type { GoldPriceBreakdown } from './goldPrice';
 import { dbGet, dbPut, dbGetAll, dbDelete, dbUpdate, dbWriteTransaction } from './db';
@@ -29,7 +30,8 @@ import {
   normalizeStockJewel,
   normalizeMaterialPartner,
   normalizeMaterialLot,
-  normalizeExpense
+  normalizeExpense,
+  normalizeFundContribution
 } from './schema';
 import { compareAppointments } from './agenda';
 import {
@@ -46,6 +48,7 @@ import {
 } from './stockJewels';
 import { compareMaterialLots } from './materials';
 import { compareExpenses, validateExpense } from './expenses';
+import { validateFundContribution } from './fund';
 import {
   transformStockJewelToNatural as buildStockJewelTransformation,
   preserveDeletedStoneLotName,
@@ -766,6 +769,29 @@ export async function saveExpense(expense: Expense): Promise<void> {
 
 export async function deleteExpense(id: string): Promise<void> {
   await dbDelete('expenses', id);
+}
+
+// ---------- Fondo de inversión (D-074, D-076) ----------
+//
+// Un aporte devuelto por completo NO se borra: queda saldado y su historia sigue
+// visible. `deleteFundContribution` existe solo para deshacer un registro creado
+// por error, nunca para "cerrar" un aporte.
+
+export async function listFundContributions(): Promise<FundContribution[]> {
+  const contributions = await dbGetAll<unknown>('fundContributions');
+  return contributions
+    .map(normalizeFundContribution)
+    .sort((a, b) => (a.date === b.date ? a.personName.localeCompare(b.personName, 'es') : b.date.localeCompare(a.date)));
+}
+
+export async function saveFundContribution(contribution: FundContribution): Promise<void> {
+  const error = validateFundContribution(contribution);
+  if (error) throw new Error(error);
+  await dbPut('fundContributions', normalizeFundContribution(contribution));
+}
+
+export async function deleteFundContribution(id: string): Promise<void> {
+  await dbDelete('fundContributions', id);
 }
 
 /** Genera el siguiente número de cotización y avanza el consecutivo en settings. */

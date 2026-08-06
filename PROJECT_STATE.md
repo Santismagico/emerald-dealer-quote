@@ -1337,3 +1337,33 @@ monótono. Cero fallos.
 migración SQL. Hoy no hay dato con ellos, porque las pantallas todavía no los escriben.
 
 **Siguiente:** S2, base local y respaldo v9.
+
+### Etapa S2 completada — 2026-08-05
+
+Los aportes al fondo ya se guardan de verdad y viajan en el respaldo.
+
+- **Base local v8 → v9:** almacén `fundContributions`. El escalón **solo crea**; ni borra ni
+  reescribe nada de lo anterior.
+- **`schema.ts`:** `normalizeFundContribution`, `normalizeFundPayment`, `normalizeLotPartner(s)`
+  y los campos nuevos del lote. Los dos campos del trato del fondo **se excluyen entre sí**:
+  un aporte pactado a cifra fija no conserva una tasa mensual colgando, para que el motor y
+  la pantalla nunca lean cosas distintas. `fundedFromFundCop` se limita al costo del lote,
+  así jamás queda una base de reparto negativa.
+- **`storage.ts`:** `listFundContributions`, `saveFundContribution`, `deleteFundContribution`.
+  Borrar existe solo para deshacer un registro equivocado: un aporte devuelto **queda
+  saldado, no se borra** (D-076).
+- **Respaldo v9:** acepta v1–v9. Los aportes entran en la exportación y en la **restauración
+  atómica**, así que un fallo a mitad de camino revierte todo junto. Un respaldo v8 se
+  importa sin fallar y estrena la lista vacía.
+
+**Verificación.** 1047 pruebas en 72 archivos (13 nuevas) y build en verde. Se actualizaron
+las pruebas que afirmaban la versión anterior del formato y la lista de almacenes: cambios
+legítimos del esquema, no ajustes para tapar fallos.
+
+**Auditoría propia.** El escalón v9 ejecutado contra una base simulada con los doce almacenes
+previos: **una sola acción, crear el nuevo**, y ninguna de borrado. Un lote guardado antes
+conserva **todos** sus campos al normalizarse y estrena los nuevos vacíos. 500 casos al azar
+donde la plata del fondo nunca supera el costo del lote. Normalizar un aporte dos veces da
+exactamente lo mismo, incluso partiendo de basura. Cero fallos.
+
+**Siguiente:** S3, la pantalla de lotes de piedras. Es la primera etapa que Santiago verá.

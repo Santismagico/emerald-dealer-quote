@@ -217,15 +217,15 @@ describe('persistencia de los lotes', () => {
 });
 
 describe('respaldo v8 con sociedades en lotes de piedras', () => {
-  it('la exportación incluye los lotes y mantiene la versión 8', async () => {
+  it('la exportación incluye los lotes y usa la versión vigente', async () => {
     await storage.saveStoneLot(lote({
       partnerId: 'soc-1',
       partnerName: 'Socio Emerald',
       myPercent: 60
     }));
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(8);
-    expect(backupService.BACKUP_VERSION).toBe(8);
+    expect(backup.version).toBe(9);
+    expect(backupService.BACKUP_VERSION).toBe(9);
     expect(backup.stoneLots.map((l) => l.id)).toEqual(['l-1']);
     expect(backup.stoneLots[0].sales.length).toBe(1);
     expect(backup.stoneLots[0]).toMatchObject({
@@ -248,7 +248,7 @@ describe('respaldo v8 con sociedades en lotes de piedras', () => {
       materialLots: [], expenses: []
     }));
 
-    expect(parsed.version).toBe(8);
+    expect(parsed.version).toBe(9);
     expect(parsed.stoneLots[0]).toMatchObject({
       id: 'l-v8-antiguo', partnerId: null, partnerName: '', myPercent: 100
     });
@@ -303,7 +303,8 @@ describe('respaldo v8 con sociedades en lotes de piedras', () => {
       stockJewels: [],
       materialPartners: [],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
 
     await backupService.importBackup(backup);
@@ -328,7 +329,8 @@ describe('respaldo v8 con sociedades en lotes de piedras', () => {
       stockJewels: [],
       materialPartners: [],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 

@@ -113,7 +113,8 @@ function largeBackup(): BackupFile {
       notes: '',
       createdAt: timestamp,
       updatedAt: timestamp
-    }]
+    }],
+    fundContributions: []
   };
 }
 

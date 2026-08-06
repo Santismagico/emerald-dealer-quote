@@ -6,6 +6,7 @@
 import type {
   Appointment,
   BackupFile,
+  FundContribution,
   Buyer,
   Client,
   Expense,
@@ -18,6 +19,7 @@ import type {
 } from '../types';
 import { dbWriteTransaction } from './db';
 import {
+  listFundContributions,
   loadSettings,
   listClients,
   listQuotes,
@@ -42,9 +44,11 @@ import {
   normalizeStockJewel,
   normalizeMaterialPartner,
   normalizeMaterialLot,
-  normalizeExpense
+  normalizeExpense,
+  normalizeFundContribution
 } from './schema';
 import { validateExpense } from './expenses';
+import { validateFundContribution } from './fund';
 import {
   validateStoneLotInventory,
   validateStoneLotOwnership,
@@ -56,14 +60,14 @@ import { validateSettingsMetadata } from './settingsMetadata';
 import { validateStoneJewelTransformationCollections } from './stoneJewelTransformation';
 
 /**
- * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 8.
+ * Versión actual del formato de respaldo. Se aceptan al importar: 1 a 9.
  * v3 agregó las citas; v4 los lotes de piedras; v5 los proveedores; v6 los
- * compradores y las joyas en stock; v7 los socios y lotes de material; v8 los gastos. Los
- * respaldos más viejos se importan con las listas nuevas vacías y nunca fallan
- * por no traerlas.
+ * compradores y las joyas en stock; v7 los socios y lotes de material; v8 los
+ * gastos; v9 los aportes al fondo de inversión. Los respaldos más viejos se
+ * importan con las listas nuevas vacías y nunca fallan por no traerlas.
  */
-export const BACKUP_VERSION = 8;
-const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+export const BACKUP_VERSION = 9;
+const ACCEPTED_VERSIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 export const MAX_BACKUP_FILE_BYTES = 25 * 1024 * 1024;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,7 +136,8 @@ export async function exportBackup(): Promise<BackupFile> {
     stockJewels,
     materialPartners,
     materialLots,
-    expenses
+    expenses,
+    fundContributions
   ] = await Promise.all([
     loadSettings(),
     listClients(),
@@ -144,7 +149,8 @@ export async function exportBackup(): Promise<BackupFile> {
     listStockJewels(),
     listMaterialPartners(),
     listMaterialLots(),
-    listExpenses()
+    listExpenses(),
+    listFundContributions()
   ]);
   return {
     app: 'emerald-dealer-quote',
@@ -160,7 +166,8 @@ export async function exportBackup(): Promise<BackupFile> {
     stockJewels,
     materialPartners,
     materialLots,
-    expenses
+    expenses,
+    fundContributions
   };
 }
 
@@ -395,6 +402,31 @@ function normalizeBackup(data: unknown): BackupFile {
     }
     materialLotIds.add(id);
   }
+  // Los aportes al fondo son opcionales en v1–v8 y obligatorios en el formato v9.
+  const rawFundContributions = b.fundContributions ?? [];
+  if (
+    !Array.isArray(rawFundContributions) ||
+    (b.version === 9 && !Array.isArray(b.fundContributions))
+  ) {
+    throw new Error('El respaldo contiene aportes al fondo inválidos.');
+  }
+  const fundIds = new Set<string>();
+  for (const rawContribution of rawFundContributions) {
+    const contribution = rawContribution as Partial<FundContribution>;
+    if (typeof contribution.id !== 'string' || !contribution.id.trim()) {
+      throw new Error('El respaldo contiene aportes al fondo con identificador inválido.');
+    }
+    if (fundIds.has(contribution.id)) {
+      throw new Error('El respaldo contiene aportes al fondo duplicados.');
+    }
+    fundIds.add(contribution.id);
+    // La forma se comprueba ya normalizada: así un respaldo con un campo suelto
+    // no revienta, pero uno con un trato imposible (rendimiento menor que el
+    // capital, pago anterior al aporte) se rechaza antes de tocar la base.
+    const error = validateFundContribution(normalizeFundContribution(rawContribution));
+    if (error) throw new Error(`El respaldo contiene un aporte al fondo inválido: ${error}`);
+  }
+
   // Los gastos son opcionales en v1–v7 y obligatorios en el formato v8.
   const rawExpenses = b.expenses ?? [];
   if (!Array.isArray(rawExpenses) || (b.version === 8 && !Array.isArray(b.expenses))) {
@@ -448,7 +480,8 @@ function normalizeBackup(data: unknown): BackupFile {
     stockJewels: rawStockJewels.map(normalizeStockJewel),
     materialPartners: rawMaterialPartners.map(normalizeMaterialPartner),
     materialLots: rawMaterialLots.map(normalizeMaterialLot),
-    expenses: rawExpenses.map(normalizeExpense)
+    expenses: rawExpenses.map(normalizeExpense),
+    fundContributions: rawFundContributions.map(normalizeFundContribution)
   };
   const linkError = validateStoneJewelTransformationCollections(
     normalized.stoneLots,
@@ -494,7 +527,8 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         'stockJewels',
         'materialPartners',
         'materialLots',
-        'expenses'
+        'expenses',
+        'fundContributions'
       ],
       (getStore) => {
         const settingsStore = getStore('settings');
@@ -508,6 +542,7 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         const materialPartnersStore = getStore('materialPartners');
         const materialLotsStore = getStore('materialLots');
         const expensesStore = getStore('expenses');
+        const fundStore = getStore('fundContributions');
 
         settingsStore.clear();
         clientsStore.clear();
@@ -520,6 +555,7 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         materialPartnersStore.clear();
         materialLotsStore.clear();
         expensesStore.clear();
+        fundStore.clear();
 
         if (normalized.settings) {
           settingsStore.put({ id: SETTINGS_KEY, ...normalized.settings });
@@ -550,6 +586,9 @@ export async function importBackup(backup: BackupFile): Promise<void> {
         }
         for (const lot of normalized.materialLots) {
           materialLotsStore.put(lot);
+        }
+        for (const contribution of normalized.fundContributions) {
+          fundStore.put(contribution);
         }
         for (const expense of normalized.expenses) {
           expensesStore.put(expense);

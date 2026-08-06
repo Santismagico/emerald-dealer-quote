@@ -683,6 +683,8 @@ export interface BackupFile {
   materialLots: MaterialLot[];
   /** Gastos del negocio. Los respaldos v1–v7 no los traen y se importan vacíos. */
   expenses: Expense[];
+  /** Aportes al fondo de inversión. Los respaldos v1–v8 no los traen y se importan vacíos. */
+  fundContributions: FundContribution[];
 }
 
 export const PIECE_TYPES: PieceType[] = [

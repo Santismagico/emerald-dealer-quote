@@ -257,7 +257,7 @@ describe('respaldo vigente y compatibilidad v7', () => {
     await storage.saveMaterialLot(loteCompartido());
 
     const backup = await backupService.exportBackup();
-    expect(backup.version).toBe(8);
+    expect(backup.version).toBe(9);
     expect(backup.materialPartners.map((p) => p.id)).toEqual(['soc-1']);
     expect(backup.materialLots.map((l) => l.id)).toEqual(['l-1']);
   });
@@ -279,7 +279,7 @@ describe('respaldo vigente y compatibilidad v7', () => {
     const parsed = backupService.parseBackup(JSON.stringify(v6));
     expect(parsed.materialPartners).toEqual([]);
     expect(parsed.materialLots).toEqual([]);
-    expect(parsed.version).toBe(8);
+    expect(parsed.version).toBe(9);
   });
 
   it('restaurar un respaldo v7 reemplaza socios y lotes de material', async () => {
@@ -300,7 +300,8 @@ describe('respaldo vigente y compatibilidad v7', () => {
       stockJewels: [],
       materialPartners: [socio({ id: 'soc-import' })],
       materialLots: [loteCompartido({ id: 'l-import' })],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
     await backupService.importBackup(backup);
 
@@ -323,7 +324,8 @@ describe('respaldo vigente y compatibilidad v7', () => {
       stockJewels: [],
       materialPartners: [socio({ id: 'dup' }), socio({ id: 'dup' })],
       materialLots: [],
-      expenses: []
+      expenses: [],
+      fundContributions: []
     };
     expect(() => backupService.parseBackup(JSON.stringify(base))).toThrow(/duplicados/);
 
