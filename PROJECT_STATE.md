@@ -1265,3 +1265,36 @@ descargue en Excel. Un agente **no debe** iniciar sesión con sus credenciales.
 **Pendiente social:** avisar a los 7 amigos. Al abrir la app la verán distinta. Sus datos
 locales saltan de v4 a v8 y los cuatro escalones solo crean almacenes nuevos vacíos, pero
 **no tienen respaldo en la nube**: conviene pedirles que exporten el suyo.
+
+---
+
+## 2026-08-05 — Fase nueva ordenada: Socios y Fondo
+
+La prueba de uso de Santiago el mismo día de la publicación destapó una figura que **no
+estaba en ningún documento del proyecto**: un fondo de amigos que le entregan dinero
+esperando un rendimiento a plazo, y a quienes **paga pase lo que pase**.
+
+Eso obligó a separar dos relaciones que la aplicación trataba como una sola:
+
+- **Fondo de inversión** — deuda. Cobra capital más rendimiento aunque el lote pierda.
+- **Socio de igualdad** — patrimonio. Gana o pierde en proporción a lo que puso.
+
+**Decisiones D-072 a D-076.** Las que más gobiernan el código:
+
+- La plata del fondo **no diluye** el reparto entre socios de igualdad (D-072).
+- La participación se declara **en plata puesta**, no en porcentaje; el porcentaje se deriva
+  (D-073), igual que el material ya hace con los gramos (D-049).
+- El rendimiento del fondo es **costo personal de Santiago** (D-075): el socio reparte sin
+  descontar el financiamiento, y la parte de Santiago **puede quedar en negativo mientras el
+  socio sigue en positivo**. Es correcto y hay una prueba obligatoria que lo protege.
+- El fondo **no es un saldo guardado**: es una lista de personas con historia editable y
+  rastreable; el total se deriva (D-076).
+
+**Santiago depuró los datos de la aplicación**, así que desapareció el riesgo más grave del
+plan: ya no hay que convertir lotes con historia real al peso. La fase bajó de 10 etapas a 9.
+
+**Plan completo:** `docs/PLAN_SOCIOS_Y_FONDO.md`.
+**Orden de trabajo:** `docs/EXECUTION_PLAN.md`, fase *Socios y Fondo*. **S1 detallada y lista
+para ejecutar**; las ocho restantes enunciadas, se detallan al abrir cada una.
+
+**Estado: nada implementado.** S1 es tipos y motor puro, sin tocar pantallas.
