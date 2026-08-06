@@ -76,7 +76,27 @@ igualdad en marzo.
 > Renombrar el concepto en la interfaz a **«Socios e inversionistas»**. El almacén y la tabla
 > conservan su nombre técnico: renombrarlos no aporta y sí arriesga los datos vivos.
 
-### 5.2 Aporte al fondo — entidad nueva `fundContributions`
+### 5.2 El fondo NO es un saldo único — es un grupo de personas
+
+Santiago lo subrayó el 2026-08-05: *"no lo tratemos como un único fondo, sino podamos
+diferenciar qué personas integran ese fondo […] las personas que integren ese fondo van a
+cambiar, y necesito poder editarlas y trackearlas, hacer un seguimiento muy riguroso."*
+
+**En ninguna parte de la aplicación existe "el saldo del fondo" como cifra guardada.** Lo
+que existe es una lista de aportes, cada uno de una persona con nombre y apellido. El total
+disponible es un **derivado** de sumarlos (regla D-023), nunca un contador propio.
+
+De ahí tres requisitos que no son opcionales:
+
+1. **Quién entra y quién sale queda registrado con su fecha.** Un aporte devuelto por
+   completo no desaparece: queda cerrado, con su historia visible.
+2. **Todo aporte es editable y todo cambio deja rastro** (`updatedAt`). La composición del
+   grupo cambia con el tiempo y él necesita poder reconstruir cómo estaba en cualquier
+   momento.
+3. **La pantalla del fondo se lee por persona, no por total.** El total es el pie de página,
+   no el encabezado.
+
+### 5.3 Aporte al fondo — entidad nueva `fundContributions`
 
 ```
 id, personId (null si se borró la ficha), personName (histórico),
@@ -91,7 +111,7 @@ notes, createdAt, updatedAt
 Derivados, nunca guardados (regla D-023): rendimiento devengado a hoy, capital devuelto,
 rendimiento pagado y **saldo que se le debe**.
 
-### 5.3 Participación en lotes y gastos
+### 5.4 Participación en lotes y gastos
 
 En `StoneLot`, `MaterialLot` y `Expense`, el trío `partnerId` / `partnerName` / `myPercent`
 (o `myGrams`) se sustituye por:
@@ -105,16 +125,22 @@ fundedFromFundCop: number                                — plata del fondo usa
 - **El porcentaje de cada socio se deriva** sobre la porción de patrimonio
   (lo propio + los socios), **excluyendo la plata del fondo**, que es deuda.
 
-### 5.4 Datos que ya existen — conversión sin perder nada
+### 5.5 Datos que ya existen — Santiago liberó esta restricción
 
-Los lotes actuales guardan `myPercent`, no cantidades. La conversión es determinista:
+El 2026-08-05 avisó: *"no te preocupes por mover información que ya esté, porque ya depuré
+la aplicación para que podamos trabajar sobre ella con libertad."*
 
-```
-amountCop del socio = round(costo total × (100 − myPercent) / 100)
-```
+**Eso elimina el riesgo más grave del plan.** No hace falta una conversión exacta al peso de
+lotes con historia real, ni la prueba de que ninguna cifra se mueve.
 
-**Se conserva `myPercent` original** en el registro como verdad histórica. Ninguna cifra
-mostrada hoy puede cambiar tras la conversión: es requisito de prueba, no aspiración.
+Lo que **sí** se mantiene, porque cuesta poco y evita una pantalla en blanco:
+
+- Leer un registro en formato viejo (con `myPercent` y sin `partners`) **sin romperse**:
+  se interpreta como un solo socio con esa proporción.
+- Importar un respaldo **v8 sigue funcionando** (§8).
+
+Lo que se descarta: conservar `myPercent` como verdad histórica paralela, y la batería de
+pruebas de conversión al peso. Si aparece un registro viejo, se normaliza y ya.
 
 ## 6. Informe por socio
 
@@ -131,19 +157,24 @@ vivo** · ganancias ya realizadas · su parte pendiente de cobro a compradores
 Además, en **Dinero → Cierre del día** y **Consolidado**, una sección que separa por persona,
 que hoy solo vive en la pantalla Socios.
 
-## 7. Punto abierto — Santiago debe confirmarlo
+## 7. Resuelto — el rendimiento del fondo es costo personal de Santiago
 
-**¿Quién paga el rendimiento del fondo cuando el lote también tiene un socio de igualdad?**
+Pregunta: en un lote de 10 millones —4 del fondo, 3 de un socio de igualdad, 3 suyos—,
+¿quién paga el rendimiento de esos 4 millones?
 
-Ejemplo: lote de 10 millones — 4 del fondo, 3 de un socio, 3 suyos.
+**Santiago eligió (b), el 2026-08-05: es un costo suyo, personal.** El socio de igualdad
+reparte sobre la ganancia **sin descontar el financiamiento**.
 
-- **(a) Es un costo del lote**, como el corte: se descuenta antes de repartir. El socio de
-  igualdad ayuda a pagarlo.
-- **(b) Es un costo suyo**, personal: el socio reparte sobre la ganancia sin descontar el
-  financiamiento.
+Consecuencias para el cálculo, y hay que respetarlas al pie de la letra:
 
-**Se implementará (a)** salvo que él diga lo contrario: el fondo financió *ese* lote, así que
-su costo pertenece al lote. Es la lectura contable normal y cambiarlo después es una línea.
+- La ganancia que se reparte entre socios de igualdad se calcula **sin restar** el rendimiento
+  del fondo. El socio recibe su proporción como si el lote se hubiera comprado sin préstamo.
+- El rendimiento del fondo se descuenta **después**, y **solo de la parte de Santiago**.
+- Por tanto su parte puede quedar por debajo de la proporción que puso, e incluso en
+  negativo, mientras el socio sigue en positivo. **Eso es correcto y debe poder mostrarse
+  así.** Él tomó el riesgo del financiamiento; el socio no.
+- La proporción del socio se calcula sobre lo propio + los socios, **excluyendo siempre la
+  plata del fondo** (D-072).
 
 ## 8. Alcance técnico — nada de esto es opcional
 
@@ -161,25 +192,30 @@ su costo pertenece al lote. Es la lectura contable normal y cambiarlo después e
 
 Cada etapa cierra con `npm test` y `npm run build` en verde.
 
-1. **Tipos y motor puro.** Reparto de N partes y devengo del rendimiento, con pruebas de
-   mesa. Sin tocar pantallas.
-2. **Conversión de los datos actuales.** Un lote con `myPercent` queda idéntico al peso tras
-   convertirse. Prueba explícita de que ninguna cifra se mueve.
-3. **Base local y respaldo v9.** Escalón nuevo; importar v8 sigue funcionando.
-4. **Pantalla de lotes de piedras:** añadir y quitar socios, ver el porcentaje derivado.
-5. **Material y gastos**, con el mismo patrón.
-6. **El fondo:** registrar aportes, pagos y ver el saldo de cada inversionista.
-7. **Informe por socio** en la pantalla Socios (§6).
-8. **Dinero:** separación por socio en Cierre del día y Consolidado.
-9. **Excel.**
-10. **Nube:** migración SQL, RPC, RLS y sincronización. **Va al final**, y se aplica a
-    Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres, cada
-    uno con su comprobación por contenido (`pg_proc.prosrc like`), nunca por nombre.
+1. **Tipos y motor puro.** Reparto de N partes, devengo del rendimiento y **la regla del §7**
+   —el financiamiento se descuenta solo de la parte de Santiago—, con pruebas de mesa que
+   incluyan el caso en que él queda en negativo y el socio en positivo. Sin tocar pantallas.
+2. **Base local y respaldo v9.** Escalón nuevo para `fundContributions`; importar un respaldo
+   v8 sigue funcionando; un registro viejo con `myPercent` se lee sin romperse (§5.5).
+3. **Pantalla de lotes de piedras:** añadir y quitar socios, ver el porcentaje derivado.
+4. **Material y gastos**, con el mismo patrón.
+5. **El fondo, por persona:** registrar aportes, editarlos, registrar pagos y ver el saldo de
+   **cada** inversionista (§5.2). El total va al pie, no al encabezado.
+6. **Informe por socio** en la pantalla Socios (§6).
+7. **Dinero:** separación por socio en Cierre del día y Consolidado.
+8. **Excel.**
+9. **Nube:** migración SQL, RPC, RLS y sincronización. **Va al final**, y se aplica a
+   Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres, cada
+   uno con su comprobación por contenido (`pg_proc.prosrc like`), nunca por nombre.
 
 ## 10. Riesgos
 
-- **El más grave: mover una cifra del pasado.** La conversión del §5.4 toca lotes con
-  historia real. La prueba de que nada cambia es el requisito que manda sobre los demás.
+- **El riesgo más grave desapareció.** Santiago depuró los datos (§5.5), así que ya no hay
+  que convertir lotes con historia real al peso. Queda solo la robustez básica de leer un
+  registro viejo sin romperse.
+- **El cálculo del §7 es el nuevo punto delicado.** Que la parte de Santiago pueda quedar en
+  negativo mientras el socio sigue en positivo es correcto, no un error, y hay que probarlo
+  explícitamente para que nadie lo "arregle" más adelante.
 - **Regla de negocio:** dinero en COP enteros y motores puros (AGENTS.md). El devengo mensual
   del rendimiento debe redondearse a peso entero de forma explícita y probada.
 - **Legal, señalado una vez:** recibir dinero de varias personas prometiendo rendimientos

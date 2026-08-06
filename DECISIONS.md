@@ -1375,9 +1375,11 @@ Razones, en orden:
 Coherente con D-049, donde el material ya se guarda en **gramos** y el porcentaje se deriva:
 la aplicación ya prefiere la cantidad exacta al porcentaje.
 
-Los lotes que existen hoy guardan `myPercent`. Se convierten una sola vez de forma
-determinista y **se conserva el `myPercent` original como verdad histórica**. Requisito
-innegociable: ninguna cifra mostrada hoy puede cambiar tras la conversión.
+Los lotes que existen hoy guardan `myPercent`. **Santiago depuró los datos de la aplicación
+el 2026-08-05** —*"no te preocupes por mover información que ya esté"*—, así que no hace
+falta una conversión exacta al peso ni la prueba de que ninguna cifra se mueve. Se mantiene
+solo la robustez básica: un registro viejo con `myPercent` y sin `partners` se lee como un
+único socio con esa proporción, sin romperse.
 
 ## D-074 · El fondo es un bolsillo común, y por eso resulta simple · 2026-08-05 · Vigente
 
@@ -1395,7 +1397,43 @@ mensual o cifra fija a plazo—, porque así ocurre en la realidad.
 
 Un mismo lote **puede mezclar** plata del fondo, de socios de igualdad y propia.
 
-**Punto abierto que Santiago debe confirmar:** cuando un lote lleva plata del fondo y además
-un socio de igualdad, el rendimiento del fondo se tratará como **costo del lote** —igual que
-el corte, descontado antes de repartir—, salvo que él indique que es un costo personal suyo.
-Detalle en `docs/PLAN_SOCIOS_Y_FONDO.md` §7.
+**Resuelto el mismo día:** cuando un lote lleva plata del fondo y además un socio de
+igualdad, el rendimiento del fondo es **costo personal de Santiago**, no del lote. Detalle y
+consecuencias en D-075.
+
+## D-075 · El financiamiento del fondo lo paga Santiago, no el lote · 2026-08-05 · Vigente
+
+Cuando un lote se compra mezclando plata del fondo con la de un socio de igualdad, había dos
+lecturas posibles del rendimiento que se le debe al fondo: tratarlo como un **costo del
+lote** —igual que el corte, descontado antes de repartir— o como un **costo personal** de
+Santiago. Él eligió lo segundo.
+
+**El socio de igualdad reparte sobre la ganancia sin descontar el financiamiento.** Recibe su
+proporción como si el lote se hubiera comprado sin préstamo. El rendimiento del fondo se
+descuenta después, y **solo de la parte de Santiago**.
+
+Consecuencia que hay que proteger con pruebas: **la parte de Santiago puede quedar por debajo
+de su proporción, e incluso en negativo, mientras el socio sigue en positivo.** Eso es
+correcto y la aplicación debe poder mostrarlo así. Él tomó el riesgo de conseguir el dinero;
+el socio no. Ninguna revisión futura debe "corregirlo".
+
+Coherente con D-072: la plata del fondo nunca entra al reparto de patrimonio. La proporción
+del socio se calcula sobre lo propio más los socios, excluyendo siempre la plata prestada.
+
+## D-076 · El fondo no es un saldo: es un grupo de personas con nombre · 2026-08-05 · Vigente
+
+Santiago lo pidió expresamente: *"no lo tratemos como un único fondo, sino podamos
+diferenciar qué personas integran ese fondo […] las personas que integren ese fondo van a
+cambiar, y necesito poder editarlas y trackearlas, hacer un seguimiento muy riguroso."*
+
+**En ninguna parte de la aplicación existe "el saldo del fondo" como cifra guardada.** Lo que
+existe es una lista de aportes, cada uno con su persona. El total disponible se DERIVA de
+sumarlos, nunca es un contador propio — misma regla que las existencias de material (D-023).
+
+De ahí tres obligaciones:
+
+1. **Quién entra y quién sale queda registrado con su fecha.** Un aporte devuelto por
+   completo no se borra: queda cerrado y su historia sigue visible.
+2. **Todo aporte es editable y todo cambio deja rastro.** La composición del grupo cambia con
+   el tiempo y él necesita reconstruir cómo estaba en cualquier momento.
+3. **La pantalla del fondo se lee por persona.** El total va al pie, no al encabezado.
