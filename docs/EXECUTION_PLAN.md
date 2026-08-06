@@ -271,8 +271,12 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
       lectura en `storage.ts`; `BACKUP_VERSION` 8 → 9 aceptando v1–v9, con los aportes en la
       exportación y en la restauración atómica. Un respaldo v8 se importa y estrena la lista
       vacía. 13 pruebas nuevas.
-- [ ] S3 — Pantalla de lotes de piedras: añadir y quitar socios, porcentaje derivado a la
-      vista, y de dónde salió la plata.
+- [x] S3 — Pantalla de lotes de piedras — ✅ COMPLETADA 2026-08-05. Bloque «Quién puso la
+      plata»: añadir y quitar socios, cada uno con su persona y su monto, el porcentaje
+      derivado a la vista, el préstamo del fondo aparte y «Lo tuyo» calculado solo. Avisa
+      cuando socios y fondo se pasan del costo y bloquea el guardado.
+      `validatePartnersAndFunding` en el motor puro. La tarjeta y el detalle del lote
+      nombran a todos los socios, no a uno.
 - [ ] S4 — Material y gastos, mismo patrón.
 - [ ] S5 — El fondo, **por persona** (D-076): aportes, edición, pagos y saldo de cada
       inversionista. El total va al pie, nunca al encabezado.

@@ -175,3 +175,46 @@ export function partnersFromLegacy(legacy: {
     }
   ];
 }
+
+/**
+ * Valida la sociedad y la financiación de un lote o gasto (D-072, D-073).
+ * Devuelve el primer problema en lenguaje llano, o null si está bien.
+ */
+export function validatePartnersAndFunding(input: {
+  totalCostCop: number;
+  partners?: readonly LotPartner[];
+  fundedFromFundCop?: number;
+}): string | null {
+  const totalCost = normalizeAmount(input.totalCostCop);
+  const funded = normalizeAmount(input.fundedFromFundCop ?? 0);
+  const partners = input.partners ?? [];
+
+  if ((input.fundedFromFundCop ?? 0) < 0) return 'La plata del fondo no puede ser negativa.';
+  if (funded > totalCost) {
+    return 'La plata del fondo no puede ser mayor que el costo del lote.';
+  }
+
+  const seen = new Set<string>();
+  let partnersTotal = 0;
+  for (const partner of partners) {
+    const name = partner.partnerName.trim();
+    if (partner.partnerId === null && name.length === 0) {
+      return 'Falta decir quién es uno de los socios.';
+    }
+    if (!Number.isFinite(partner.amountCop) || partner.amountCop < 0) {
+      return `La plata de ${name || 'un socio'} no es válida.`;
+    }
+    if (partner.amountCop === 0) {
+      return `Escribe cuánto puso ${name || 'el socio'}.`;
+    }
+    const key = partner.partnerId ?? `name:${name.toLocaleLowerCase('es')}`;
+    if (seen.has(key)) return `${name || 'Un socio'} está repetido.`;
+    seen.add(key);
+    partnersTotal += normalizeAmount(partner.amountCop);
+  }
+
+  if (partnersTotal + funded > totalCost) {
+    return 'Entre los socios y el fondo se pasan del costo del lote.';
+  }
+  return null;
+}

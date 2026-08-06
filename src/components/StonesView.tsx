@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { CuttingBatch, StoneLot, StoneSale, SupplierPayment } from '../types';
+import type { CuttingBatch, LotPartner, StoneLot, StoneSale, SupplierPayment } from '../types';
 import {
   countStoneLots,
   emptyCuttingBatch,
@@ -19,6 +19,7 @@ import {
   stonesFlow,
   stonesInventory,
   summarizeStoneLot,
+  summarizeStoneLotSplit,
   summarizeStonePartnership,
   summarizeStoneSale,
   validateCuttingBatch,
@@ -36,6 +37,7 @@ import {
   withoutSupplierPayment,
   type LotFilter
 } from '../services/stones';
+import { partnersFromLegacy, validatePartnersAndFunding } from '../services/partnership';
 import { jewelDisplayName } from '../services/stockJewels';
 import { receivableStatus } from '../services/receivables';
 import { activeProductTypes } from '../services/productTypes';
@@ -49,6 +51,7 @@ import {
 } from '../services/currency';
 import { formatCOP } from '../utils/money';
 import { formatDateCO, todayISO } from '../utils/dates';
+import { newId } from '../utils/id';
 import {
   Button,
   ConfirmDialog,
@@ -281,7 +284,7 @@ export function StonesView() {
 
 function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
   const summary = summarizeStoneLot(lot);
-  const partnership = summarizeStonePartnership(lot);
+  const split = summarizeStoneLotSplit(lot);
   return (
     <button type="button" className="block w-full rounded-2xl bg-white p-4 text-left shadow-sm" onClick={onOpen}>
       <div className="flex items-start justify-between gap-2">
@@ -300,9 +303,17 @@ function LotCard({ lot, onOpen }: { lot: StoneLot; onOpen: () => void }) {
           {summary.exhausted ? 'Agotado' : 'Con existencias'}
         </span>
       </div>
-      {partnership.shared ? (
+      {split.shared ? (
         <p className="mt-1 text-xs font-medium text-brand-800">
-          Sociedad con {lot.partnerName || 'socio'} · tu parte {lot.myPercent}%
+          Con {split.partners.map((p) => p.partnerName.trim() || 'socio').join(', ')} · lo tuyo{' '}
+          {split.equityBaseCop > 0
+            ? `${((split.myContributionCop * 100) / split.equityBaseCop).toFixed(0)}%`
+            : '—'}
+        </p>
+      ) : null}
+      {(lot.fundedFromFundCop ?? 0) > 0 ? (
+        <p className="text-xs text-stone-500">
+          Financiado con {formatCOP(lot.fundedFromFundCop ?? 0)} del fondo
         </p>
       ) : null}
       <div className="mt-2 flex items-center justify-between text-xs text-stone-500">
@@ -373,6 +384,7 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
   if (!lot) return null;
   const summary = summarizeStoneLot(lot);
   const partnership = summarizeStonePartnership(lot);
+  const split = summarizeStoneLotSplit(lot);
   const purchaseOrigin = stoneLotPurchaseOrigin(lot);
   const talladoHistoryProtected =
     lot.sales.some((sale) => sale.origin === 'tallado') ||
@@ -518,16 +530,34 @@ function LotDetail({ lotId, onClose }: { lotId: string; onClose: () => void }) {
                 valueClass={partnership.realResult < 0 ? 'text-red-600' : 'text-brand-800'}
               />
               <SummaryRow
-                label={`Tu parte (${lot.myPercent}%)`}
-                value={formatCOP(partnership.myResult)}
+                label={`Lo tuyo (${
+                  split.equityBaseCop > 0
+                    ? ((split.myContributionCop * 100) / split.equityBaseCop).toFixed(0)
+                    : '0'
+                }%)`}
+                value={formatCOP(split.myResultCop)}
+                valueClass={split.myResultCop < 0 ? 'text-red-600' : undefined}
               />
-              <SummaryRow
-                label={`Parte de ${lot.partnerName || 'el socio'} (${100 - lot.myPercent}%)`}
-                value={formatCOP(partnership.partnerResult)}
-              />
+              {split.partners.map((partner) => (
+                <SummaryRow
+                  key={partner.partnerId ?? partner.partnerName}
+                  label={`${partner.partnerName.trim() || 'Socio'} (${
+                    split.equityBaseCop > 0
+                      ? ((partner.amountCop * 100) / split.equityBaseCop).toFixed(0)
+                      : '0'
+                  }%)`}
+                  value={formatCOP(partner.resultCop)}
+                  valueClass={partner.resultCop < 0 ? 'text-red-600' : undefined}
+                />
+              ))}
               <p className="text-[11px] text-stone-500">
                 Se reparte lo recibido de verdad menos la compra y las tallas pagadas, no el precio pendiente por cobrar.
               </p>
+              {split.fundedFromFundCop > 0 ? (
+                <p className="text-[11px] text-stone-500">
+                  El préstamo del fondo no entra en este reparto: su rendimiento lo pagas tú aparte.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -997,8 +1027,56 @@ function LotForm({
   const [busy, setBusy] = useState(false);
 
   const patch = (partial: Partial<StoneLot>) => setForm((current) => ({ ...current, ...partial }));
-  const historicalPartner = !form.partnerId && form.partnerName.trim().length > 0;
-  const partnerValue = form.partnerId ?? (historicalPartner ? '__historical__' : '');
+
+  // Sociedad y financiación (D-072/D-073). Un lote guardado con el modelo de
+  // socio único se convierte al abrirlo, para poder editarlo sin perder nada.
+  const lotPartners = useMemo(
+    () =>
+      form.partners && form.partners.length > 0
+        ? form.partners
+        : partnersFromLegacy({
+            partnerId: form.partnerId,
+            partnerName: form.partnerName,
+            myPercent: form.myPercent,
+            totalCostCop: form.purchaseValueCop
+          }),
+    [form.partners, form.partnerId, form.partnerName, form.myPercent, form.purchaseValueCop]
+  );
+  const partnersTotal = lotPartners.reduce(
+    (sum, partner) => sum + Math.max(0, Math.trunc(partner.amountCop || 0)),
+    0
+  );
+  const fundedFromFund = Math.max(0, Math.trunc(form.fundedFromFundCop ?? 0));
+  const myContribution = Math.max(0, form.purchaseValueCop - fundedFromFund - partnersTotal);
+  const equityBase = myContribution + partnersTotal;
+  const overDeclared = partnersTotal + fundedFromFund > form.purchaseValueCop;
+
+  const setLotPartners = (partners: LotPartner[]) => patch({ partners });
+
+  const addLotPartner = () =>
+    setLotPartners([
+      ...lotPartners,
+      { id: newId(), partnerId: null, partnerName: '', amountCop: 0 }
+    ]);
+
+  const removeLotPartner = (index: number) =>
+    setLotPartners(lotPartners.filter((_, position) => position !== index));
+
+  const patchLotPartner = (index: number, partial: Partial<LotPartner>) =>
+    setLotPartners(
+      lotPartners.map((partner, position) =>
+        position === index ? { ...partner, ...partial } : partner
+      )
+    );
+
+  const selectLotPartner = (index: number, personId: string) => {
+    const person = store.materialPartners.find((item) => item.id === personId);
+    patchLotPartner(
+      index,
+      person ? { partnerId: person.id, partnerName: person.name } : { partnerId: null }
+    );
+  };
+
   const purchaseOriginLocked =
     !isNew &&
     (initial.sales.length > 0 ||
@@ -1014,21 +1092,19 @@ function LotForm({
     patch({ supplierId, supplier: supplier ? supplier.name : form.supplier });
   };
 
-  const selectPartner = (partnerId: string) => {
-    const partner = store.materialPartners.find((item) => item.id === partnerId);
-    if (partner) {
-      patch({ partnerId: partner.id, partnerName: partner.name });
-      return;
-    }
-    if (partnerId !== '__historical__') {
-      patch({ partnerId: null, partnerName: '', myPercent: 100 });
-    }
-  };
-
   const save = async () => {
     const ownershipError = validateStoneLotOwnership(form);
     if (ownershipError) {
       store.showToast(ownershipError);
+      return;
+    }
+    const partnersError = validatePartnersAndFunding({
+      totalCostCop: form.purchaseValueCop,
+      partners: lotPartners,
+      fundedFromFundCop: form.fundedFromFundCop ?? 0
+    });
+    if (partnersError) {
+      store.showToast(partnersError);
       return;
     }
     if (!isStoneLotValid(form)) {
@@ -1049,7 +1125,14 @@ function LotForm({
     }
     setBusy(true);
     try {
-      await store.upsertStoneLot({ ...form, updatedAt: new Date().toISOString() });
+      // `lotPartners` puede venir convertido de un lote con el modelo anterior:
+      // se guarda explícitamente para que la conversión quede asentada.
+      await store.upsertStoneLot({
+        ...form,
+        partners: lotPartners,
+        fundedFromFundCop: fundedFromFund,
+        updatedAt: new Date().toISOString()
+      });
       store.showToast(isNew ? 'Lote registrado' : 'Compra actualizada');
       onClose();
     } catch (error) {
@@ -1121,35 +1204,98 @@ function LotForm({
           <Field label="Costo total del lote">
             <MoneyInput value={form.purchaseValueCop} onValue={(purchaseValueCop) => patch({ purchaseValueCop })} />
           </Field>
-          <Field label="Sociedad" hint="Sin socio, el lote queda 100% como propio.">
-            <Select
-              value={partnerValue}
-              onChange={selectPartner}
-              options={[
-                { value: '', label: 'Sin socio · 100% propio' },
-                ...(historicalPartner
-                  ? [{ value: '__historical__', label: `${form.partnerName} · ficha eliminada` }]
-                  : []),
-                ...store.materialPartners.map((partner) => ({ value: partner.id, label: partner.name }))
-              ]}
-            />
-          </Field>
-          {form.partnerId !== null || form.partnerName.trim() ? (
-            <Field
-              label="Tu porcentaje"
-              hint={
-                Number.isInteger(form.myPercent) && form.myPercent >= 0 && form.myPercent <= 100
-                  ? `Parte del socio: ${100 - form.myPercent}%`
-                  : 'Debe ser un número entero entre 0 y 100.'
-              }
-            >
-              <DecimalInput
-                value={form.myPercent}
-                onValue={(myPercent) => patch({ myPercent })}
-                suffix="%"
+          <div className="rounded-2xl bg-stone-50 p-3">
+            <p className="text-sm font-semibold text-stone-800">Quién puso la plata</p>
+            <p className="mt-0.5 text-xs text-stone-500">
+              Escribe cuánto puso cada uno. El porcentaje se calcula solo.
+            </p>
+
+            {lotPartners.map((partner, index) => {
+              const percent = equityBase > 0 ? (partner.amountCop * 100) / equityBase : 0;
+              return (
+                <div key={partner.id} className="mt-3 rounded-xl bg-white p-3 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Field label={`Socio ${index + 1}`}>
+                        <Select
+                          value={partner.partnerId ?? '__libre__'}
+                          onChange={(value) => selectLotPartner(index, value)}
+                          options={[
+                            ...(partner.partnerId === null
+                              ? [
+                                  {
+                                    value: '__libre__',
+                                    label: partner.partnerName.trim() || 'Elige a quién'
+                                  }
+                                ]
+                              : []),
+                            ...store.materialPartners.map((person) => ({
+                              value: person.id,
+                              label: person.name
+                            }))
+                          ]}
+                        />
+                      </Field>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Quitar a ${partner.partnerName.trim() || 'este socio'}`}
+                      className="mt-7 min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                      onClick={() => removeLotPartner(index)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <Field
+                    label="Cuánto puso"
+                    hint={
+                      partner.amountCop > 0 && equityBase > 0
+                        ? `Le corresponde el ${percent.toFixed(1)}% del lote`
+                        : 'Escribe la plata que puso.'
+                    }
+                  >
+                    <MoneyInput
+                      value={partner.amountCop}
+                      onValue={(amountCop) => patchLotPartner(index, { amountCop })}
+                    />
+                  </Field>
+                </div>
+              );
+            })}
+
+            <div className="mt-3">
+              <Button variant="secondary" full onClick={addLotPartner}>
+                + Añadir socio
+              </Button>
+            </div>
+
+            <div className="mt-3">
+              <Field
+                label="De esto, préstamo del fondo"
+                hint="Plata de amigos que hay que devolver con rendimiento. No les da participación en el lote: el costo del préstamo lo asumes tú."
+              >
+                <MoneyInput
+                  value={form.fundedFromFundCop ?? 0}
+                  onValue={(fundedFromFundCop) => patch({ fundedFromFundCop })}
+                />
+              </Field>
+            </div>
+
+            <div className="mt-2 border-t border-stone-200 pt-2">
+              <SummaryRow
+                label="Lo tuyo"
+                value={`${formatCOP(myContribution)}${
+                  equityBase > 0 ? ` · ${((myContribution * 100) / equityBase).toFixed(1)}%` : ''
+                }`}
+                bold
               />
-            </Field>
-          ) : null}
+              {overDeclared ? (
+                <p className="mt-1 text-xs font-medium text-red-600">
+                  Entre los socios y el fondo se pasan del costo del lote.
+                </p>
+              ) : null}
+            </div>
+          </div>
           <Toggle
             checked={form.onCredit}
             onChange={(onCredit) => patch({ onCredit })}

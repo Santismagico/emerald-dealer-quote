@@ -4,7 +4,8 @@ import {
   activePartners,
   partnerPercent,
   partnersFromLegacy,
-  splitByContribution
+  splitByContribution,
+  validatePartnersAndFunding
 } from './partnership';
 
 function socio(overrides: Partial<LotPartner> = {}): LotPartner {
@@ -203,5 +204,79 @@ describe('activePartners', () => {
     ]);
     expect(partners).toHaveLength(1);
     expect(partners[0].partnerName).toBe('Ana');
+  });
+});
+
+describe('validación de la sociedad y la financiación', () => {
+  it('acepta un lote bien declarado', () => {
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        partners: [socio({ partnerName: 'Ana', amountCop: 3_000_000 })],
+        fundedFromFundCop: 4_000_000
+      })
+    ).toBeNull();
+  });
+
+  it('acepta un lote sin socios ni fondo', () => {
+    expect(validatePartnersAndFunding({ totalCostCop: 5_000_000 })).toBeNull();
+  });
+
+  it('avisa cuando entre socios y fondo se pasan del costo', () => {
+    // El fondo solo por sí mismo ya se pasa del costo.
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        fundedFromFundCop: 12_000_000
+      })
+    ).toBe('La plata del fondo no puede ser mayor que el costo del lote.');
+
+    // Aquí el fondo cabe, pero sumado a los socios se pasa.
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        partners: [socio({ partnerName: 'Ana', amountCop: 4_000_000 })],
+        fundedFromFundCop: 8_000_000
+      })
+    ).toBe('Entre los socios y el fondo se pasan del costo del lote.');
+
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        partners: [
+          socio({ id: 's-1', partnerId: 'p-1', partnerName: 'Ana', amountCop: 5_000_000 }),
+          socio({ id: 's-2', partnerId: 'p-2', partnerName: 'Luis', amountCop: 4_000_000 })
+        ],
+        fundedFromFundCop: 4_000_000
+      })
+    ).toBe('Entre los socios y el fondo se pasan del costo del lote.');
+  });
+
+  it('exige saber quién es cada socio y cuánto puso', () => {
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        partners: [socio({ partnerId: null, partnerName: '   ', amountCop: 1_000_000 })]
+      })
+    ).toBe('Falta decir quién es uno de los socios.');
+
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        partners: [socio({ partnerName: 'Ana', amountCop: 0 })]
+      })
+    ).toBe('Escribe cuánto puso Ana.');
+  });
+
+  it('no deja meter dos veces a la misma persona', () => {
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000_000,
+        partners: [
+          socio({ id: 's-1', partnerId: 'p-1', partnerName: 'Ana', amountCop: 1_000_000 }),
+          socio({ id: 's-2', partnerId: 'p-1', partnerName: 'Ana', amountCop: 2_000_000 })
+        ]
+      })
+    ).toBe('Ana está repetido.');
   });
 });

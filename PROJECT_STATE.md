@@ -1367,3 +1367,38 @@ donde la plata del fondo nunca supera el costo del lote. Normalizar un aporte do
 exactamente lo mismo, incluso partiendo de basura. Cero fallos.
 
 **Siguiente:** S3, la pantalla de lotes de piedras. Es la primera etapa que Santiago verá.
+
+### Etapa S3 completada — 2026-08-05
+
+**La primera etapa visible.** En la compra de un lote, el selector de socio único se
+reemplazó por el bloque **«Quién puso la plata»**:
+
+- Añadir y quitar socios, cada uno con su persona y cuánto puso. **El porcentaje se calcula
+  solo** y se muestra bajo cada monto.
+- Campo aparte para el **préstamo del fondo**, con la advertencia de que no da participación
+  y que su costo lo asume Santiago.
+- **«Lo tuyo»** derivado al pie, con su porcentaje.
+- Si entre socios y fondo se pasan del costo, sale un aviso rojo y **el guardado se bloquea**
+  (`validatePartnersAndFunding`, motor puro).
+- La tarjeta del lote y su detalle ahora **nombran a todos los socios** con su porcentaje y
+  su parte del resultado, en vez de a uno solo.
+
+**Verificado en el navegador**, no solo con pruebas. Lote de 10.000.000 con 4.000.000 del
+fondo, Ana 3.000.000 y Luis 1.000.000: la pantalla mostró **Ana 50,0 % · Luis 16,7 % · lo
+tuyo 33,3 %**, que es exactamente el reparto sobre la base de 6.000.000 —el préstamo
+excluido—. Al subir el fondo a 8.000.000 apareció el aviso y «Lo tuyo» cayó a cero. Guardado
+y releído desde IndexedDB con los dos socios y el préstamo intactos. Sin errores de consola.
+En teléfono (375 px) el bloque cabe, no hay desbordamiento horizontal y el diálogo se
+desplaza por dentro respetando la barra inferior.
+
+**Trampa encontrada, y vale anotarla:** `preview_start` levanta el servidor en el directorio
+de la sesión. Si la sesión abrió en la copia congelada de OneDrive, **se sirve la app vieja**
+—se nota porque la barra inferior es la anterior—. Hay que usar la configuración
+`emerald-nube-dev` del `launch.json`, que apunta a `C:/Dev/emerald-dealer` en el puerto 5174.
+
+La base local se migró **de v7 a v9 en un navegador real**, estrenando `fundContributions`
+sin tocar lo demás.
+
+**Verificación.** 1052 pruebas en 72 archivos (5 nuevas) y build en verde.
+
+**Siguiente:** S4, material y gastos con el mismo patrón.
