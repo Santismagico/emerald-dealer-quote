@@ -480,6 +480,26 @@ export interface StoneSale {
 }
 
 /**
+ * Socio de igualdad dentro de un lote o un gasto (D-073).
+ *
+ * Declara la PLATA QUE PUSO, no un porcentaje: así ocurre el trato, el usuario
+ * no tiene que cuadrar a 100 y no quedan centavos sueltos. El porcentaje se
+ * DERIVA para mostrarlo, nunca se guarda (regla de D-023).
+ *
+ * Es distinto de un inversionista del fondo (`FundContribution`): el socio de
+ * igualdad **gana o pierde** con el lote; el del fondo cobra pase lo que pase.
+ */
+export interface LotPartner {
+  id: string;
+  /** Ficha del socio; null si se escribió libre o si luego se borró. */
+  partnerId: string | null;
+  /** Nombre histórico; se conserva aunque se borre la ficha. */
+  partnerName: string;
+  /** Plata que puso, COP entero. */
+  amountCop: number;
+}
+
+/**
  * Lote de piedras compradas (SOLO uso interno). Decisión de Santiago
  * 2026-07-15: cada compra crea un lote rastreable y cada venta se descuenta
  * de un lote específico, para saber qué se ganó con cada uno. El inventario
@@ -508,12 +528,32 @@ export interface StoneLot {
   quantity: number;
   /** Costo total de la compra en COP entero. */
   purchaseValueCop: number;
-  /** Socio vinculado; null si es propio o si luego se borró la ficha. */
+  /**
+   * @deprecated D-073. Socio único del modelo anterior. Se conserva solo para
+   * poder leer lotes guardados antes de la fase Socios y Fondo; ningún cálculo
+   * nuevo lo usa. Reemplazado por `partners`.
+   */
   partnerId: string | null;
-  /** Nombre histórico del socio; se conserva al borrar la ficha. */
+  /** @deprecated D-073. Ver `partnerId`. */
   partnerName: string;
-  /** Porcentaje propio, entero 0..100. La parte del socio es 100 - myPercent. */
+  /**
+   * @deprecated D-073. Porcentaje propio del modelo anterior; la parte del socio
+   * era `100 - myPercent`. Reemplazado por `partners`, que declara la PLATA que
+   * puso cada uno y deriva el porcentaje.
+   */
   myPercent: number;
+  /**
+   * Socios de igualdad de este lote (D-073). Cada uno declara la plata que puso;
+   * su proporción se DERIVA. Ausente o vacío significa lote sin socios.
+   * Ganan y pierden con el lote, a diferencia del fondo (D-072).
+   */
+  partners?: LotPartner[];
+  /**
+   * Cuánta plata del FONDO de inversión financió esta compra (D-072/D-074).
+   * Es deuda, no patrimonio: **se excluye de la base sobre la que se reparte**
+   * entre los socios de igualdad, y su costo lo asume Santiago (D-075).
+   */
+  fundedFromFundCop?: number;
   /** true si la compra fue a crédito: se debe al proveedor hasta saldar (C4). */
   onCredit: boolean;
   /** Pagos hechos al proveedor de este lote (aplican cuando es a crédito). */
@@ -672,3 +712,76 @@ export const APPOINTMENT_STATUSES: AppointmentStatus[] = [
 ];
 
 export const STOCK_JEWEL_STATUSES: StockJewelStatus[] = ['disponible', 'apartada'];
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * FONDO DE INVERSIÓN (D-072, D-074, D-075, D-076)
+ *
+ * Amigos y conocidos que entregan dinero al negocio esperando un rendimiento a
+ * plazo. Santiago les paga capital más rendimiento PASE LO QUE PASE, aunque el
+ * lote pierda: contablemente es DEUDA, no patrimonio.
+ *
+ * Por eso la plata del fondo nunca entra al reparto entre socios de igualdad, y
+ * su costo lo asume Santiago solo (D-075).
+ *
+ * No existe "el saldo del fondo" como cifra guardada (D-076): existe esta lista
+ * de aportes, cada uno con su persona, y el total se DERIVA de sumarlos.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Cómo se pactó el rendimiento de un aporte. Se pacta distinto con cada persona (D-074). */
+export type FundReturnKind = 'mensual' | 'fijo';
+
+export const FUND_RETURN_KINDS: FundReturnKind[] = ['mensual', 'fijo'];
+
+/** Qué se le pagó a un inversionista: devolución de su capital o su rendimiento. */
+export type FundPaymentKind = 'capital' | 'rendimiento';
+
+export const FUND_PAYMENT_KINDS: FundPaymentKind[] = ['capital', 'rendimiento'];
+
+/** Un pago hecho a un inversionista del fondo. */
+export interface FundPayment {
+  id: string;
+  /** Fecha del pago (YYYY-MM-DD). */
+  date: string;
+  /** Monto pagado, COP entero. */
+  amountCop: number;
+  kind: FundPaymentKind;
+  notes: string;
+}
+
+/**
+ * Un aporte de una persona al fondo. Se comporta como un préstamo
+ * independiente: no se mezcla con los demás ni se ata a un lote (D-074).
+ *
+ * Un aporte devuelto por completo NO se borra: queda cerrado y su historia
+ * sigue visible, porque la composición del grupo cambia con el tiempo y
+ * Santiago necesita reconstruirla en cualquier momento (D-076).
+ */
+export interface FundContribution {
+  id: string;
+  /** Ficha de la persona; null si se escribió libre o si luego se borró. */
+  personId: string | null;
+  /** Nombre histórico; se conserva aunque se borre la ficha. */
+  personName: string;
+  /** Fecha en que entregó la plata (YYYY-MM-DD). */
+  date: string;
+  /** Capital entregado, COP entero. */
+  amountCop: number;
+  returnKind: FundReturnKind;
+  /**
+   * Porcentaje mensual sobre el capital. Solo cuando `returnKind` es 'mensual'.
+   * Admite decimales (1,5 % mensual); el rendimiento se redondea a peso entero.
+   */
+  monthlyRatePercent: number | null;
+  /**
+   * Total pactado a devolver (capital + rendimiento), COP entero. Solo cuando
+   * `returnKind` es 'fijo'.
+   */
+  agreedTotalCop: number | null;
+  /** Fecha pactada de devolución (YYYY-MM-DD). Cadena vacía si no se pactó plazo. */
+  dueDate: string;
+  /** Pagos hechos a esta persona por este aporte. */
+  payments: FundPayment[];
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}

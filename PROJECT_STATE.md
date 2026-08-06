@@ -1298,3 +1298,42 @@ plan: ya no hay que convertir lotes con historia real al peso. La fase bajó de 
 para ejecutar**; las ocho restantes enunciadas, se detallan al abrir cada una.
 
 **Estado: nada implementado.** S1 es tipos y motor puro, sin tocar pantallas.
+
+### Etapa S1 completada — 2026-08-05
+
+Santiago se quedó sin tokens de Codex hasta el 11 de agosto, así que **Claude implementa
+directamente** hasta esa fecha. Consecuencia asumida y dicha en voz alta: se pierde al
+auditor independiente. Se compensa con pruebas escritas junto al diseño y una **pasada de
+auditoría propia** al cerrar cada etapa.
+
+**Qué entró.** Dos motores puros nuevos y ningún cambio de pantalla:
+
+- `src/services/partnership.ts` — reparto de **N socios** por la plata que puso cada uno.
+  Base = compra − lo que financió el fondo. Cada socio recibe su parte **truncada** y el peso
+  residual queda siempre del lado de Santiago, de modo que la suma cuadre exacta en ganancia
+  y en pérdida. Incluye `partnersFromLegacy` para leer un lote del modelo anterior.
+- `src/services/fund.ts` — devengo por aporte. `mensual` cuenta **meses cumplidos** ("a los
+  45 días va un mes, no dos"), con el borde del 31 de enero al 28 de febrero resuelto como
+  mes cumplido. `fijo` reconoce el rendimiento pactado **completo desde el primer día**:
+  es una obligación ya adquirida y mostrarla a plazos subestimaría la deuda.
+  `financingCostForOwner` expone el costo que asume Santiago solo (D-075).
+- `src/services/stones.ts` — `summarizeStoneLotSplit` usa el motor nuevo;
+  `summarizeStonePartnership` conserva su forma anterior para las pantallas que aún no
+  muestran socio por socio, y ya calcula por dentro con N partes.
+- Tipos: `LotPartner`, `FundContribution`, `FundPayment`, `FundReturnKind`. En `StoneLot` se
+  añaden `partners?` y `fundedFromFundCop?`; **los campos viejos quedan `@deprecated` pero
+  presentes**, así nada se rompe mientras las pantallas migran etapa por etapa.
+
+**Verificación.** 1034 pruebas en 71 archivos (49 nuevas) y `npm run build` en verde. Las 48
+pruebas de piedras que ya existían pasan sin tocarse: el camino anterior se comporta igual.
+
+**Auditoría propia, aparte de las pruebas.** 2000 repartos al azar con hasta 6 socios: la
+suma de las partes es **siempre** exacta al peso (peor desvío 0) y todas las partes son
+enteras. 1000 casos comprobando que el residuo del redondeo **nunca favorece a Santiago**
+frente a sus socios. Los fines de mes de los 12 meses. El devengo mensual siempre entero y
+monótono. Cero fallos.
+
+**Nota para S9:** los campos nuevos viajan a la nube sin validar hasta que se aplique la
+migración SQL. Hoy no hay dato con ellos, porque las pantallas todavía no los escriben.
+
+**Siguiente:** S2, base local y respaldo v9.

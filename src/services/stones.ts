@@ -4,9 +4,16 @@
 // ventas; nunca existe un contador guardado a mano. Todo es interno (COP
 // entero): ninguna piedra ni precio entra en canales de cliente.
 
+import {
+  activePartners,
+  partnersFromLegacy,
+  splitByContribution,
+  type PartnershipSplit
+} from './partnership';
 import type {
   BuyerPayment,
   CuttingBatch,
+  LotPartner,
   StoneInternalUse,
   StoneLot,
   StoneOrigin,
@@ -267,16 +274,54 @@ export interface StonePartnershipSummary {
   partnerResult: number;
 }
 
-export function summarizeStonePartnership(lot: StoneLot): StonePartnershipSummary {
+/**
+ * Los socios de igualdad del lote (D-073). Si el lote todavía guarda el modelo
+ * anterior de socio único, se convierte al vuelo para poder leerlo sin romperse.
+ */
+export function stoneLotPartners(lot: StoneLot): LotPartner[] {
+  const declared = activePartners(lot.partners);
+  if (declared.length > 0) return declared;
+  return partnersFromLegacy({
+    partnerId: lot.partnerId,
+    partnerName: lot.partnerName,
+    myPercent: lot.myPercent,
+    totalCostCop: lot.purchaseValueCop
+  });
+}
+
+/**
+ * Reparto completo del lote entre Santiago y sus socios de igualdad (D-073).
+ *
+ * La base del reparto es el VALOR DE COMPRA menos lo que financió el fondo: es
+ * la plata que cada uno puso para adquirir el lote. La plata del fondo se
+ * excluye porque es deuda, no participación (D-072).
+ *
+ * El costo del financiamiento NO se descuenta aquí. Se resta después y solo del
+ * lado de Santiago (D-075): un socio nunca paga un préstamo que no pidió.
+ */
+export function summarizeStoneLotSplit(lot: StoneLot): PartnershipSplit {
   const summary = summarizeStoneLot(lot);
-  const shared = lot.partnerId !== null || lot.partnerName.trim().length > 0;
-  const realResult = summary.receivedFromBuyers - summary.totalInvested;
-  const myPercent = shared ? lot.myPercent : 100;
-  // El socio recibe la parte truncada y el peso residual queda siempre del lado
-  // propio. Esto conserva la suma exacta tanto en ganancias como en pérdidas.
-  const partnerResult = Math.trunc((realResult * (100 - myPercent)) / 100);
-  const myResult = realResult - partnerResult;
-  return { shared, realResult, myResult, partnerResult };
+  return splitByContribution({
+    totalCostCop: lot.purchaseValueCop,
+    realResultCop: summary.receivedFromBuyers - summary.totalInvested,
+    partners: stoneLotPartners(lot),
+    fundedFromFundCop: lot.fundedFromFundCop ?? 0
+  });
+}
+
+/**
+ * Forma resumida del reparto, con la parte de TODOS los socios sumada. Se
+ * conserva para las pantallas que aún no muestran socio por socio; internamente
+ * ya usa el motor de N partes.
+ */
+export function summarizeStonePartnership(lot: StoneLot): StonePartnershipSummary {
+  const split = summarizeStoneLotSplit(lot);
+  return {
+    shared: split.shared,
+    realResult: split.realResultCop,
+    myResult: split.myResultCop,
+    partnerResult: split.partnersResultCop
+  };
 }
 
 export interface PartnerStoneResult {

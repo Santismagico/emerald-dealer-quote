@@ -220,19 +220,19 @@ gana o pierde). Ver D-072.
 Santiago **depuró los datos** el 2026-08-05, así que no hace falta conversión exacta de
 registros históricos. Solo robustez: leer un registro viejo sin romperse.
 
-## Etapa S1 — Tipos y motor puro (sin tocar pantallas)
+## Etapa S1 — Tipos y motor puro (sin tocar pantallas) — ✅ COMPLETADA 2026-08-05
 
 Toda la lógica de reparto vive aquí. Si esta etapa queda bien, las ocho siguientes son
 carpintería. **No se modifica ninguna pantalla en esta etapa.**
 
-- [ ] S1.1 Tipos. En `src/types/index.ts`: entidad nueva `FundContribution` según
+- [x] S1.1 Tipos. En `src/types/index.ts`: entidad nueva `FundContribution` según
       `PLAN_SOCIOS_Y_FONDO.md` §5.3. En `StoneLot`, `MaterialLot` y `Expense`, sustituir
       el trío `partnerId`/`partnerName`/`myPercent` (y `myGrams` en material) por
       `partners: LotPartner[]` y `fundedFromFundCop: number`. `LotPartner` lleva
       `{ id, partnerId, partnerName, amountCop }`. Los campos viejos se marcan
       `@deprecated` y se conservan como opcionales solo para poder leer registros
       antiguos; ningún cálculo nuevo los usa.
-- [ ] S1.2 Reparto de N partes, en `src/services/stones.ts`. Generalizar
+- [x] S1.2 Reparto de N partes, en `src/services/stones.ts`. Generalizar
       `summarizeStonePartnership`, que hoy es binaria y usa `myPercent`. Reglas:
       **(a)** la proporción de cada socio se calcula sobre `lo propio + Σ partners`,
       **excluyendo siempre `fundedFromFundCop`** (D-072);
@@ -240,16 +240,16 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
       recibe su parte truncada y todo peso residual queda del lado de Santiago**, de modo
       que la suma cuadre exacta al peso tanto en ganancia como en pérdida;
       **(c)** `lo propio` se deriva: `costo total − Σ partners.amountCop − fundedFromFundCop`.
-- [ ] S1.3 Devengo del fondo, motor puro nuevo `src/services/fund.ts`. Por cada aporte:
+- [x] S1.3 Devengo del fondo, motor puro nuevo `src/services/fund.ts`. Por cada aporte:
       rendimiento devengado a una fecha dada, capital devuelto, rendimiento pagado y
       **saldo que se le debe**. Dos formas de pacto (D-074): porcentaje mensual sobre el
       capital, o cifra fija a una fecha. **COP enteros con redondeo explícito y probado.**
       Nada se guarda: todo se deriva de los aportes y sus pagos (D-076).
-- [ ] S1.4 La regla de D-075, y es la delicada. El rendimiento del fondo **no** se descuenta
+- [x] S1.4 La regla de D-075, y es la delicada. El rendimiento del fondo **no** se descuenta
       antes de repartir: el socio de igualdad recibe su proporción **como si el lote se
       hubiera comprado sin préstamo**. El financiamiento se resta **después y solo de la
       parte de Santiago**.
-- [ ] S1.5 Pruebas de mesa. Obligatorias, además de las normales:
+- [x] S1.5 Pruebas de mesa. Obligatorias, además de las normales:
       **(a)** tres socios con montos que no dividen exacto — la suma de las partes es
       idéntica al resultado real, sin un peso perdido;
       **(b)** lote con fondo + socio + propio, que **gana**: el socio recibe su proporción
@@ -260,7 +260,7 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
       **(d)** un `StoneLot` viejo con `myPercent` y sin `partners` se lee como un único
       socio con esa proporción, sin romperse;
       **(e)** devengo del fondo: porcentaje mensual y cifra fija, con redondeo a peso.
-- [ ] S1.6 `npm test` y `npm run build` en verde, bitácora en `PROJECT_STATE.md`,
+- [x] S1.6 `npm test` y `npm run build` en verde, bitácora en `PROJECT_STATE.md`,
       commit y push de la rama de trabajo.
 
 ## Etapas siguientes (detalle al abrir cada una)
