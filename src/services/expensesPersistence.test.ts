@@ -32,6 +32,7 @@ function expense(overrides: Partial<Expense> = {}): Expense {
     partnerId: null,
     partnerName: '',
     myPercent: 100,
+    partners: [],
     notes: '',
     createdAt: '2026-08-03T10:00:00.000Z',
     updatedAt: '2026-08-03T10:00:00.000Z',

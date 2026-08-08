@@ -346,8 +346,16 @@ export interface Expense {
   partnerId: string | null;
   /** Nombre histórico del socio; se conserva al borrar la ficha. */
   partnerName: string;
-  /** Porcentaje propio, entero 0..100. La parte del socio es 100 - myPercent. */
+  /**
+   * @deprecated D-073. Porcentaje propio del modelo anterior. Reemplazado por
+   * `partners`, que declara la plata que puso cada uno.
+   */
   myPercent: number;
+  /**
+   * Quiénes comparten este gasto y cuánto puso cada uno (D-073). Lo propio se
+   * deriva: monto total menos la suma de los socios.
+   */
+  partners?: LotPartner[];
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -390,11 +398,16 @@ export interface MaterialLot {
   /** Nombre visible del socio (copiado o escrito libre); se conserva al borrar la ficha. */
   partnerName: string;
   /**
-   * Cuántos de los `grams` son SUYOS. El resto es del socio. Sin socio,
-   * `myGrams === grams` (todo suyo). Se guarda en gramos (exacto); el
-   * porcentaje se DERIVA para mostrarlo.
+   * @deprecated D-073. Gramos propios del modelo de socio único. Se conserva para
+   * leer lotes guardados antes de la fase Socios y Fondo. Reemplazado por
+   * `partners`, donde cada socio declara SUS gramos.
    */
   myGrams: number;
+  /**
+   * Socios de este lote, cada uno con los gramos que le pertenecen (D-049 + D-073).
+   * Los gramos propios se DERIVAN: total menos la suma de los socios.
+   */
+  partners?: MaterialLotPartner[];
   notes: string;
   /** Salidas del lote, en el orden en que se registraron. */
   uses: MaterialUse[];
@@ -489,6 +502,21 @@ export interface StoneSale {
  * Es distinto de un inversionista del fondo (`FundContribution`): el socio de
  * igualdad **gana o pierde** con el lote; el del fondo cobra pase lo que pase.
  */
+/**
+ * Socio de igualdad en un lote de MATERIAL (D-049 + D-073).
+ *
+ * A diferencia de las piedras y los gastos, el material se comparte en **gramos**,
+ * no en plata: lo que importa del oro es cuántos gramos son de cada quien. El
+ * porcentaje se DERIVA para mostrarlo, igual que en el resto de la fase.
+ */
+export interface MaterialLotPartner {
+  id: string;
+  partnerId: string | null;
+  partnerName: string;
+  /** Gramos que son de este socio. */
+  grams: number;
+}
+
 export interface LotPartner {
   id: string;
   /** Ficha del socio; null si se escribió libre o si luego se borró. */

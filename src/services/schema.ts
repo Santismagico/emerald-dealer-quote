@@ -39,7 +39,8 @@ import type {
   ProductTypeOption,
   FundContribution,
   FundPayment,
-  LotPartner
+  LotPartner,
+  MaterialLotPartner
 } from '../types';
 import {
   QUOTE_STATUSES,
@@ -454,6 +455,7 @@ export function normalizeMaterialLot(raw: unknown): MaterialLot {
     partnerId: typeof l.partnerId === 'string' ? l.partnerId : null,
     partnerName: safeString(l.partnerName),
     myGrams: Math.min(grams, Math.max(0, rawMine)),
+    partners: normalizeMaterialLotPartners(l.partners),
     notes: safeString(l.notes),
     uses: safeArray(l.uses).map(normalizeMaterialUse),
     createdAt: safeString(l.createdAt),
@@ -521,6 +523,7 @@ export function normalizeExpense(raw: unknown): Expense {
     myPercent: shared
       ? Math.min(100, Math.max(0, Math.round(safeNumber(e.myPercent, 100))))
       : 100,
+    partners: normalizeLotPartners(e.partners),
     notes: safeString(e.notes),
     createdAt: safeString(e.createdAt),
     updatedAt: safeString(e.updatedAt)
@@ -724,4 +727,22 @@ export function normalizeFundContribution(raw: unknown): FundContribution {
     createdAt: safeString(c.createdAt),
     updatedAt: safeString(c.updatedAt)
   };
+}
+
+/** Socio de un lote de material: se guarda en GRAMOS (D-049 + D-073). */
+export function normalizeMaterialLotPartner(raw: unknown): MaterialLotPartner {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const partnerId = typeof p.partnerId === 'string' && p.partnerId.trim() ? p.partnerId : null;
+  return {
+    id: safeString(p.id, newId()),
+    partnerId,
+    partnerName: safeString(p.partnerName).trim(),
+    grams: Math.max(0, Math.round(safeNumber(p.grams) * 1000) / 1000)
+  };
+}
+
+export function normalizeMaterialLotPartners(raw: unknown): MaterialLotPartner[] {
+  return safeArray(raw)
+    .map(normalizeMaterialLotPartner)
+    .filter((partner) => partner.partnerId !== null || partner.partnerName.length > 0 || partner.grams > 0);
 }

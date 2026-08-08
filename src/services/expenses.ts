@@ -1,4 +1,5 @@
-import type { Expense, ExpenseCategoryOption } from '../types';
+import type { Expense, ExpenseCategoryOption, LotPartner } from '../types';
+import { activePartners, partnersFromLegacy, splitByContribution } from './partnership';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
@@ -115,34 +116,57 @@ export interface PartnerExpenseShare {
   expenseCount: number;
 }
 
-function expensePartnerKey(expense: Expense): string {
-  if (expense.partnerId) return `id:${expense.partnerId}`;
-  return `name:${expense.partnerName.trim().toLocaleLowerCase('es')}`;
+/**
+ * Los socios de un gasto (D-073). Si todavía guarda el modelo de socio único, se
+ * convierte al vuelo para poder leerlo sin romperse.
+ */
+export function expensePartners(expense: Expense): LotPartner[] {
+  const declared = activePartners(expense.partners);
+  if (declared.length > 0) return declared;
+  return partnersFromLegacy({
+    partnerId: expense.partnerId,
+    partnerName: expense.partnerName,
+    myPercent: expense.myPercent,
+    totalCostCop: toSafeCOP(expense.amountCop)
+  });
 }
 
-/** Gastos compartidos acumulados por socio, derivados del historial guardado. */
+/**
+ * Gastos compartidos acumulados **por cada socio**, no por gasto (D-073).
+ *
+ * Un mismo gasto con tres socios aporta una fila a cada uno, con lo que le toca
+ * a él. `myAmountCop` es lo que le tocó a Santiago dentro de ese gasto.
+ */
 export function expensesByPartner(expenses: readonly Expense[]): PartnerExpenseShare[] {
   const byPartner = new Map<string, PartnerExpenseShare>();
   for (const expense of expenses) {
-    const shared = expense.partnerId !== null || expense.partnerName.trim().length > 0;
-    if (!shared) continue;
-    const split = expenseSplit(expense);
-    const key = expensePartnerKey(expense);
-    const current = byPartner.get(key) ?? {
-      partnerId: expense.partnerId,
-      partnerName: expense.partnerName.trim() || 'Sin nombre',
-      totalAmountCop: 0,
-      myAmountCop: 0,
-      partnerAmountCop: 0,
-      expenseCount: 0
-    };
-    current.totalAmountCop += toSafeCOP(expense.amountCop);
-    current.myAmountCop += split.myAmountCop;
-    current.partnerAmountCop += split.partnerAmountCop;
-    current.expenseCount += 1;
-    byPartner.set(key, current);
+    const partners = expensePartners(expense);
+    if (partners.length === 0) continue;
+    const total = toSafeCOP(expense.amountCop);
+    const split = splitByContribution({
+      totalCostCop: total,
+      realResultCop: total,
+      partners
+    });
+    for (const partner of split.partners) {
+      const name = partner.partnerName.trim();
+      const key = partner.partnerId ? `id:${partner.partnerId}` : `name:${name.toLocaleLowerCase('es')}`;
+      const current = byPartner.get(key) ?? {
+        partnerId: partner.partnerId,
+        partnerName: name || 'Sin nombre',
+        totalAmountCop: 0,
+        myAmountCop: 0,
+        partnerAmountCop: 0,
+        expenseCount: 0
+      };
+      current.totalAmountCop += total;
+      current.myAmountCop += split.myResultCop;
+      current.partnerAmountCop += partner.resultCop;
+      current.expenseCount += 1;
+      byPartner.set(key, current);
+    }
   }
-  return [...byPartner.values()].sort((a, b) => b.totalAmountCop - a.totalAmountCop);
+  return [...byPartner.values()].sort((a, b) => b.partnerAmountCop - a.partnerAmountCop);
 }
 
 export function activeExpenseCategories(options: readonly ExpenseCategoryOption[]): string[] {

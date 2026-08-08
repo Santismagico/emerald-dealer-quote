@@ -5,7 +5,8 @@
 // interno: ni el material ni su costo entran en documentos del cliente. El
 // material es una lista aparte que se ajusta a mano y no toca el cotizador.
 
-import type { MaterialLot, MaterialUse } from '../types';
+import type { MaterialLot, MaterialLotPartner, MaterialUse } from '../types';
+import { materialPartnersFromLegacy, splitMaterialByGrams } from './partnership';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 
@@ -114,32 +115,58 @@ export interface PartnerMaterialShare {
   lotCount: number;
 }
 
-function partnerKey(lot: MaterialLot): string {
-  if (lot.partnerId) return `id:${lot.partnerId}`;
-  return `name:${lot.partnerName.trim().toLowerCase()}`;
+/**
+ * Los socios de un lote de material (D-049 + D-073). Si el lote todavía guarda el
+ * modelo de socio único, se convierte al vuelo.
+ */
+export function materialLotPartners(lot: MaterialLot): MaterialLotPartner[] {
+  if (lot.partners && lot.partners.length > 0) return lot.partners;
+  return materialPartnersFromLegacy({
+    partnerId: lot.partnerId,
+    partnerName: lot.partnerName,
+    myGrams: lot.myGrams,
+    grams: lot.grams
+  });
 }
 
+/**
+ * Material compartido acumulado **por cada socio** (D-073).
+ *
+ * Los gramos que quedan se reparten en proporción a lo que puso cada uno: si un
+ * lote de 100 g con 40 de Ana y 20 de Luis ya gastó la mitad, a Ana le quedan 20
+ * y a Luis 10.
+ */
 export function materialsByPartner(lots: readonly MaterialLot[]): PartnerMaterialShare[] {
   const byPartner = new Map<string, PartnerMaterialShare>();
   for (const lot of lots) {
     const summary = summarizeMaterialLot(lot);
-    if (!summary.shared || summary.remainingGrams <= 0) continue;
-    const key = partnerKey(lot);
-    const entry =
-      byPartner.get(key) ??
-      {
-        partnerId: lot.partnerId,
-        partnerName: lot.partnerName.trim() || 'Sin nombre',
-        sharedGrams: 0,
-        myGrams: 0,
-        partnerGrams: 0,
-        lotCount: 0
-      };
-    entry.sharedGrams = round3(entry.sharedGrams + summary.remainingGrams);
-    entry.myGrams = round3(entry.myGrams + summary.myRemainingGrams);
-    entry.partnerGrams = round3(entry.partnerGrams + summary.partnerRemainingGrams);
-    entry.lotCount += 1;
-    byPartner.set(key, entry);
+    if (summary.remainingGrams <= 0) continue;
+    const partners = materialLotPartners(lot);
+    if (partners.length === 0) continue;
+
+    const split = splitMaterialByGrams({ totalGrams: lot.grams, partners });
+    if (split.totalGrams <= 0) continue;
+    const ratio = summary.remainingGrams / split.totalGrams;
+
+    for (const partner of split.partners) {
+      const name = partner.partnerName.trim();
+      const key = partner.partnerId ? `id:${partner.partnerId}` : `name:${name.toLowerCase()}`;
+      const entry =
+        byPartner.get(key) ??
+        {
+          partnerId: partner.partnerId,
+          partnerName: name || 'Sin nombre',
+          sharedGrams: 0,
+          myGrams: 0,
+          partnerGrams: 0,
+          lotCount: 0
+        };
+      entry.sharedGrams = round3(entry.sharedGrams + summary.remainingGrams);
+      entry.myGrams = round3(entry.myGrams + split.myGrams * ratio);
+      entry.partnerGrams = round3(entry.partnerGrams + partner.grams * ratio);
+      entry.lotCount += 1;
+      byPartner.set(key, entry);
+    }
   }
   return [...byPartner.values()].sort((a, b) => b.partnerGrams - a.partnerGrams);
 }
