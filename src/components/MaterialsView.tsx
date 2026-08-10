@@ -6,13 +6,14 @@
 
 import { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import type { MaterialLot, MaterialUse } from '../types';
+import type { MaterialLot, MaterialLotPartner, MaterialUse } from '../types';
 import {
   countMaterialLots,
   emptyMaterialLot,
   emptyMaterialUse,
   filterMaterialLots,
   materialLotDisplayName,
+  materialLotPartners,
   materialsFlow,
   materialsInventory,
   summarizeMaterialLot,
@@ -22,8 +23,10 @@ import {
   withoutMaterialUse,
   type MaterialFilter
 } from '../services/materials';
+import { splitMaterialByGrams, validateMaterialPartners } from '../services/partnership';
 import { formatDateCO, todayISO } from '../utils/dates';
 import { formatCOP } from '../utils/money';
+import { newId } from '../utils/id';
 import {
   Button,
   ConfirmDialog,
@@ -35,8 +38,7 @@ import {
   Select,
   SummaryRow,
   TextArea,
-  TextInput,
-  Toggle
+  TextInput
 } from './ui';
 
 const FILTERS: Array<{ value: MaterialFilter; label: string }> = [
@@ -47,6 +49,14 @@ const FILTERS: Array<{ value: MaterialFilter; label: string }> = [
 
 function formatGrams(grams: number): string {
   return `${grams.toLocaleString('es-CO', { maximumFractionDigits: 3 })} g`;
+}
+
+/** Nombres de los socios de un lote, para mostrar. Sirve para uno o para varios. */
+function partnerNames(lot: MaterialLot): string {
+  const names = materialLotPartners(lot).map((partner) => partner.partnerName.trim() || 'socio');
+  if (names.length === 0) return 'el socio';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }
 
 export function MaterialsView() {
@@ -169,7 +179,7 @@ function MaterialCard({ lot, onOpen }: { lot: MaterialLot; onOpen: () => void })
           <p className="truncate font-semibold text-stone-900">{materialLotDisplayName(lot)}</p>
           <p className="truncate text-xs text-stone-500">
             {formatDateCO(lot.purchaseDate)}
-            {summary.shared ? ` · con ${lot.partnerName || 'socio'}` : ''}
+            {summary.shared ? ` · con ${partnerNames(lot)}` : ''}
           </p>
         </div>
         <span
@@ -204,24 +214,59 @@ function MaterialLotForm({
   const store = useStore();
   const [form, setForm] = useState<MaterialLot>(initial);
   const [busy, setBusy] = useState(false);
-  // "Compartido" es una elección de la interfaz, no algo derivado de partnerId:
-  // un socio escrito a mano tiene partnerId null pero el lote SÍ es compartido.
-  const [shared, setShared] = useState(
-    initial.partnerId !== null || initial.partnerName.trim().length > 0
-  );
 
   const patch = (partial: Partial<MaterialLot>) => setForm((current) => ({ ...current, ...partial }));
 
+  // Sociedad en GRAMOS (D-049 + D-073). Un lote guardado con el modelo de socio
+  // único se convierte al abrirlo, para poder editarlo sin perder nada.
+  const lotPartners = useMemo(() => materialLotPartners(form), [form]);
+
+  const split = useMemo(
+    () => splitMaterialByGrams({ totalGrams: form.grams, partners: lotPartners }),
+    [form.grams, lotPartners]
+  );
+
+  const setLotPartners = (partners: MaterialLotPartner[]) => patch({ partners });
+
+  const addLotPartner = () =>
+    setLotPartners([...lotPartners, { id: newId(), partnerId: null, partnerName: '', grams: 0 }]);
+
+  const removeLotPartner = (index: number) =>
+    setLotPartners(lotPartners.filter((_, position) => position !== index));
+
+  const patchLotPartner = (index: number, partial: Partial<MaterialLotPartner>) =>
+    setLotPartners(
+      lotPartners.map((partner, position) =>
+        position === index ? { ...partner, ...partial } : partner
+      )
+    );
+
+  const selectLotPartner = (index: number, personId: string) => {
+    const person = store.materialPartners.find((item) => item.id === personId);
+    patchLotPartner(
+      index,
+      person ? { partnerId: person.id, partnerName: person.name } : { partnerId: null }
+    );
+  };
+
   const save = async () => {
-    const error = validateMaterialLot(form);
+    const partnersError = validateMaterialPartners({
+      totalGrams: form.grams,
+      partners: lotPartners
+    });
+    if (partnersError) {
+      store.showToast(partnersError);
+      return;
+    }
+    // Los gramos propios se DERIVAN del reparto, nunca se escriben a mano.
+    const normalized: MaterialLot = { ...form, partners: lotPartners, myGrams: split.myGrams };
+    const error = validateMaterialLot(normalized);
     if (error) {
       store.showToast(error);
       return;
     }
     setBusy(true);
     try {
-      // Sin socio, todo el lote es suyo: myGrams = grams.
-      const normalized = shared ? form : { ...form, myGrams: form.grams };
       await store.upsertMaterialLot({ ...normalized, updatedAt: new Date().toISOString() });
       store.showToast(isNew ? 'Material guardado' : 'Material actualizado');
       onClose();
@@ -231,8 +276,6 @@ function MaterialLotForm({
       setBusy(false);
     }
   };
-
-  const partnerGrams = Math.max(0, form.grams - form.myGrams);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
@@ -278,55 +321,95 @@ function MaterialLotForm({
             />
           </Field>
 
-          {/* Propiedad compartida (D-048): sin socio, el lote es 100% suyo. */}
-          <Toggle
-            checked={shared}
-            label="Este oro lo comparto con un socio"
-            onChange={(on) => {
-              setShared(on);
-              if (on) {
-                patch({ myGrams: Math.round((form.grams / 2) * 1000) / 1000 });
-              } else {
-                patch({ partnerId: null, partnerName: '', myGrams: form.grams });
-              }
-            }}
-          />
-          {shared ? (
-            <>
-              <Field label="¿Con quién?">
-                <Select
-                  value={form.partnerId ?? ''}
-                  onChange={(partnerId) => {
-                    const partner = store.materialPartners.find((p) => p.id === partnerId);
-                    patch({
-                      partnerId: partner ? partner.id : null,
-                      partnerName: partner ? partner.name : form.partnerName
-                    });
-                  }}
-                  options={[
-                    { value: '', label: 'Escribir el nombre' },
-                    ...store.materialPartners.map((p) => ({ value: p.id, label: p.name }))
-                  ]}
-                />
-              </Field>
-              {form.partnerId === null ? (
-                <Field label="Nombre del socio">
-                  <TextInput
-                    value={form.partnerName}
-                    onChange={(partnerName) => patch({ partnerName })}
-                    placeholder="Nombre del socio"
+          {/* Propiedad compartida en GRAMOS (D-049 + D-073): sin socios, el
+              lote es 100% suyo. Los gramos propios se derivan del reparto. */}
+          <div className="rounded-2xl bg-stone-50 p-3">
+            <p className="text-sm font-semibold text-stone-800">De quién es este oro</p>
+            <p className="mt-0.5 text-xs text-stone-500">
+              Escribe cuántos gramos son de cada socio. Lo tuyo y el porcentaje se calculan solos.
+            </p>
+
+            {lotPartners.map((partner, index) => (
+              <div key={partner.id} className="mt-3 rounded-xl bg-white p-3 shadow-sm">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Field label={`Socio ${index + 1}`}>
+                      <Select
+                        value={partner.partnerId ?? '__libre__'}
+                        onChange={(value) => selectLotPartner(index, value)}
+                        options={[
+                          ...(partner.partnerId === null
+                            ? [
+                                {
+                                  value: '__libre__',
+                                  label: partner.partnerName.trim() || 'Elige a quién'
+                                }
+                              ]
+                            : []),
+                          ...store.materialPartners.map((person) => ({
+                            value: person.id,
+                            label: person.name
+                          }))
+                        ]}
+                      />
+                    </Field>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Quitar a ${partner.partnerName.trim() || 'este socio'}`}
+                    className="mt-7 min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                    onClick={() => removeLotPartner(index)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {partner.partnerId === null ? (
+                  <Field label="Nombre del socio">
+                    <TextInput
+                      value={partner.partnerName}
+                      onChange={(partnerName) => patchLotPartner(index, { partnerName })}
+                      placeholder="Nombre del socio"
+                    />
+                  </Field>
+                ) : null}
+                <Field
+                  label="Cuántos gramos son suyos"
+                  hint={
+                    partner.grams > 0 && form.grams > 0
+                      ? `Le corresponde el ${(split.partners[index]?.percent ?? 0).toFixed(1)}% del lote`
+                      : 'Escribe los gramos de este socio.'
+                  }
+                >
+                  <DecimalInput
+                    value={partner.grams}
+                    onValue={(grams) => patchLotPartner(index, { grams })}
+                    suffix="g"
                   />
                 </Field>
+              </div>
+            ))}
+
+            <div className="mt-3">
+              <Button variant="secondary" full onClick={addLotPartner}>
+                + Añadir socio
+              </Button>
+            </div>
+
+            <div className="mt-2 border-t border-stone-200 pt-2">
+              <SummaryRow
+                label="Lo tuyo"
+                value={`${formatGrams(split.myGrams)}${
+                  form.grams > 0 ? ` · ${split.myPercent.toFixed(1)}%` : ''
+                }`}
+                bold
+              />
+              {split.overDeclared ? (
+                <p className="mt-1 text-xs font-medium text-red-600">
+                  Los socios suman más gramos de los que tiene el lote.
+                </p>
               ) : null}
-              <Field label="¿Cuántos gramos son tuyos?">
-                <DecimalInput value={form.myGrams} onValue={(myGrams) => patch({ myGrams })} suffix="g" />
-              </Field>
-              <p className="rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
-                De {formatGrams(form.grams)}: {formatGrams(form.myGrams)} tuyos ·{' '}
-                {formatGrams(partnerGrams)} del socio.
-              </p>
-            </>
-          ) : null}
+            </div>
+          </div>
 
           <Field label="Notas internas">
             <TextArea value={form.notes} onChange={(notes) => patch({ notes })} rows={2} />
@@ -412,7 +495,7 @@ function MaterialLotDetail({ lotId, onClose }: { lotId: string; onClose: () => v
             <>
               <SummaryRow label={`Tuyo (${summary.myPercent}%)`} value={formatGrams(summary.myRemainingGrams)} />
               <SummaryRow
-                label={`De ${lot.partnerName || 'el socio'}`}
+                label={`De ${partnerNames(lot)}`}
                 value={formatGrams(summary.partnerRemainingGrams)}
               />
             </>

@@ -245,3 +245,46 @@ describe('formularios en blanco', () => {
     expect(emptyMaterialUse('2026-07-24').date).toBe('2026-07-24');
   });
 });
+
+describe('resumen de un lote con varios socios (D-073)', () => {
+  it('manda la lista de socios, no el campo viejo', () => {
+    // myGrams quedó desactualizado a propósito: el resumen debe derivarlo de la
+    // lista, no creerle al campo viejo.
+    const s = summarizeMaterialLot(
+      lote({
+        grams: 100,
+        myGrams: 100,
+        partners: [
+          { id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', grams: 30 },
+          { id: 'p-2', partnerId: 'soc-2', partnerName: 'Beto', grams: 20 }
+        ]
+      })
+    );
+    expect(s.shared).toBe(true);
+    expect(s.myPercent).toBe(50);
+    expect(s.myRemainingGrams).toBe(50);
+    expect(s.partnerRemainingGrams).toBe(50);
+  });
+
+  it('reparte lo que queda en la misma proporción tras usar material', () => {
+    const s = summarizeMaterialLot(
+      lote({
+        grams: 100,
+        myGrams: 100,
+        uses: [uso({ grams: 50 })],
+        partners: [{ id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', grams: 40 }]
+      })
+    );
+    expect(s.remainingGrams).toBe(50);
+    expect(s.myRemainingGrams).toBe(30);
+    expect(s.partnerRemainingGrams).toBe(20);
+  });
+
+  it('un lote viejo con socio único sigue dando exactamente lo mismo', () => {
+    const s = summarizeMaterialLot(compartido());
+    expect(s.shared).toBe(true);
+    expect(s.myPercent).toBe(60);
+    expect(s.myRemainingGrams).toBe(60);
+    expect(s.partnerRemainingGrams).toBe(40);
+  });
+});

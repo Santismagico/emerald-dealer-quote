@@ -40,10 +40,14 @@ export function summarizeMaterialLot(lot: MaterialLot): MaterialLotSummary {
   usedGrams = round3(usedGrams);
 
   const remainingGrams = round3(Math.max(0, lot.grams - usedGrams));
-  const shared = lot.partnerId !== null || lot.partnerName.trim().length > 0;
+  // El reparto vive en `partners` (D-073). Un lote guardado con el modelo de
+  // socio único se convierte al vuelo, así que los lotes viejos dan lo mismo
+  // que antes sin tocar lo guardado.
+  const split = splitMaterialByGrams({ totalGrams: lot.grams, partners: materialLotPartners(lot) });
+  const shared = split.shared;
   // El reparto se mantiene sobre lo que va quedando: si el lote era 60% suyo,
   // el 60% de lo que resta sigue siendo suyo.
-  const myRatio = lot.grams > 0 ? Math.min(1, Math.max(0, lot.myGrams / lot.grams)) : 1;
+  const myRatio = lot.grams > 0 ? Math.min(1, Math.max(0, split.myGrams / lot.grams)) : 1;
   const myRemainingGrams = round3(remainingGrams * myRatio);
   const partnerRemainingGrams = round3(remainingGrams - myRemainingGrams);
 
