@@ -50,11 +50,17 @@ export function validateExpense(expense: Expense, previous?: Expense | null): st
   }
   if (!expense.method.trim()) return 'Escribe la forma de pago.';
   if (!expense.paidBy.trim()) return 'Escribe quién pagó.';
-  const shared = expense.partnerId !== null || expense.partnerName.trim().length > 0;
-  if (shared && !expense.partnerName.trim()) return 'Elige el socio del gasto.';
+  // Con lista de socios (D-073) manda la lista: los campos del socio único son
+  // un reflejo derivado y no pueden contradecirla. Un socio escrito a mano no
+  // tiene ficha, así que `partnerId` queda en null y el chequeo viejo —pensado
+  // para UN socio— lo leería como "sin socio" y rechazaría el gasto.
+  const hasPartnerList = activePartners(expense.partners).length > 0;
   if (!Number.isInteger(expense.myPercent) || expense.myPercent < 0 || expense.myPercent > 100) {
     return 'Tu porcentaje debe estar entre 0 y 100.';
   }
+  if (hasPartnerList) return null;
+  const shared = expense.partnerId !== null || expense.partnerName.trim().length > 0;
+  if (shared && !expense.partnerName.trim()) return 'Elige el socio del gasto.';
   if (!shared && expense.myPercent !== 100) return 'Un gasto sin socio debe ser 100% propio.';
   return null;
 }

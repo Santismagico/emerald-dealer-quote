@@ -1403,42 +1403,49 @@ sin tocar lo demás.
 
 **Siguiente:** S4, material y gastos con el mismo patrón.
 
-### Etapa S4 — A MEDIAS. Punto exacto de continuación (2026-08-05)
+### Etapa S4 — TERMINADA (2026-08-10)
 
-Se cerró la sesión por contexto lleno. **El árbol queda verde: 1052 pruebas y build OK.**
-Lo que entró está terminado y probado; lo que falta es solo de pantalla.
+Las dos pantallas que faltaban quedaron hechas, probadas y verificadas en navegador.
+**1080 pruebas en 73 archivos y build en verde.**
 
-**Decisión de diseño tomada y que Santiago debe confirmar:** el material se sigue
-compartiendo en **GRAMOS**, no en plata. D-073 dice «plata puesta», pero eso se decidió
-pensando en piedras; del oro lo que importa es cuántos gramos son de cada quien, y D-049 ya
-lo guardaba así. Se conserva el principio de D-073 —declarar la cantidad exacta y **derivar**
-el porcentaje—, cambiando solo la unidad. Los gastos sí van en plata.
+**Decisión confirmada por Santiago (2026-08-10):** el material se comparte en **GRAMOS**,
+no en plata. Se conserva el principio de D-073 —declarar la cantidad exacta y **derivar**
+el porcentaje—, cambiando solo la unidad. Los gastos sí van en plata. Los gastos llevan
+`partners` pero **no** financiación del fondo: el fondo financia compras, no gastos de
+operación, y un gasto no genera rendimiento que repartir.
 
-**Segunda decisión:** los gastos llevan `partners` pero **no** financiación del fondo. El
-fondo financia compras, no gastos de operación, y un gasto no genera rendimiento que
-repartir. Si Santiago paga un gasto con plata del fondo, hay que agregarlo.
+**Material (`MaterialsView.tsx`).** El bloque de socio único —el interruptor «lo comparto
+con un socio», el botón de mitad y mitad y el campo de gramos propios— se reemplazó por la
+lista de socios en gramos, con el patrón de `StonesView.tsx`. Lo propio se DERIVA.
+`summarizeMaterialLot` pasa a leer `partners` y solo cae al modelo viejo cuando el lote aún
+no tiene lista, así que los lotes anteriores dan exactamente el mismo número.
 
-**HECHO y probado:**
+**Gastos (`ExpensesView.tsx`).** Mismo bloque en plata, con `validatePartnersAndFunding` y
+sin el campo del fondo. `expenseSplit` pasa a leer `partners` con la misma caída al modelo
+viejo. Al guardar, el porcentaje viejo queda al día; si se quitan todos los socios, el
+gasto vuelve a ser 100% propio y los campos del socio único quedan limpios.
 
-- Tipos: `MaterialLotPartner` (en gramos), `partners?` en `MaterialLot` y en `Expense`.
-  Los campos viejos quedan `@deprecated` pero presentes.
-- Motor puro en `partnership.ts`: `splitMaterialByGrams`, `materialPartnersFromLegacy`,
-  `validateMaterialPartners`. Gramos redondeados a milésima, que es la precisión del lote.
-- `schema.ts`: `normalizeMaterialLotPartner(s)`, conectado a material y a gasto.
-- **Los informes ya discriminan por socio, que era el corazón del pedido:**
-  `expensesByPartner` y `materialsByPartner` ahora recorren la LISTA de socios y devuelven
-  una fila por persona, no una por registro. Ambos leen el modelo viejo al vuelo.
-  En material, los gramos que quedan se reparten en proporción a lo que puso cada uno.
+**Fallo encontrado en la verificación real y corregido:** `validateExpense` rechazaba un
+gasto compartido con socios escritos a mano («Un gasto sin socio debe ser 100% propio»).
+Sin ficha, `partnerId` queda en null y el chequeo viejo —pensado para UN socio— lo leía
+como «sin socio». Ahora, cuando hay lista, manda la lista. Con prueba propia.
 
-**FALTA (todo de pantalla):**
+`validatePartnersAndFunding` acepta `subject` para que el aviso hable de «gasto» y no de
+«lote». Sin ese dato dice exactamente lo de antes, así que las piedras no cambian.
 
-1. `MaterialsView.tsx` — reemplazar el bloque de socio único (`myGrams`, el botón «mitad y
-   mitad», el selector) por la lista de socios en gramos, igual que se hizo en
-   `StonesView.tsx`. Usar `validateMaterialPartners` al guardar y persistir `partners`.
-2. `ExpensesView.tsx` — mismo bloque, pero en plata, reutilizando
-   `validatePartnersAndFunding` **sin** el campo del fondo.
-3. Pruebas de `splitMaterialByGrams` y `validateMaterialPartners` (aún no tienen archivo
-   propio) y de `expensesByPartner` con varios socios.
-4. Verificar en navegador con `emerald-nube-dev` y cerrar con la auditoría propia.
+**Verificación en navegador (375 px, modo local sin nube).** Material: lote de 100 g con
+Ana 30 g y Beto 20 g → «Lo tuyo 50 g · 50.0%», porcentajes por socio correctos, aviso rojo
+al pasarse de los gramos del lote, guardado, persistencia tras recargar, y la ficha del
+lote muestra «Tuyo (50%) 50 g» y «De Ana y Beto 50 g». Gastos: $1.000.000 con Ana $300.000
+y Beto $200.000 → «Lo tuyo $500.000 · 50.0%», aviso «Los socios suman más de lo que costó
+el gasto», guardado y persistencia, con el historial mostrando «Ana y Beto: tu parte
+$500.000, socios $500.000».
 
-**Referencia:** el bloque «Quién puso la plata» de `StonesView.tsx` es el patrón a copiar.
+**Lo único que quedó sin ver en pantalla:** el informe por socio con varios socios. La
+pantalla de Socios solo lista a quienes tienen ficha creada, y en la prueba Ana y Beto se
+escribieron a mano. El motor sí está cubierto: `expensesByPartner` con dos socios en dos
+gastos tiene prueba propia. Conviene mirarlo con fichas reales en la próxima sesión.
+
+**Herramienta nueva para verificar:** configuración `emerald-local-dev` en
+`.claude/launch.json` (puerto 5175) que abre la app en modo local, sin nube ni inicio de
+sesión, usando `--mode sinnube` y el archivo `.env.sinnube.local` (ignorado por git).

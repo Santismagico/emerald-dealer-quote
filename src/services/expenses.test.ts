@@ -170,6 +170,29 @@ describe('gastos compartidos con varios socios (D-073)', () => {
     expect(split.partnerAmountCop).toBe(0);
   });
 
+  it('acepta socios escritos a mano, sin ficha, con porcentaje propio derivado', () => {
+    // Sin ficha, `partnerId` queda en null: el chequeo viejo lo leería como
+    // "sin socio" y rechazaría un gasto perfectamente válido.
+    expect(
+      validateExpense(
+        expense({
+          amountCop: 1000000,
+          myPercent: 50,
+          partners: [
+            { id: 'p-1', partnerId: null, partnerName: 'Ana', amountCop: 300000 },
+            { id: 'p-2', partnerId: null, partnerName: 'Beto', amountCop: 200000 }
+          ]
+        })
+      )
+    ).toBeNull();
+  });
+
+  it('un gasto sin lista sigue exigiendo coherencia con el socio único', () => {
+    expect(validateExpense(expense({ myPercent: 50 }))).toBe(
+      'Un gasto sin socio debe ser 100% propio.'
+    );
+  });
+
   it('el informe da una fila por persona, no una por gasto', () => {
     const filas = expensesByPartner([
       expense({
