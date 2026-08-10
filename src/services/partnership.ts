@@ -184,6 +184,11 @@ export function validatePartnersAndFunding(input: {
   totalCostCop: number;
   partners?: readonly LotPartner[];
   fundedFromFundCop?: number;
+  /**
+   * Cómo se llama en pantalla lo que se está repartiendo ("gasto"), para que el
+   * aviso hable el idioma de quien lo lee. Sin esto habla del lote, como siempre.
+   */
+  subject?: string;
 }): string | null {
   const totalCost = normalizeAmount(input.totalCostCop);
   const funded = normalizeAmount(input.fundedFromFundCop ?? 0);
@@ -214,7 +219,9 @@ export function validatePartnersAndFunding(input: {
   }
 
   if (partnersTotal + funded > totalCost) {
-    return 'Entre los socios y el fondo se pasan del costo del lote.';
+    return input.subject
+      ? `Los socios suman más de lo que costó el ${input.subject}.`
+      : 'Entre los socios y el fondo se pasan del costo del lote.';
   }
   return null;
 }

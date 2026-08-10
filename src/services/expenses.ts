@@ -101,6 +101,18 @@ export function sortExpenses(expenses: readonly Expense[]): Expense[] {
 
 export function expenseSplit(expense: Expense): { myAmountCop: number; partnerAmountCop: number } {
   const total = toSafeCOP(expense.amountCop);
+  // Con lista de socios (D-073) lo propio se DERIVA: total menos lo que pusieron
+  // ellos. Un gasto viejo, sin lista, sigue por el porcentaje de siempre y da
+  // exactamente el mismo número que antes.
+  const declared = activePartners(expense.partners);
+  if (declared.length > 0) {
+    const partnersTotal = declared.reduce(
+      (sum, partner) => sum + Math.max(0, Math.trunc(partner.amountCop || 0)),
+      0
+    );
+    const myAmountCop = Math.max(0, total - partnersTotal);
+    return { myAmountCop, partnerAmountCop: total - myAmountCop };
+  }
   const shared = expense.partnerId !== null || expense.partnerName.trim().length > 0;
   const percent = shared ? Math.min(100, Math.max(0, Math.round(expense.myPercent))) : 100;
   const myAmountCop = Math.round((total * percent) / 100);

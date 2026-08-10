@@ -126,3 +126,72 @@ describe('categorías administrables', () => {
     ]);
   });
 });
+
+describe('gastos compartidos con varios socios (D-073)', () => {
+  it('reparte un gasto entre dos socios y deriva lo propio', () => {
+    const split = expenseSplit(
+      expense({
+        amountCop: 1000000,
+        partners: [
+          { id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 300000 },
+          { id: 'p-2', partnerId: 'soc-2', partnerName: 'Beto', amountCop: 200000 }
+        ]
+      })
+    );
+    expect(split.myAmountCop).toBe(500000);
+    expect(split.partnerAmountCop).toBe(500000);
+  });
+
+  it('la lista manda sobre el porcentaje viejo', () => {
+    // myPercent quedó desactualizado a propósito.
+    const split = expenseSplit(
+      expense({
+        amountCop: 1000000,
+        partnerId: 'soc-1',
+        partnerName: 'Ana',
+        myPercent: 90,
+        partners: [{ id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 400000 }]
+      })
+    );
+    expect(split.myAmountCop).toBe(600000);
+  });
+
+  it('un gasto viejo, sin lista, sigue dando exactamente lo mismo', () => {
+    const split = expenseSplit(
+      expense({ amountCop: 1000000, partnerId: 'soc-1', partnerName: 'Ana', myPercent: 70 })
+    );
+    expect(split.myAmountCop).toBe(700000);
+    expect(split.partnerAmountCop).toBe(300000);
+  });
+
+  it('un gasto sin socios es entero suyo', () => {
+    const split = expenseSplit(expense({ amountCop: 1000000 }));
+    expect(split.myAmountCop).toBe(1000000);
+    expect(split.partnerAmountCop).toBe(0);
+  });
+
+  it('el informe da una fila por persona, no una por gasto', () => {
+    const filas = expensesByPartner([
+      expense({
+        id: 'g-1',
+        amountCop: 1000000,
+        partners: [
+          { id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 300000 },
+          { id: 'p-2', partnerId: 'soc-2', partnerName: 'Beto', amountCop: 200000 }
+        ]
+      }),
+      expense({
+        id: 'g-2',
+        amountCop: 400000,
+        partners: [{ id: 'p-3', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 100000 }]
+      })
+    ]);
+    expect(filas).toHaveLength(2);
+    const ana = filas.find((fila) => fila.partnerId === 'soc-1');
+    expect(ana?.partnerAmountCop).toBe(400000);
+    expect(ana?.expenseCount).toBe(2);
+    const beto = filas.find((fila) => fila.partnerId === 'soc-2');
+    expect(beto?.partnerAmountCop).toBe(200000);
+    expect(beto?.expenseCount).toBe(1);
+  });
+});

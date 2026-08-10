@@ -1,11 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
-import type { Expense } from '../types';
+import type { Expense, LotPartner } from '../types';
 import { useStore } from '../store';
+import { partnersFromLegacy, validatePartnersAndFunding } from '../services/partnership';
+import { newId } from '../utils/id';
 import {
   activeExpenseCategories,
   addExpenseCategory,
   emptyExpense,
   expenseCategoryHistory,
+  expensePartners,
   expenseSplit,
   filterExpenses,
   setExpenseCategoryActive,
@@ -36,6 +39,33 @@ import {
   TextInput
 } from './ui';
 import { CurrencyToggle } from './CurrencyToggle';
+
+/** Une nombres para leerlos de corrido: "Ana", "Ana y Beto", "Ana, Beto y Caro". */
+function joinNames(names: readonly string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
+}
+
+/**
+ * Deja al día los campos viejos del gasto a partir de la lista de socios (D-073).
+ * El porcentaje propio se DERIVA; si Santiago quitó a todos los socios, el gasto
+ * vuelve a ser 100% suyo y los campos del socio único quedan limpios, para que
+ * una versión anterior de la app no siga viéndolo compartido.
+ */
+function withDerivedShare(expense: Expense): Expense {
+  if (!Array.isArray(expense.partners)) return expense;
+  const total = toSafeCOP(expense.amountCop);
+  const partnersTotal = expense.partners.reduce(
+    (sum, partner) => sum + Math.max(0, Math.trunc(partner.amountCop || 0)),
+    0
+  );
+  if (expense.partners.length === 0) {
+    return { ...expense, partnerId: null, partnerName: '', myPercent: 100 };
+  }
+  const mine = Math.max(0, total - partnersTotal);
+  return { ...expense, myPercent: total > 0 ? Math.round((mine * 100) / total) : 100 };
+}
 
 export function ExpensesView() {
   const store = useStore();
@@ -112,7 +142,16 @@ export function ExpensesView() {
 
   const save = async () => {
     if (!form || busy) return;
-    const next = { ...form, updatedAt: new Date().toISOString() };
+    const partnersError = validatePartnersAndFunding({
+      totalCostCop: toSafeCOP(form.amountCop),
+      partners: form.partners,
+      subject: 'gasto'
+    });
+    if (partnersError) {
+      setError(partnersError);
+      return;
+    }
+    const next = { ...withDerivedShare(form), updatedAt: new Date().toISOString() };
     const previous = store.expenses.find((expense) => expense.id === next.id) ?? null;
     const validation = validateExpenseOperation(next, previous);
     if (validation) {
@@ -223,6 +262,8 @@ export function ExpensesView() {
         <SectionCard title="Historial">
           {filtered.map((expense) => {
             const split = expenseSplit(expense);
+            const sharedWith = expensePartners(expense);
+            const sharedNames = joinNames(sharedWith.map((p) => p.partnerName.trim() || 'socio'));
             return (
               <article key={expense.id} className="rounded-xl border border-stone-200 p-3">
                 <div className="flex min-w-0 items-start justify-between gap-3">
@@ -238,8 +279,8 @@ export function ExpensesView() {
                 </div>
                 <p className="mt-2 break-words text-xs text-stone-600">
                   {expense.method} · pagó {expense.paidBy}
-                  {expense.partnerName
-                    ? ` · ${expense.partnerName}: tu parte ${formatOperationMoney(split.myAmountCop, expense.usdRate, currencyView)}, socio ${formatOperationMoney(split.partnerAmountCop, expense.usdRate, currencyView)}`
+                  {sharedNames
+                    ? ` · ${sharedNames}: tu parte ${formatOperationMoney(split.myAmountCop, expense.usdRate, currencyView)}, ${sharedWith.length > 1 ? 'socios' : 'socio'} ${formatOperationMoney(split.partnerAmountCop, expense.usdRate, currencyView)}`
                     : ''}
                 </p>
                 <p className="mt-1 text-xs text-stone-500">{usdRateLabel(expense.usdRate)}</p>
@@ -366,12 +407,60 @@ function ExpenseForm({
   onClose: () => void;
 }) {
   const patch = (partial: Partial<Expense>) => onChange({ ...form, ...partial });
-  const historicalPartner = !form.partnerId && form.partnerName.trim();
   const categoryOptions = [...new Set([
     ...activeCategories,
     ...(form.category ? [form.category] : [])
   ])];
-  const partnerValue = form.partnerId ?? (historicalPartner ? '__historical__' : '');
+
+  // Sociedad del gasto (D-073). Un gasto guardado con el modelo de socio único
+  // se convierte al abrirlo, para poder editarlo sin perder nada. Se lee la
+  // lista cruda —no `activePartners`— para que una fila recién añadida no
+  // desaparezca mientras Santiago todavía la está llenando.
+  const expenseLotPartners = useMemo(
+    () =>
+      form.partners && form.partners.length > 0
+        ? form.partners
+        : partnersFromLegacy({
+            partnerId: form.partnerId,
+            partnerName: form.partnerName,
+            myPercent: form.myPercent,
+            totalCostCop: toSafeCOP(form.amountCop)
+          }),
+    [form.partners, form.partnerId, form.partnerName, form.myPercent, form.amountCop]
+  );
+  const expenseTotal = toSafeCOP(form.amountCop);
+  const expensePartnersTotal = expenseLotPartners.reduce(
+    (sum, partner) => sum + Math.max(0, Math.trunc(partner.amountCop || 0)),
+    0
+  );
+  const myExpenseShare = Math.max(0, expenseTotal - expensePartnersTotal);
+
+  const setExpensePartners = (next: LotPartner[]) => patch({ partners: next });
+
+  const addExpensePartner = () =>
+    setExpensePartners([
+      ...expenseLotPartners,
+      { id: newId(), partnerId: null, partnerName: '', amountCop: 0 }
+    ]);
+
+  const removeExpensePartner = (index: number) =>
+    setExpensePartners(expenseLotPartners.filter((_, position) => position !== index));
+
+  const patchExpensePartner = (index: number, partial: Partial<LotPartner>) =>
+    setExpensePartners(
+      expenseLotPartners.map((partner, position) =>
+        position === index ? { ...partner, ...partial } : partner
+      )
+    );
+
+  const selectExpensePartner = (index: number, personId: string) => {
+    const person = partners.find((item) => item.id === personId);
+    patchExpensePartner(
+      index,
+      person ? { partnerId: person.id, partnerName: person.name } : { partnerId: null }
+    );
+  };
+
   return (
     <FormDialog
       title={form.createdAt === form.updatedAt ? 'Registrar gasto' : 'Editar gasto'}
@@ -429,37 +518,91 @@ function ExpenseForm({
         <Field label="Quién pagó">
           <TextInput value={form.paidBy} onChange={(paidBy) => patch({ paidBy })} />
         </Field>
-        <Field label="Sociedad" hint="Si no eliges socio, el gasto queda 100% como propio.">
-          <Select
-            value={partnerValue}
-            onChange={(value) => {
-              if (value === '__historical__') return;
-              const partner = partners.find((item) => item.id === value);
-              patch(partner
-                ? { partnerId: partner.id, partnerName: partner.name }
-                : { partnerId: null, partnerName: '', myPercent: 100 });
-            }}
-            options={[
-              { value: '', label: 'Sin socio · 100% propio' },
-              ...(historicalPartner
-                ? [{ value: '__historical__', label: `${form.partnerName} · ficha eliminada` }]
-                : []),
-              ...partners.map((partner) => ({ value: partner.id, label: partner.name }))
-            ]}
-          />
-        </Field>
-        {form.partnerId !== null || form.partnerName ? (
-          <Field label="Tu porcentaje" hint={`Parte del socio: ${100 - form.myPercent}%`}>
-            <TextInput
-              inputMode="numeric"
-              value={String(form.myPercent)}
-              onChange={(value) => {
-                const digits = value.replace(/\D/g, '');
-                patch({ myPercent: digits ? Math.min(100, Number(digits)) : 0 });
-              }}
+        {/* Sociedad del gasto (D-073): cada socio declara la plata que puso y lo
+            propio se DERIVA. El fondo no entra: financia compras, no gastos. */}
+        <div className="rounded-2xl bg-stone-50 p-3">
+          <p className="text-sm font-semibold text-stone-800">Quién puso la plata</p>
+          <p className="mt-0.5 text-xs text-stone-500">
+            Si no agregas a nadie, el gasto queda 100% tuyo.
+          </p>
+
+          {expenseLotPartners.map((partner, index) => (
+            <div key={partner.id} className="mt-3 rounded-xl bg-white p-3 shadow-sm">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <Field label={`Socio ${index + 1}`}>
+                    <Select
+                      value={partner.partnerId ?? '__libre__'}
+                      onChange={(value) => selectExpensePartner(index, value)}
+                      options={[
+                        ...(partner.partnerId === null
+                          ? [
+                              {
+                                value: '__libre__',
+                                label: partner.partnerName.trim() || 'Elige a quién'
+                              }
+                            ]
+                          : []),
+                        ...partners.map((person) => ({ value: person.id, label: person.name }))
+                      ]}
+                    />
+                  </Field>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Quitar a ${partner.partnerName.trim() || 'este socio'}`}
+                  className="mt-7 min-h-11 min-w-11 shrink-0 rounded-lg text-red-600 active:bg-red-50"
+                  onClick={() => removeExpensePartner(index)}
+                >
+                  ✕
+                </button>
+              </div>
+              {partner.partnerId === null ? (
+                <Field label="Nombre del socio">
+                  <TextInput
+                    value={partner.partnerName}
+                    onChange={(partnerName) => patchExpensePartner(index, { partnerName })}
+                    placeholder="Nombre del socio"
+                  />
+                </Field>
+              ) : null}
+              <Field
+                label="Cuánto puso"
+                hint={
+                  partner.amountCop > 0 && expenseTotal > 0
+                    ? `Le corresponde el ${((partner.amountCop * 100) / expenseTotal).toFixed(1)}% del gasto`
+                    : 'Escribe la plata que puso.'
+                }
+              >
+                <MoneyInput
+                  value={partner.amountCop}
+                  onValue={(amountCop) => patchExpensePartner(index, { amountCop })}
+                />
+              </Field>
+            </div>
+          ))}
+
+          <div className="mt-3">
+            <Button variant="secondary" full onClick={addExpensePartner}>
+              + Añadir socio
+            </Button>
+          </div>
+
+          <div className="mt-2 border-t border-stone-200 pt-2">
+            <SummaryRow
+              label="Lo tuyo"
+              value={`${formatCOP(myExpenseShare)}${
+                expenseTotal > 0 ? ` · ${((myExpenseShare * 100) / expenseTotal).toFixed(1)}%` : ''
+              }`}
+              bold
             />
-          </Field>
-        ) : null}
+            {expensePartnersTotal > expenseTotal ? (
+              <p className="mt-1 text-xs font-medium text-red-600">
+                Los socios suman más de lo que costó el gasto.
+              </p>
+            ) : null}
+          </div>
+        </div>
         <Field label="Notas">
           <TextArea value={form.notes} onChange={(notes) => patch({ notes })} />
         </Field>
