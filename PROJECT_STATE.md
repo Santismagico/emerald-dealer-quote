@@ -1441,10 +1441,23 @@ y Beto $200.000 → «Lo tuyo $500.000 · 50.0%», aviso «Los socios suman más
 el gasto», guardado y persistencia, con el historial mostrando «Ana y Beto: tu parte
 $500.000, socios $500.000».
 
-**Lo único que quedó sin ver en pantalla:** el informe por socio con varios socios. La
-pantalla de Socios solo lista a quienes tienen ficha creada, y en la prueba Ana y Beto se
-escribieron a mano. El motor sí está cubierto: `expensesByPartner` con dos socios en dos
-gastos tiene prueba propia. Conviene mirarlo con fichas reales en la próxima sesión.
+**Informe por socio, verificado en pantalla con fichas reales (2026-08-10).** Se crearon
+las fichas «Ana Restrepo» y «Beto Cárdenas», se eligieron desde el desplegable en un gasto
+de $2.000.000 (Ana $800.000, Beto $400.000 → «Lo tuyo $800.000 · 40,0%») y en un lote de
+200 g (Ana 80 g, Beto 40 g → «Lo tuyo 80 g · 40,0%»). La pantalla de Socios da **una
+tarjeta por persona con sus propias cifras**, y sobrevive a recargar:
+
+- Ana Restrepo — «Material: comparten 200 g · tuyos 80 g · del socio 80 g» y «Gastos
+  compartidos: $2.000.000 · tu parte $800.000 · socio $800.000».
+- Beto Cárdenas — «Material: comparten 200 g · tuyos 80 g · del socio 40 g» y «Gastos
+  compartidos: $2.000.000 · tu parte $800.000 · socio $400.000».
+
+**Observación de redacción para decidir con Santiago (no es un fallo):** cuando un mismo
+lote o gasto se comparte con dos socios, «comparten 200 g», «tuyos 80 g» y «tu parte
+$800.000» se repiten idénticos en las dos tarjetas, porque describen el mismo lote y el
+mismo gasto. Quien lea las dos seguidas podría sumarlas y creer que son 160 g o $1.600.000.
+Los números son correctos; lo que puede confundir es que el encabezado no dice que ambas
+tarjetas hablan del mismo registro.
 
 **Herramienta nueva para verificar:** configuración `emerald-local-dev` en
 `.claude/launch.json` (puerto 5175) que abre la app en modo local, sin nube ni inicio de
