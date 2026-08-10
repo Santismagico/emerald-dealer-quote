@@ -131,8 +131,8 @@ export function MaterialPartnersView() {
                 </p>
                 {materialShare ? (
                   <p className="mt-1 text-sm text-stone-700">
-                    Material: comparten {formatGrams(materialShare.sharedGrams)} · tuyos{' '}
-                    {formatGrams(materialShare.myGrams)} · del socio {formatGrams(materialShare.partnerGrams)}
+                    Material: {formatGrams(materialShare.partnerGrams)} suyos, dentro de{' '}
+                    {formatGrams(materialShare.sharedGrams)} compartidos
                   </p>
                 ) : null}
                 {stoneShare ? (
@@ -149,8 +149,8 @@ export function MaterialPartnersView() {
                 ) : null}
                 {expenseShare ? (
                   <p className="mt-2 text-sm text-stone-700">
-                    Gastos compartidos: {formatCOP(expenseShare.totalAmountCop)} · tu parte{' '}
-                    {formatCOP(expenseShare.myAmountCop)} · socio {formatCOP(expenseShare.partnerAmountCop)}
+                    Gastos: {formatCOP(expenseShare.partnerAmountCop)} suyos, dentro de{' '}
+                    {formatCOP(expenseShare.totalAmountCop)} compartidos
                   </p>
                 ) : null}
                 <div className="mt-3 flex gap-2 border-t border-stone-100 pt-3">
