@@ -1692,3 +1692,42 @@ paso en vivo es `docs/ACTIVACION_ETAPA9_NUBE.md`.
 despliegue no se tocaron. S9 queda preparada, no terminada en vivo. El siguiente paso es
 recibir autorización separada de Santiago para aplicar primero el bloque completo en el
 proyecto desechable, comprobar 6 y ejecutar N6 sobre el commit exacto.
+
+### Hallazgo de seguridad y su cierre (2026-08-10) — escritura directa abierta
+
+**Encontrado auditando el proyecto desechable**, después de aplicar allí la migración de
+la etapa 9 y comprobar `etapa9_funciones_verificadas = 6`.
+
+**Qué estaba mal.** Seis tablas —`buyers`, `expenses`, `fund_contributions`,
+`material_lots`, `material_partners`, `stock_jewels`— dejaban `TRUNCATE`, `REFERENCES` y
+`TRIGGER` en manos de cualquier cuenta con sesión iniciada. `stone_lots`, en cambio, solo
+concedía `SELECT`: fue el patrón de referencia que destapó la diferencia.
+
+**Por qué era grave.** **`TRUNCATE` no respeta Row Level Security.** La política que impide
+que una joyería lea los datos de otra no se aplica a un vaciado de tabla. Cualquier cuenta
+podía, en teoría, vaciar gastos, material, compradores, joyas en stock, socios y fondo de
+**todas** las joyerías de un solo golpe.
+
+**Causa.** Las migraciones desde el 2026-08-03 escribieron
+`revoke insert, update, delete ... from authenticated` en vez de `revoke all`. La diferencia
+parece cosmética: `revoke insert, update, delete` no toca los permisos que Supabase concede
+por defecto en cada tabla nueva del esquema `public`.
+
+**Exposición real.** Baja: al enlace con nube solo entra Santiago; el piloto de 7 joyerías
+es local y no usa servidor. Pero el agujero llevaba abierto desde el 2026-08-03 y ninguna
+prueba lo miraba.
+
+**Cierre.** Migración `20260811040000_blindar_escritura_directa.sql`: las seis tablas quedan
+como `stone_lots` —con sesión solo se LEE— y `service_role` conserva todo, así que respaldos
+e importación no cambian. **Ya aplicada y verificada en el proyecto desechable:** las siete
+tablas devuelven exactamente `SELECT`.
+
+**Para que no vuelva.** `src/services/cloud/directWriteLockdown.test.ts` lee el SQL de las
+migraciones en cada `npm test` y falla si alguien reescribe el patrón débil o concede
+escritura directa. Se comprobó que la prueba sirve: retirando la migración del arreglo,
+**3 de sus 4 comprobaciones fallan**.
+
+**PENDIENTE Y BLOQUEANTE:** este mismo bloque debe aplicarse a **Producción**, donde el
+agujero sigue abierto. Requiere autorización expresa y separada de Santiago.
+
+**Cierre:** 1120 pruebas en 75 archivos y build en verde.
