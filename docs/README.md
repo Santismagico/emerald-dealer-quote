@@ -20,6 +20,8 @@
 | `HOJA_DE_RUTA_CORRECCIONES.md` | El método con el que se reciben y aplican las correcciones que dicta Santiago |
 | `RELEASE_SECURITY_PROCESS.md` | Los candados de seguridad antes de publicar |
 | `EXECUTION_PLAN.md` | Etapas de trabajo |
+| `TRASPASO_A_MAC.md` | Cómo montar el proyecto en la Mac y qué archivos no viajan por GitHub |
+| `PUBLICAR_ENLACE_NUBE.md` | Procedimiento manual para publicar el enlace de la nube, con sus dos trampas |
 | `legal/` | Términos, privacidad y aviso de tratamiento de datos. **En borrador**, sin revisión profesional |
 
 ## Histórico
