@@ -68,11 +68,18 @@ export function verifySecurityConfiguration() {
     'alter table public.fund_contributions enable row level security',
     'El Fondo nuevo no activa aislamiento por filas.'
   )
+  // `revoke all`, nunca `revoke insert, update, delete`: esa forma deja intactos
+  // TRUNCATE, REFERENCES y TRIGGER, que Supabase concede por defecto en cada tabla
+  // nueva. TRUNCATE no respeta Row Level Security (hallazgo del 2026-08-10). Hasta
+  // ese dia ESTE mismo control exigia la forma debil: daba por bueno el agujero.
   requireText(
     partnersAndFund,
-    'revoke insert, update, delete on table public.fund_contributions from authenticated',
+    'revoke all on table public.fund_contributions from anon, authenticated',
     'El Fondo permite escritura directa a usuarios autenticados.'
   )
+  if (/revoke\s+insert,\s*update,\s*delete\s+on\s+table\s+public\.fund_contributions/.test(partnersAndFund)) {
+    throw new Error('El Fondo usa el revoke debil, que deja TRUNCATE abierto.')
+  }
   requireText(
     partnersAndFund,
     'grant select on table public.fund_contributions to authenticated',
@@ -103,7 +110,7 @@ export function verifySecurityConfiguration() {
     'create trigger validate_socios_fondo_expenses',
     'Las sociedades de Gastos no quedaron protegidas en la base.'
   )
-  if (/grant\s+(insert|update|delete).*fund_contributions.*authenticated/.test(partnersAndFund)) {
+  if (/grant\s+(insert|update|delete|truncate|all).*fund_contributions.*authenticated/.test(partnersAndFund)) {
     throw new Error('La migración del Fondo concede escritura directa a usuarios autenticados.')
   }
 

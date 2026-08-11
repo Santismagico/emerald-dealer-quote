@@ -4,7 +4,7 @@
 
 _Actualizado: 2026-08-10 por Codex al preparar localmente la Etapa 9 de Socios y Fondo. Este archivo conserva historia acumulativa; para continuar, leer primero el final._
 
-> **ESTADO MÁS RECIENTE: trazabilidad y formulario publicados solo en el enlace nuevo.** `Santismagico/emerald-dealer-app` sirve el commit `762dc7c`, compilado desde `codex/fase2-nube@0aca89e`. El piloto de 7 joyerías permanece separado y no fue modificado.
+> **ESTADO MÁS RECIENTE (2026-08-10): socios y fondo PUBLICADOS en el enlace de la nube.** `Santismagico/emerald-dealer-app` sirve el commit `a5b9ca1`, compilado desde `codex/fase2-nube@4a12ff7` y verificado en vivo: apunta a Producción (`wrvokfzrcmmlzekudypu`) y trae el fondo. Punto de retorno: `f9ba18a`. El piloto de 7 joyerías (`main`) **no fue modificado**.
 
 ## Qué aplicación es
 
@@ -1788,3 +1788,32 @@ distintas:
   No necesita nada de esto y no debe moverse sin una decisión propia.
 
 Sigue pendiente la **N6 real** con dos cuentas a través de la app.
+
+### PUBLICADO el enlace de la nube (2026-08-10)
+
+Santiago autorizó publicar **solo el suyo**. `main` y las 7 joyerías del piloto no se
+tocaron.
+
+**Cuarto sitio con el mismo error, encontrado por el propio proceso de publicación.**
+`scripts/verify-security-evidence.mjs` **exigía** `revoke insert, update, delete` para el
+fondo: el control de seguridad daba por bueno el agujero que cerramos hoy. Ahora exige
+`revoke all` y rechaza explícitamente la forma débil. Van cuatro sitios: el motor de
+piedras, el de gastos, el libro, y este control.
+
+**Trampa evitada.** Los dos `.env` de esta máquina apuntaban al servidor de **pruebas**
+tras la jornada. Compilar así habría publicado la app conectada a una base vacía, y Santiago
+habría creído que perdió sus datos. La configuración correcta se sacó del **bundle ya
+publicado**, que es información pública: nunca hizo falta pedirle una clave.
+
+**Segunda trampa evitada:** el borrado previo a copiar se llevaba `.nojekyll`, sin el cual
+GitHub Pages puede no servir el sitio. Restaurado antes de publicar.
+
+**Candados verificados antes de publicar:** 0 vulnerabilidades, ninguna credencial en
+archivos versionados, evidencia de base de datos en verde, 1120 pruebas y build.
+
+**Verificación en vivo:** el sitio sirve `assets/index-Dq48ieix.js`, ese archivo apunta a
+`wrvokfzrcmmlzekudypu` y contiene las operaciones del fondo.
+
+**Overrides conscientes de Santiago**, ambos razonables porque es el único usuario del
+enlace: se publicó sin N6 real y con los documentos legales aún en `BORRADOR`. **Los dos
+dejan de ser negociables antes de migrar a las 7 joyerías.**
