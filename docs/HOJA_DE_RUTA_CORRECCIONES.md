@@ -234,6 +234,7 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | S7-C2 | F | Repartir cada ganancia y cada inversión por persona sin perder pesos por redondeo; el residuo queda del lado de Santiago | salesAnalytics, partnership | verificada; no publicada | df54fad |
 | S7-C3 | F | Mostrar en el Cierre del día y del mes el resultado de cada venta de piedras separado persona por persona | dailyReport, DailyCloseView | verificada; no publicada | c5f49ec |
 | S6-C1 | F | Evitar que el informe por socio asigne entre los socios más plata pendiente de cobro que la deuda real | stones | verificada; no publicada | 36d77b0 |
+| S8-C1 | F | Completar los Excel internos con columnas separadas por socio y una hoja del fondo por persona, con aportes, pagos, vencimientos y saldo | excelExport, Panel, Cierres, Consolidado | en curso (Codex) | pendiente |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._
