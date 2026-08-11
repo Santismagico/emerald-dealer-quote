@@ -18,6 +18,7 @@ import { ClientsView } from './components/ClientsView';
 import { SuppliersView } from './components/SuppliersView';
 import { BuyersView } from './components/BuyersView';
 import { MaterialPartnersView } from './components/MaterialPartnersView';
+import { FundView } from './components/FundView';
 import { SettingsView } from './components/SettingsView';
 import {
   AccountView,
@@ -58,6 +59,7 @@ type ViewName =
   | 'suppliers'
   | 'buyers'
   | 'materialPartners'
+  | 'fund'
   | 'settings'
   | 'account'
   | 'cloudImport';
@@ -356,6 +358,9 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
         case 'partners':
           setView('materialPartners');
           return;
+        case 'fund':
+          setView('fund');
+          return;
         case 'account':
           if (cloudAccount) setView('account');
           return;
@@ -521,6 +526,12 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
             <MaterialPartnersView />
           </div>
         )}
+        {view === 'fund' && (
+          <div className="space-y-4">
+            <BackRow label="← Inicio" onClick={() => setView('home')} />
+            <FundView />
+          </div>
+        )}
         {view === 'settings' && (
           <div className="space-y-4">
             <BackRow label="← Inicio" onClick={() => setView('home')} />
@@ -577,6 +588,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
               view === 'suppliers' ||
               view === 'buyers' ||
               view === 'materialPartners' ||
+              view === 'fund' ||
               view === 'settings' ||
               view === 'account' ||
               view === 'cloudImport'

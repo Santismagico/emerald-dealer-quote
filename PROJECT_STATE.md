@@ -1462,3 +1462,48 @@ tarjetas hablan del mismo registro.
 **Herramienta nueva para verificar:** configuración `emerald-local-dev` en
 `.claude/launch.json` (puerto 5175) que abre la app en modo local, sin nube ni inicio de
 sesión, usando `--mode sinnube` y el archivo `.env.sinnube.local` (ignorado por git).
+
+### Etapa S5 — TERMINADA (2026-08-10). El fondo, persona por persona
+
+Lo que Santiago pidió el 2026-08-06: *"ese fondo de amigos no lo tratemos como un único
+fondo, sino podamos diferenciar qué personas integran ese fondo […] necesito poder
+editarlas y trackearlas"*. El motor (`fund.ts`) ya existía desde S1 con sus pruebas; lo que
+faltaba —y era todo— es que se pudiera ver y escribir. **Ninguna pantalla lo usaba.**
+
+**Pantalla nueva `FundView.tsx`**, en Inicio → Tu gente → **Fondo**. Va con la gente, no
+con Dinero: se lee persona por persona (D-076) y Dinero conserva sus cinco secciones
+pactadas en D-070. Prueba propia en `home.test.ts` que fija ese acceso.
+
+Por cada persona: lo que puso, el rendimiento hasta hoy, lo devuelto, el rendimiento ya
+pagado y **lo que se le debe hoy**, más el vencimiento más próximo y un aviso rojo si ya
+pasó. Debajo, cada aporte suyo con su estado (Abierto · Vencido · Saldado), su historial de
+pagos y los botones Pagar · Editar · Borrar. **El total del fondo va al PIE**, nunca al
+encabezado. Ningún saldo se guarda: todo se DERIVA (D-023).
+
+Se admiten los dos tratos: **porcentaje mensual** sobre el capital por mes cumplido, y
+**total fijo pactado** con fecha de devolución. Borrar avisa que solo sirve para deshacer un
+registro hecho por error: un aporte devuelto se salda registrando el pago, y conserva su
+historia (D-076).
+
+**Conexión de datos.** `dataSource`, la fuente de la nube y `store.tsx` ya llevan
+`listFundContributions` / `saveFundContribution` / `deleteFundContribution`. La base local y
+el respaldo ya lo soportaban desde S2.
+
+**Límite consciente y anotado:** con cuenta de nube, el fondo se guarda **solo en el
+dispositivo**. La tabla, el RPC y las reglas de aislamiento entran en la etapa 9; encolarlo
+sin tabla haría fallar el envío una y otra vez. Cuando llegue S9, el primer envío sube lo
+que ya esté guardado. Está escrito así en `cloud/api.ts`.
+
+**Verificación en navegador (modo local, 320 y 375 px, sin desbordamiento).**
+Ana Restrepo: $5.000.000 el 10 de mayo al 2% mensual → «3 meses cumplidos», rendimiento
+$300.000, debe $5.300.000. Se registró un pago de $300.000 de rendimiento → rendimiento
+pagado $300.000 y la deuda baja a $5.000.000, con el pago en su historial.
+Beto Cárdenas: $2.000.000 el 1 de junio, total fijo pactado $2.400.000 con plazo el 1 de
+agosto → marca **Vencido** y «Vencido desde el 1 de agosto de 2026».
+Pie: 2 personas · 2 aportes · capital $7.000.000 · rendimiento $700.000 · **debes en total
+$7.400.000**. Todo sobrevive a recargar.
+
+**Cierre:** 1081 pruebas en 73 archivos y build en verde.
+
+**Siguiente:** etapa 6 (informe por socio completo, §6 del plan) y etapa 7 (separación por
+socio en Cierre del día y Consolidado). Después Excel (8) y nube (9).

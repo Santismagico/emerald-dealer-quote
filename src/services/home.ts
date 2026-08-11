@@ -22,6 +22,7 @@ export type HomeDestination =
   | 'buyers'
   | 'suppliers'
   | 'partners'
+  | 'fund'
   | 'settings'
   | 'account';
 
@@ -69,7 +70,10 @@ export const HOME_GROUPS: readonly HomeGroup[] = [
       { destination: 'clients', label: 'Clientes' },
       { destination: 'buyers', label: 'Compradores' },
       { destination: 'suppliers', label: 'Proveedores' },
-      { destination: 'partners', label: 'Socios' }
+      { destination: 'partners', label: 'Socios' },
+      // El fondo va con la gente, no con Dinero: se lee persona por persona
+      // (D-076) y Dinero conserva las cinco secciones pactadas en D-070.
+      { destination: 'fund', label: 'Fondo' }
     ]
   },
   {

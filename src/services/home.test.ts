@@ -80,6 +80,19 @@ describe('portada de inicio', () => {
     expect(JSON.stringify(HOME_GROUPS)).not.toContain('La plata');
   });
 
+  it('reúne en Tu gente a las personas, incluido el fondo', () => {
+    // El fondo va con la gente porque se lee persona por persona (D-076); si
+    // entrara a Dinero rompería las cinco secciones pactadas en D-070.
+    expect(HOME_GROUPS[1]?.items.map((item) => item.label)).toEqual([
+      'Clientes',
+      'Compradores',
+      'Proveedores',
+      'Socios',
+      'Fondo'
+    ]);
+    expect(HOME_GROUPS[1]?.items.map((item) => item.destination)).toContain('fund');
+  });
+
   it('mantiene los cinco destinos de Dinero en una sola área', () => {
     expect(MONEY_SECTIONS).toEqual([
       { key: 'panel', label: 'Panel' },

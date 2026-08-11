@@ -748,6 +748,14 @@ export function createCloudDataSource(options: {
       await localStorage.deleteExpense(id);
       await enqueue('expenses', 'delete', id, null, nowIso());
     },
+    // Fondo de inversión: por ahora vive SOLO en el dispositivo. La tabla, el RPC
+    // y las reglas de aislamiento entran en la etapa 9 del plan de socios; hasta
+    // entonces no hay a dónde sincronizarlo, y encolarlo sin tabla haría fallar
+    // el envío una y otra vez. Guardar en local es correcto y reversible: cuando
+    // llegue la etapa 9, el primer envío sube lo que ya esté guardado aquí.
+    listFundContributions: () => localStorage.listFundContributions(),
+    saveFundContribution: (contribution) => localStorage.saveFundContribution(contribution),
+    deleteFundContribution: (id) => localStorage.deleteFundContribution(id),
     nextQuoteNumber: options.remote.nextQuoteNumber,
     pullAll: options.sync.pullAll,
     async flush() {

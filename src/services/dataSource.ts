@@ -3,6 +3,7 @@ import type {
   Buyer,
   Client,
   Expense,
+  FundContribution,
   MaterialLot,
   MaterialPartner,
   Quote,
@@ -61,6 +62,9 @@ export interface StoreDataSource {
   listExpenses: () => Promise<Expense[]>;
   saveExpense: (expense: Expense) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  listFundContributions: () => Promise<FundContribution[]>;
+  saveFundContribution: (contribution: FundContribution) => Promise<void>;
+  deleteFundContribution: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   cloudSyncStatus?: () => Promise<OutboxStatus>;
   retryCloudChanges?: (id?: string) => Promise<void>;

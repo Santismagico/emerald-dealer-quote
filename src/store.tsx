@@ -15,7 +15,8 @@ import type {
   StockJewel,
   MaterialPartner,
   MaterialLot,
-  Expense
+  Expense,
+  FundContribution
 } from './types';
 import { defaultSettings } from './services/storage';
 import { localDataSource, type StoreDataSource } from './services/dataSource';
@@ -57,6 +58,7 @@ interface AppStore {
   materialPartners: MaterialPartner[];
   materialLots: MaterialLot[];
   expenses: Expense[];
+  fundContributions: FundContribution[];
   toast: string | null;
   backupExporting: boolean;
   cloudSync: OutboxStatus;
@@ -94,6 +96,8 @@ interface AppStore {
   removeMaterialLot: (id: string) => Promise<void>;
   upsertExpense: (expense: Expense) => Promise<void>;
   removeExpense: (id: string) => Promise<void>;
+  upsertFundContribution: (contribution: FundContribution) => Promise<void>;
+  removeFundContribution: (id: string) => Promise<void>;
   nextQuoteNumber: () => Promise<string>;
   retryCloudChanges: (id?: string) => Promise<void>;
   useCloudInventoryVersion: () => Promise<void>;
@@ -137,6 +141,7 @@ export function StoreProvider({
   const [materialPartners, setMaterialPartners] = useState<MaterialPartner[]>([]);
   const [materialLots, setMaterialLots] = useState<MaterialLot[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [fundContributions, setFundContributions] = useState<FundContribution[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [backupExporting, setBackupExporting] = useState(false);
   const [cloudSync, setCloudSync] = useState<OutboxStatus>({ pending: 0, held: 0, operations: [] });
@@ -147,7 +152,7 @@ export function StoreProvider({
   }, [dataSource]);
 
   const reloadAll = useCallback(async () => {
-    const [s, c, q, a, sm, sp, bu, jw, mp, ml, ex] = await Promise.all([
+    const [s, c, q, a, sm, sp, bu, jw, mp, ml, ex, fc] = await Promise.all([
       dataSource.loadSettings(),
       dataSource.listClients(),
       dataSource.listQuotes(),
@@ -158,7 +163,8 @@ export function StoreProvider({
       dataSource.listStockJewels(),
       dataSource.listMaterialPartners(),
       dataSource.listMaterialLots(),
-      dataSource.listExpenses()
+      dataSource.listExpenses(),
+      dataSource.listFundContributions()
     ]);
     setSettings(s);
     setClients(c);
@@ -171,6 +177,7 @@ export function StoreProvider({
     setMaterialPartners(mp);
     setMaterialLots(ml);
     setExpenses(ex);
+    setFundContributions(fc);
   }, [dataSource]);
 
   const refreshGoldPrice = useCallback(async () => {
@@ -421,6 +428,19 @@ export function StoreProvider({
     setStoneLots(nextStoneLots);
   }, [dataSource]);
 
+  // Fondo de inversión (D-076). Un aporte saldado NO se borra: queda cerrado con
+  // su historia. `removeFundContribution` sirve solo para deshacer un registro
+  // creado por error.
+  const upsertFundContribution = useCallback(async (contribution: FundContribution) => {
+    await dataSource.saveFundContribution(contribution);
+    setFundContributions(await dataSource.listFundContributions());
+  }, [dataSource]);
+
+  const removeFundContribution = useCallback(async (id: string) => {
+    await dataSource.deleteFundContribution(id);
+    setFundContributions(await dataSource.listFundContributions());
+  }, [dataSource]);
+
   const upsertMaterialLot = useCallback(async (lot: MaterialLot) => {
     // Mismo patrón optimista que lotes de piedras y joyas: la interfaz responde ya.
     setMaterialLots((prev) => sortMaterialLots([lot, ...prev.filter((l) => l.id !== lot.id)]));
@@ -473,6 +493,7 @@ export function StoreProvider({
         buyers,
         stockJewels,
         materialPartners,
+        fundContributions,
         materialLots,
         expenses,
         toast,
@@ -502,6 +523,8 @@ export function StoreProvider({
         transformStockJewelToNatural,
         upsertMaterialPartner,
         removeMaterialPartner,
+        upsertFundContribution,
+        removeFundContribution,
         upsertMaterialLot,
         removeMaterialLot,
         upsertExpense,
