@@ -1507,3 +1507,53 @@ $7.400.000**. Todo sobrevive a recargar.
 
 **Siguiente:** etapa 6 (informe por socio completo, §6 del plan) y etapa 7 (separación por
 socio en Cierre del día y Consolidado). Después Excel (8) y nube (9).
+
+### Etapa S6 — TERMINADA (2026-08-10). Informe por socio
+
+Cierra lo que Santiago pidió el 2026-08-06: *"que le pueda ver cuánto tiene cada socio […]
+sus ganancias […] el costo de su inventario y el movimiento de plata pendiente"*.
+
+**Fallo de fondo encontrado y corregido.** `stonesByPartner` seguía agrupando por el
+**socio único viejo** (`lot.partnerId`), aunque S3 ya permitía varios socios por lote.
+Con dos socios, todo se le atribuía a uno solo; con socios escritos a mano, todos caían en
+una fila «Sin nombre». Ahora recorre la lista de socios de cada lote y devuelve **una fila
+por persona**, con la conversión al vuelo del modelo viejo.
+
+**La fila ya no trae cifras que se puedan sumar dos veces.** Se quitaron `realResult` (del
+lote entero) y `myResult` (la parte de Santiago): repetidas en la tarjeta de cada socio,
+invitaban a sumarlas. Todo lo que queda es de esa persona.
+
+**Lo que muestra ahora la pantalla Socios**, por persona y en dos bloques según su papel
+—la distinción que gobierna el plan—:
+
+- **Como socio de igualdad:** en cuántos lotes está · lo que ha puesto · **ganancia ya
+  realizada** · lo puesto en lotes con existencias · **lo que le falta cobrar a
+  compradores**. Más material en gramos y gastos en plata, que ya venían de S4.
+- **Como inversionista del fondo:** lo que te prestó · rendimiento hasta hoy · lo devuelto ·
+  rendimiento pagado · **lo que le debes hoy** · próximo vencimiento, en rojo si se pasó.
+
+**Segundo fallo, encontrado en la verificación real y corregido.** La ganancia realizada
+mostraba **−$300.000** en un lote vendido entero pero **a crédito y sin cobrar**. El
+resultado se calcula sobre la plata recibida (D-045), así que sin cobro el número es
+negativo — y eso no es una pérdida: es plata que no ha entrado. Llamarlo «ganancia
+realizada» mentía en la dirección más peligrosa. Ahora una ganancia solo cuenta como
+realizada cuando el lote se vendió entero **y** se cobró entero; lo demás vive en «le falta
+cobrar». Con prueba propia.
+
+**Lo que NO se hizo, a propósito: «valor del inventario vivo».** El plan lo pedía, pero el
+proyecto **no tiene** ninguna valoración de mercado de las piedras sin vender, y estimarla
+sería inventar una cifra en un informe de dinero. Queda como decisión de negocio para
+Santiago: si quiere verlo, debe decir cómo se valora lo no vendido (por ejemplo, un precio
+por quilate que él fije). Sí está el **costo**, que es dato real.
+
+**Verificación en navegador (modo local, 320 px, sin desbordamiento).** Lote de $1.000.000
+con Ana $300.000 y Beto $200.000 (lo de Santiago, $500.000, se deriva). Venta del lote
+completo por $2.000.000 a crédito → ganancia realizada **$0** y «le falta cobrar» $600.000 y
+$400.000. Registrado el abono completo → ganancia realizada **$300.000** y **$200.000**, y
+lo pendiente baja a $0. Los bloques del fondo muestran a Ana con $5.000.000 prestados y a
+Beto vencido desde el 1 de agosto.
+
+**Cierre:** 1084 pruebas en 73 archivos y build en verde.
+
+**Siguiente:** etapa 7 (separación por socio en Cierre del día y Consolidado), luego Excel
+(8) y nube (9).

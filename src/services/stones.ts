@@ -324,42 +324,82 @@ export function summarizeStonePartnership(lot: StoneLot): StonePartnershipSummar
   };
 }
 
+/**
+ * Lo de UNA persona en los lotes de piedras (D-073 + D-076).
+ *
+ * Todas las cifras son SUYAS. Aquí no vive ninguna cifra del lote entero ni la
+ * parte de Santiago: si un lote se comparte entre tres personas, cada una tiene
+ * su fila y nada se puede sumar dos veces al leerlas seguidas.
+ */
 export interface PartnerStoneResult {
   partnerId: string | null;
   partnerName: string;
-  realResult: number;
-  myResult: number;
-  partnerResult: number;
+  /** En cuántos lotes está. */
   lotCount: number;
+  /** Plata que puso, sumando sus lotes. */
+  contributedCop: number;
+  /** Su parte del resultado de todos sus lotes. Parcial mientras queden existencias. */
+  partnerResult: number;
+  /** Su parte del resultado de los lotes YA agotados: ganancia realizada. */
+  realizedResultCop: number;
+  /** Lo que tiene puesto en lotes que todavía tienen existencias. */
+  openContributionCop: number;
+  /** Su parte de lo que los compradores todavía deben. */
+  pendingFromBuyersCop: number;
 }
 
-function stonePartnerKey(lot: StoneLot): string {
-  if (lot.partnerId) return `id:${lot.partnerId}`;
-  return `name:${lot.partnerName.trim().toLocaleLowerCase('es')}`;
+function partnerShareKey(partnerId: string | null, partnerName: string): string {
+  if (partnerId) return `id:${partnerId}`;
+  return `name:${partnerName.trim().toLocaleLowerCase('es')}`;
 }
 
-/** Resultado real acumulado de los lotes compartidos con cada socio. */
+/**
+ * Los lotes de piedras leídos POR PERSONA. Recorre la lista de socios de cada
+ * lote, así que un lote con tres socios aporta una fila a cada uno con lo suyo.
+ * Un lote guardado con el modelo de socio único se convierte al vuelo.
+ */
 export function stonesByPartner(lots: readonly StoneLot[]): PartnerStoneResult[] {
   const byPartner = new Map<string, PartnerStoneResult>();
   for (const lot of lots) {
-    const split = summarizeStonePartnership(lot);
+    const split = summarizeStoneLotSplit(lot);
     if (!split.shared) continue;
-    const key = stonePartnerKey(lot);
-    const current = byPartner.get(key) ?? {
-      partnerId: lot.partnerId,
-      partnerName: lot.partnerName.trim() || 'Sin nombre',
-      realResult: 0,
-      myResult: 0,
-      partnerResult: 0,
-      lotCount: 0
-    };
-    current.realResult += split.realResult;
-    current.myResult += split.myResult;
-    current.partnerResult += split.partnerResult;
-    current.lotCount += 1;
-    byPartner.set(key, current);
+    const summary = summarizeStoneLot(lot);
+    const base = split.equityBaseCop;
+
+    for (const partner of split.partners) {
+      const key = partnerShareKey(partner.partnerId, partner.partnerName);
+      const current = byPartner.get(key) ?? {
+        partnerId: partner.partnerId,
+        partnerName: partner.partnerName.trim() || 'Sin nombre',
+        lotCount: 0,
+        contributedCop: 0,
+        partnerResult: 0,
+        realizedResultCop: 0,
+        openContributionCop: 0,
+        pendingFromBuyersCop: 0
+      };
+      // Su proporción sale de la base de patrimonio, que excluye el fondo (D-072).
+      const share = base > 0 ? partner.amountCop / base : 0;
+
+      current.lotCount += 1;
+      current.contributedCop += partner.amountCop;
+      current.partnerResult += partner.resultCop;
+      // Realizada solo cuando el lote se vendió ENTERO y ya se COBRÓ entero.
+      // El resultado se calcula sobre la plata recibida (D-045), así que un lote
+      // vendido a crédito y sin cobrar da un número negativo que no es una
+      // pérdida: es plata que todavía no ha entrado. Llamar a eso "ganancia
+      // realizada" sería mentir en la dirección más peligrosa.
+      if (summary.exhausted && summary.buyersDebt === 0) {
+        current.realizedResultCop += partner.resultCop;
+      } else if (!summary.exhausted) {
+        current.openContributionCop += partner.amountCop;
+      }
+      current.pendingFromBuyersCop += Math.round(summary.buyersDebt * share);
+
+      byPartner.set(key, current);
+    }
   }
-  return [...byPartner.values()].sort((a, b) => b.realResult - a.realResult);
+  return [...byPartner.values()].sort((a, b) => b.contributedCop - a.contributedCop);
 }
 
 /** Valida la forma del reparto antes de normalizar para no corregirlo en silencio. */

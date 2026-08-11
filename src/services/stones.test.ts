@@ -257,13 +257,84 @@ describe('sociedades en lotes de piedras (D-053)', () => {
   });
 
   it('acumula por socio las partes de varios lotes', () => {
+    // Una ganancia y una pérdida del mismo tamaño se cancelan. La fila ya no
+    // trae `realResult` ni `myResult`: describían el lote y la parte de
+    // Santiago, y al leer varias filas seguidas se podían sumar dos veces.
     const shares = stonesByPartner([
       compartido({ id: 'a', purchaseValueCop: 100, sales: [venta({ valueCop: 201 })] }),
       compartido({ id: 'b', purchaseValueCop: 201, sales: [venta({ valueCop: 100 })] })
     ]);
     expect(shares).toEqual([expect.objectContaining({
-      partnerId: 'soc-1', realResult: 0, myResult: 0, partnerResult: 0, lotCount: 2
+      partnerId: 'soc-1', partnerResult: 0, lotCount: 2, contributedCop: 120
     })]);
+  });
+
+  it('da una fila por persona cuando el lote tiene varios socios', () => {
+    const shares = stonesByPartner([
+      lote({
+        id: 'multi',
+        purchaseValueCop: 1000000,
+        partners: [
+          { id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 300000 },
+          { id: 'p-2', partnerId: 'soc-2', partnerName: 'Beto', amountCop: 200000 }
+        ],
+        sales: [venta({ valueCop: 2000000 })]
+      })
+    ]);
+    expect(shares.map((share) => share.partnerName)).toEqual(['Ana', 'Beto']);
+    expect(shares.map((share) => share.contributedCop)).toEqual([300000, 200000]);
+    // El lote ganó un millón sobre una base de un millón: cada quien se lleva
+    // exactamente lo que puso.
+    expect(shares.map((share) => share.partnerResult)).toEqual([300000, 200000]);
+    expect(shares.every((share) => share.lotCount === 1)).toBe(true);
+  });
+
+  it('separa la ganancia realizada de lo que sigue metido en lotes con existencias', () => {
+    const shares = stonesByPartner([
+      // Agotado: se vendieron las 5 piedras y los 5 quilates.
+      compartido({
+        id: 'cerrado',
+        carats: 5,
+        quantity: 5,
+        purchaseValueCop: 1000000,
+        sales: [venta({ carats: 5, quantity: 5, valueCop: 2000000 })]
+      }),
+      // Con existencias: nada vendido todavía.
+      compartido({ id: 'abierto', carats: 5, quantity: 5, purchaseValueCop: 500000, sales: [] })
+    ]);
+    const socio = shares[0];
+    expect(socio.lotCount).toBe(2);
+    // 40% de la ganancia de un millón del lote ya cerrado.
+    expect(socio.realizedResultCop).toBe(400000);
+    // 40% de lo que costó el lote que aún tiene piedras.
+    expect(socio.openContributionCop).toBe(200000);
+  });
+
+  it('un lote vendido entero pero sin cobrar no cuenta como ganancia realizada', () => {
+    // El resultado se calcula sobre la plata recibida (D-045). Sin cobrar, el
+    // número es negativo, y eso NO es una pérdida: es plata que no ha entrado.
+    const shares = stonesByPartner([
+      compartido({
+        id: 'a-credito',
+        carats: 5,
+        quantity: 5,
+        purchaseValueCop: 1000000,
+        sales: [
+          venta({
+            carats: 5,
+            quantity: 5,
+            valueCop: 2000000,
+            onCredit: true,
+            dueDate: '2026-09-10',
+            payments: []
+          })
+        ]
+      })
+    ]);
+    const socio = shares[0];
+    expect(socio.realizedResultCop).toBe(0);
+    // Lo que le falta cobrar sí aparece: 40% de los dos millones.
+    expect(socio.pendingFromBuyersCop).toBe(800000);
   });
 });
 
