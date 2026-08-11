@@ -1727,7 +1727,14 @@ migraciones en cada `npm test` y falla si alguien reescribe el patrón débil o 
 escritura directa. Se comprobó que la prueba sirve: retirando la migración del arreglo,
 **3 de sus 4 comprobaciones fallan**.
 
-**PENDIENTE Y BLOQUEANTE:** este mismo bloque debe aplicarse a **Producción**, donde el
-agujero sigue abierto. Requiere autorización expresa y separada de Santiago.
+**CERRADO TAMBIÉN EN PRODUCCIÓN (2026-08-10).** Santiago autorizó y aplicó el bloque en
+`wrvokfzrcmmlzekudypu`. Las seis tablas que existen allí devuelven exactamente `SELECT`
+(`fund_contributions` todavía no existe en Producción: el bloque la salta sola). El
+agujero queda cerrado en los dos servidores.
+
+**Raíz corregida:** la migración de la etapa 9 traía el mismo patrón débil y habría
+reabierto el hueco al aplicarse a Producción. Ya usa `revoke all`. Además,
+`migrations.test.ts` **exigía** ese patrón débil —la prueba fijaba el error como si fuera
+lo correcto— y ahora exige lo contrario y rechaza el patrón viejo.
 
 **Cierre:** 1120 pruebas en 75 archivos y build en verde.
