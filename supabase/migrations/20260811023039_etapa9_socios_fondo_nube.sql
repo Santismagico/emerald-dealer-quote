@@ -33,8 +33,11 @@ using (exists (
     and membership.user_id = (select auth.uid())
 ));
 
-revoke all on table public.fund_contributions from anon;
-revoke insert, update, delete on table public.fund_contributions from authenticated;
+-- `revoke all`, nunca `revoke insert, update, delete`: esa forma deja intactos
+-- TRUNCATE, REFERENCES y TRIGGER, que Supabase concede por defecto en cada tabla
+-- nueva. TRUNCATE no respeta Row Level Security y vaciaria la tabla para TODAS
+-- las joyerias (hallazgo del 2026-08-10).
+revoke all on table public.fund_contributions from anon, authenticated;
 grant select on table public.fund_contributions to authenticated;
 grant select, insert, update, delete on table public.fund_contributions to service_role;
 

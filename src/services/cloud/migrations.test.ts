@@ -252,7 +252,13 @@ describe('etapa 9: socios y fondo en la nube', () => {
     expect(sociosFundCloud).toContain('primary key (organization_id, id)')
     expect(sociosFundCloud).toContain('create index if not exists fund_contributions_org_updated')
     expect(sociosFundCloud).not.toMatch(/drop\s+(table|column)/)
-    expect(sociosFundCloud).not.toMatch(/truncate/)
+    // Se miran las SENTENCIAS, no los comentarios: el bloque explica por que
+    // TRUNCATE es peligroso, y esa explicacion no debe hacer fallar la prueba.
+    const sentencias = sociosFundCloud
+      .split('\n')
+      .filter((linea) => !linea.trim().startsWith('--'))
+      .join('\n')
+    expect(sentencias).not.toMatch(/truncate/i)
     for (const table of ['stone_lots', 'material_lots', 'expenses']) {
       expect(sociosFundCloud).not.toMatch(new RegExp(`delete\\s+from\\s+public\\.${table}`))
     }
@@ -264,13 +270,18 @@ describe('etapa 9: socios y fondo en la nube', () => {
     )
     expect(sociosFundCloud).toContain('create policy fund_contributions_select_member')
     expect(sociosFundCloud).toContain('membership.user_id = (select auth.uid())')
+    // Antes esta prueba exigia `revoke insert, update, delete`, que era justo el
+    // patron que dejaba TRUNCATE abierto: la prueba fijaba el error como si fuera
+    // lo correcto. Ahora exige `revoke all`, que es lo unico que cierra de verdad.
     expect(sociosFundCloud).toContain(
-      'revoke insert, update, delete on table public.fund_contributions from authenticated'
+      'revoke all on table public.fund_contributions from anon, authenticated'
+    )
+    expect(sociosFundCloud).not.toMatch(
+      /revoke\s+insert,\s*update,\s*delete\s+on\s+table\s+public\.fund_contributions/
     )
     expect(sociosFundCloud).toContain(
       'grant select on table public.fund_contributions to authenticated'
     )
-    expect(sociosFundCloud).toContain('revoke all on table public.fund_contributions from anon')
     expect(sociosFundCloud).not.toContain('policy fund_contributions_insert')
     expect(sociosFundCloud).not.toContain('policy fund_contributions_update')
     expect(sociosFundCloud).not.toContain('policy fund_contributions_delete')
