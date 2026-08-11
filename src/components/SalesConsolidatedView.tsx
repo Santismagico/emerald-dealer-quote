@@ -257,7 +257,9 @@ export function SalesConsolidatedView() {
             buildSalesExcelWorkbook(analytics, {
               jewelryName: store.settings.jewelryName,
               periodLabel: label,
-              consolidated: true
+              consolidated: true,
+              fundContributions: store.fundContributions,
+              fundAsOfISO: todayISO()
             }),
             `consolidado-ventas-${analytics.range.start}-${analytics.range.end}.xlsx`
           ).then(() => {

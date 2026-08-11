@@ -1,5 +1,8 @@
 import type { Cell, Row, SheetData } from 'write-excel-file/browser';
+import type { FundContribution } from '../types';
 import type { BusinessReport } from './dailyReport';
+import { contributionBalance, fundByPerson, fundTotals } from './fund';
+import { splitByContribution } from './partnership';
 import type { SalesAnalytics } from './salesAnalytics';
 
 const EMERALD = '#0F5B46';
@@ -30,14 +33,21 @@ export interface ExcelWorkbookDefinition {
   sheets: ExcelSheetDefinition[];
 }
 
-export interface CloseWorkbookOptions {
+interface FundWorkbookOptions {
+  /** Si se entrega la lista, el libro incluye siempre la hoja Fondo, incluso vacía. */
+  fundContributions?: readonly FundContribution[];
+  /** Fecha de la foto del fondo. No se toma del reloj dentro de este servicio puro. */
+  fundAsOfISO?: string;
+}
+
+export interface CloseWorkbookOptions extends FundWorkbookOptions {
   jewelryName: string;
   mode: 'dia' | 'mes';
   period: string;
   periodLabel: string;
 }
 
-export interface SalesWorkbookOptions {
+export interface SalesWorkbookOptions extends FundWorkbookOptions {
   jewelryName: string;
   periodLabel: string;
   consolidated?: boolean;
@@ -229,6 +239,399 @@ function makeSheet(
     dateFormat: DATE_FORMAT,
     ...(options.landscape ? { orientation: 'landscape' as const } : {})
   };
+}
+
+function visiblePartnerName(value: string): string {
+  return value.trim() || 'Socio sin nombre';
+}
+
+interface PartnerColumn {
+  key: string;
+  label: string;
+}
+
+function partnerKey(partner: { partnerId: string | null; partnerName: string }): string {
+  return partner.partnerId
+    ? `id:${partner.partnerId}`
+    : `name:${visiblePartnerName(partner.partnerName).toLocaleLowerCase('es')}`;
+}
+
+function partnerColumnsFrom(
+  partners: readonly { partnerId: string | null; partnerName: string }[]
+): PartnerColumn[] {
+  const byKey = new Map<string, string>();
+  for (const partner of partners) {
+    const key = partnerKey(partner);
+    if (!byKey.has(key)) byKey.set(key, visiblePartnerName(partner.partnerName));
+  }
+  const sorted = [...byKey.entries()]
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es') || a.key.localeCompare(b.key));
+  const labelCounts = new Map<string, number>();
+  for (const column of sorted) {
+    const key = column.label.toLocaleLowerCase('es');
+    labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
+  }
+  const labelIndexes = new Map<string, number>();
+  return sorted.map((column) => {
+    const key = column.label.toLocaleLowerCase('es');
+    if ((labelCounts.get(key) ?? 0) <= 1) return column;
+    const index = (labelIndexes.get(key) ?? 0) + 1;
+    labelIndexes.set(key, index);
+    return { ...column, label: `${column.label} (${index})` };
+  });
+}
+
+function closePartnerColumns(report: BusinessReport): PartnerColumn[] {
+  return partnerColumnsFrom([
+    ...report.stoneSales.flatMap((sale) => sale.partnerResults),
+    ...report.expenses.flatMap((expense) => expense.partners)
+  ]);
+}
+
+function amountForPartnerColumn(
+  rows: readonly {
+    partnerId: string | null;
+    partnerName: string;
+    amountCop?: number;
+    profitCop?: number;
+  }[],
+  column: PartnerColumn
+): number {
+  return rows.reduce((sum, row) => {
+    if (partnerKey(row) !== column.key) return sum;
+    return sum + (row.amountCop ?? row.profitCop ?? 0);
+  }, 0);
+}
+
+function buildClosePartnersData(
+  report: BusinessReport,
+  options: CloseWorkbookOptions,
+  partnerColumns: readonly PartnerColumn[]
+): SheetData {
+  const columns = 4 + partnerColumns.length;
+  const periodFormat = options.mode === 'mes' ? 'mmmm yyyy' : DATE_FORMAT;
+  const data: SheetData = [
+    ...metadataRows(closeTitle(options), columns, options.periodLabel, options.period, periodFormat)
+  ];
+  const headers = ['Movimiento', 'Tipo', 'Total COP', 'Tú', ...partnerColumns.map((item) => item.label)];
+
+  if (report.stoneSales.length > 0) {
+    data.push(sectionRow('Resultado de ventas de piedras', columns), headerRow(headers));
+    for (const sale of report.stoneSales) {
+      data.push([
+        sale.lotName,
+        'Ganancia de la venta',
+        moneyCell(sale.profitCop),
+        moneyCell(sale.myProfitCop),
+        ...partnerColumns.map((column) => moneyCell(amountForPartnerColumn(sale.partnerResults, column)))
+      ]);
+    }
+    data.push(
+      totalRow(
+        'TOTAL RESULTADO DE VENTAS',
+        [
+          null,
+          moneyCell(report.stoneSales.reduce((sum, sale) => sum + sale.profitCop, 0)),
+          moneyCell(report.stoneSales.reduce((sum, sale) => sum + sale.myProfitCop, 0)),
+          ...partnerColumns.map((column) =>
+            moneyCell(
+              report.stoneSales.reduce(
+                (sum, sale) => sum + amountForPartnerColumn(sale.partnerResults, column),
+                0
+              )
+            )
+          )
+        ],
+        columns
+      )
+    );
+  }
+
+  if (report.expenses.some((expense) => expense.partners.length > 0)) {
+    if (data.length > 4) data.push(Array<Cell>(columns).fill(null));
+    const sharedExpenses = report.expenses.filter((expense) => expense.partners.length > 0);
+    data.push(sectionRow('Aportes a gastos compartidos', columns), headerRow(headers));
+    for (const expense of sharedExpenses) {
+      data.push([
+        expense.concept,
+        'Aporte al gasto',
+        moneyCell(expense.amountCop),
+        moneyCell(expense.myAmountCop),
+        ...partnerColumns.map((column) => moneyCell(amountForPartnerColumn(expense.partners, column)))
+      ]);
+    }
+    data.push(
+      totalRow(
+        'TOTAL GASTOS COMPARTIDOS',
+        [
+          null,
+          moneyCell(sharedExpenses.reduce((sum, expense) => sum + expense.amountCop, 0)),
+          moneyCell(sharedExpenses.reduce((sum, expense) => sum + expense.myAmountCop, 0)),
+          ...partnerColumns.map((column) =>
+            moneyCell(
+              sharedExpenses.reduce(
+                (sum, expense) => sum + amountForPartnerColumn(expense.partners, column),
+                0
+              )
+            )
+          )
+        ],
+        columns
+      )
+    );
+  }
+
+  return data;
+}
+
+function salesPartnerColumns(analytics: SalesAnalytics): PartnerColumn[] {
+  return partnerColumnsFrom(analytics.sales.flatMap((sale) => sale.partners));
+}
+
+function buildSalesPartnersData(
+  analytics: SalesAnalytics,
+  options: SalesWorkbookOptions,
+  partnerColumns: readonly PartnerColumn[]
+): SheetData {
+  const sharedSales = analytics.sales.filter((sale) => sale.partners.length > 0);
+  const columns = 4 + partnerColumns.length;
+  const headers = ['Fecha', 'Producto', 'Ganancia total COP', 'Tú', ...partnerColumns.map((item) => item.label)];
+  const owner = analytics.partnerships.find((person) => person.isOwner);
+  const peopleByKey = new Map(analytics.partnerships.map((person) => [person.key, person]));
+  const totalInvested = analytics.partnerships.reduce((sum, person) => sum + person.investedCop, 0);
+  const totalProfit = analytics.partnerships.reduce((sum, person) => sum + person.profitCop, 0);
+  const data: SheetData = [
+    ...metadataRows(salesTitle(options), columns, options.periodLabel, analytics.range.start),
+    sectionRow('Resumen por persona', columns),
+    headerRow(['Concepto', 'Período', 'Total COP', 'Tú', ...partnerColumns.map((item) => item.label)]),
+    [
+      'Plata puesta en las ventas',
+      options.periodLabel,
+      moneyCell(totalInvested),
+      moneyCell(owner?.investedCop ?? 0),
+      ...partnerColumns.map((column) => moneyCell(peopleByKey.get(column.key)?.investedCop ?? 0))
+    ],
+    [
+      'Ganancia',
+      options.periodLabel,
+      moneyCell(totalProfit),
+      moneyCell(owner?.profitCop ?? 0),
+      ...partnerColumns.map((column) => moneyCell(peopleByKey.get(column.key)?.profitCop ?? 0))
+    ],
+    totalRow(
+      'TOTAL GANANCIA POR PERSONA',
+      [
+        null,
+        moneyCell(totalProfit),
+        moneyCell(owner?.profitCop ?? 0),
+        ...partnerColumns.map((column) => moneyCell(peopleByKey.get(column.key)?.profitCop ?? 0))
+      ],
+      columns
+    ),
+    Array<Cell>(columns).fill(null),
+    sectionRow('Resultado por venta', columns),
+    headerRow(headers)
+  ];
+
+  for (const sale of sharedSales) {
+    const split = splitByContribution({
+      totalCostCop: sale.equityBaseCop,
+      realResultCop: sale.profitCop,
+      partners: sale.partners
+    });
+    const partnerResults = new Map(split.partners.map((partner) => [partnerKey(partner), partner.resultCop]));
+    data.push([
+      dateCell(sale.date),
+      sale.productType || sale.kind,
+      moneyCell(sale.profitCop),
+      moneyCell(split.myResultCop),
+      ...partnerColumns.map((column) => moneyCell(partnerResults.get(column.key) ?? 0))
+    ]);
+  }
+  data.push(
+    totalRow(
+      'TOTAL RESULTADO POR VENTA',
+      [
+        null,
+        moneyCell(totalProfit),
+        moneyCell(owner?.profitCop ?? 0),
+        ...partnerColumns.map((column) => moneyCell(peopleByKey.get(column.key)?.profitCop ?? 0))
+      ],
+      columns
+    )
+  );
+  return data;
+}
+
+function fundStatus(owedCop: number, overdue: boolean): string {
+  if (owedCop <= 0) return 'Saldado';
+  return overdue ? 'Vencido' : 'Abierto';
+}
+
+function buildFundData(
+  contributions: readonly FundContribution[],
+  asOfISO: string,
+  jewelryName: string
+): SheetData {
+  const columns = 13;
+  const people = fundByPerson(contributions, asOfISO);
+  const totals = fundTotals(contributions, asOfISO);
+  const balances = contributions.map((contribution) => ({
+    contribution,
+    balance: contributionBalance(contribution, asOfISO)
+  }));
+  const personBalanceKey = (personId: string | null, personName: string) =>
+    personId ? `id:${personId}` : `name:${visiblePartnerName(personName).toLocaleLowerCase('es')}`;
+  const outstandingByPerson = new Map<string, { capitalCop: number; returnCop: number }>();
+  for (const { contribution, balance } of balances) {
+    const key = personBalanceKey(contribution.personId, contribution.personName);
+    const current = outstandingByPerson.get(key) ?? { capitalCop: 0, returnCop: 0 };
+    current.capitalCop += balance.capitalOutstandingCop;
+    current.returnCop += balance.returnOutstandingCop;
+    outstandingByPerson.set(key, current);
+  }
+  const data: SheetData = [
+    ...metadataRows(
+      `FONDO DE INVERSIÓN · ${jewelryName.trim() || 'Emerald Dealer'}`,
+      columns,
+      'Foto actual del fondo',
+      asOfISO
+    ),
+    sectionRow('Fondo por persona', columns),
+    headerRow([
+      'Persona',
+      'Aportes',
+      'Abiertos',
+      'Capital COP',
+      'Rendimiento COP',
+      'Capital devuelto COP',
+      'Rendimiento pagado COP',
+      'Capital pendiente COP',
+      'Rendimiento pendiente COP',
+      'Debes hoy COP',
+      'Próximo vencimiento',
+      'Estado',
+      'Observación'
+    ])
+  ];
+
+  if (people.length === 0) {
+    data.push(spanRow(textCell('Sin aportes registrados', { textColor: GRAY_MUTED }), columns));
+  } else {
+    for (const person of people) {
+      const outstanding = outstandingByPerson.get(personBalanceKey(person.personId, person.personName));
+      data.push([
+        person.personName,
+        numberCell(person.contributionCount, '0'),
+        numberCell(person.openCount, '0'),
+        moneyCell(person.capitalCop),
+        moneyCell(person.accruedReturnCop),
+        moneyCell(person.capitalRepaidCop),
+        moneyCell(person.returnPaidCop),
+        moneyCell(outstanding?.capitalCop ?? 0),
+        moneyCell(outstanding?.returnCop ?? 0),
+        moneyCell(person.owedCop),
+        person.nextDueDate ? dateCell(person.nextDueDate) : null,
+        fundStatus(person.owedCop, person.overdue),
+        person.overdue ? 'Plazo vencido' : ''
+      ]);
+    }
+  }
+  data.push(
+    totalRow(
+      'TOTAL FONDO',
+      [
+        numberCell(totals.contributionCount, '0'),
+        numberCell(people.reduce((sum, person) => sum + person.openCount, 0), '0'),
+        moneyCell(totals.capitalCop),
+        moneyCell(totals.accruedReturnCop),
+        moneyCell(totals.capitalRepaidCop),
+        moneyCell(totals.returnPaidCop),
+        moneyCell(totals.capitalCop - totals.capitalRepaidCop),
+        moneyCell(totals.accruedReturnCop - totals.returnPaidCop),
+        moneyCell(totals.owedCop),
+        null,
+        null,
+        ''
+      ],
+      columns
+    ),
+    Array<Cell>(columns).fill(null),
+    sectionRow('Detalle de aportes', columns),
+    headerRow([
+      'Persona',
+      'Fecha del aporte',
+      'Trato',
+      'Tasa mensual %',
+      'Total pactado COP',
+      'Capital COP',
+      'Rendimiento COP',
+      'Capital devuelto COP',
+      'Rendimiento pagado COP',
+      'Debes hoy COP',
+      'Vencimiento',
+      'Estado',
+      'Notas'
+    ])
+  );
+
+  if (balances.length === 0) {
+    data.push(spanRow(textCell('Sin aportes registrados', { textColor: GRAY_MUTED }), columns));
+  } else {
+    for (const { contribution, balance } of balances) {
+      const deal = contribution.returnKind === 'mensual'
+        ? `Mensual · ${contribution.monthlyRatePercent ?? 0}%`
+        : 'Total fijo pactado';
+      data.push([
+        balance.personName,
+        dateCell(contribution.date),
+        deal,
+        decimalCell(contribution.returnKind === 'mensual' ? contribution.monthlyRatePercent : null),
+        moneyCell(contribution.returnKind === 'fijo' ? contribution.agreedTotalCop : null),
+        moneyCell(balance.capitalCop),
+        moneyCell(balance.accruedReturnCop),
+        moneyCell(balance.capitalRepaidCop),
+        moneyCell(balance.returnPaidCop),
+        moneyCell(balance.owedCop),
+        balance.dueDate ? dateCell(balance.dueDate) : null,
+        fundStatus(balance.owedCop, balance.overdue),
+        contribution.notes
+      ]);
+    }
+  }
+
+  data.push(
+    Array<Cell>(columns).fill(null),
+    sectionRow('Historial de pagos', columns),
+    headerRow(['Persona', 'Fecha del aporte', 'Fecha del pago', 'Tipo', 'Monto COP', 'Notas'])
+  );
+  const payments = contributions.flatMap((contribution) =>
+    contribution.payments.map((payment) => ({ contribution, payment }))
+  );
+  if (payments.length === 0) {
+    data.push(spanRow(textCell('Sin pagos registrados', { textColor: GRAY_MUTED }), columns));
+  } else {
+    for (const { contribution, payment } of payments) {
+      data.push([
+        contribution.personName,
+        dateCell(contribution.date),
+        dateCell(payment.date),
+        payment.kind === 'capital' ? 'Capital' : 'Rendimiento',
+        moneyCell(payment.amountCop),
+        payment.notes
+      ]);
+    }
+  }
+  return data;
+}
+
+function fundAsOfForClose(options: CloseWorkbookOptions): string {
+  if (options.fundAsOfISO) return options.fundAsOfISO;
+  if (options.mode === 'dia') return options.period;
+  const match = /^(\d{4})-(\d{2})$/.exec(options.period);
+  if (!match) return options.period;
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]), 0)).toISOString().slice(0, 10);
 }
 
 function closeTitle(options: CloseWorkbookOptions): string {
@@ -431,6 +834,21 @@ export function buildCloseExcelWorkbook(
   if (detail.length > 0) {
     sheets.push(makeSheet('Detalle', buildCloseDetailData(detail, options), { landscape: true }));
   }
+  const partnerColumns = closePartnerColumns(report);
+  if (partnerColumns.length > 0) {
+    sheets.push(
+      makeSheet('Socios', buildClosePartnersData(report, options, partnerColumns), { landscape: true })
+    );
+  }
+  if (options.fundContributions !== undefined) {
+    sheets.push(
+      makeSheet(
+        'Fondo',
+        buildFundData(options.fundContributions, fundAsOfForClose(options), options.jewelryName),
+        { landscape: true }
+      )
+    );
+  }
   return { sheets };
 }
 
@@ -531,7 +949,7 @@ function salesDetailData(analytics: SalesAnalytics, options: SalesWorkbookOption
       'Producto',
       'Contraparte',
       'Lote',
-      'Socio',
+      'Socios del lote',
       'Vendido COP',
       'Costo COP',
       'Ganancia COP',
@@ -548,7 +966,9 @@ function salesDetailData(analytics: SalesAnalytics, options: SalesWorkbookOption
       sale.productType || 'Sin registrar',
       sale.counterparty || 'Sin registrar',
       sale.lotId || 'Sin registrar',
-      sale.partnerName || 'Sin registrar',
+      sale.partners.length > 0
+        ? sale.partners.map((partner) => visiblePartnerName(partner.partnerName)).join(' · ')
+        : 'Propio',
       moneyCell(sale.amountCop),
       moneyCell(sale.attributedCostCop),
       moneyCell(sale.profitCop),
@@ -588,6 +1008,27 @@ export function buildSalesExcelWorkbook(
   const sheets = [makeSheet('Resumen', salesSummaryData(analytics, options))];
   if (analytics.sales.length > 0) {
     sheets.push(makeSheet('Detalle', salesDetailData(analytics, options), { landscape: true }));
+  }
+  const partnerColumns = salesPartnerColumns(analytics);
+  if (partnerColumns.length > 0) {
+    sheets.push(
+      makeSheet('Socios', buildSalesPartnersData(analytics, options, partnerColumns), {
+        landscape: true
+      })
+    );
+  }
+  if (options.fundContributions !== undefined) {
+    sheets.push(
+      makeSheet(
+        'Fondo',
+        buildFundData(
+          options.fundContributions,
+          options.fundAsOfISO ?? analytics.range.end,
+          options.jewelryName
+        ),
+        { landscape: true }
+      )
+    );
   }
   return { sheets };
 }

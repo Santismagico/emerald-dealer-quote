@@ -347,7 +347,9 @@ export function SalesDashboardView() {
           void downloadExcelWorkbook(
             buildSalesExcelWorkbook(analytics, {
               jewelryName: store.settings.jewelryName,
-              periodLabel: label
+              periodLabel: label,
+              fundContributions: store.fundContributions,
+              fundAsOfISO: todayISO()
             }),
             `ventas-ganancias-${analytics.range.start}-${analytics.range.end}.xlsx`
           ).then(() => {

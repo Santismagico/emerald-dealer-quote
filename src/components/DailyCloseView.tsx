@@ -96,7 +96,9 @@ export function DailyCloseView({
           jewelryName: store.settings.jewelryName,
           mode,
           period,
-          periodLabel
+          periodLabel,
+          fundContributions: store.fundContributions,
+          fundAsOfISO: today
         }),
         `cierre-${mode === 'dia' ? 'dia' : 'mes'}-${period}.xlsx`
       );

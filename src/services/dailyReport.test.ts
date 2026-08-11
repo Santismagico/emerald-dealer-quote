@@ -105,8 +105,8 @@ describe('cierre del día: qué entra en el reporte', () => {
     expect(sale.profitCop).toBe(101);
     expect(sale.myProfitCop).toBe(35);
     expect(sale.partnerResults).toEqual([
-      { partnerName: 'Ana', profitCop: 33 },
-      { partnerName: 'Beto', profitCop: 33 }
+      { partnerId: 'socio-ana', partnerName: 'Ana', profitCop: 33 },
+      { partnerId: 'socio-beto', partnerName: 'Beto', profitCop: 33 }
     ]);
     expect(
       sale.myProfitCop +
@@ -281,8 +281,8 @@ describe('gastos en los cierres (B1)', () => {
     };
     const day = buildDailyReport(DAY, [], [], [], [compartido]);
     expect(day.expenses[0].partners).toEqual([
-      { partnerName: 'Ana', amountCop: 300000 },
-      { partnerName: 'Beto', amountCop: 200000 }
+      { partnerId: 'soc-1', partnerName: 'Ana', amountCop: 300000 },
+      { partnerId: 'soc-2', partnerName: 'Beto', amountCop: 200000 }
     ]);
     // Lo propio se deriva: el millón menos lo que pusieron los dos.
     expect(day.expenses[0].myAmountCop).toBe(500000);

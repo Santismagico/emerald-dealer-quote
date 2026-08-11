@@ -61,7 +61,7 @@ export interface DailyStoneSale {
   /** Parte de la ganancia que le corresponde a Santiago, incluido el residuo. */
   myProfitCop: number;
   /** Parte de la ganancia de esta venta que le corresponde a cada socio. */
-  partnerResults: { partnerName: string; profitCop: number }[];
+  partnerResults: { partnerId: string | null; partnerName: string; profitCop: number }[];
 }
 
 export interface DailySupplierPayment {
@@ -150,7 +150,7 @@ export interface DailyExpense {
   /** Lo que pusieron entre todos los socios. */
   partnerAmountCop: number;
   /** Quiénes lo compartieron y cuánto puso cada uno (D-073). */
-  partners: { partnerName: string; amountCop: number }[];
+  partners: { partnerId: string | null; partnerName: string; amountCop: number }[];
   notes: string;
 }
 
@@ -312,6 +312,7 @@ function buildBusinessReport(
           myProfitCop: split?.myResultCop ?? profitCop,
           partnerResults:
             split?.partners.map((partner) => ({
+              partnerId: partner.partnerId,
               partnerName: partner.partnerName.trim() || 'Socio sin nombre',
               profitCop: partner.resultCop
             })) ?? []
@@ -454,6 +455,7 @@ function buildBusinessReport(
         myAmountCop: split.myAmountCop,
         partnerAmountCop: split.partnerAmountCop,
         partners: expensePartners(expense).map((partner) => ({
+          partnerId: partner.partnerId,
           partnerName: partner.partnerName.trim() || 'socio',
           amountCop: partner.amountCop
         })),
