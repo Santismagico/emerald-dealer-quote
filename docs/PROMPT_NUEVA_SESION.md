@@ -48,12 +48,13 @@ ahora vive aparte, en la rama, y **no** está publicado.
 | `emerald-dealer-quote` | `main` = `d3e5af4` | Las **7 joyerías del piloto**. 100% local, sin servidor |
 | `emerald-dealer-app` | compilado de `codex/fase2-nube@0aca89e` | **Solo Santiago**, con nube |
 
-- Rama de trabajo `codex/fase2-nube`, **15 commits por delante de `main`**, sin publicar.
-- **1081 pruebas en 73 archivos**, `npm run build` en verde.
+- Rama de trabajo `codex/fase2-nube`, sin publicar. No calcular su estado desde la copia de
+  OneDrive: verificarlo en `C:\Dev\emerald-dealer`.
+- **1091 pruebas en 73 archivos**, `npm run build` en verde.
 - Punto de retorno si algo sale mal en vivo: `main` → `0a86e5a`; el enlace de nube →
   `762dc7c`.
 
-## Trabajo en curso: **Socios y fondo** — 5 de 9 etapas
+## Trabajo en curso: **Socios y fondo** — 7 de 9 etapas
 
 Nació de lo que Santiago pidió el 2026-08-06: poder repartir una compra entre **varios**
 socios y que la app **discrimine a cada uno**, ver eso también en Dinero, tener un informe
@@ -67,15 +68,20 @@ editable y con seguimiento.
 | ✅ | 3. Piedras con varios socios | Hecha |
 | ✅ | 4. Material (en **gramos**) y Gastos (en plata) | Hecha 2026-08-10 |
 | ✅ | 5. El fondo, persona por persona (`FundView`) | Hecha 2026-08-10 |
-| ⬜ | 6. Informe por socio completo (§6 del plan) | **Sigue** |
-| ⬜ | 7. Separación por socio en Cierre del día y Consolidado | Falta |
+| ✅ | 6. Informe por socio completo (§6 del plan) | Hecha y reforzada 2026-08-10 |
+| ✅ | 7. Socios en Cierre del día, Cierre mensual y Consolidado | Hecha y reforzada 2026-08-10 |
 | ⬜ | 8. Excel | Falta |
 | ⬜ | 9. Nube: migración SQL, RPC, RLS y sincronización | Falta, va al final |
 
-**Lo que hoy muestra la pantalla Socios son dos líneas básicas** (material y gastos). La
-etapa 6 debe añadir, por persona: capital puesto, rendimiento, saldo que se le debe,
-próximo vencimiento, **costo y valor de su inventario vivo**, ganancias realizadas y su
-parte pendiente de cobro a compradores.
+La pantalla Socios ya separa, persona por persona, el fondo, los lotes, el material, los
+gastos, la ganancia cobrada y la plata pendiente de cobro. Muestra el **costo real** del
+inventario vivo. El **valor estimado de mercado** no se muestra porque todavía falta que
+Santiago defina cómo valorar una piedra no vendida; no se debe inventar esa cifra.
+
+La etapa 7 quedó reforzada después de una auditoría independiente: el Consolidado encuentra
+a cualquiera de los socios de un lote, los pesos se reparten sin perder residuos, la deuda
+pendiente nunca se infla al dividirla y los cierres muestran el resultado de cada venta de
+piedras persona por persona.
 
 **Límite consciente y anotado:** todo lo de socios y el fondo **vive solo en el
 dispositivo** hasta la etapa 9. No hay tabla en el servidor; encolarlo sin tabla haría
@@ -154,5 +160,5 @@ Revisa siempre a **320 y 375 px** que no haya desbordamiento horizontal.
 
 ## Tarea de esta sesión
 
-[Santiago: escribe aquí qué necesitas. Por ejemplo: "sigamos con la etapa 6", "hay una
+[Santiago: escribe aquí qué necesitas. Por ejemplo: "sigamos con la etapa 8", "hay una
 corrección que dictar", o "¿en qué vamos?"]

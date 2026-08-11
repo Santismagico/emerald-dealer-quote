@@ -277,11 +277,14 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
       cuando socios y fondo se pasan del costo y bloquea el guardado.
       `validatePartnersAndFunding` en el motor puro. La tarjeta y el detalle del lote
       nombran a todos los socios, no a uno.
-- [ ] S4 — Material y gastos, mismo patrón.
-- [ ] S5 — El fondo, **por persona** (D-076): aportes, edición, pagos y saldo de cada
+- [x] S4 — Material y gastos, mismo patrón. ✅ COMPLETADA 2026-08-10.
+- [x] S5 — El fondo, **por persona** (D-076): aportes, edición, pagos y saldo de cada
       inversionista. El total va al pie, nunca al encabezado.
-- [ ] S6 — Informe por socio en la pantalla Socios (`PLAN_SOCIOS_Y_FONDO.md` §6).
-- [ ] S7 — Dinero: separación por socio en Cierre del día y Consolidado.
+- [x] S6 — Informe por socio en la pantalla Socios (`PLAN_SOCIOS_Y_FONDO.md` §6).
+      ✅ COMPLETADA 2026-08-10 con costo real del inventario. El valor estimado de mercado
+      espera una regla de valoración de Santiago.
+- [x] S7 — Dinero: separación por socio en Cierre del día, Cierre mensual y Consolidado.
+      ✅ COMPLETADA y reforzada 2026-08-10.
 - [ ] S8 — Excel: columnas por socio y hoja del fondo.
 - [ ] S9 — Nube: migración SQL, RPC, RLS y sincronización. **Va al final.** Se aplica a
       Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres,

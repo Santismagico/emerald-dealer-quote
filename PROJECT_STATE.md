@@ -1596,3 +1596,29 @@ $2.000.000 repartido nombre por nombre.
 **Siguiente:** etapa 8 (Excel por socio) y etapa 9 (nube: migración SQL, RPC, RLS y
 sincronización de socios y fondo). Con S9 pendiente, socios y fondo siguen viviendo solo en
 el dispositivo.
+
+### Auditoría independiente y cierre reforzado S6/S7 — 2026-08-10
+
+Antes de corregir se creó y subió el punto seguro
+`punto-seguro-antes-correcciones-s7-2026-08-10` sobre `8acc56b`. La revisión encontró cuatro
+defectos reales que no cambiaban las decisiones de Santiago:
+
+- El filtro del Consolidado todavía miraba el socio único del formato anterior.
+- Los repartos con pesos indivisibles podían dejar un residuo sin asignar.
+- Al dividir una deuda pequeña entre varios socios, el total mostrado podía superar la
+  deuda real.
+- Los cierres separaban por persona los gastos compartidos, pero no el resultado de cada
+  venta de piedras.
+
+Se corrigieron en cuatro entregas pequeñas: registro previo `99221af`, Consolidado
+`df54fad`, cobros pendientes `36d77b0` y cierres `c5f49ec`. El residuo de un reparto queda
+del lado de Santiago según D-073; ninguna suma inventa ni pierde pesos.
+
+**Verificación final:** 1091 pruebas en 73 archivos y build en verde. Revisión real en
+navegador a 320 y 375 px: Cierre del día, Cierre mensual y Consolidado abren sin desborde,
+sin aviso de error y sin errores de consola.
+
+**No publicado:** todo permanece en `codex/fase2-nube`. `main`, el flujo de publicación y
+Supabase no se tocaron. El siguiente trabajo es S8 (Excel); S9 (Nube) sigue al final. El
+valor estimado de mercado del inventario vivo continúa esperando una regla de negocio de
+Santiago; la app sí muestra su costo real.

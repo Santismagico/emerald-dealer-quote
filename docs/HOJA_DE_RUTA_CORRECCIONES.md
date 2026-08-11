@@ -230,10 +230,10 @@ Estados: pendiente → en curso (agente) → verificada → publicada._
 | E9 | E | Hacer inequívoca la elección Contado/A crédito y mejorar contraste, estado y accesibilidad de todos los interruptores | ui, StonesView, index.css | publicada solo en emerald-dealer-app | fuente 0aca89e; sitio 762dc7c |
 | R2-1 | F+E | Unificar Inicio y barra; mover Agenda a Otras cosas y reunir Panel, cierres, Consolidado y Gastos dentro de Dinero | App, HomeView, MoneyView, SettingsView, home.ts | verificada; no publicada | este commit |
 | R2-2 | F+E | Sustituir el número suelto de Inicio por cifra, cambio y gráfica de área recorrible para Ganancia o Caja, con períodos 1 día, 7 días, 30 días y 1 año | HomeBusinessChart, homeChart, ledger, HomeView | verificada; no publicada | este commit |
-| S7-C1 | F | Hacer que el filtro del Consolidado encuentre a cualquiera de los socios de un lote, no solo al socio único del modelo anterior | salesAnalytics | en curso (Codex) | pendiente |
-| S7-C2 | F | Repartir cada ganancia y cada inversión por persona sin perder pesos por redondeo; el residuo queda del lado de Santiago | salesAnalytics, partnership | en curso (Codex) | pendiente |
-| S7-C3 | F | Mostrar en el Cierre del día y del mes el resultado de cada venta de piedras separado persona por persona | dailyReport, DailyCloseView | en curso (Codex) | pendiente |
-| S6-C1 | F | Evitar que el informe por socio asigne entre los socios más plata pendiente de cobro que la deuda real | stones | en curso (Codex) | pendiente |
+| S7-C1 | F | Hacer que el filtro del Consolidado encuentre a cualquiera de los socios de un lote, no solo al socio único del modelo anterior | salesAnalytics | verificada; no publicada | df54fad |
+| S7-C2 | F | Repartir cada ganancia y cada inversión por persona sin perder pesos por redondeo; el residuo queda del lado de Santiago | salesAnalytics, partnership | verificada; no publicada | df54fad |
+| S7-C3 | F | Mostrar en el Cierre del día y del mes el resultado de cada venta de piedras separado persona por persona | dailyReport, DailyCloseView | verificada; no publicada | c5f49ec |
+| S6-C1 | F | Evitar que el informe por socio asigne entre los socios más plata pendiente de cobro que la deuda real | stones | verificada; no publicada | 36d77b0 |
 
 _Siguiente control antes de publicar: reinstalar la PWA en un teléfono real para comprobar el
 nuevo ícono; los dispositivos que ya la tenían pueden conservar el anterior por caché._

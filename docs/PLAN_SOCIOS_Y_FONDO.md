@@ -3,7 +3,8 @@
 **Fecha:** 2026-08-05
 **Autor:** Claude (arquitectura). Implementa Codex.
 **Origen:** prueba de uso de Santiago el día de la publicación del plan v2.
-**Estado:** diseñado, sin implementar. Falta que Santiago confirme el punto abierto de §7.
+**Estado:** etapas 1 a 7 implementadas y verificadas. Etapas 8 (Excel) y 9 (Nube)
+pendientes. El punto de §7 quedó resuelto por Santiago y registrado en D-075.
 
 ---
 
@@ -192,19 +193,21 @@ Consecuencias para el cálculo, y hay que respetarlas al pie de la letra:
 
 Cada etapa cierra con `npm test` y `npm run build` en verde.
 
-1. **Tipos y motor puro.** Reparto de N partes, devengo del rendimiento y **la regla del §7**
+1. ✅ **Tipos y motor puro.** Reparto de N partes, devengo del rendimiento y **la regla del §7**
    —el financiamiento se descuenta solo de la parte de Santiago—, con pruebas de mesa que
    incluyan el caso en que él queda en negativo y el socio en positivo. Sin tocar pantallas.
-2. **Base local y respaldo v9.** Escalón nuevo para `fundContributions`; importar un respaldo
+2. ✅ **Base local y respaldo v9.** Escalón nuevo para `fundContributions`; importar un respaldo
    v8 sigue funcionando; un registro viejo con `myPercent` se lee sin romperse (§5.5).
-3. **Pantalla de lotes de piedras:** añadir y quitar socios, ver el porcentaje derivado.
-4. **Material y gastos**, con el mismo patrón.
-5. **El fondo, por persona:** registrar aportes, editarlos, registrar pagos y ver el saldo de
+3. ✅ **Pantalla de lotes de piedras:** añadir y quitar socios, ver el porcentaje derivado.
+4. ✅ **Material y gastos**, con el mismo patrón.
+5. ✅ **El fondo, por persona:** registrar aportes, editarlos, registrar pagos y ver el saldo de
    **cada** inversionista (§5.2). El total va al pie, no al encabezado.
-6. **Informe por socio** en la pantalla Socios (§6).
-7. **Dinero:** separación por socio en Cierre del día y Consolidado.
-8. **Excel.**
-9. **Nube:** migración SQL, RPC, RLS y sincronización. **Va al final**, y se aplica a
+6. ✅ **Informe por socio** en la pantalla Socios (§6). Muestra el costo real del inventario
+   vivo. El valor estimado de mercado queda pendiente de una regla de valoración de Santiago;
+   no se inventa una cifra.
+7. ✅ **Dinero:** separación por socio en Cierre del día, Cierre mensual y Consolidado.
+8. ⬜ **Excel.**
+9. ⬜ **Nube:** migración SQL, RPC, RLS y sincronización. **Va al final**, y se aplica a
    Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres, cada
    uno con su comprobación por contenido (`pg_proc.prosrc like`), nunca por nombre.
 
