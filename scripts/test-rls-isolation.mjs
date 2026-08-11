@@ -24,6 +24,11 @@ export const n6EntitySpecs = Object.freeze([
   },
   { table: 'material_lots', upsertRpc: 'upsert_material_lot', deleteRpc: 'delete_material_lot' },
   { table: 'expenses', upsertRpc: 'upsert_expense', deleteRpc: 'delete_expense' },
+  {
+    table: 'fund_contributions',
+    upsertRpc: 'upsert_fund_contribution',
+    deleteRpc: 'delete_fund_contribution',
+  },
 ])
 
 export const n6EditableTables = Object.freeze([
@@ -156,6 +161,13 @@ export function validPayloads(prefix) {
     stone_lots: {
       id: `${prefix}-stone`, purchaseValueCop: 1000000, quantity: 1,
       partnerId: null, partnerName: '', myPercent: 100,
+      partners: [{
+        id: `${prefix}-stone-partner-share`,
+        partnerId: `${prefix}-material-partner`,
+        partnerName: `Socio ${prefix}`,
+        amountCop: 300000,
+      }],
+      fundedFromFundCop: 100000,
       supplierPayments: [],
       sales: [{
         id: `${prefix}-stone-sale`,
@@ -189,6 +201,12 @@ export function validPayloads(prefix) {
       grams: 10,
       myGrams: 6,
       costCop: 5000000,
+      partners: [{
+        id: `${prefix}-material-partner-share`,
+        partnerId: `${prefix}-material-partner`,
+        partnerName: `Socio ${prefix}`,
+        grams: 4,
+      }],
       uses: [{
         id: `${prefix}-material-use`,
         date: '2026-07-25',
@@ -208,8 +226,35 @@ export function validPayloads(prefix) {
       partnerId: null,
       partnerName: '',
       myPercent: 100,
+      partners: [{
+        id: `${prefix}-expense-partner-share`,
+        partnerId: `${prefix}-material-partner`,
+        partnerName: `Socio ${prefix}`,
+        amountCop: 120000,
+      }],
       notes: '',
       createdAt: '2026-08-03T10:00:00.000Z',
+      updatedAt: '2026-08-03T10:00:00.000Z',
+    },
+    fund_contributions: {
+      id: `${prefix}-fund-contribution`,
+      personId: `${prefix}-material-partner`,
+      personName: `Socio ${prefix}`,
+      date: '2026-08-01',
+      amountCop: 2000000,
+      returnKind: 'mensual',
+      monthlyRatePercent: 2,
+      agreedTotalCop: null,
+      dueDate: '',
+      payments: [{
+        id: `${prefix}-fund-payment`,
+        date: '2026-08-03',
+        amountCop: 100000,
+        kind: 'rendimiento',
+        notes: '',
+      }],
+      notes: '',
+      createdAt: '2026-08-01T10:00:00.000Z',
       updatedAt: '2026-08-03T10:00:00.000Z',
     },
   }
@@ -640,6 +685,134 @@ async function verifyMalformedPayloads(api, organizationId, now) {
   )
   await assertEntityAbsent(api, 'expenses', organizationId, invalidShareId, 'gasto con porcentaje invalido')
 
+  const invalidStoneFundingId = 'n6-invalid-stone-partners-and-fund'
+  assertRejectedWithCode(
+    await api.rpc('upsert_stone_lot', {
+      p_id: invalidStoneFundingId,
+      p_data: {
+        ...validPayloads('n6-invalid-stone-funding').stone_lots,
+        id: invalidStoneFundingId,
+        partners: [{
+          id: 'n6-invalid-stone-share',
+          partnerId: 'soc-n6',
+          partnerName: 'Socio N6',
+          amountCop: 300000,
+        }],
+        fundedFromFundCop: 800000,
+      },
+      p_updated_at: now,
+    }),
+    'piedras con socios y fondo por encima del costo',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api, 'stone_lots', organizationId, invalidStoneFundingId,
+    'piedras con socios y fondo por encima del costo'
+  )
+
+  const invalidMaterialPartnersId = 'n6-invalid-material-partners'
+  assertRejectedWithCode(
+    await api.rpc('upsert_material_lot', {
+      p_id: invalidMaterialPartnersId,
+      p_data: {
+        ...validPayloads('n6-invalid-material-partners').material_lots,
+        id: invalidMaterialPartnersId,
+        partners: [
+          {
+            id: 'n6-material-share-a',
+            partnerId: 'soc-a',
+            partnerName: 'Socio A',
+            grams: 7,
+          },
+          {
+            id: 'n6-material-share-b',
+            partnerId: 'soc-b',
+            partnerName: 'Socio B',
+            grams: 4,
+          },
+        ],
+      },
+      p_updated_at: now,
+    }),
+    'material con socios por encima de los gramos',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api, 'material_lots', organizationId, invalidMaterialPartnersId,
+    'material con socios por encima de los gramos'
+  )
+
+  const invalidExpensePartnersId = 'n6-invalid-expense-partners'
+  assertRejectedWithCode(
+    await api.rpc('upsert_expense', {
+      p_id: invalidExpensePartnersId,
+      p_data: {
+        ...validPayloads('n6-invalid-expense-partners').expenses,
+        id: invalidExpensePartnersId,
+        partners: [
+          {
+            id: 'n6-expense-share-a',
+            partnerId: 'soc-a',
+            partnerName: 'Socio A',
+            amountCop: 200000,
+          },
+          {
+            id: 'n6-expense-share-b',
+            partnerId: 'soc-b',
+            partnerName: 'Socio B',
+            amountCop: 150000,
+          },
+        ],
+      },
+      p_updated_at: now,
+    }),
+    'gasto con socios por encima del monto',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api, 'expenses', organizationId, invalidExpensePartnersId,
+    'gasto con socios por encima del monto'
+  )
+
+  const invalidFundPaymentId = 'n6-invalid-fund-duplicate-payment'
+  const invalidFundPayment = validPayloads('n6-invalid-fund-payment').fund_contributions
+  assertRejectedWithCode(
+    await api.rpc('upsert_fund_contribution', {
+      p_id: invalidFundPaymentId,
+      p_data: {
+        ...invalidFundPayment,
+        id: invalidFundPaymentId,
+        payments: [invalidFundPayment.payments[0], invalidFundPayment.payments[0]],
+      },
+      p_updated_at: now,
+    }),
+    'fondo con pago repetido',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api, 'fund_contributions', organizationId, invalidFundPaymentId,
+    'fondo con pago repetido'
+  )
+
+  const unsafeFundId = 'n6-invalid-fund-unsafe-money'
+  assertRejectedWithCode(
+    await api.rpc('upsert_fund_contribution', {
+      p_id: unsafeFundId,
+      p_data: {
+        ...validPayloads('n6-invalid-fund-money').fund_contributions,
+        id: unsafeFundId,
+        amountCop: Number.MAX_SAFE_INTEGER + 1,
+      },
+      p_updated_at: now,
+    }),
+    'fondo con dinero fuera del límite seguro',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api, 'fund_contributions', organizationId, unsafeFundId,
+    'fondo con dinero fuera del limite seguro'
+  )
+
   const protectedStone = {
     ...validPayloads('n6-protected-stone-share').stone_lots,
     partnerId: 'soc-n6',
@@ -1042,7 +1215,7 @@ export async function runN6(env = process.env) {
       checks: {
         twoOrganizations: true,
         exactCandidateCommit: true,
-        elevenEditableTablesCovered: n6EditableTables.length === 11,
+        twelveEditableTablesCovered: n6EditableTables.length === 12,
         ownReads: true,
         crossTenantReadsBlocked: true,
         directWritesBlocked: true,
@@ -1056,6 +1229,7 @@ export async function runN6(env = process.env) {
         materialOveruseBlocked: true,
         missingMaterialUsesBlocked: true,
         invalidStoneSharesBlocked: true,
+        invalidPartnerAndFundPayloadsBlocked: true,
         invalidProductTypesBlocked: true,
         invalidUsdRatesBlocked: true,
         immutableUsdRatesBlocked: true,

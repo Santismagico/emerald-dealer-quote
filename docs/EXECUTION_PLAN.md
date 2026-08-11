@@ -288,7 +288,8 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
 - [x] S8 — Excel: columnas por socio y hoja del fondo. ✅ COMPLETADA 2026-08-10.
       Cierres, Panel y Consolidado incluyen una hoja Socios con reparto exacto y una hoja
       Fondo con resumen por persona, detalle de aportes e historial de pagos.
-- [ ] S9 — Nube: migración SQL, RPC, RLS y sincronización. **Va al final.** Se aplica a
-      Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres,
-      cada uno con su comprobación **por contenido** (`pg_proc.prosrc like`), nunca por
-      nombre.
+- [~] S9 — Nube: implementación local, migración SQL, RPC, RLS, sincronización,
+      importación y comprobador N6 preparados y en verde localmente el 2026-08-10.
+      **Pendiente en vivo:** aplicar primero en el proyecto desechable, comprobar 6 cuerpos,
+      ejecutar N6 entre dos cuentas y pedir autorización separada antes de Producción.
+      Guía: `docs/ACTIVACION_ETAPA9_NUBE.md`.

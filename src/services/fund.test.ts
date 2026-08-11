@@ -221,6 +221,15 @@ describe('validación', () => {
     expect(validateFundContribution(aporte({ amountCop: 0 }))).toBe('El aporte debe ser mayor que cero.');
   });
 
+  it('rechaza dinero no entero y pagos repetidos', () => {
+    expect(validateFundContribution(aporte({ amountCop: 10.5 }))).toMatch(/pesos/);
+    const payment = {
+      id: 'pago-1', date: '2026-02-15', amountCop: 100_000,
+      kind: 'capital' as const, notes: ''
+    };
+    expect(validateFundContribution(aporte({ payments: [payment, payment] }))).toMatch(/repetido/);
+  });
+
   it('exige la tasa cuando el trato es mensual', () => {
     expect(validateFundContribution(aporte({ monthlyRatePercent: null }))).toBe(
       'Escribe el porcentaje mensual pactado.'

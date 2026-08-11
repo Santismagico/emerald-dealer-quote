@@ -1437,3 +1437,30 @@ De ahí tres obligaciones:
 2. **Todo aporte es editable y todo cambio deja rastro.** La composición del grupo cambia con
    el tiempo y él necesita reconstruir cómo estaba en cualquier momento.
 3. **La pantalla del fondo se lee por persona.** El total va al pie, no al encabezado.
+
+## D-077 · Socios y Fondo se sincronizan como historia completa y aislada · 2026-08-10 · Vigente
+
+La Etapa 9 lleva a la nube las decisiones D-072–D-076 sin cambiar su significado. Cada
+aporte del Fondo viaja como un registro independiente y cada lote o gasto conserva dentro
+de su historia la lista completa de socios. No se crea un saldo compartido ni una tabla de
+porcentajes.
+
+El navegador **nunca elige la joyería** al guardar o borrar. La función protegida obtiene la
+organización desde la sesión. La lectura se limita por organización y la escritura directa
+permanece cerrada.
+
+Los aportes que ya existían localmente antes de la Etapa 9 se conservan y se preparan para
+subir una sola vez. Si la nube tiene una versión más reciente del mismo aporte, gana esa
+versión; ante una ausencia o duda, el dato local no se elimina.
+
+Renombrar una persona actualiza todos sus vínculos —Piedras, Material, Gastos y Fondo—. Si
+se borra su ficha, la historia no se borra: permanecen el nombre, los montos, los gramos, los
+pagos y los rendimientos, y solo se suelta el identificador de la ficha.
+
+La base valida las reglas en el límite común de las tablas, además de las pantallas: COP
+entero y seguro, socios no repetidos, suma dentro del total, gramos con máximo tres
+decimales y pagos del Fondo completos y no repetidos.
+
+**Estado de aplicación:** preparada y verificada localmente en `codex/fase2-nube`. No se
+considera aplicada al servidor hasta ejecutar la migración completa, comprobar su contenido
+y aprobar N6 entre dos cuentas. Producción requiere autorización separada de Santiago.

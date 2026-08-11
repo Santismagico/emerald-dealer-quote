@@ -28,6 +28,9 @@ export function verifySecurityConfiguration() {
   const gates = read('.github/workflows/security-gates.yml')
   const migration = read('supabase/migrations/20260718200036_harden_cloud_writes.sql').toLowerCase()
   const grantClosure = read('supabase/migrations/20260718212000_close_authenticated_table_grants.sql').toLowerCase()
+  const partnersAndFund = read(
+    'supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql'
+  ).toLowerCase()
 
   if (/^\s*push\s*:/m.test(deploy)) {
     throw new Error('La publicación sigue activándose automáticamente con push.')
@@ -60,6 +63,50 @@ export function verifySecurityConfiguration() {
     throw new Error('La migración de cierre vuelve a conceder permisos directos de escritura o administración.')
   }
 
+  requireText(
+    partnersAndFund,
+    'alter table public.fund_contributions enable row level security',
+    'El Fondo nuevo no activa aislamiento por filas.'
+  )
+  requireText(
+    partnersAndFund,
+    'revoke insert, update, delete on table public.fund_contributions from authenticated',
+    'El Fondo permite escritura directa a usuarios autenticados.'
+  )
+  requireText(
+    partnersAndFund,
+    'grant select on table public.fund_contributions to authenticated',
+    'El Fondo no declara su lectura autenticada de forma explícita.'
+  )
+  requireText(
+    partnersAndFund,
+    'create or replace function public.upsert_fund_contribution',
+    'Falta la operación protegida para guardar aportes.'
+  )
+  requireText(
+    partnersAndFund,
+    'create or replace function public.delete_fund_contribution',
+    'Falta la operación protegida para borrar aportes.'
+  )
+  requireText(
+    partnersAndFund,
+    'create trigger validate_socios_fondo_stone_lots',
+    'Las sociedades de Piedras no quedaron protegidas en la base.'
+  )
+  requireText(
+    partnersAndFund,
+    'create trigger validate_socios_fondo_material_lots',
+    'Las sociedades de Material no quedaron protegidas en la base.'
+  )
+  requireText(
+    partnersAndFund,
+    'create trigger validate_socios_fondo_expenses',
+    'Las sociedades de Gastos no quedaron protegidas en la base.'
+  )
+  if (/grant\s+(insert|update|delete).*fund_contributions.*authenticated/.test(partnersAndFund)) {
+    throw new Error('La migración del Fondo concede escritura directa a usuarios autenticados.')
+  }
+
   return {
     checkedAt: new Date().toISOString(),
     commit: gitValue(['rev-parse', 'HEAD']),
@@ -81,6 +128,9 @@ export function verifySecurityConfiguration() {
       functions: sha256('supabase/migrations/0003_funciones.sql'),
       hardening: sha256('supabase/migrations/20260718200036_harden_cloud_writes.sql'),
       tableGrantClosure: sha256('supabase/migrations/20260718212000_close_authenticated_table_grants.sql'),
+      partnersAndFund: sha256(
+        'supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql'
+      ),
     },
   }
 }

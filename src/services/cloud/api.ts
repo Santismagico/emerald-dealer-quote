@@ -365,6 +365,42 @@ export function createCloudDataSource(options: {
     return activeFundBootstrap;
   };
 
+  const readPartnerLinkedData = async () => {
+    const [materialLots, expenses, stoneLots, fundContributions] = await Promise.all([
+      localStorage.listMaterialLots(),
+      localStorage.listExpenses(),
+      localStorage.listStoneLots(),
+      localStorage.listFundContributions()
+    ]);
+    return { materialLots, expenses, stoneLots, fundContributions };
+  };
+
+  const queuePartnerLinkedChanges = async (
+    before: Awaited<ReturnType<typeof readPartnerLinkedData>>,
+    after: Awaited<ReturnType<typeof readPartnerLinkedData>>
+  ) => {
+    for (const lot of changed(before.materialLots, after.materialLots)) {
+      await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
+    }
+    for (const expense of changed(before.expenses, after.expenses)) {
+      await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
+    }
+    for (const lot of changed(before.stoneLots, after.stoneLots)) {
+      await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
+    }
+    for (const contribution of changed(
+      before.fundContributions,
+      after.fundContributions
+    )) {
+      await cacheAndQueue(
+        'fund_contributions',
+        contribution.id,
+        contribution,
+        contribution.updatedAt || nowIso()
+      );
+    }
+  };
+
   const saveSettings = async (settings: Settings): Promise<void> => {
     const metadataError = validateSettingsMetadata(settings);
     if (metadataError) throw new Error(metadataError);
@@ -741,70 +777,18 @@ export function createCloudDataSource(options: {
     // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en
     // material, gastos, piedras y fondo: todos los registros cambiados deben subir.
     async saveMaterialPartner(partner: MaterialPartner) {
-      const [lotsBefore, expensesBefore, stoneLotsBefore, fundBefore] = await Promise.all([
-        localStorage.listMaterialLots(),
-        localStorage.listExpenses(),
-        localStorage.listStoneLots(),
-        localStorage.listFundContributions()
-      ]);
+      const before = await readPartnerLinkedData();
       await localStorage.saveMaterialPartner(partner);
-      const [lotsAfter, expensesAfter, stoneLotsAfter, fundAfter] = await Promise.all([
-        localStorage.listMaterialLots(),
-        localStorage.listExpenses(),
-        localStorage.listStoneLots(),
-        localStorage.listFundContributions()
-      ]);
+      const after = await readPartnerLinkedData();
       await cacheAndQueue('material_partners', partner.id, partner, nowIso());
-      for (const lot of changed(lotsBefore, lotsAfter)) {
-        await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
-      }
-      for (const expense of changed(expensesBefore, expensesAfter)) {
-        await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
-      }
-      for (const lot of changed(stoneLotsBefore, stoneLotsAfter)) {
-        await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
-      }
-      for (const contribution of changed(fundBefore, fundAfter)) {
-        await cacheAndQueue(
-          'fund_contributions',
-          contribution.id,
-          contribution,
-          contribution.updatedAt || nowIso()
-        );
-      }
+      await queuePartnerLinkedChanges(before, after);
     },
     async deleteMaterialPartner(id) {
-      const [lotsBefore, expensesBefore, stoneLotsBefore, fundBefore] = await Promise.all([
-        localStorage.listMaterialLots(),
-        localStorage.listExpenses(),
-        localStorage.listStoneLots(),
-        localStorage.listFundContributions()
-      ]);
+      const before = await readPartnerLinkedData();
       await localStorage.deleteMaterialPartner(id);
-      const [lotsAfter, expensesAfter, stoneLotsAfter, fundAfter] = await Promise.all([
-        localStorage.listMaterialLots(),
-        localStorage.listExpenses(),
-        localStorage.listStoneLots(),
-        localStorage.listFundContributions()
-      ]);
+      const after = await readPartnerLinkedData();
       await enqueue('material_partners', 'delete', id, null, nowIso());
-      for (const lot of changed(lotsBefore, lotsAfter)) {
-        await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
-      }
-      for (const expense of changed(expensesBefore, expensesAfter)) {
-        await cacheAndQueue('expenses', expense.id, expense, expense.updatedAt || nowIso());
-      }
-      for (const lot of changed(stoneLotsBefore, stoneLotsAfter)) {
-        await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
-      }
-      for (const contribution of changed(fundBefore, fundAfter)) {
-        await cacheAndQueue(
-          'fund_contributions',
-          contribution.id,
-          contribution,
-          contribution.updatedAt || nowIso()
-        );
-      }
+      await queuePartnerLinkedChanges(before, after);
     },
     listMaterialLots: () => pullThen('material_lots', localStorage.listMaterialLots),
     async saveMaterialLot(lot: MaterialLot) {

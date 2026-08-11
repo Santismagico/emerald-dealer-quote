@@ -1,4 +1,4 @@
-# Prompt para abrir una sesión nueva de Claude
+# Prompt para abrir una sesión nueva de trabajo
 
 _Actualizado: **2026-08-10**. Copiar desde la línea siguiente hasta el final y pegarlo como
 primer mensaje. **Abrir la sesión en `C:\Dev\emerald-dealer`** (la carpeta de OneDrive es
@@ -36,7 +36,7 @@ documentos grandes.
 1. `CLAUDE.md` y `AGENTS.md` — tu rol y las reglas inquebrantables.
 2. `PROJECT_STATE.md` — la foto real. **Empieza por el final del archivo.**
 3. `docs/PLAN_SOCIOS_Y_FONDO.md` — el plan en curso, con sus 9 etapas.
-4. `DECISIONS.md`, de **D-070 a D-076** — lo vigente.
+4. `DECISIONS.md`, de **D-070 a D-077** — lo vigente.
 
 ## Estado a 2026-08-10 — verificado
 
@@ -50,11 +50,11 @@ ahora vive aparte, en la rama, y **no** está publicado.
 
 - Rama de trabajo `codex/fase2-nube`, sin publicar. No calcular su estado desde la copia de
   OneDrive: verificarlo en `C:\Dev\emerald-dealer`.
-- **1096 pruebas en 73 archivos**, `npm run build` en verde.
+- **1115 pruebas en 74 archivos**, `npm run build` en verde.
 - Punto de retorno si algo sale mal en vivo: `main` → `0a86e5a`; el enlace de nube →
   `762dc7c`.
 
-## Trabajo en curso: **Socios y fondo** — 8 de 9 etapas
+## Trabajo en curso: **Socios y fondo** — Etapa 9 preparada, pendiente en vivo
 
 Nació de lo que Santiago pidió el 2026-08-06: poder repartir una compra entre **varios**
 socios y que la app **discrimine a cada uno**, ver eso también en Dinero, tener un informe
@@ -71,7 +71,7 @@ editable y con seguimiento.
 | ✅ | 6. Informe por socio completo (§6 del plan) | Hecha y reforzada 2026-08-10 |
 | ✅ | 7. Socios en Cierre del día, Cierre mensual y Consolidado | Hecha y reforzada 2026-08-10 |
 | ✅ | 8. Excel por socio y hoja del fondo | Hecha y verificada 2026-08-10 |
-| ⬜ | 9. Nube: migración SQL, RPC, RLS y sincronización | Falta, va al final |
+| ⏳ | 9. Nube: migración SQL, RPC, RLS y sincronización | Preparada localmente; falta proyecto desechable, N6 y autorización de Producción |
 
 La pantalla Socios ya separa, persona por persona, el fondo, los lotes, el material, los
 gastos, la ganancia cobrada y la plata pendiente de cobro. Muestra el **costo real** del
@@ -89,9 +89,10 @@ de cada aporte, vencimientos e historial de pagos. Dos personas distintas con el
 nombre se mantienen en columnas separadas. Los archivos reales fueron abiertos, revisados
 visualmente y no mostraron errores.
 
-**Límite consciente y anotado:** todo lo de socios y el fondo **vive solo en el
-dispositivo** hasta la etapa 9. No hay tabla en el servidor; encolarlo sin tabla haría
-fallar el envío en bucle. Está escrito así en `src/services/cloud/api.ts`.
+**Límite consciente y anotado:** Socios y Fondo ya están conectados en la candidata local y
+la migración nueva crea `fund_contributions`. Sin embargo, **esa migración no se ha aplicado
+a ningún servidor** y N6 no se ha ejecutado sobre este commit. No afirmar que funciona en
+vivo hasta cerrar esos pasos. La guía exacta está en `docs/ACTIVACION_ETAPA9_NUBE.md`.
 
 **Decisiones ya tomadas, no volver a preguntarlas:** el material se comparte en **gramos**,
 no en plata (confirmado por Santiago el 2026-08-10). Los gastos van en plata y **no** admiten
@@ -166,5 +167,5 @@ Revisa siempre a **320 y 375 px** que no haya desbordamiento horizontal.
 
 ## Tarea de esta sesión
 
-[Santiago: escribe aquí qué necesitas. Por ejemplo: "preparemos la etapa 9", "hay una
-corrección que dictar", o "¿en qué vamos?"]
+[Santiago: escribe aquí qué necesitas. Por ejemplo: "activemos la etapa 9 en el proyecto de
+pruebas", "hay una corrección que dictar", o "¿en qué vamos?"]

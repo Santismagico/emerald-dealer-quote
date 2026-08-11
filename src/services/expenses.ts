@@ -59,7 +59,7 @@ export function validateExpense(expense: Expense, previous?: Expense | null): st
   // un reflejo derivado y no pueden contradecirla. Un socio escrito a mano no
   // tiene ficha, así que `partnerId` queda en null y el chequeo viejo —pensado
   // para UN socio— lo leería como "sin socio" y rechazaría el gasto.
-  const hasPartnerList = activePartners(expense.partners).length > 0;
+  const hasPartnerList = (expense.partners?.length ?? 0) > 0;
   if (!Number.isInteger(expense.myPercent) || expense.myPercent < 0 || expense.myPercent > 100) {
     return 'Tu porcentaje debe estar entre 0 y 100.';
   }

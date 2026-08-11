@@ -2,7 +2,7 @@
 
 > **Ruta canónica del proyecto:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La copia bajo OneDrive está congelada y no debe usarse para nuevos cambios.
 
-_Actualizado: 2026-07-26 por Codex al cerrar la trazabilidad de cobros y la corrección visual del formulario de venta. Este archivo es la foto del estado real; cualquier agente debe poder continuar leyendo solo esto y los documentos que enlaza._
+_Actualizado: 2026-08-10 por Codex al preparar localmente la Etapa 9 de Socios y Fondo. Este archivo conserva historia acumulativa; para continuar, leer primero el final._
 
 > **ESTADO MÁS RECIENTE: trazabilidad y formulario publicados solo en el enlace nuevo.** `Santismagico/emerald-dealer-app` sirve el commit `762dc7c`, compilado desde `codex/fase2-nube@0aca89e`. El piloto de 7 joyerías permanece separado y no fue modificado.
 
@@ -1652,3 +1652,43 @@ migración.
 **Siguiente:** S9 (Nube) es la única etapa pendiente. Requiere una orden separada y debe
 mantener las reglas de aislamiento por negocio; no aplicar migraciones ni tocar Producción
 sin autorización expresa de Santiago.
+
+### Etapa S9 — PREPARADA LOCALMENTE (2026-08-10). Falta validación en vivo
+
+La candidata conecta los varios socios y el Fondo persona por persona con la sincronización
+existente. `fund_contributions` pasa a ser la duodécima área editable de la nube; tiene
+lectura aislada, escritura directa cerrada y funciones protegidas que obtienen la joyería
+desde la sesión, nunca desde un dato enviado por el dispositivo.
+
+La migración oficial es
+`supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql`. Agrega la tabla del Fondo
+y una frontera común que rechaza dinero no entero, socios repetidos, repartos mayores al
+total, gramos inválidos y pagos del Fondo incompletos o repetidos. La comprobación final por
+contenido debe devolver **6**.
+
+La aplicación ahora:
+
+- sube una sola vez los aportes que ya estaban guardados localmente;
+- sincroniza altas, cambios y borrados del Fondo;
+- incluye el Fondo en la importación inicial a la nube;
+- propaga un cambio de nombre a Piedras, Material, Gastos y Fondo;
+- al borrar una ficha conserva nombre, montos, gramos, pagos y rendimientos;
+- conserva el dato local ante duda y respeta una versión más reciente de la nube.
+
+N6 quedó ampliado a **12 tablas** y prueba dos joyerías, acceso anónimo, escrituras directas,
+operaciones que intenten elegir otra organización y cargas inválidas de socios y Fondo. Sus
+18 controles locales de seguridad están en verde. **N6 real no se ejecutó**, porque exige
+aplicar antes la migración al proyecto desechable y usar credenciales que no se manejan en
+el chat.
+
+**Verificación local de esta preparación:** 1115 pruebas en 74 archivos, comprobación PWA,
+compilación de 428 módulos, guardas N6 y evidencia de configuración en verde.
+
+**Protección y entregas:** tag `punto-seguro-antes-s9-nube-2026-08-10`; registro de etapa
+`3d711b5`; base protegida `24eaf15`; sincronización e importación `9eebb4b`. La guía para el
+paso en vivo es `docs/ACTIVACION_ETAPA9_NUBE.md`.
+
+**Estado honesto:** nada se aplicó en Supabase, nada se publicó, `main` y el workflow de
+despliegue no se tocaron. S9 queda preparada, no terminada en vivo. El siguiente paso es
+recibir autorización separada de Santiago para aplicar primero el bloque completo en el
+proyecto desechable, comprobar 6 y ejecutar N6 sobre el commit exacto.

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { LotPartner } from '../types';
+import type { LotPartner, MaterialLotPartner } from '../types';
 import {
   activePartners,
   partnerPercent,
   partnersFromLegacy,
   splitByContribution,
+  validateMaterialPartners,
   validatePartnersAndFunding
 } from './partnership';
 
@@ -278,5 +279,49 @@ describe('validación de la sociedad y la financiación', () => {
         ]
       })
     ).toBe('Ana está repetido.');
+  });
+
+  it('exige COP entero seguro e identificadores únicos de reparto', () => {
+    expect(validatePartnersAndFunding({ totalCostCop: 10.5 })).toMatch(/pesos/);
+    expect(
+      validatePartnersAndFunding({
+        totalCostCop: 10_000,
+        partners: [
+          socio({ id: 'misma-fila', partnerId: 'p-1', amountCop: 1_000 }),
+          socio({ id: 'misma-fila', partnerId: 'p-2', partnerName: 'Beto', amountCop: 1_000 })
+        ]
+      })
+    ).toBe('Hay un reparto repetido.');
+  });
+});
+
+describe('validación del material compartido', () => {
+  const parte = (overrides: Partial<MaterialLotPartner> = {}): MaterialLotPartner => ({
+    id: 'parte-1', partnerId: 'p-1', partnerName: 'Ana', grams: 2, ...overrides
+  });
+
+  it('acepta hasta tres decimales y rechaza filas o personas repetidas', () => {
+    expect(validateMaterialPartners({
+      totalGrams: 10,
+      partners: [parte({ grams: 1.125 })]
+    })).toBeNull();
+    expect(validateMaterialPartners({
+      totalGrams: 10,
+      partners: [parte({ grams: 1.1255 })]
+    })).toMatch(/gramos/);
+    expect(validateMaterialPartners({
+      totalGrams: 10,
+      partners: [parte(), parte({ partnerId: 'p-2', partnerName: 'Beto' })]
+    })).toBe('Hay un reparto repetido.');
+  });
+
+  it('rechaza cuando los socios superan los gramos del lote', () => {
+    expect(validateMaterialPartners({
+      totalGrams: 10,
+      partners: [
+        parte({ id: 'parte-a', grams: 7 }),
+        parte({ id: 'parte-b', partnerId: 'p-2', partnerName: 'Beto', grams: 4 })
+      ]
+    })).toMatch(/más gramos/);
   });
 });

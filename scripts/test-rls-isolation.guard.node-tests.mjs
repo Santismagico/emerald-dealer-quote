@@ -45,7 +45,7 @@ test('rechaza si falta la confirmación exacta', () => {
   assert.throws(() => validateN6Environment({ ...valid, N6_CONFIRM_TEST_PROJECT: 'SI' }))
 })
 
-test('N6 cubre las once tablas editables, incluidos los gastos', () => {
+test('N6 cubre las doce tablas editables, incluidos gastos y Fondo', () => {
   assert.deepEqual(n6EditableTables, [
     'org_settings',
     'clients',
@@ -58,6 +58,7 @@ test('N6 cubre las once tablas editables, incluidos los gastos', () => {
     'material_partners',
     'material_lots',
     'expenses',
+    'fund_contributions',
   ])
 })
 
@@ -88,6 +89,11 @@ test('cada entidad nueva tiene sus RPC protegidas de guardar y borrar', () => {
     upsertRpc: 'upsert_expense',
     deleteRpc: 'delete_expense',
   })
+  assert.deepEqual(specs.get('fund_contributions'), {
+    table: 'fund_contributions',
+    upsertRpc: 'upsert_fund_contribution',
+    deleteRpc: 'delete_fund_contribution',
+  })
 })
 
 test('los payloads N6 nuevos son válidos y completos', () => {
@@ -102,6 +108,8 @@ test('los payloads N6 nuevos son válidos y completos', () => {
   assert.equal(payloads.stone_lots.partnerId, null)
   assert.equal(payloads.stone_lots.partnerName, '')
   assert.equal(payloads.stone_lots.myPercent, 100)
+  assert.equal(payloads.stone_lots.partners[0].amountCop, 300000)
+  assert.equal(payloads.stone_lots.fundedFromFundCop, 100000)
   assert.equal(payloads.stone_lots.sales[0].productType, 'Anillo')
   assert.equal(payloads.stone_lots.sales[0].usdRate, 4200.5)
   assert.equal(payloads.stone_lots.sales[0].payments[0].usdRate, 4210)
@@ -110,12 +118,17 @@ test('los payloads N6 nuevos son válidos y completos', () => {
   assert.equal(payloads.material_lots.grams, 10)
   assert.equal(payloads.material_lots.myGrams, 6)
   assert.equal(payloads.material_lots.costCop, 5000000)
+  assert.equal(payloads.material_lots.partners[0].grams, 4)
   assert.deepEqual(payloads.material_lots.uses.map(({ grams }) => grams), [2])
   assert.equal(payloads.expenses.id, 'guard-expense')
   assert.equal(payloads.expenses.amountCop, 300000)
   assert.equal(payloads.expenses.usdRate, 4200.5)
   assert.equal(payloads.expenses.myPercent, 100)
   assert.equal(payloads.expenses.method, 'Transferencia')
+  assert.equal(payloads.expenses.partners[0].amountCop, 120000)
+  assert.equal(payloads.fund_contributions.id, 'guard-fund-contribution')
+  assert.equal(payloads.fund_contributions.amountCop, 2000000)
+  assert.equal(payloads.fund_contributions.payments[0].kind, 'rendimiento')
 })
 
 test('un rechazo N6 solo cuenta cuando coincide con el código esperado', () => {
@@ -199,4 +212,10 @@ test('el runner distingue permisos, parámetros prohibidos y payloads inválidos
   assert.match(n6Source, /assertRowUnchanged\(\s*historicalStoneBefore/)
   assert.match(n6Source, /assertRowUnchanged\(jewelBefore/)
   assert.match(n6Source, /assertRowUnchanged\(expenseBefore/)
+  assert.match(n6Source, /piedras con socios y fondo por encima del costo/)
+  assert.match(n6Source, /material con socios por encima de los gramos/)
+  assert.match(n6Source, /gasto con socios por encima del monto/)
+  assert.match(n6Source, /fondo con pago repetido/)
+  assert.match(n6Source, /fondo con dinero fuera del límite seguro/)
+  assert.match(n6Source, /twelveEditableTablesCovered/)
 })

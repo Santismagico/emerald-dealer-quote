@@ -208,9 +208,11 @@ Cada etapa cierra con `npm test` y `npm run build` en verde.
 7. ✅ **Dinero:** separación por socio en Cierre del día, Cierre mensual y Consolidado.
 8. ✅ **Excel:** cierres, panel y consolidado con columnas separadas por persona y hoja
    completa del fondo (personas, aportes, pagos, vencimientos y saldo).
-9. ⬜ **Nube:** migración SQL, RPC, RLS y sincronización. **Va al final**, y se aplica a
-   Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres, cada
-   uno con su comprobación por contenido (`pg_proc.prosrc like`), nunca por nombre.
+9. ⏳ **Nube:** implementación, migración SQL, RPC, RLS, sincronización, importación y
+   comprobador N6 **preparados y verificados localmente** el 2026-08-10. Falta ejecutar la
+   migración en el proyecto desechable, obtener N6 en verde y recibir una autorización
+   separada de Santiago antes de aplicar el mismo bloque en Producción. Guía:
+   `docs/ACTIVACION_ETAPA9_NUBE.md`.
 
 ## 10. Riesgos
 

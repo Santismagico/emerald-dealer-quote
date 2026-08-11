@@ -187,6 +187,16 @@ describe('gastos compartidos con varios socios (D-073)', () => {
     ).toBeNull();
   });
 
+  it('no guarda una fila vacía de socio que el servidor rechazaría', () => {
+    expect(
+      validateExpense(
+        expense({
+          partners: [{ id: 'fila-vacia', partnerId: null, partnerName: ' ', amountCop: 0 }]
+        })
+      )
+    ).toBe('Falta decir quién es uno de los socios.');
+  });
+
   it('un gasto sin lista sigue exigiendo coherencia con el socio único', () => {
     expect(validateExpense(expense({ myPercent: 50 }))).toBe(
       'Un gasto sin socio debe ser 100% propio.'
