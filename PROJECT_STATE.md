@@ -1738,3 +1738,28 @@ reabierto el hueco al aplicarse a Producción. Ya usa `revoke all`. Además,
 lo correcto— y ahora exige lo contrario y rechaza el patrón viejo.
 
 **Cierre:** 1120 pruebas en 75 archivos y build en verde.
+
+### Aislamiento probado en la base (2026-08-10)
+
+No es la N6 completa —esa recorre la app con dos cuentas reales— pero sí prueba la cerradura
+donde vive: en la base de datos, con **dos joyerías reales creadas allí**, no en teoría.
+
+Método, en tres pasos pegados en el SQL Editor del proyecto desechable: se creó una joyería
+ficticia con un aporte suyo y otro aporte en la joyería de pruebas; se cambió la sesión a la
+del usuario real con `set_config('request.jwt.claims', …)` y `role = authenticated`; se
+midió qué alcanzaba; y se borró todo lo ficticio.
+
+Las cinco comprobaciones dieron OK:
+
+1. La sesión **sí** ve el aporte de su joyería.
+2. La sesión **no** ve el de la joyería ajena.
+3. La sesión no alcanza **nada** fuera de su joyería.
+4. Borrar directo desde una sesión queda **rechazado**.
+5. Un usuario sin membresía no ve **absolutamente nada**.
+
+Limpieza confirmada: 0 aportes de prueba, 0 joyerías ficticias, 1 joyería real restante.
+
+**Sigue pendiente la N6 real** (dos cuentas a través de la app). Necesita la clave secreta
+en `scripts/run-n6-secure.ps1`, que la pide sin mostrarla ni guardarla, y por tanto necesita
+manos humanas en una consola. No afirmar que el recorrido de la app está probado hasta que
+eso ocurra.
