@@ -7,6 +7,7 @@ import {
   type LedgerEvent
 } from './ledger';
 import { lotDisplayName, summarizeStoneLot } from './stones';
+import { splitByContribution } from './partnership';
 import { workshopJobsFromQuotes } from './workshop';
 
 export type SalesPeriodKind = 'dia' | 'semana' | 'mes' | 'anio';
@@ -191,6 +192,55 @@ function societyFilterKey(event: Pick<LedgerEvent, 'partnerId' | 'partnerName'>)
   return partnershipKey(event) ?? UNREGISTERED_SALES_FILTER;
 }
 
+/**
+ * Personas por las que puede encontrarse una venta en el Consolidado.
+ *
+ * Los registros nuevos llevan una lista de socios. El trío antiguo se conserva
+ * únicamente para encontrar datos anteriores a D-073.
+ */
+function societyFilterEntries(event: LedgerEvent): SalesAnalyticsFilterOption[] {
+  if (event.partners.length > 0) {
+    const entries = new Map<string, string>();
+    for (const partner of event.partners) {
+      const value = partnershipKey(partner) ?? UNREGISTERED_SALES_FILTER;
+      if (!entries.has(value)) {
+        entries.set(value, partner.partnerName.trim() || 'Sin registrar');
+      }
+    }
+    return [...entries.entries()].map(([value, label]) => ({ value, label }));
+  }
+  return [
+    {
+      value: societyFilterKey(event),
+      label: event.partnerName.trim() || 'Sin registrar'
+    }
+  ];
+}
+
+function buildSocietyFilterOptions(
+  revenueEvents: readonly LedgerEvent[]
+): SalesAnalyticsFilterOption[] {
+  const labels = new Map<string, string>();
+  for (const event of revenueEvents) {
+    for (const option of societyFilterEntries(event)) {
+      if (!labels.has(option.value)) labels.set(option.value, option.label);
+    }
+  }
+  return [
+    { value: ALL_SALES_FILTER, label: 'Todos' },
+    ...[...labels.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  ];
+}
+
+function matchesSocietyFilter(event: LedgerEvent, societyFilter: string): boolean {
+  return (
+    societyFilter === ALL_SALES_FILTER ||
+    societyFilterEntries(event).some((option) => option.value === societyFilter)
+  );
+}
+
 function productTypeFilterKey(event: Pick<LedgerEvent, 'productType'>): string {
   const productType = event.productType.trim();
   return productType
@@ -243,11 +293,7 @@ export function buildSalesAnalytics({
   const allEvents = buildLedger({ quotes, stoneLots, stockJewels, materialLots, expenses });
   const periodEvents = eventsInRange(allEvents, range);
   const periodRevenueEvents = periodEvents.filter((entry) => ledgerSaleProfitCop(entry) !== null);
-  const societyOptions = buildFilterOptions(
-    periodRevenueEvents,
-    societyFilterKey,
-    (entry) => entry.partnerName.trim() || 'Sin registrar'
-  );
+  const societyOptions = buildSocietyFilterOptions(periodRevenueEvents);
   const productTypeOptions = buildFilterOptions(
     periodRevenueEvents,
     productTypeFilterKey,
@@ -255,7 +301,7 @@ export function buildSalesAnalytics({
   );
   const revenueEvents = periodRevenueEvents.filter(
     (entry) =>
-      (societyFilter === ALL_SALES_FILTER || societyFilterKey(entry) === societyFilter) &&
+      matchesSocietyFilter(entry, societyFilter) &&
       (productTypeFilter === ALL_SALES_FILTER ||
         productTypeFilterKey(entry) === productTypeFilter)
   );
@@ -386,27 +432,48 @@ export function buildSalesAnalytics({
     // está contado en los totales generales del periodo.
     if (sale.partners.length === 0 || base <= 0) continue;
 
-    const reparto: { key: string; id: string | null; name: string; owner: boolean; puso: number }[] = [
-      { key: OWNER_KEY, id: null, name: 'Tú', owner: true, puso: sale.myContributionCop },
-      ...sale.partners.map((partner) => ({
-        key: partnershipKey(partner) ?? `name:${partner.partnerName.trim().toLocaleLowerCase('es')}`,
-        id: partner.partnerId,
-        name: partner.partnerName.trim() || 'Sin registrar',
-        owner: false,
-        puso: partner.amountCop
-      }))
-    ];
+    // Reutiliza la única convención de redondeo del proyecto: los socios se
+    // truncan y el peso residual queda del lado de Santiago (D-073).
+    const split = splitByContribution({
+      totalCostCop: base,
+      realResultCop: sale.profitCop,
+      partners: sale.partners
+    });
+    const partnerProfitUsd =
+      sale.profitUsd === null
+        ? []
+        : split.partners.map((partner) => (sale.profitUsd! * partner.amountCop) / base);
+    const ownerProfitUsd =
+      sale.profitUsd === null
+        ? null
+        : sale.profitUsd - partnerProfitUsd.reduce((total, amount) => total + amount, 0);
 
-    for (const persona of reparto) {
-      if (persona.puso <= 0) continue;
-      const fila = personRow(persona.key, persona.id, persona.name, persona.owner);
-      fila.profitCop += Math.trunc((sale.profitCop * persona.puso) / base);
-      if (sale.profitUsd === null) fila.usdMissingCount += 1;
-      else {
-        fila.profitUsd += (sale.profitUsd * persona.puso) / base;
-        fila.usdKnownCount += 1;
-      }
+    const owner = personRow(OWNER_KEY, null, 'Tú', true);
+    owner.profitCop += split.myResultCop;
+    if (ownerProfitUsd === null) owner.usdMissingCount += 1;
+    else {
+      owner.profitUsd += ownerProfitUsd;
+      owner.usdKnownCount += 1;
     }
+
+    split.partners.forEach((partner, index) => {
+      if (partner.amountCop <= 0) return;
+      const key =
+        partnershipKey(partner) ??
+        `name:${partner.partnerName.trim().toLocaleLowerCase('es')}`;
+      const row = personRow(
+        key,
+        partner.partnerId,
+        partner.partnerName.trim() || 'Sin registrar',
+        false
+      );
+      row.profitCop += partner.resultCop;
+      if (sale.profitUsd === null) row.usdMissingCount += 1;
+      else {
+        row.profitUsd += partnerProfitUsd[index] ?? 0;
+        row.usdKnownCount += 1;
+      }
+    });
   }
 
   // Lo puesto se cuenta una sola vez por lote, aunque el lote tenga varias ventas.
@@ -415,16 +482,19 @@ export function buildSalesAnalytics({
     if (!sale.lotId || investedLots.has(sale.lotId)) continue;
     const lot = lotById.get(sale.lotId);
     if (!lot || sale.partners.length === 0 || sale.equityBaseCop <= 0) continue;
-    const invertido = summarizeStoneLot(lot).totalInvested;
+    const investmentSplit = splitByContribution({
+      totalCostCop: sale.equityBaseCop,
+      realResultCop: summarizeStoneLot(lot).totalInvested,
+      partners: sale.partners
+    });
     const owner = partnershipsMap.get(OWNER_KEY);
-    if (owner) {
-      owner.investedCop += Math.trunc((invertido * sale.myContributionCop) / sale.equityBaseCop);
-    }
-    for (const partner of sale.partners) {
+    if (owner) owner.investedCop += investmentSplit.myResultCop;
+    for (const partner of investmentSplit.partners) {
       const key =
-        partnershipKey(partner) ?? `name:${partner.partnerName.trim().toLocaleLowerCase('es')}`;
-      const fila = partnershipsMap.get(key);
-      if (fila) fila.investedCop += Math.trunc((invertido * partner.amountCop) / sale.equityBaseCop);
+        partnershipKey(partner) ??
+        `name:${partner.partnerName.trim().toLocaleLowerCase('es')}`;
+      const row = partnershipsMap.get(key);
+      if (row) row.investedCop += partner.resultCop;
     }
     investedLots.add(sale.lotId);
   }

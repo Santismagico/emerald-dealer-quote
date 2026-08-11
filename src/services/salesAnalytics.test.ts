@@ -281,4 +281,77 @@ describe('E3: consolidado con filtros y comparación', () => {
     expect(filtered.filters.societyLabel).toBe('Sociedad Grande');
     expect(filtered.filters.productTypeLabel).toBe('Anillo');
   });
+
+  it('permite filtrar por cualquiera de los socios del modelo nuevo', () => {
+    const multiPartner = {
+      ...comparisonLot({
+        id: 'lot-varios-socios',
+        name: 'Lote con Ana y Beto',
+        partnerId: null,
+        partnerName: '',
+        purchaseValueCop: 1_000_000,
+        saleValueCop: 2_000_000,
+        productType: 'Esmeralda'
+      }),
+      partners: [
+        { id: 'parte-ana', partnerId: 'socio-ana', partnerName: 'Ana', amountCop: 300_000 },
+        { id: 'parte-beto', partnerId: 'socio-beto', partnerName: 'Beto', amountCop: 200_000 }
+      ]
+    };
+    const all = buildSalesAnalytics({
+      period: 'mes',
+      anchorDate: DAY,
+      stoneLots: [multiPartner]
+    });
+
+    expect(all.filters.societies.map((option) => option.label)).toEqual([
+      'Todos',
+      'Ana',
+      'Beto'
+    ]);
+
+    const beto = all.filters.societies.find((option) => option.label === 'Beto')?.value;
+    const filtered = buildSalesAnalytics({
+      period: 'mes',
+      anchorDate: DAY,
+      stoneLots: [multiPartner],
+      societyFilter: beto
+    });
+
+    expect(filtered.sales.map((sale) => sale.lotId)).toEqual(['lot-varios-socios']);
+    expect(filtered.filters.societyLabel).toBe('Beto');
+  });
+
+  it('deja el residuo de cada reparto del lado de Santiago sin perder un peso', () => {
+    const oddSplit = {
+      ...comparisonLot({
+        id: 'lot-reparto-impar',
+        name: 'Lote de tres partes',
+        partnerId: null,
+        partnerName: '',
+        purchaseValueCop: 3,
+        saleValueCop: 104,
+        productType: 'Esmeralda'
+      }),
+      partners: [
+        { id: 'parte-ana', partnerId: 'socio-ana', partnerName: 'Ana', amountCop: 1 },
+        { id: 'parte-beto', partnerId: 'socio-beto', partnerName: 'Beto', amountCop: 1 }
+      ]
+    };
+    const analytics = buildSalesAnalytics({
+      period: 'mes',
+      anchorDate: DAY,
+      stoneLots: [oddSplit]
+    });
+
+    expect(analytics.profitCop).toBe(101);
+    expect(analytics.partnerships.map((person) => [person.partnerName, person.profitCop])).toEqual([
+      ['Tú', 35],
+      ['Ana', 33],
+      ['Beto', 33]
+    ]);
+    expect(analytics.partnerships.reduce((total, person) => total + person.profitCop, 0)).toBe(
+      analytics.profitCop
+    );
+  });
 });
