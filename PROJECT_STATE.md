@@ -1622,3 +1622,33 @@ sin aviso de error y sin errores de consola.
 Supabase no se tocaron. El siguiente trabajo es S8 (Excel); S9 (Nube) sigue al final. El
 valor estimado de mercado del inventario vivo continúa esperando una regla de negocio de
 Santiago; la app sí muestra su costo real.
+
+### Etapa S8 — TERMINADA (2026-08-10). Excel por socio y hoja del fondo
+
+Los Excel internos de **Cierre del día, Cierre mensual, Panel y Consolidado** conservan sus
+hojas Resumen y Detalle y ahora añaden, cuando corresponde:
+
+- **Socios:** columnas separadas para Santiago y cada socio, tanto en el resultado de las
+  ventas de piedras como en los aportes a gastos compartidos. En Panel y Consolidado también
+  incluye un resumen de lo puesto y lo ganado por persona y el reparto de cada venta.
+- **Fondo:** resumen por persona, capital y rendimiento pagado/pendiente, saldo que se debe,
+  vencimiento y estado; debajo, detalle de cada aporte e historial de pagos.
+
+El reparto reutiliza D-073: los socios reciben su parte truncada y todo peso residual queda
+del lado de Santiago. Dos personas distintas con el mismo nombre conservan columnas
+separadas (`Ana (1)`, `Ana (2)`) en vez de mezclarse. El Detalle dejó de mostrar el socio
+único anterior y ahora enumera todos los socios del lote.
+
+**Verificación física:** se generaron dos `.xlsx` reales con datos ficticios —un cierre y un
+consolidado— y se abrieron las ocho hojas resultantes. Fechas y dineros son valores reales,
+las pérdidas están en rojo, no hay cifras cortadas ni errores de fórmula y cada total cuadra
+al peso. Las pruebas finales quedaron en **1096 de 1096**, 73 archivos; build y PWA en verde.
+
+**Protección y entrega:** punto seguro
+`punto-seguro-antes-s8-excel-2026-08-10`; registro `d16a368`; implementación `195377b`.
+Todo permanece en `codex/fase2-nube`. No se tocó `main`, la publicación, Supabase ni ninguna
+migración.
+
+**Siguiente:** S9 (Nube) es la única etapa pendiente. Requiere una orden separada y debe
+mantener las reglas de aislamiento por negocio; no aplicar migraciones ni tocar Producción
+sin autorización expresa de Santiago.

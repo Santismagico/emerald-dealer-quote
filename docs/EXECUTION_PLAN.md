@@ -285,7 +285,9 @@ carpintería. **No se modifica ninguna pantalla en esta etapa.**
       espera una regla de valoración de Santiago.
 - [x] S7 — Dinero: separación por socio en Cierre del día, Cierre mensual y Consolidado.
       ✅ COMPLETADA y reforzada 2026-08-10.
-- [ ] S8 — Excel: columnas por socio y hoja del fondo.
+- [x] S8 — Excel: columnas por socio y hoja del fondo. ✅ COMPLETADA 2026-08-10.
+      Cierres, Panel y Consolidado incluyen una hoja Socios con reparto exacto y una hoja
+      Fondo con resumen por persona, detalle de aportes e historial de pagos.
 - [ ] S9 — Nube: migración SQL, RPC, RLS y sincronización. **Va al final.** Se aplica a
       Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres,
       cada uno con su comprobación **por contenido** (`pg_proc.prosrc like`), nunca por

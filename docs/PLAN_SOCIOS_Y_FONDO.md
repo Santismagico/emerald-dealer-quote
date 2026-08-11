@@ -3,8 +3,8 @@
 **Fecha:** 2026-08-05
 **Autor:** Claude (arquitectura). Implementa Codex.
 **Origen:** prueba de uso de Santiago el día de la publicación del plan v2.
-**Estado:** etapas 1 a 7 implementadas y verificadas. Etapas 8 (Excel) y 9 (Nube)
-pendientes. El punto de §7 quedó resuelto por Santiago y registrado en D-075.
+**Estado:** etapas 1 a 8 implementadas y verificadas. Etapa 9 (Nube) pendiente.
+El punto de §7 quedó resuelto por Santiago y registrado en D-075.
 
 ---
 
@@ -206,7 +206,8 @@ Cada etapa cierra con `npm test` y `npm run build` en verde.
    vivo. El valor estimado de mercado queda pendiente de una regla de valoración de Santiago;
    no se inventa una cifra.
 7. ✅ **Dinero:** separación por socio en Cierre del día, Cierre mensual y Consolidado.
-8. ⬜ **Excel.**
+8. ✅ **Excel:** cierres, panel y consolidado con columnas separadas por persona y hoja
+   completa del fondo (personas, aportes, pagos, vencimientos y saldo).
 9. ⬜ **Nube:** migración SQL, RPC, RLS y sincronización. **Va al final**, y se aplica a
    Producción con el método verificado el 2026-08-05: bloques de 20–30 mil caracteres, cada
    uno con su comprobación por contenido (`pg_proc.prosrc like`), nunca por nombre.

@@ -50,11 +50,11 @@ ahora vive aparte, en la rama, y **no** está publicado.
 
 - Rama de trabajo `codex/fase2-nube`, sin publicar. No calcular su estado desde la copia de
   OneDrive: verificarlo en `C:\Dev\emerald-dealer`.
-- **1091 pruebas en 73 archivos**, `npm run build` en verde.
+- **1096 pruebas en 73 archivos**, `npm run build` en verde.
 - Punto de retorno si algo sale mal en vivo: `main` → `0a86e5a`; el enlace de nube →
   `762dc7c`.
 
-## Trabajo en curso: **Socios y fondo** — 7 de 9 etapas
+## Trabajo en curso: **Socios y fondo** — 8 de 9 etapas
 
 Nació de lo que Santiago pidió el 2026-08-06: poder repartir una compra entre **varios**
 socios y que la app **discrimine a cada uno**, ver eso también en Dinero, tener un informe
@@ -70,7 +70,7 @@ editable y con seguimiento.
 | ✅ | 5. El fondo, persona por persona (`FundView`) | Hecha 2026-08-10 |
 | ✅ | 6. Informe por socio completo (§6 del plan) | Hecha y reforzada 2026-08-10 |
 | ✅ | 7. Socios en Cierre del día, Cierre mensual y Consolidado | Hecha y reforzada 2026-08-10 |
-| ⬜ | 8. Excel | Falta |
+| ✅ | 8. Excel por socio y hoja del fondo | Hecha y verificada 2026-08-10 |
 | ⬜ | 9. Nube: migración SQL, RPC, RLS y sincronización | Falta, va al final |
 
 La pantalla Socios ya separa, persona por persona, el fondo, los lotes, el material, los
@@ -82,6 +82,12 @@ La etapa 7 quedó reforzada después de una auditoría independiente: el Consoli
 a cualquiera de los socios de un lote, los pesos se reparten sin perder residuos, la deuda
 pendiente nunca se infla al dividirla y los cierres muestran el resultado de cada venta de
 piedras persona por persona.
+
+La etapa 8 añade a los Excel de Cierres, Panel y Consolidado una hoja **Socios**, con una
+columna por persona y sumas exactas, y una hoja **Fondo**, con resumen por persona, detalle
+de cada aporte, vencimientos e historial de pagos. Dos personas distintas con el mismo
+nombre se mantienen en columnas separadas. Los archivos reales fueron abiertos, revisados
+visualmente y no mostraron errores.
 
 **Límite consciente y anotado:** todo lo de socios y el fondo **vive solo en el
 dispositivo** hasta la etapa 9. No hay tabla en el servidor; encolarlo sin tabla haría
@@ -160,5 +166,5 @@ Revisa siempre a **320 y 375 px** que no haya desbordamiento horizontal.
 
 ## Tarea de esta sesión
 
-[Santiago: escribe aquí qué necesitas. Por ejemplo: "sigamos con la etapa 8", "hay una
+[Santiago: escribe aquí qué necesitas. Por ejemplo: "preparemos la etapa 9", "hay una
 corrección que dictar", o "¿en qué vamos?"]
