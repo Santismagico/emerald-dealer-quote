@@ -481,6 +481,14 @@ function stoneSaleDetail(sale: BusinessReport['stoneSales'][number]): string {
     parts.push(`Medio: ${sale.method || 'Sin registrar'}`);
     parts.push(`recibió: ${sale.receivedBy || 'Sin registrar'}`);
   }
+  if (sale.partnerResults.length > 0) {
+    const results = sale.partnerResults
+      .map((partner) => `${partner.partnerName} ${formatCOP(partner.profitCop)}`)
+      .join(' · ');
+    parts.push(
+      `Resultado por persona (ganancia de la venta, no caja): tú ${formatCOP(sale.myProfitCop)} · ${results}`
+    );
+  }
   if (sale.notes) parts.push(`Nota: ${sale.notes}`);
   return parts.join(' · ');
 }

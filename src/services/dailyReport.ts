@@ -19,11 +19,13 @@ import { clientPaidTotal } from './payments';
 import { formatCOP, toSafeCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
 import { expensePartners, expenseSplit } from './expenses';
+import { splitByContribution } from './partnership';
 import {
   buildLedger,
   ledgerCashTotals,
   ledgerEventsForDay,
   ledgerEventsForMonth,
+  ledgerSaleProfitCop,
   sumLedgerEvents,
   type LedgerEvent
 } from './ledger';
@@ -54,6 +56,12 @@ export interface DailyStoneSale {
   receivedBy: string;
   method: string;
   notes: string;
+  /** Ganancia reconocida el día de la venta; no es movimiento de caja (D-063). */
+  profitCop: number;
+  /** Parte de la ganancia que le corresponde a Santiago, incluido el residuo. */
+  myProfitCop: number;
+  /** Parte de la ganancia de esta venta que le corresponde a cada socio. */
+  partnerResults: { partnerName: string; profitCop: number }[];
 }
 
 export interface DailySupplierPayment {
@@ -252,6 +260,14 @@ function buildBusinessReport(
   const supplierPayments: DailySupplierPayment[] = [];
   const cuttingPayments: DailyCuttingPayment[] = [];
   const buyerPayments: DailyBuyerPayment[] = [];
+  const stoneSaleEvents = new Map(
+    periodEvents
+      .filter(
+        (event) =>
+          event.kind === 'venta_piedras_contado' || event.kind === 'venta_piedras_credito'
+      )
+      .map((event) => [event.id, event])
+  );
   let supplierDebt = 0;
   let buyersOwe = 0;
   for (const lot of stoneLots) {
@@ -271,6 +287,15 @@ function buildBusinessReport(
     }
     for (const sale of lot.sales) {
       if (matchDate(sale.date)) {
+        const saleEvent = stoneSaleEvents.get(`stone-lot:${lot.id}:sale:${sale.id}`);
+        const profitCop = saleEvent ? (ledgerSaleProfitCop(saleEvent) ?? 0) : 0;
+        const split = saleEvent
+          ? splitByContribution({
+              totalCostCop: saleEvent.equityBaseCop,
+              realResultCop: profitCop,
+              partners: saleEvent.partners
+            })
+          : null;
         stoneSales.push({
           lotName: lotDisplayName(lot),
           stoneType: lot.stoneType,
@@ -282,7 +307,14 @@ function buildBusinessReport(
           dueDate: sale.dueDate,
           receivedBy: sale.receivedBy,
           method: sale.method,
-          notes: sale.notes
+          notes: sale.notes,
+          profitCop,
+          myProfitCop: split?.myResultCop ?? profitCop,
+          partnerResults:
+            split?.partners.map((partner) => ({
+              partnerName: partner.partnerName.trim() || 'Socio sin nombre',
+              profitCop: partner.resultCop
+            })) ?? []
         });
       }
       // Los abonos del comprador entran a caja el día en que se reciben, no el
@@ -727,7 +759,13 @@ function businessSections(report: BusinessReport): PdfSection[] {
             ? ` · nota: ${s.notes.trim()}`
             : ''
           : paymentTrace(s.receivedBy, s.method, s.notes);
-        return `• ${s.lotName}: ${formatCarats(s.carats)} · ${s.quantity} pz${buyer} — ${formatCOP(s.valueCop)}${credit}${trace}`;
+        const partnership =
+          s.partnerResults.length > 0
+            ? ` · Resultado por persona (ganancia de la venta, no caja): tú ${formatCOP(s.myProfitCop)}, ${s.partnerResults
+                .map((partner) => `${partner.partnerName} ${formatCOP(partner.profitCop)}`)
+                .join(', ')}`
+            : '';
+        return `• ${s.lotName}: ${formatCarats(s.carats)} · ${s.quantity} pz${buyer} — ${formatCOP(s.valueCop)}${credit}${trace}${partnership}`;
       })
     });
   }

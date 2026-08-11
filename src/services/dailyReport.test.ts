@@ -4,6 +4,7 @@ import type { Expense, StoneLot } from '../types';
 import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { contentToPlainText } from './pdfContent';
 import { appendSettlementPayment } from './payments';
+import { formatCOP } from '../utils/money';
 import {
   buildDailyReport,
   buildDailyReportPdfContent,
@@ -63,6 +64,54 @@ describe('cierre del día: qué entra en el reporte', () => {
     expect(report.stonePurchases[0].lotName).toBe('Lote Ejemplo 12');
     expect(report.stoneSales.length).toBe(1);
     expect(report.stoneSales[0].valueCop).toBe(2000000);
+  });
+
+  it('separa el resultado de una venta de piedras persona por persona y sin perder pesos', () => {
+    const report = buildDailyReport(DAY, [], [
+      lote({
+        id: 'lote-varios-socios',
+        purchaseDate: '2026-07-01',
+        carats: 1,
+        quantity: 1,
+        purchaseValueCop: 3,
+        partners: [
+          { id: 'parte-ana', partnerId: 'socio-ana', partnerName: 'Ana', amountCop: 1 },
+          { id: 'parte-beto', partnerId: 'socio-beto', partnerName: 'Beto', amountCop: 1 }
+        ],
+        sales: [
+          {
+            id: 'venta-impar',
+            date: DAY,
+            buyer: 'Comprador',
+            carats: 1,
+            quantity: 1,
+            origin: 'bruto',
+            valueCop: 104,
+            productType: 'Esmeralda',
+            usdRate: null,
+            buyerId: null,
+            onCredit: false,
+            dueDate: '',
+            payments: [],
+            method: 'Efectivo',
+            receivedBy: 'Santiago',
+            notes: ''
+          }
+        ]
+      })
+    ]);
+    const sale = report.stoneSales[0];
+
+    expect(sale.profitCop).toBe(101);
+    expect(sale.myProfitCop).toBe(35);
+    expect(sale.partnerResults).toEqual([
+      { partnerName: 'Ana', profitCop: 33 },
+      { partnerName: 'Beto', profitCop: 33 }
+    ]);
+    expect(
+      sale.myProfitCop +
+        sale.partnerResults.reduce((total, partner) => total + partner.profitCop, 0)
+    ).toBe(sale.profitCop);
   });
 
   it('los abonos y pagos del taller se filtran por su fecha', () => {
@@ -369,6 +418,48 @@ describe('PDF del cierre del día', () => {
       buildDailyReportPdfContent(buildDailyReport(DAY, [], []), sampleSettings())
     );
     expect(text).toContain('Sin movimientos');
+  });
+
+  it('el PDF interno muestra el resultado de la venta separado por persona', () => {
+    const sharedLot = lote({
+      id: 'lote-pdf-socios',
+      purchaseDate: '2026-07-01',
+      carats: 1,
+      quantity: 1,
+      purchaseValueCop: 1_000_000,
+      partners: [
+        { id: 'parte-ana', partnerId: 'socio-ana', partnerName: 'Ana', amountCop: 300_000 },
+        { id: 'parte-beto', partnerId: 'socio-beto', partnerName: 'Beto', amountCop: 200_000 }
+      ],
+      sales: [
+        {
+          id: 'venta-pdf-socios',
+          date: DAY,
+          buyer: 'Comprador',
+          carats: 1,
+          quantity: 1,
+          origin: 'bruto',
+          valueCop: 2_000_000,
+          productType: 'Esmeralda',
+          usdRate: null,
+          buyerId: null,
+          onCredit: false,
+          dueDate: '',
+          payments: [],
+          method: 'Efectivo',
+          receivedBy: 'Santiago',
+          notes: ''
+        }
+      ]
+    });
+    const text = contentToPlainText(
+      buildDailyReportPdfContent(buildDailyReport(DAY, [], [sharedLot]), sampleSettings())
+    );
+
+    expect(text).toContain('Resultado por persona');
+    expect(text).toContain(`tú ${formatCOP(500_000)}`);
+    expect(text).toContain(`Ana ${formatCOP(300_000)}`);
+    expect(text).toContain(`Beto ${formatCOP(200_000)}`);
   });
 });
 
