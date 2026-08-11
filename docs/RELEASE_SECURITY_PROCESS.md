@@ -20,7 +20,7 @@ Un cambio en el código nunca publica el sitio por sí solo. La publicación es 
 3. Aplicar las migraciones únicamente al proyecto identificado como **Emerald Dealer - Pruebas Fase 2**.
 4. En Windows, ejecutar `npm run security:n6:secure`. El comando pide la clave secreta de forma oculta, la mantiene solo durante la prueba y la borra de la sesión al terminar. Nunca copiarla al repositorio, un chat, una captura o un archivo de evidencia.
 5. Revisar los avisos de seguridad y rendimiento de Supabase.
-6. Guardar el resultado, el commit, la fecha y el responsable en `docs/AUDITORIA_FASE2.md`.
+6. Guardar el resultado, el commit, la fecha y el responsable en `docs/historico/AUDITORIA_FASE2.md`.
 
 ## Cómo se publica
 

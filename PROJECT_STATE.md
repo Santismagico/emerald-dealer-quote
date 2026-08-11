@@ -17,8 +17,8 @@ PWA de cotizaciones de joyería para Santiago (comerciante de esmeraldas, Colomb
 
 ## Estado de Git y respaldos
 
-- **Fase 1 completada y publicada:** informe en `docs/AUDITORIA_FASE1.md`.
-- **Fase 2 completada como candidata:** N0–N8 en `codex/fase2-nube`; informe acumulativo en `docs/AUDITORIA_FASE2.md`. N6 aprobó 9/9 controles y N7 comprobó recorrido, importación idempotente y recuperación real sin conexión.
+- **Fase 1 completada y publicada:** informe en `docs/historico/AUDITORIA_FASE1.md`.
+- **Fase 2 completada como candidata:** N0–N8 en `codex/fase2-nube`; informe acumulativo en `docs/historico/AUDITORIA_FASE2.md`. N6 aprobó 9/9 controles y N7 comprobó recorrido, importación idempotente y recuperación real sin conexión.
 - **Correcciones de la auditoría Fable completadas:** C-N1 sincroniza borrados sin destruir cambios locales pendientes; C-N2 guarda cotizaciones sin señal y reserva el consecutivo en el servidor al reconectar; C-N3 muestra cambios sin subir y permite recuperar rechazos apartados; C-N4 excluye Supabase de la precarga pública.
 - **Regresión A1 corregida:** un pull conserva clientes, cotizaciones y demás datos que solo han existido localmente, incluso si la nube ya contiene otros registros. Solo puede aplicar un borrado remoto sobre registros que ese dispositivo ya reconcilió con la nube. "Ahora no" fue reemplazado por una explicación honesta de que los datos seguirán solo en ese aparato.
 - **Verificación A1:** la prueba de 3 clientes locales contra nube vacía falló antes del arreglo y pasó después; también aprobaron nube no vacía, borrado posterior desde un segundo dispositivo y fallo remoto sin pérdida. Cierre completo: 512/512 pruebas y compilación 1.1.0.
@@ -104,7 +104,7 @@ Las plantillas de piezas frecuentes permanecen como trabajo futuro y requieren u
 
 **C14 CERRADA COMO RECORRIDO TÉCNICO, NO COMO APROBACIÓN LEGAL (2026-07-20):** las tres auditorías de Fable y la regresión A1 ya estaban cerradas. La tanda inconclusa de términos quedó terminada y verificada en `codex/fase2-nube`: dos casillas independientes, aviso visible, versiones por documento y primer acceso que no obliga a reemplazar una contraseña propia. El siguiente paso es completar los campos del negocio, obtener revisión profesional y decidir la evidencia protegida en servidor. Después siguen SMTP propio, decisión sobre contraseñas filtradas y N6 sobre el commit final exacto. **No avanzar `main` ni ejecutar el workflow de despliegue sin una orden separada y expresa de Santiago.**
 
-**Estado público anterior:** `main` conserva la versión del piloto. La publicación de Fase 1 fue autorizada por Santiago y está documentada en `docs/AUDITORIA_FASE1.md`; Fase 2 no ha sido publicada.
+**Estado público anterior:** `main` conserva la versión del piloto. La publicación de Fase 1 fue autorizada por Santiago y está documentada en `docs/historico/AUDITORIA_FASE1.md`; Fase 2 no ha sido publicada.
 
 Publicación anterior del mismo día (v2 estética+pagos): `main` = `d251ad3` con toda la candidata: correcciones de fondo C1–C9, identidad "el mesón del joyero" con día/noche (D-029), ícono "La gema viva", y las correcciones finales D-030. Despliegue de GitHub Pages en verde (37 s) y sitio en vivo verificado: los meta theme-color nuevos se sirven y el `pwa-512.png` publicado es idéntico byte a byte al local. Las ramas `main` y `codex/correcciones-finales-fable` apuntan al mismo commit.
 
@@ -132,7 +132,7 @@ npm test && npm run build
 
 Un comerciante grande de esmeraldas, cliente real, pidió poder revisar si sus
 compradores ya le pagaron en las fechas acordadas. Héctor autorizó la ampliación.
-Decisiones de negocio y diseño en `docs/PLAN_PIEDRAS_Y_JOYAS_EN_STOCK.md` y en
+Decisiones de negocio y diseño en `docs/historico/PLAN_PIEDRAS_Y_JOYAS_EN_STOCK.md` y en
 **D-042 a D-046** de `DECISIONS.md`.
 
 **Terminado y verificado en `codex/fase2-nube` (655 pruebas y compilación en verde):**
@@ -161,7 +161,7 @@ Decisiones de negocio y diseño en `docs/PLAN_PIEDRAS_Y_JOYAS_EN_STOCK.md` y en
 **PENDIENTE, y es lo único que bloquea:**
 
 1. **Héctor debe aplicar la migración SQL al servidor de producción** siguiendo
-   `docs/SQL_PRODUCCION_INVENTARIO.md`. Es aditiva, no borra nada y es repetible.
+   `docs/historico/SQL_PRODUCCION_INVENTARIO.md`. Es aditiva, no borra nada y es repetible.
 2. **Después** se publica al enlace nuevo (`Santismagico/emerald-dealer-app`).
    Al revés no: la app pediría tablas que aún no existen.
 3. Prueba de dos dispositivos con las entidades nuevas, como se hizo en la Fase 2.
@@ -172,7 +172,7 @@ Decisiones de negocio y diseño en `docs/PLAN_PIEDRAS_Y_JOYAS_EN_STOCK.md` y en
 
 Héctor pidió (2026-07-24) un inventario de materiales (oro) con dueños, y espacio
 propio para joyas pensando en colecciones. Plan en
-`docs/PLAN_MATERIALES_Y_JOYAS.md`; decisiones **D-048 a D-050**.
+`docs/historico/PLAN_MATERIALES_Y_JOYAS.md`; decisiones **D-048 a D-050**.
 
 **Terminado y verificado en `codex/fase2-nube` (720 pruebas y compilación en verde):**
 
@@ -239,7 +239,7 @@ de publicación.
 ## PLAN MAESTRO v2 — de cotizador a sistema del negocio (2026-08-03, EN CURSO)
 
 Santiago dictó una tanda grande de reorganización, adiciones y mejoras. El plan
-completo está en **`docs/PLAN_MAESTRO_V2.md`**; las decisiones de negocio en
+completo está en **`docs/historico/PLAN_MAESTRO_V2.md`**; las decisiones de negocio en
 **D-052 a D-057**. Punto de restauración: tag `punto-seguro-pre-v2-2026-08-03`
 (= `f8dc78e`).
 
@@ -280,7 +280,7 @@ implementadas. La Fase D queda detenida para auditoría independiente antes de
 cualquier trabajo de la Fase E.
 
 **Orden de trabajo entregada a Codex:**
-`docs/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
+`docs/historico/V2_ORDEN_DE_TRABAJO_CODEX_FASES_A_B.md` cubre A1, B1, B2 y B3 en cuatro
 commits separados. Incluye un hallazgo que ahorra trabajo en B3: la aplicación
 **ya consulta la tasa USD→COP** en `src/services/goldPrice.ts`
 (`open.er-api.com`), ya está en la lista blanca de la CSP, ya tiene límites de
@@ -293,7 +293,7 @@ auditó de forma independiente ejecutando todas las verificaciones:
 **846 pruebas en 56 archivos**, compilación, compilación pública sin Supabase con
 CSP exacta, sin secretos, sin dependencias nuevas, `main` intacto en `0a86e5a`, y
 recorrido real en navegador a 320/375/1280 px. **Veredicto: APROBADO.** Informe en
-`docs/AUDITORIA_CLAUDE_V2_FASES_A_B.md`. La observación O1 quedó cerrada con
+`docs/historico/AUDITORIA_CLAUDE_V2_FASES_A_B.md`. La observación O1 quedó cerrada con
 **D-062** (la tasa del dólar se reutiliza de la fuente del oro en vez de
 duplicarla). *Se registró primero como D-059 por error de Claude —Codex ya usaba
 ese número para los gastos— y se renumeró al detectarse el choque.*
@@ -305,7 +305,7 @@ extremo. **Santiago decidió el 2026-08-04 resolverlo en el momento de publicar*
 no ahora: no bloquea la construcción y se decide con todo terminado. Sigue abierto
 y debe volver a plantearse antes de cualquier publicación.
 
-**Fase C entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_C.md`, dos
+**Fase C entregada a Codex:** `docs/historico/V2_ORDEN_DE_TRABAJO_CODEX_FASE_C.md`, dos
 etapas en dos commits. Es la de **riesgo alto**: cambia el comportamiento del
 inventario físico que ya está en producción. Condición central de la orden: *un
 lote sin tandas de talla y sin usos internos debe comportarse exactamente como
@@ -319,7 +319,7 @@ es un traslado de costo.
 (`2617c19`). Claude la auditó de forma independiente: **940 pruebas en 62
 archivos**, compilación, compilación pública sin Supabase con CSP exacta, sin
 secretos, sin dependencias nuevas, migraciones aditivas y `main` intacto.
-**Veredicto: APROBADO.** Informe en `docs/AUDITORIA_CLAUDE_V2_FASE_C.md`.
+**Veredicto: APROBADO.** Informe en `docs/historico/AUDITORIA_CLAUDE_V2_FASE_C.md`.
 
 Se comprobaron las dos condiciones decisivas: un lote sin tandas conserva
 exactamente existencias, dinero y resultado; y la transformación fantasía→natural
@@ -335,7 +335,7 @@ consola; sin desbordamiento a 320/375/1280 px.
 joya en el navegador (sí sus ~700 líneas de pruebas). Conviene que Santiago la
 pruebe con una joya real cuando la tenga.
 
-**Fase D entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_D.md`. Es el
+**Fase D entregada a Codex:** `docs/historico/V2_ORDEN_DE_TRABAJO_CODEX_FASE_D.md`. Es el
 libro del negocio (`src/services/ledger.ts`, D-057) y **no tiene pantalla**.
 
 Dividida en **dos commits a propósito**, para que el riesgo sea manejable:
@@ -392,7 +392,7 @@ piloto, el workflow, el motor de cálculo y el detector de privacidad siguen
 intactos.
 
 **Fase D TERMINADA y AUDITADA (2026-08-04). APROBADA.** Informe en
-`docs/AUDITORIA_CLAUDE_V2_FASE_D.md`. Claude ejecutó todas las verificaciones:
+`docs/historico/AUDITORIA_CLAUDE_V2_FASE_D.md`. Claude ejecutó todas las verificaciones:
 **943 pruebas en 63 archivos**, compilación, compilación pública sin Supabase con
 CSP exacta, sin secretos, sin dependencias nuevas y `main` intacto en `0a86e5a`.
 
@@ -423,7 +423,7 @@ Observación anotada, sin cambio pedido: `dailyReport.ts` creció de 882 a 915
 líneas porque conserva los renglones narrativos que el PDF necesita; **el dinero
 sí quedó con una sola fuente**.
 
-**Fase E entregada a Codex:** `docs/V2_ORDEN_DE_TRABAJO_CODEX_FASE_E.md`. Cuatro
+**Fase E entregada a Codex:** `docs/historico/V2_ORDEN_DE_TRABAJO_CODEX_FASE_E.md`. Cuatro
 commits: **E0** prepara el libro para medir ganancia (sin pantalla), **E1** el
 panel, **E2** el Excel, **E3** el consolidado.
 
@@ -517,7 +517,7 @@ E incluye la instrucción de comprobar el número más alto antes de agregar
 decisiones nuevas.
 
 **Fase E AUDITADA (2026-08-04). APROBADA.** Informe en
-`docs/AUDITORIA_CLAUDE_V2_FASE_E.md`. Claude ejecutó todas las verificaciones:
+`docs/historico/AUDITORIA_CLAUDE_V2_FASE_E.md`. Claude ejecutó todas las verificaciones:
 **957 pruebas en 65 archivos**, compilación, compilación pública sin Supabase con
 CSP exacta, sin secretos, sin dependencias nuevas, **cero migraciones** y `main`
 intacto.
@@ -592,7 +592,7 @@ completo**, pendiente de la auditoría de privacidad separada de Claude antes de
 Santiago considere publicar cualquier cosa.
 
 **AUDITORÍA DE PRIVACIDAD DE LA FASE F (2026-08-04). APROBADA.** Informe en
-`docs/AUDITORIA_CLAUDE_V2_FASE_F_PRIVACIDAD.md`. **970 pruebas en 66 archivos**,
+`docs/historico/AUDITORIA_CLAUDE_V2_FASE_F_PRIVACIDAD.md`. **970 pruebas en 66 archivos**,
 compilación, compilación pública, sin secretos, sin dependencias, cero migraciones,
 `main` intacto.
 
@@ -844,7 +844,7 @@ de despliegue no fueron tocados. **La Fase D no fue iniciada.**
 ## Correcciones de la prueba de usuario de Santiago (2026-08-04, R1)
 
 Santiago probó la aplicación tras completarse el plan v2 y encontró **cuatro cosas**.
-Orden en `docs/V2_ORDEN_CORRECCIONES_SANTIAGO_R1.md`, cuatro commits.
+Orden en `docs/historico/V2_ORDEN_CORRECCIONES_SANTIAGO_R1.md`, cuatro commits.
 Decisiones **D-066 a D-069**.
 
 **Dos de los cuatro no son errores de código, son decisiones de diseño de Claude que en
@@ -973,7 +973,7 @@ nada externo.
 
 ### R2 entregada a Codex (2026-08-04): navegación y gráfica
 
-Santiago aprobó los nombres. Orden en `docs/V2_ORDEN_CORRECCIONES_SANTIAGO_R2.md`, dos
+Santiago aprobó los nombres. Orden en `docs/historico/V2_ORDEN_CORRECCIONES_SANTIAGO_R2.md`, dos
 commits. Decisiones **D-070** y **D-071**. **Va después de R1**, que toca las mismas
 pantallas.
 
@@ -1045,7 +1045,7 @@ migraciones, campos ni publicación; `main`, piloto y workflow intactos.
 
 ### R1 AUDITADA (2026-08-04). APROBADA.
 
-Informe en `docs/AUDITORIA_CLAUDE_CORRECCIONES_R1.md`. **981 pruebas en 67 archivos**,
+Informe en `docs/historico/AUDITORIA_CLAUDE_CORRECCIONES_R1.md`. **981 pruebas en 67 archivos**,
 compilación, compilación pública, sin secretos, `main` intacto.
 
 **El Excel se verificó abriendo el archivo real por dentro:** se generó un cierre desde
@@ -1077,7 +1077,7 @@ abra uno y sume una columna para cerrar ese punto.
 
 ### R2 AUDITADA (2026-08-04). APROBADA.
 
-Informe en `docs/AUDITORIA_CLAUDE_CORRECCIONES_R2.md`. **985 pruebas en 68 archivos**,
+Informe en `docs/historico/AUDITORIA_CLAUDE_CORRECCIONES_R2.md`. **985 pruebas en 68 archivos**,
 compilación, compilación pública, **`test:csp` aprobado**, sin secretos, sin dependencias,
 cero migraciones, `main` intacto.
 
@@ -1205,7 +1205,7 @@ Héctor D-044", "Héctor autorizó la ampliación"). Documentos posteriores leye
 fuera **otra persona** y lo convirtieron en un segundo usuario.
 
 **No lo hay. Una sola persona, un solo usuario en la nube.** Se corrigieron
-`PROJECT_STATE.md`, `docs/PLAN_DE_PUBLICACION_V2.md` y `docs/PROMPT_NUEVA_SESION.md`. Los
+`PROJECT_STATE.md`, `docs/historico/PLAN_DE_PUBLICACION_V2.md` y `docs/PROMPT_NUEVA_SESION.md`. Los
 usos históricos en el código y en los registros de decisiones **se dejan intactos**: son el
 registro de lo que se decidió y cuándo. No añadir aquí su nombre completo ni su correo; ya
 están donde corresponde, en los documentos legales.

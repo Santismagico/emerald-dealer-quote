@@ -421,7 +421,7 @@ acciones del formulario. Sin dependencias nuevas.
 ## D-035 · Arranque de la Fase 2 (nube) y primera dependencia nueva · 2026-07-18 · Vigente
 
 Santiago ordenó arrancar la Fase 2 del plan SaaS (D-031/D-032). Fable escribió la orden
-de trabajo arquitectónica completa en `docs/FASE2_ORDEN_DE_TRABAJO_CODEX.md`; Codex
+de trabajo arquitectónica completa en `docs/historico/FASE2_ORDEN_DE_TRABAJO_CODEX.md`; Codex
 ejecuta en la rama `codex/fase2-nube` y Fable audita al cierre. Decisiones de
 arquitectura fijadas en esa orden:
 
@@ -857,7 +857,7 @@ dos definiciones de "tasa razonable" que podrían separarse con el tiempo. Una s
 defensa, compartida, es más segura que dos copias.
 
 Verificado en la auditoría de las Fases A y B
-(`docs/AUDITORIA_CLAUDE_V2_FASES_A_B.md`, observación O1).
+(`docs/historico/AUDITORIA_CLAUDE_V2_FASES_A_B.md`, observación O1).
 
 ## D-055 · La talla se registra por tandas, en piedras y quilates · 2026-08-03 · Vigente
 

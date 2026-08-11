@@ -2,7 +2,7 @@
 
 > **Ruta canónica desde la Fase 1:** `C:\Dev\emerald-dealer`. Las sesiones nuevas de agentes se abren aquí. La carpeta anterior de OneDrive queda únicamente como copia congelada.
 
-Claude (Fable/Opus/Sonnet en Claude Code) cumple funciones de **arquitectura, planificación y auditoría**. OpenAI Codex ejecuta la implementación siguiendo `docs/HANDOFF_TO_CODEX.md`.
+Claude (Fable/Opus/Sonnet en Claude Code) cumple funciones de **arquitectura, planificación y auditoría**. OpenAI Codex ejecuta la implementación siguiendo la orden de trabajo vigente en `docs/`.
 
 ## Sobre el propietario
 
@@ -26,8 +26,9 @@ Claude (Fable/Opus/Sonnet en Claude Code) cumple funciones de **arquitectura, pl
 |---|---|
 | `AGENTS.md` | Reglas inquebrantables para todo agente (incluye reglas de operación de Codex) |
 | `PROJECT_STATE.md` | Estado actual, decisiones, siguiente paso exacto |
+| `docs/PROMPT_NUEVA_SESION.md` | Punto de partida de toda sesión nueva |
+| `docs/PLAN_SOCIOS_Y_FONDO.md` | El plan en curso, con sus 9 etapas |
 | `docs/EXECUTION_PLAN.md` | Etapas de trabajo para Codex |
-| `docs/HANDOFF_TO_CODEX.md` | Orden de trabajo completa para Codex |
 | `DECISIONS.md` | Registro de decisiones con justificación |
 | `PRODUCT_SPEC.md` / `ARCHITECTURE.md` / `TEST_PLAN.md` (raíz) | Especificación base del producto ya construido |
 

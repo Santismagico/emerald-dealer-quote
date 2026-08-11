@@ -149,7 +149,7 @@ Revisa siempre a **320 y 375 px** que no haya desbordamiento horizontal.
   descuenta los gastos** (arriendo, servicios). Él pidió los gastos diciendo que "sin
   gastos, cualquier ganancia sería mentira". Debe decidir si se queda así o se agrega una
   tercera cifra, *Resultado del negocio*. Detalle en
-  `docs/AUDITORIA_CLAUDE_CORRECCIONES_R2.md`, observación O1.
+  `docs/historico/AUDITORIA_CLAUDE_CORRECCIONES_R2.md`, observación O1.
 - **Redacción del informe por socio:** al compartir un mismo lote entre dos personas, cada
   tarjeta habla del mismo registro. Ya se corrigió para que no se pueda sumar dos veces,
   pero conviene mostrárselo cuando exista la etapa 6.
