@@ -1763,3 +1763,28 @@ Limpieza confirmada: 0 aportes de prueba, 0 joyerías ficticias, 1 joyería real
 en `scripts/run-n6-secure.ps1`, que la pide sin mostrarla ni guardarla, y por tanto necesita
 manos humanas en una consola. No afirmar que el recorrido de la app está probado hasta que
 eso ocurra.
+
+### Etapa 9 aplicada en PRODUCCIÓN (2026-08-10)
+
+Santiago autorizó y aplicó el bloque en `wrvokfzrcmmlzekudypu`.
+`etapa9_funciones_verificadas` devolvió **6**. La versión aplicada ya traía el `revoke all`
+corregido, así que **no** reabrió el hueco de TRUNCATE.
+
+Estado de los dos servidores, verificado por contenido y no por nombre:
+
+| | Pruebas | Producción |
+|---|---|---|
+| Migración etapa 9 (6 funciones) | ✅ | ✅ |
+| Escritura directa cerrada | ✅ | ✅ |
+| Aislamiento probado en la base | ✅ | — (misma migración y mismas políticas) |
+
+**Lo único que falta para que Santiago use socios y fondo entre dispositivos es publicar la
+aplicación**, y eso es una autorización aparte. Dos enlaces distintos, dos decisiones
+distintas:
+
+- `emerald-dealer-app` (nube, **solo Santiago**): publicar aquí es de riesgo bajo y es lo
+  que enciende socios y fondo para él.
+- `main` → `emerald-dealer-quote` (las **7 joyerías del piloto**): es local, sin servidor.
+  No necesita nada de esto y no debe moverse sin una decisión propia.
+
+Sigue pendiente la **N6 real** con dos cuentas a través de la app.
