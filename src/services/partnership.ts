@@ -190,23 +190,35 @@ export function validatePartnersAndFunding(input: {
    */
   subject?: string;
 }): string | null {
+  if (!Number.isSafeInteger(input.totalCostCop) || input.totalCostCop < 0) {
+    return 'El costo debe ser un valor válido en pesos.';
+  }
+  if (!Number.isSafeInteger(input.fundedFromFundCop ?? 0) || (input.fundedFromFundCop ?? 0) < 0) {
+    return 'La plata del fondo debe ser un valor válido en pesos.';
+  }
   const totalCost = normalizeAmount(input.totalCostCop);
   const funded = normalizeAmount(input.fundedFromFundCop ?? 0);
   const partners = input.partners ?? [];
 
-  if ((input.fundedFromFundCop ?? 0) < 0) return 'La plata del fondo no puede ser negativa.';
   if (funded > totalCost) {
     return 'La plata del fondo no puede ser mayor que el costo del lote.';
   }
 
   const seen = new Set<string>();
+  const seenRows = new Set<string>();
   let partnersTotal = 0;
   for (const partner of partners) {
     const name = partner.partnerName.trim();
-    if (partner.partnerId === null && name.length === 0) {
+    if (!partner.id.trim()) return 'Uno de los repartos no tiene identificación.';
+    if (seenRows.has(partner.id)) return 'Hay un reparto repetido.';
+    seenRows.add(partner.id);
+    if (partner.partnerId !== null && !partner.partnerId.trim()) {
+      return 'Uno de los socios vinculados no es válido.';
+    }
+    if (name.length === 0) {
       return 'Falta decir quién es uno de los socios.';
     }
-    if (!Number.isFinite(partner.amountCop) || partner.amountCop < 0) {
+    if (!Number.isSafeInteger(partner.amountCop) || partner.amountCop < 0) {
       return `La plata de ${name || 'un socio'} no es válida.`;
     }
     if (partner.amountCop === 0) {
@@ -320,15 +332,29 @@ export function validateMaterialPartners(input: {
   totalGrams: number;
   partners?: readonly MaterialLotPartner[];
 }): string | null {
+  if (!Number.isFinite(input.totalGrams) || input.totalGrams < 0) {
+    return 'Los gramos del lote no son válidos.';
+  }
   const partners = input.partners ?? [];
   const seen = new Set<string>();
+  const seenRows = new Set<string>();
   let total = 0;
   for (const partner of partners) {
     const name = partner.partnerName.trim();
-    if (partner.partnerId === null && name.length === 0) {
+    if (!partner.id.trim()) return 'Uno de los repartos no tiene identificación.';
+    if (seenRows.has(partner.id)) return 'Hay un reparto repetido.';
+    seenRows.add(partner.id);
+    if (partner.partnerId !== null && !partner.partnerId.trim()) {
+      return 'Uno de los socios vinculados no es válido.';
+    }
+    if (name.length === 0) {
       return 'Falta decir quién es uno de los socios.';
     }
-    if (!Number.isFinite(partner.grams) || partner.grams <= 0) {
+    if (
+      !Number.isFinite(partner.grams) ||
+      partner.grams <= 0 ||
+      roundGrams(partner.grams) !== partner.grams
+    ) {
       return `Escribe cuántos gramos son de ${name || 'el socio'}.`;
     }
     const key = partner.partnerId ?? `name:${name.toLocaleLowerCase('es')}`;

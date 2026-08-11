@@ -7,6 +7,7 @@ import {
   normalizeMaterialLot,
   normalizeMaterialPartner,
   normalizeExpense,
+  normalizeFundContribution,
   normalizeQuote,
   normalizeSettings,
   normalizeStockJewel,
@@ -15,6 +16,7 @@ import {
 } from '../schema';
 import { SETTINGS_KEY } from '../storage';
 import { validateExpenseRateMetadata } from '../expenses';
+import { validateFundContribution } from '../fund';
 import { validateSettingsMetadata } from '../settingsMetadata';
 import { validateStockJewelSaleMetadata } from '../stockJewels';
 import { validateStoneLotInventory, validateStoneLotSalesMetadata } from '../stones';
@@ -74,7 +76,8 @@ const CLOUD_TABLES: readonly CloudTable[] = [
   'stock_jewels',
   'material_partners',
   'material_lots',
-  'expenses'
+  'expenses',
+  'fund_contributions'
 ];
 
 const storeByTable: Record<CloudTable, StoreName> = {
@@ -88,7 +91,8 @@ const storeByTable: Record<CloudTable, StoreName> = {
   stock_jewels: 'stockJewels',
   material_partners: 'materialPartners',
   material_lots: 'materialLots',
-  expenses: 'expenses'
+  expenses: 'expenses',
+  fund_contributions: 'fundContributions'
 };
 
 function normalized(table: CloudTable, data: unknown): Record<string, unknown> {
@@ -104,6 +108,7 @@ function normalized(table: CloudTable, data: unknown): Record<string, unknown> {
     case 'material_partners': return normalizeMaterialPartner(data) as unknown as Record<string, unknown>;
     case 'material_lots': return normalizeMaterialLot(data) as unknown as Record<string, unknown>;
     case 'expenses': return normalizeExpense(data) as unknown as Record<string, unknown>;
+    case 'fund_contributions': return normalizeFundContribution(data) as unknown as Record<string, unknown>;
   }
 }
 
@@ -144,6 +149,8 @@ function b3MetadataError(
         remoteData,
         localData === undefined ? null : normalizeExpense(localData)
       );
+    case 'fund_contributions':
+      return validateFundContribution(normalizeFundContribution(remoteData));
     default:
       return null;
   }

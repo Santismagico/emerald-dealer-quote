@@ -25,6 +25,7 @@ export interface CloudImportWriter extends Pick<
   | 'saveMaterialPartner'
   | 'saveMaterialLot'
   | 'saveExpense'
+  | 'saveFundContribution'
 > {
   authorizeImport: () => Promise<void>;
   seedStoneLotForImport: (
@@ -92,6 +93,7 @@ export function countImportRecords(backup: BackupFile): number {
     + backup.materialPartners.length
     + backup.materialLots.length
     + backup.expenses.length
+    + backup.fundContributions.length
     + restorableTransformations.length
     + transformedLotIds.size
     + transformedJewelIds.size;
@@ -109,6 +111,7 @@ export function hasLocalDataToImport(backup: BackupFile): boolean {
     || backup.materialPartners.length
     || backup.materialLots.length
     || backup.expenses.length
+    || backup.fundContributions.length
   ) return true;
   return backup.settings !== null
     && JSON.stringify(backup.settings) !== JSON.stringify(defaultSettings());
@@ -125,7 +128,8 @@ export async function isCloudEmpty(remote: Pick<CloudRemote, 'list'> = supabaseC
     'stock_jewels',
     'material_partners',
     'material_lots',
-    'expenses'
+    'expenses',
+    'fund_contributions'
   ] as const;
   const rows = await Promise.all(tables.map((table) => remote.list(table)));
   return rows.every((collection) => collection.length === 0);
@@ -186,6 +190,10 @@ export async function importToCloud(
   // Los socios van antes que los lotes de material: los lotes los referencian.
   for (const partner of backup.materialPartners) {
     baseTasks.push({ label: 'Socios', run: () => writer.saveMaterialPartner(partner) });
+  }
+  // Los aportes van después de las personas que pueden tener vinculadas.
+  for (const contribution of backup.fundContributions) {
+    baseTasks.push({ label: 'Fondo', run: () => writer.saveFundContribution(contribution) });
   }
   // Los gastos con sociedad van después de los socios que referencian.
   for (const expense of backup.expenses) {

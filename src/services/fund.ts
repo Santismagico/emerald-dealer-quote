@@ -284,12 +284,19 @@ export function emptyFundContribution(dateISO: string): FundContribution {
 
 /** Validación de negocio. Devuelve el primer problema, o null si está bien. */
 export function validateFundContribution(contribution: FundContribution): string | null {
-  if (contribution.personName.trim().length === 0 && contribution.personId === null) {
+  if (!contribution.id.trim()) return 'El aporte no tiene identificación.';
+  if (contribution.personId !== null && !contribution.personId.trim()) {
+    return 'La persona vinculada no es válida.';
+  }
+  if (contribution.personName.trim().length === 0) {
     return 'Escribe de quién es el aporte.';
   }
   if (!isIsoDate(contribution.date)) return 'La fecha del aporte no es válida.';
-  const capital = toInteger(contribution.amountCop);
-  if (capital <= 0) return 'El aporte debe ser mayor que cero.';
+  if (!Number.isSafeInteger(contribution.amountCop)) {
+    return 'El aporte debe ser un valor válido en pesos.';
+  }
+  if (contribution.amountCop <= 0) return 'El aporte debe ser mayor que cero.';
+  const capital = contribution.amountCop;
 
   if (contribution.returnKind === 'mensual') {
     const rate = contribution.monthlyRatePercent;
@@ -297,11 +304,16 @@ export function validateFundContribution(contribution: FundContribution): string
       return 'Escribe el porcentaje mensual pactado.';
     }
     if (rate > 100) return 'El porcentaje mensual no puede pasar de 100.';
-  } else {
-    const agreed = toInteger(contribution.agreedTotalCop);
-    if (agreed < capital) {
+  } else if (contribution.returnKind === 'fijo') {
+    if (
+      contribution.agreedTotalCop === null ||
+      !Number.isSafeInteger(contribution.agreedTotalCop) ||
+      contribution.agreedTotalCop < capital
+    ) {
       return 'El total pactado no puede ser menor que la plata que puso.';
     }
+  } else {
+    return 'El tipo de rendimiento del aporte no es válido.';
   }
 
   if (contribution.dueDate !== '' && !isIsoDate(contribution.dueDate)) {
@@ -311,10 +323,20 @@ export function validateFundContribution(contribution: FundContribution): string
     return 'La devolución no puede ser antes del aporte.';
   }
 
+  const paymentIds = new Set<string>();
   for (const payment of contribution.payments) {
+    if (!payment.id.trim()) return 'Un pago no tiene identificación.';
+    if (paymentIds.has(payment.id)) return 'Hay un pago repetido en este aporte.';
+    paymentIds.add(payment.id);
     if (!isIsoDate(payment.date)) return 'Un pago tiene una fecha que no es válida.';
     if (payment.date < contribution.date) return 'Un pago quedó antes del aporte.';
-    if (toInteger(payment.amountCop) <= 0) return 'Un pago debe ser mayor que cero.';
+    if (!Number.isSafeInteger(payment.amountCop)) {
+      return 'Un pago debe ser un valor válido en pesos.';
+    }
+    if (payment.amountCop <= 0) return 'Un pago debe ser mayor que cero.';
+    if (payment.kind !== 'capital' && payment.kind !== 'rendimiento') {
+      return 'El tipo de uno de los pagos no es válido.';
+    }
   }
 
   return null;

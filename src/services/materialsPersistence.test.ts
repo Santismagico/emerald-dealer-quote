@@ -5,7 +5,14 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
-import type { BackupFile, Expense, MaterialLot, MaterialPartner, StoneLot } from '../types';
+import type {
+  BackupFile,
+  Expense,
+  FundContribution,
+  MaterialLot,
+  MaterialPartner,
+  StoneLot
+} from '../types';
 import { sampleClient, sampleQuote, sampleSettings } from '../test/fixtures';
 import { emptyExpense } from './expenses';
 import { emptyStoneLot } from './stones';
@@ -85,6 +92,25 @@ function piedrasCompartidas(overrides: Partial<StoneLot> = {}): StoneLot {
     partnerId: 'soc-1',
     partnerName: 'Socio Emerald',
     myPercent: 60,
+    ...overrides
+  };
+}
+
+function aporteDelSocio(overrides: Partial<FundContribution> = {}): FundContribution {
+  return {
+    id: 'aporte-soc-1',
+    personId: 'soc-1',
+    personName: 'Socio Emerald',
+    date: '2026-07-20',
+    amountCop: 2_000_000,
+    returnKind: 'mensual',
+    monthlyRatePercent: 2,
+    agreedTotalCop: null,
+    dueDate: '',
+    payments: [],
+    notes: '',
+    createdAt: '2026-07-20T09:00:00.000Z',
+    updatedAt: '2026-07-20T09:00:00.000Z',
     ...overrides
   };
 }
@@ -193,6 +219,55 @@ describe('migración real v6 → v7', () => {
 });
 
 describe('el historial no se pierde por borrar un socio (D-049)', () => {
+  it('actualiza y luego suelta todos los vínculos nuevos, incluido el Fondo', async () => {
+    await storage.saveMaterialPartner(socio());
+    await storage.saveMaterialLot(loteCompartido({
+      partners: [{
+        id: 'parte-material-1', partnerId: 'soc-1', partnerName: 'Socio Emerald', grams: 40
+      }]
+    }));
+    await storage.saveExpense(gastoCompartido({
+      partners: [{
+        id: 'parte-gasto-1', partnerId: 'soc-1', partnerName: 'Socio Emerald', amountCop: 120_000
+      }]
+    }));
+    await storage.saveStoneLot(piedrasCompartidas({
+      partners: [{
+        id: 'parte-piedra-1', partnerId: 'soc-1', partnerName: 'Socio Emerald', amountCop: 400_000
+      }],
+      fundedFromFundCop: 100_000
+    }));
+    await storage.saveFundContribution(aporteDelSocio());
+
+    await storage.saveMaterialPartner(socio({ name: 'Socio Renombrado' }));
+    expect((await storage.listMaterialLots())[0].partners?.[0]).toMatchObject({
+      partnerId: 'soc-1', partnerName: 'Socio Renombrado', grams: 40
+    });
+    expect((await storage.listExpenses())[0].partners?.[0]).toMatchObject({
+      partnerId: 'soc-1', partnerName: 'Socio Renombrado', amountCop: 120_000
+    });
+    expect((await storage.listStoneLots())[0].partners?.[0]).toMatchObject({
+      partnerId: 'soc-1', partnerName: 'Socio Renombrado', amountCop: 400_000
+    });
+    expect((await storage.listFundContributions())[0]).toMatchObject({
+      personId: 'soc-1', personName: 'Socio Renombrado', amountCop: 2_000_000
+    });
+
+    await storage.deleteMaterialPartner('soc-1');
+    expect((await storage.listMaterialLots())[0].partners?.[0]).toMatchObject({
+      partnerId: null, partnerName: 'Socio Renombrado', grams: 40
+    });
+    expect((await storage.listExpenses())[0].partners?.[0]).toMatchObject({
+      partnerId: null, partnerName: 'Socio Renombrado', amountCop: 120_000
+    });
+    expect((await storage.listStoneLots())[0].partners?.[0]).toMatchObject({
+      partnerId: null, partnerName: 'Socio Renombrado', amountCop: 400_000
+    });
+    expect((await storage.listFundContributions())[0]).toMatchObject({
+      personId: null, personName: 'Socio Renombrado', amountCop: 2_000_000
+    });
+  });
+
   it('renombrar el socio actualiza sus lotes sin tocar los gramos', async () => {
     await storage.saveMaterialPartner(socio());
     await storage.saveMaterialLot(loteCompartido());

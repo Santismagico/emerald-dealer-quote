@@ -1,5 +1,10 @@
 import type { Expense, ExpenseCategoryOption, LotPartner } from '../types';
-import { activePartners, partnersFromLegacy, splitByContribution } from './partnership';
+import {
+  activePartners,
+  partnersFromLegacy,
+  splitByContribution,
+  validatePartnersAndFunding
+} from './partnership';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 import { toSafeCOP } from '../utils/money';
@@ -58,7 +63,13 @@ export function validateExpense(expense: Expense, previous?: Expense | null): st
   if (!Number.isInteger(expense.myPercent) || expense.myPercent < 0 || expense.myPercent > 100) {
     return 'Tu porcentaje debe estar entre 0 y 100.';
   }
-  if (hasPartnerList) return null;
+  if (hasPartnerList) {
+    return validatePartnersAndFunding({
+      totalCostCop: expense.amountCop,
+      partners: expense.partners,
+      subject: 'gasto'
+    });
+  }
   const shared = expense.partnerId !== null || expense.partnerName.trim().length > 0;
   if (shared && !expense.partnerName.trim()) return 'Elige el socio del gasto.';
   if (!shared && expense.myPercent !== 100) return 'Un gasto sin socio debe ser 100% propio.';

@@ -6,7 +6,11 @@
 // material es una lista aparte que se ajusta a mano y no toca el cotizador.
 
 import type { MaterialLot, MaterialLotPartner, MaterialUse } from '../types';
-import { materialPartnersFromLegacy, splitMaterialByGrams } from './partnership';
+import {
+  materialPartnersFromLegacy,
+  splitMaterialByGrams,
+  validateMaterialPartners
+} from './partnership';
 import { isValidISODate } from '../utils/dates';
 import { newId } from '../utils/id';
 
@@ -207,6 +211,11 @@ export function validateMaterialLot(lot: MaterialLot): string | null {
   if (round3(lot.myGrams) > round3(lot.grams)) {
     return `Tu parte (${lot.myGrams} g) no puede ser mayor que el lote (${lot.grams} g).`;
   }
+  const partnersError = validateMaterialPartners({
+    totalGrams: lot.grams,
+    partners: lot.partners
+  });
+  if (partnersError) return partnersError;
   return null;
 }
 

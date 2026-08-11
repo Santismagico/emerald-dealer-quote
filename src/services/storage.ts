@@ -46,9 +46,10 @@ import {
   validateStockJewelSaleMetadata,
   validateStockJewelStoneHistory
 } from './stockJewels';
-import { compareMaterialLots } from './materials';
+import { compareMaterialLots, validateMaterialLot } from './materials';
 import { compareExpenses, validateExpense } from './expenses';
 import { validateFundContribution } from './fund';
+import { validatePartnersAndFunding } from './partnership';
 import {
   transformStockJewelToNatural as buildStockJewelTransformation,
   preserveDeletedStoneLotName,
@@ -216,6 +217,12 @@ export async function listStoneLots(): Promise<StoneLot[]> {
 export async function saveStoneLot(lot: StoneLot): Promise<void> {
   const error = validateStoneLotOwnership(lot);
   if (error) throw new Error(error);
+  const partnershipError = validatePartnersAndFunding({
+    totalCostCop: lot.purchaseValueCop,
+    partners: lot.partners,
+    fundedFromFundCop: lot.fundedFromFundCop
+  });
+  if (partnershipError) throw new Error(partnershipError);
   const stored = await dbGet<unknown>('stoneLots', lot.id);
   const previous = stored === undefined ? null : normalizeStoneLot(stored);
   const metadataError = validateStoneLotSalesMetadata(lot, previous);
@@ -646,8 +653,52 @@ export async function listMaterialPartners(): Promise<MaterialPartner[]> {
   });
 }
 
+type PartnerLinkedRecord = {
+  partnerId: string | null;
+  partnerName: string;
+  partners?: Array<{ partnerId: string | null; partnerName: string }>;
+  updatedAt: string;
+};
+
+/** Actualiza tanto el reparto nuevo como los campos históricos de socio único. */
+function updatePartnerLinks<T extends PartnerLinkedRecord>(
+  record: T,
+  partnerId: string,
+  action: { kind: 'rename'; name: string } | { kind: 'unlink' },
+  updatedAt: string
+): T {
+  const legacyMatches = record.partnerId === partnerId;
+  const legacyNeedsChange = legacyMatches && (
+    action.kind === 'unlink' || record.partnerName !== action.name
+  );
+  const listNeedsChange = (record.partners ?? []).some((partner) =>
+    partner.partnerId === partnerId &&
+    (action.kind === 'unlink' || partner.partnerName !== action.name)
+  );
+  if (!legacyNeedsChange && !listNeedsChange) return record;
+
+  const partners = record.partners?.map((partner) => {
+    if (
+      partner.partnerId !== partnerId ||
+      (action.kind === 'rename' && partner.partnerName === action.name)
+    ) return partner;
+    return action.kind === 'rename'
+      ? { ...partner, partnerName: action.name }
+      : { ...partner, partnerId: null };
+  });
+
+  return {
+    ...record,
+    partnerId: legacyNeedsChange && action.kind === 'unlink' ? null : record.partnerId,
+    partnerName:
+      legacyNeedsChange && action.kind === 'rename' ? action.name : record.partnerName,
+    partners,
+    updatedAt
+  };
+}
+
 /**
- * Guarda el socio y propaga su nombre a material, gastos y piedras vinculados,
+ * Guarda el socio y propaga su nombre a material, gastos, piedras y fondo,
  * para que renombrarlo no deje historial con el nombre viejo (mismo patrón que
  * proveedores en C3 y compradores en D-043). Todo en una sola transacción.
  */
@@ -655,7 +706,9 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
   const normalizedPartner = normalizeMaterialPartner(partner);
   const updatedAt = new Date().toISOString();
 
-  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses', 'stoneLots'], (getStore) => {
+  await dbWriteTransaction(
+    ['materialPartners', 'materialLots', 'expenses', 'stoneLots', 'fundContributions'],
+    (getStore) => {
     getStore('materialPartners').put(normalizedPartner);
 
     const lots = getStore('materialLots');
@@ -663,9 +716,10 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
     request.onsuccess = () => {
       for (const stored of request.result as unknown[]) {
         const lot = normalizeMaterialLot(stored);
-        if (lot.partnerId === normalizedPartner.id && lot.partnerName !== normalizedPartner.name) {
-          lots.put({ ...lot, partnerName: normalizedPartner.name, updatedAt });
-        }
+        const next = updatePartnerLinks(
+          lot, normalizedPartner.id, { kind: 'rename', name: normalizedPartner.name }, updatedAt
+        );
+        if (next !== lot) lots.put(next);
       }
     };
 
@@ -674,12 +728,10 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
     expensesRequest.onsuccess = () => {
       for (const stored of expensesRequest.result as unknown[]) {
         const expense = normalizeExpense(stored);
-        if (
-          expense.partnerId === normalizedPartner.id &&
-          expense.partnerName !== normalizedPartner.name
-        ) {
-          expenses.put({ ...expense, partnerName: normalizedPartner.name, updatedAt });
-        }
+        const next = updatePartnerLinks(
+          expense, normalizedPartner.id, { kind: 'rename', name: normalizedPartner.name }, updatedAt
+        );
+        if (next !== expense) expenses.put(next);
       }
     };
 
@@ -688,8 +740,23 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
     stoneLotsRequest.onsuccess = () => {
       for (const stored of stoneLotsRequest.result as unknown[]) {
         const lot = normalizeStoneLot(stored);
-        if (lot.partnerId === normalizedPartner.id && lot.partnerName !== normalizedPartner.name) {
-          stoneLots.put({ ...lot, partnerName: normalizedPartner.name, updatedAt });
+        const next = updatePartnerLinks(
+          lot, normalizedPartner.id, { kind: 'rename', name: normalizedPartner.name }, updatedAt
+        );
+        if (next !== lot) stoneLots.put(next);
+      }
+    };
+
+    const fund = getStore('fundContributions');
+    const fundRequest = fund.getAll();
+    fundRequest.onsuccess = () => {
+      for (const stored of fundRequest.result as unknown[]) {
+        const contribution = normalizeFundContribution(stored);
+        if (
+          contribution.personId === normalizedPartner.id &&
+          contribution.personName !== normalizedPartner.name
+        ) {
+          fund.put({ ...contribution, personName: normalizedPartner.name, updatedAt });
         }
       }
     };
@@ -698,12 +765,14 @@ export async function saveMaterialPartner(partner: MaterialPartner): Promise<voi
 
 /**
  * Borra el socio sin borrar historia: solo suelta `partnerId`; nombres y repartos
- * permanecen en material, gastos y piedras (D-049/D-053).
+ * permanecen en material, gastos, piedras y fondo (D-049/D-053/D-076).
  */
 export async function deleteMaterialPartner(id: string): Promise<void> {
   const updatedAt = new Date().toISOString();
 
-  await dbWriteTransaction(['materialPartners', 'materialLots', 'expenses', 'stoneLots'], (getStore) => {
+  await dbWriteTransaction(
+    ['materialPartners', 'materialLots', 'expenses', 'stoneLots', 'fundContributions'],
+    (getStore) => {
     getStore('materialPartners').delete(id);
 
     const lots = getStore('materialLots');
@@ -711,9 +780,8 @@ export async function deleteMaterialPartner(id: string): Promise<void> {
     request.onsuccess = () => {
       for (const stored of request.result as unknown[]) {
         const lot = normalizeMaterialLot(stored);
-        if (lot.partnerId === id) {
-          lots.put({ ...lot, partnerId: null, updatedAt });
-        }
+        const next = updatePartnerLinks(lot, id, { kind: 'unlink' }, updatedAt);
+        if (next !== lot) lots.put(next);
       }
     };
 
@@ -722,9 +790,8 @@ export async function deleteMaterialPartner(id: string): Promise<void> {
     expensesRequest.onsuccess = () => {
       for (const stored of expensesRequest.result as unknown[]) {
         const expense = normalizeExpense(stored);
-        if (expense.partnerId === id) {
-          expenses.put({ ...expense, partnerId: null, updatedAt });
-        }
+        const next = updatePartnerLinks(expense, id, { kind: 'unlink' }, updatedAt);
+        if (next !== expense) expenses.put(next);
       }
     };
 
@@ -733,8 +800,18 @@ export async function deleteMaterialPartner(id: string): Promise<void> {
     stoneLotsRequest.onsuccess = () => {
       for (const stored of stoneLotsRequest.result as unknown[]) {
         const lot = normalizeStoneLot(stored);
-        if (lot.partnerId === id) {
-          stoneLots.put({ ...lot, partnerId: null, updatedAt });
+        const next = updatePartnerLinks(lot, id, { kind: 'unlink' }, updatedAt);
+        if (next !== lot) stoneLots.put(next);
+      }
+    };
+
+    const fund = getStore('fundContributions');
+    const fundRequest = fund.getAll();
+    fundRequest.onsuccess = () => {
+      for (const stored of fundRequest.result as unknown[]) {
+        const contribution = normalizeFundContribution(stored);
+        if (contribution.personId === id) {
+          fund.put({ ...contribution, personId: null, updatedAt });
         }
       }
     };
@@ -747,6 +824,8 @@ export async function listMaterialLots(): Promise<MaterialLot[]> {
 }
 
 export async function saveMaterialLot(lot: MaterialLot): Promise<void> {
+  const error = validateMaterialLot(lot);
+  if (error) throw new Error(error);
   await dbPut('materialLots', normalizeMaterialLot(lot));
 }
 

@@ -3,6 +3,7 @@ import type {
   Buyer,
   Client,
   Expense,
+  FundContribution,
   MaterialLot,
   MaterialPartner,
   Quote,
@@ -18,8 +19,15 @@ import {
   type StoneJewelTransformationInput
 } from '../stoneJewelTransformation';
 import { validateExpense } from '../expenses';
+import { validateFundContribution } from '../fund';
+import { validateMaterialLot } from '../materials';
+import { validatePartnersAndFunding } from '../partnership';
 import { validateSettingsMetadata } from '../settingsMetadata';
-import { normalizeStockJewel, normalizeStoneLot } from '../schema';
+import {
+  normalizeFundContribution,
+  normalizeStockJewel,
+  normalizeStoneLot
+} from '../schema';
 import {
   validateStockJewelSaleMetadata,
   validateStockJewelStoneHistory
@@ -100,7 +108,11 @@ const functionNames: Record<CloudTable, { upsert: string; delete: string }> = {
   stock_jewels: { upsert: 'upsert_stock_jewel', delete: 'delete_stock_jewel' },
   material_partners: { upsert: 'upsert_material_partner', delete: 'delete_material_partner' },
   material_lots: { upsert: 'upsert_material_lot', delete: 'delete_material_lot' },
-  expenses: { upsert: 'upsert_expense', delete: 'delete_expense' }
+  expenses: { upsert: 'upsert_expense', delete: 'delete_expense' },
+  fund_contributions: {
+    upsert: 'upsert_fund_contribution',
+    delete: 'delete_fund_contribution'
+  }
 };
 
 function resultOrThrow<T>(result: QueryResult<T>, action: string): T {
@@ -330,6 +342,29 @@ export function createCloudDataSource(options: {
     return read();
   };
 
+  let activeFundBootstrap: Promise<void> | null = null;
+  const ensureLocalFundIsQueued = (): Promise<void> => {
+    if (activeFundBootstrap) return activeFundBootstrap;
+    const run = (async () => {
+      const records = await indexedDbSyncCache.list('fund_contributions');
+      for (const record of records) {
+        if (record.seenInCloud) continue;
+        const contribution = normalizeFundContribution(record.data);
+        if (validateFundContribution(contribution)) continue;
+        await cacheAndQueue(
+          'fund_contributions',
+          contribution.id,
+          contribution,
+          record.updatedAt || contribution.updatedAt || contribution.createdAt || nowIso()
+        );
+      }
+    })();
+    activeFundBootstrap = run.finally(() => {
+      activeFundBootstrap = null;
+    });
+    return activeFundBootstrap;
+  };
+
   const saveSettings = async (settings: Settings): Promise<void> => {
     const metadataError = validateSettingsMetadata(settings);
     if (metadataError) throw new Error(metadataError);
@@ -418,6 +453,12 @@ export function createCloudDataSource(options: {
     async saveStoneLot(lot: StoneLot) {
       const error = validateStoneLotOwnership(lot);
       if (error) throw new Error(error);
+      const partnershipError = validatePartnersAndFunding({
+        totalCostCop: lot.purchaseValueCop,
+        partners: lot.partners,
+        fundedFromFundCop: lot.fundedFromFundCop
+      });
+      if (partnershipError) throw new Error(partnershipError);
       const previous = (await localStorage.listStoneLots()).find((item) => item.id === lot.id) ?? null;
       const metadataError = validateStoneLotSalesMetadata(lot, previous);
       if (metadataError) throw new Error(metadataError);
@@ -434,7 +475,19 @@ export function createCloudDataSource(options: {
       await cacheAndQueue('stone_lots', lot.id, normalized, normalized.updatedAt || nowIso());
     },
     async seedStoneLotForImport(lot: StoneLot, finalLot: StoneLot, importUpdatedAt: string) {
-      const ownershipError = validateStoneLotOwnership(lot) || validateStoneLotOwnership(finalLot);
+      const ownershipError =
+        validateStoneLotOwnership(lot) ||
+        validateStoneLotOwnership(finalLot) ||
+        validatePartnersAndFunding({
+          totalCostCop: lot.purchaseValueCop,
+          partners: lot.partners,
+          fundedFromFundCop: lot.fundedFromFundCop
+        }) ||
+        validatePartnersAndFunding({
+          totalCostCop: finalLot.purchaseValueCop,
+          partners: finalLot.partners,
+          fundedFromFundCop: finalLot.fundedFromFundCop
+        });
       if (ownershipError) throw new Error(ownershipError);
       const metadataError = validateStoneLotSalesMetadata(lot);
       if (metadataError) throw new Error(metadataError);
@@ -561,7 +614,11 @@ export function createCloudDataSource(options: {
       );
     },
     async finalizeStoneLotForImport(lot: StoneLot, importUpdatedAt: string) {
-      const ownershipError = validateStoneLotOwnership(lot);
+      const ownershipError = validateStoneLotOwnership(lot) || validatePartnersAndFunding({
+        totalCostCop: lot.purchaseValueCop,
+        partners: lot.partners,
+        fundedFromFundCop: lot.fundedFromFundCop
+      });
       if (ownershipError) throw new Error(ownershipError);
       const metadataError = validateStoneLotSalesMetadata(lot);
       if (metadataError) throw new Error(metadataError);
@@ -682,18 +739,20 @@ export function createCloudDataSource(options: {
     },
     listMaterialPartners: () => pullThen('material_partners', localStorage.listMaterialPartners),
     // Guardar o borrar un socio reescribe el nombre o suelta el vínculo en
-    // material, gastos y piedras: todos los registros cambiados deben subir.
+    // material, gastos, piedras y fondo: todos los registros cambiados deben subir.
     async saveMaterialPartner(partner: MaterialPartner) {
-      const [lotsBefore, expensesBefore, stoneLotsBefore] = await Promise.all([
+      const [lotsBefore, expensesBefore, stoneLotsBefore, fundBefore] = await Promise.all([
         localStorage.listMaterialLots(),
         localStorage.listExpenses(),
-        localStorage.listStoneLots()
+        localStorage.listStoneLots(),
+        localStorage.listFundContributions()
       ]);
       await localStorage.saveMaterialPartner(partner);
-      const [lotsAfter, expensesAfter, stoneLotsAfter] = await Promise.all([
+      const [lotsAfter, expensesAfter, stoneLotsAfter, fundAfter] = await Promise.all([
         localStorage.listMaterialLots(),
         localStorage.listExpenses(),
-        localStorage.listStoneLots()
+        localStorage.listStoneLots(),
+        localStorage.listFundContributions()
       ]);
       await cacheAndQueue('material_partners', partner.id, partner, nowIso());
       for (const lot of changed(lotsBefore, lotsAfter)) {
@@ -705,18 +764,28 @@ export function createCloudDataSource(options: {
       for (const lot of changed(stoneLotsBefore, stoneLotsAfter)) {
         await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
       }
+      for (const contribution of changed(fundBefore, fundAfter)) {
+        await cacheAndQueue(
+          'fund_contributions',
+          contribution.id,
+          contribution,
+          contribution.updatedAt || nowIso()
+        );
+      }
     },
     async deleteMaterialPartner(id) {
-      const [lotsBefore, expensesBefore, stoneLotsBefore] = await Promise.all([
+      const [lotsBefore, expensesBefore, stoneLotsBefore, fundBefore] = await Promise.all([
         localStorage.listMaterialLots(),
         localStorage.listExpenses(),
-        localStorage.listStoneLots()
+        localStorage.listStoneLots(),
+        localStorage.listFundContributions()
       ]);
       await localStorage.deleteMaterialPartner(id);
-      const [lotsAfter, expensesAfter, stoneLotsAfter] = await Promise.all([
+      const [lotsAfter, expensesAfter, stoneLotsAfter, fundAfter] = await Promise.all([
         localStorage.listMaterialLots(),
         localStorage.listExpenses(),
-        localStorage.listStoneLots()
+        localStorage.listStoneLots(),
+        localStorage.listFundContributions()
       ]);
       await enqueue('material_partners', 'delete', id, null, nowIso());
       for (const lot of changed(lotsBefore, lotsAfter)) {
@@ -728,9 +797,19 @@ export function createCloudDataSource(options: {
       for (const lot of changed(stoneLotsBefore, stoneLotsAfter)) {
         await cacheAndQueue('stone_lots', lot.id, lot, lot.updatedAt || nowIso());
       }
+      for (const contribution of changed(fundBefore, fundAfter)) {
+        await cacheAndQueue(
+          'fund_contributions',
+          contribution.id,
+          contribution,
+          contribution.updatedAt || nowIso()
+        );
+      }
     },
     listMaterialLots: () => pullThen('material_lots', localStorage.listMaterialLots),
     async saveMaterialLot(lot: MaterialLot) {
+      const error = validateMaterialLot(lot);
+      if (error) throw new Error(error);
       await cacheAndQueue('material_lots', lot.id, lot, lot.updatedAt || nowIso());
     },
     async deleteMaterialLot(id) {
@@ -748,16 +827,31 @@ export function createCloudDataSource(options: {
       await localStorage.deleteExpense(id);
       await enqueue('expenses', 'delete', id, null, nowIso());
     },
-    // Fondo de inversión: por ahora vive SOLO en el dispositivo. La tabla, el RPC
-    // y las reglas de aislamiento entran en la etapa 9 del plan de socios; hasta
-    // entonces no hay a dónde sincronizarlo, y encolarlo sin tabla haría fallar
-    // el envío una y otra vez. Guardar en local es correcto y reversible: cuando
-    // llegue la etapa 9, el primer envío sube lo que ya esté guardado aquí.
-    listFundContributions: () => localStorage.listFundContributions(),
-    saveFundContribution: (contribution) => localStorage.saveFundContribution(contribution),
-    deleteFundContribution: (id) => localStorage.deleteFundContribution(id),
+    async listFundContributions() {
+      await pullThen('fund_contributions', async () => undefined);
+      await ensureLocalFundIsQueued();
+      return localStorage.listFundContributions();
+    },
+    async saveFundContribution(contribution: FundContribution) {
+      const error = validateFundContribution(contribution);
+      if (error) throw new Error(error);
+      const normalized = normalizeFundContribution(contribution);
+      await cacheAndQueue(
+        'fund_contributions',
+        normalized.id,
+        normalized,
+        normalized.updatedAt || nowIso()
+      );
+    },
+    async deleteFundContribution(id) {
+      await localStorage.deleteFundContribution(id);
+      await enqueue('fund_contributions', 'delete', id, null, nowIso());
+    },
     nextQuoteNumber: options.remote.nextQuoteNumber,
-    pullAll: options.sync.pullAll,
+    async pullAll() {
+      await options.sync.pullAll();
+      await ensureLocalFundIsQueued();
+    },
     async flush() {
       await options.outbox.flush();
     },

@@ -11,7 +11,8 @@ export type CloudTable =
   | 'stock_jewels'
   | 'material_partners'
   | 'material_lots'
-  | 'expenses';
+  | 'expenses'
+  | 'fund_contributions';
 
 export type CloudOperationType =
   | 'upsert'
