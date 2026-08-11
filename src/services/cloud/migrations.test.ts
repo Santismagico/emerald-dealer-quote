@@ -14,6 +14,7 @@ import cuttingBatchesSource from '../../../supabase/migrations/20260804144748_fa
 import jewelTransformationSource from '../../../supabase/migrations/20260804151230_fase_c2_transformacion_joya.sql?raw'
 import stonePurchaseOriginSource from '../../../supabase/migrations/20260804184500_compra_lote_bruto_tallado.sql?raw'
 import deletedStoneLotHistorySource from '../../../supabase/migrations/20260804193000_eliminar_lote_con_historia_joya.sql?raw'
+import sociosFundCloudSource from '../../../supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -31,6 +32,7 @@ const cuttingBatches = cuttingBatchesSource.toLowerCase()
 const jewelTransformation = jewelTransformationSource.toLowerCase()
 const stonePurchaseOrigin = stonePurchaseOriginSource.toLowerCase()
 const deletedStoneLotHistory = deletedStoneLotHistorySource.toLowerCase()
+const sociosFundCloud = sociosFundCloudSource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -240,6 +242,98 @@ describe('migraciones de nube', () => {
     for (const name of names) {
       expect(functions).toContain(`function public.${name}`)
       expect(functions).toContain(`grant execute on function public.${name}`)
+    }
+  })
+})
+
+describe('etapa 9: socios y fondo en la nube', () => {
+  it('agrega el fondo sin borrar tablas, columnas ni datos existentes', () => {
+    expect(sociosFundCloud).toContain('create table if not exists public.fund_contributions')
+    expect(sociosFundCloud).toContain('primary key (organization_id, id)')
+    expect(sociosFundCloud).toContain('create index if not exists fund_contributions_org_updated')
+    expect(sociosFundCloud).not.toMatch(/drop\s+(table|column)/)
+    expect(sociosFundCloud).not.toMatch(/truncate/)
+    for (const table of ['stone_lots', 'material_lots', 'expenses']) {
+      expect(sociosFundCloud).not.toMatch(new RegExp(`delete\\s+from\\s+public\\.${table}`))
+    }
+  })
+
+  it('cierra escritura directa y permite leer solo a miembros de la joyeria', () => {
+    expect(sociosFundCloud).toContain(
+      'alter table public.fund_contributions enable row level security'
+    )
+    expect(sociosFundCloud).toContain('create policy fund_contributions_select_member')
+    expect(sociosFundCloud).toContain('membership.user_id = (select auth.uid())')
+    expect(sociosFundCloud).toContain(
+      'revoke insert, update, delete on table public.fund_contributions from authenticated'
+    )
+    expect(sociosFundCloud).toContain(
+      'grant select on table public.fund_contributions to authenticated'
+    )
+    expect(sociosFundCloud).toContain('revoke all on table public.fund_contributions from anon')
+    expect(sociosFundCloud).not.toContain('policy fund_contributions_insert')
+    expect(sociosFundCloud).not.toContain('policy fund_contributions_update')
+    expect(sociosFundCloud).not.toContain('policy fund_contributions_delete')
+  })
+
+  it('resuelve la organizacion en el servidor y no acepta organization_id del navegador', () => {
+    for (const name of ['upsert_fund_contribution', 'delete_fund_contribution']) {
+      expect(sociosFundCloud).toContain(`function public.${name}`)
+      expect(sociosFundCloud).toContain(`revoke all on function public.${name}`)
+      expect(sociosFundCloud).toContain(`grant execute on function public.${name}`)
+    }
+    expect(sociosFundCloud).toContain(
+      "private.current_organization_id_for_roles(\n    array['owner', 'admin', 'seller']"
+    )
+    expect(sociosFundCloud).not.toContain('p_organization_id')
+    expect(sociosFundCloud).toContain("set search_path = ''")
+  })
+
+  it('valida listas completas, duplicados, sumas y fondo fuera del reparto', () => {
+    expect(sociosFundCloud).toContain('function private.assert_money_partners_payload')
+    expect(sociosFundCloud).toContain("partner->'amountcop'")
+    expect(sociosFundCloud).toContain("new.data->'fundedfromfundcop'")
+    expect(sociosFundCloud).toContain('v_partners_total + v_funded > v_total')
+    expect(sociosFundCloud).toContain("'name:' || lower(btrim(partner->>'partnername'))")
+    expect(sociosFundCloud).toContain('duplicate % partner')
+    expect(sociosFundCloud).toContain("errcode = '22023'")
+  })
+
+  it('protege material por gramos y el fondo por persona y pagos', () => {
+    expect(sociosFundCloud).toContain('function private.assert_material_partners_payload')
+    expect(sociosFundCloud).toContain("partner->'grams'")
+    expect(sociosFundCloud).toContain('v_partners_grams > v_total_grams')
+    expect(sociosFundCloud).toContain('function private.assert_fund_contribution_payload')
+    expect(sociosFundCloud).toContain("p_data->'personname'")
+    expect(sociosFundCloud).toContain("p_data->>'returnkind'")
+    expect(sociosFundCloud).toContain("p_data->'monthlyratepercent'")
+    expect(sociosFundCloud).toContain("p_data->'agreedtotalcop'")
+    expect(sociosFundCloud).toContain("p_data->'payments'")
+    expect(sociosFundCloud).toContain('duplicate fund payment')
+    expect(sociosFundCloud).toContain('9007199254740991')
+  })
+
+  it('aplica la frontera nueva a toda ruta de escritura, incluidas importaciones', () => {
+    for (const table of ['stone_lots', 'material_lots', 'expenses', 'fund_contributions']) {
+      expect(sociosFundCloud).toContain(`before insert or update on public.${table}`)
+      expect(sociosFundCloud).toContain(`validate_socios_fondo_${table}`)
+    }
+    expect(sociosFundCloud).toContain('function private.assert_socios_fondo_row_payload')
+    expect(sociosFundCloud).toContain('for each row execute function private.assert_socios_fondo_row_payload()')
+  })
+
+  it('termina con comprobacion por contenido de los seis cuerpos nuevos', () => {
+    expect(sociosFundCloud).toContain("procedure.prosrc like '%etapa9_socios_fondo_v1%'")
+    expect(sociosFundCloud).toContain('debe devolver 6')
+    for (const name of [
+      'assert_money_partners_payload',
+      'assert_material_partners_payload',
+      'assert_fund_contribution_payload',
+      'assert_socios_fondo_row_payload',
+      'upsert_fund_contribution',
+      'delete_fund_contribution'
+    ]) {
+      expect(sociosFundCloud).toContain(`'${name}'`)
     }
   })
 })
