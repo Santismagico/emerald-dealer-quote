@@ -336,6 +336,36 @@ describe('sociedades en lotes de piedras (D-053)', () => {
     // Lo que le falta cobrar sí aparece: 40% de los dos millones.
     expect(socio.pendingFromBuyersCop).toBe(800000);
   });
+
+  it('nunca reparte entre los socios más deuda que la que realmente debe el comprador', () => {
+    const shares = stonesByPartner([
+      lote({
+        id: 'deuda-impar',
+        carats: 1,
+        quantity: 1,
+        purchaseValueCop: 4,
+        partners: [
+          { id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 1 },
+          { id: 'p-2', partnerId: 'soc-2', partnerName: 'Beto', amountCop: 1 },
+          { id: 'p-3', partnerId: 'soc-3', partnerName: 'Carla', amountCop: 1 }
+        ],
+        sales: [
+          venta({
+            id: 'venta-deuda-impar',
+            carats: 1,
+            quantity: 1,
+            valueCop: 2,
+            onCredit: true,
+            dueDate: '2026-09-10',
+            payments: []
+          })
+        ]
+      })
+    ]);
+
+    expect(shares.reduce((total, share) => total + share.pendingFromBuyersCop, 0)).toBeLessThanOrEqual(2);
+    expect(shares.every((share) => share.pendingFromBuyersCop === 0)).toBe(true);
+  });
 });
 
 describe('existencias y flujo', () => {

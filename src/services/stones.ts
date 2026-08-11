@@ -394,7 +394,10 @@ export function stonesByPartner(lots: readonly StoneLot[]): PartnerStoneResult[]
       } else if (!summary.exhausted) {
         current.openContributionCop += partner.amountCop;
       }
-      current.pendingFromBuyersCop += Math.round(summary.buyersDebt * share);
+      // La parte de cada socio se trunca y cualquier peso residual queda del
+      // lado de Santiago, igual que en el reparto del resultado (D-073). Usar
+      // Math.round por persona podía repartir más deuda que la que existía.
+      current.pendingFromBuyersCop += Math.trunc(summary.buyersDebt * share);
 
       byPartner.set(key, current);
     }
