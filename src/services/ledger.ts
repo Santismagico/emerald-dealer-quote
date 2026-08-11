@@ -4,6 +4,7 @@
 
 import type {
   Expense,
+  LotPartner,
   MaterialLot,
   Quote,
   StockJewel,
@@ -13,6 +14,7 @@ import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import { isValidISODate, toISODate } from '../utils/dates';
 import { toSafeCOP } from '../utils/money';
 import { stockJewelAcquisitionCostCop } from './stockJewels';
+import { summarizeStoneLotSplit } from './stones';
 import { attributedStoneCostCop } from './stoneJewelTransformation';
 
 export type LedgerDirection = 'entra' | 'sale' | 'ninguna';
@@ -58,9 +60,21 @@ export interface LedgerEvent {
   usdRate: number | null;
   module: LedgerModule;
   lotId: string | null;
+  /** @deprecated Modelo de socio unico. Lo vigente es `partners` (D-073). */
   partnerId: string | null;
+  /** @deprecated Modelo de socio unico. Lo vigente es `partners` (D-073). */
   partnerName: string;
+  /** @deprecated Modelo de socio unico. Lo vigente es `partners` (D-073). */
   myPercent: number;
+  /**
+   * Socios de igualdad del lote que produjo el evento, cada uno con la plata que
+   * puso (D-073). Vacio cuando el evento no viene de un lote compartido.
+   */
+  partners: LotPartner[];
+  /** Base del reparto: lo propio mas los socios. NUNCA incluye el fondo (D-072). */
+  equityBaseCop: number;
+  /** Lo que puso Santiago en ese lote. Derivado, nunca guardado. */
+  myContributionCop: number;
   /** Vacio conserva honestamente un tipo de producto no registrado. */
   productType: string;
   counterparty: string;
@@ -102,10 +116,16 @@ export function ledgerProfitTotal(events: readonly LedgerEvent[]): number {
   return events.reduce((total, entry) => total + (ledgerSaleProfitCop(entry) ?? 0), 0);
 }
 
-type EventFields = Omit<LedgerEvent, 'amountCop' | 'attributedCostCop' | 'myPercent'> & {
+type EventFields = Omit<
+  LedgerEvent,
+  'amountCop' | 'attributedCostCop' | 'myPercent' | 'partners' | 'equityBaseCop' | 'myContributionCop'
+> & {
   amountCop: number;
   attributedCostCop?: number;
   myPercent?: number;
+  partners?: LotPartner[];
+  equityBaseCop?: number;
+  myContributionCop?: number;
 };
 
 function event(fields: EventFields): LedgerEvent {
@@ -113,7 +133,10 @@ function event(fields: EventFields): LedgerEvent {
     ...fields,
     amountCop: toSafeCOP(fields.amountCop),
     attributedCostCop: toSafeCOP(fields.attributedCostCop ?? 0),
-    myPercent: Math.min(100, Math.max(0, Math.round(fields.myPercent ?? 100)))
+    myPercent: Math.min(100, Math.max(0, Math.round(fields.myPercent ?? 100))),
+    partners: fields.partners ?? [],
+    equityBaseCop: toSafeCOP(fields.equityBaseCop ?? 0),
+    myContributionCop: toSafeCOP(fields.myContributionCop ?? 0)
   };
 }
 
@@ -297,6 +320,19 @@ export function buildLedger({
 
   for (const lot of stoneLots) {
     const saleAttributedCosts = stoneSaleAttributedCosts(lot);
+    // El reparto del lote viaja con cada evento suyo, para que el consolidado
+    // pueda separar por persona sin volver a abrir el lote (D-073).
+    const lotSplit = summarizeStoneLotSplit(lot);
+    const lotOwnership = {
+      partners: lotSplit.partners.map((partner) => ({
+        id: `${lot.id}:${partner.partnerId ?? partner.partnerName}`,
+        partnerId: partner.partnerId,
+        partnerName: partner.partnerName,
+        amountCop: partner.amountCop
+      })),
+      equityBaseCop: lotSplit.equityBaseCop,
+      myContributionCop: lotSplit.myContributionCop
+    };
     // Una compra a credito se registra, pero no mueve caja hasta cada pago al
     // proveedor. Es la misma regla honesta que ya aplicaban los cierres.
     events.push(
@@ -309,6 +345,7 @@ export function buildLedger({
         usdRate: null,
         module: 'piedras',
         lotId: lot.id,
+        ...lotOwnership,
         partnerId: lot.partnerId,
         partnerName: lot.partnerName,
         myPercent: lot.myPercent,
@@ -332,6 +369,7 @@ export function buildLedger({
           usdRate: sale.usdRate,
           module: 'piedras',
           lotId: lot.id,
+          ...lotOwnership,
           partnerId: lot.partnerId,
           partnerName: lot.partnerName,
           myPercent: lot.myPercent,
@@ -354,6 +392,7 @@ export function buildLedger({
             usdRate: payment.usdRate,
             module: 'piedras',
             lotId: lot.id,
+            ...lotOwnership,
             partnerId: lot.partnerId,
             partnerName: lot.partnerName,
             myPercent: lot.myPercent,
@@ -378,6 +417,7 @@ export function buildLedger({
           usdRate: null,
           module: 'piedras',
           lotId: lot.id,
+          ...lotOwnership,
           partnerId: lot.partnerId,
           partnerName: lot.partnerName,
           myPercent: lot.myPercent,
@@ -402,6 +442,7 @@ export function buildLedger({
           usdRate: null,
           module: 'piedras',
           lotId: lot.id,
+          ...lotOwnership,
           partnerId: lot.partnerId,
           partnerName: lot.partnerName,
           myPercent: lot.myPercent,
@@ -425,6 +466,7 @@ export function buildLedger({
           usdRate: null,
           module: 'piedras',
           lotId: lot.id,
+          ...lotOwnership,
           partnerId: lot.partnerId,
           partnerName: lot.partnerName,
           myPercent: lot.myPercent,

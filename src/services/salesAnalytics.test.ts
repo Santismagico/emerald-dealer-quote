@@ -150,15 +150,22 @@ describe('E1: ventas y ganancias desde el libro', () => {
         profitCop: 1_500_000
       })
     ]);
+    // Una fila POR PERSONA, Santiago primero. Cada cifra es solo suya: antes la
+    // fila mezclaba «tu parte» y «la del socio», y agrupaba por el socio único.
     expect(analytics.partnerships).toEqual([
       expect.objectContaining({
+        partnerName: 'Tú',
+        isOwner: true,
+        investedCop: 600_000,
+        profitCop: 900_000,
+        returnPercent: 150
+      }),
+      expect.objectContaining({
         partnerName: 'Socio Uno',
-        myProfitCop: 900_000,
-        partnerProfitCop: 600_000,
-        myInvestedCop: 600_000,
-        partnerInvestedCop: 400_000,
-        myReturnPercent: 150,
-        partnerReturnPercent: 150
+        isOwner: false,
+        investedCop: 400_000,
+        profitCop: 600_000,
+        returnPercent: 150
       })
     ]);
   });
@@ -168,8 +175,7 @@ describe('E1: ventas y ganancias desde el libro', () => {
     lot.purchaseValueCop = 0;
     const analytics = buildSalesAnalytics({ period: 'dia', anchorDate: DAY, stoneLots: [lot] });
 
-    expect(analytics.partnerships[0].myReturnPercent).toBeNull();
-    expect(analytics.partnerships[0].partnerReturnPercent).toBeNull();
+    expect(analytics.partnerships.every((item) => item.returnPercent === null)).toBe(true);
   });
 });
 
@@ -241,15 +247,19 @@ describe('E3: consolidado con filtros y comparación', () => {
   it('señala por separado la sociedad que deja más dinero y la más rentable', () => {
     const analytics = buildSalesAnalytics({ period: 'mes', anchorDate: DAY, stoneLots: lots });
 
+    // La comparación mira solo a los socios: Santiago está en todos los lotes y
+    // ganaría siempre las dos tarjetas, que es justo lo que no se quiere saber.
     expect(analytics.comparison.mostMoney).toMatchObject({
       partnerName: 'Sociedad Grande',
-      myProfitCop: 500_000,
-      myReturnPercent: 100
+      isOwner: false,
+      profitCop: 500_000,
+      returnPercent: 100
     });
     expect(analytics.comparison.mostProfitable).toMatchObject({
       partnerName: 'Sociedad Eficiente',
-      myProfitCop: 100_000,
-      myReturnPercent: 200
+      isOwner: false,
+      profitCop: 100_000,
+      returnPercent: 200
     });
   });
 

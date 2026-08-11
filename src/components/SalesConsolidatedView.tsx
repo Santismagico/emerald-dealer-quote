@@ -54,10 +54,10 @@ function ComparisonCard({
           </p>
           <p className="mt-2 break-words text-sm font-bold text-brand-800">
             {emphasizePercent
-              ? `${percentLabel(partnership.myReturnPercent)} · ${formatCOP(partnership.myProfitCop)}`
-              : `${formatCOP(partnership.myProfitCop)} · ${percentLabel(partnership.myReturnPercent)}`}
+              ? `${percentLabel(partnership.returnPercent)} · ${formatCOP(partnership.profitCop)}`
+              : `${formatCOP(partnership.profitCop)} · ${percentLabel(partnership.returnPercent)}`}
           </p>
-          <p className="mt-1 text-xs text-stone-500">Tu ganancia · rentabilidad</p>
+          <p className="mt-1 text-xs text-stone-500">Su ganancia · rentabilidad</p>
         </>
       ) : (
         <p className="mt-2 text-sm text-stone-500">Sin sociedades para comparar</p>
@@ -177,7 +177,7 @@ export function SalesConsolidatedView() {
       </SectionCard>
 
       <SectionCard
-        title="Comparación entre sociedades"
+        title="Comparación entre socios"
         subtitle="El monto y el porcentaje aparecen juntos para no decidir con una sola cifra."
       >
         <div className="grid grid-cols-2 gap-2">
@@ -196,20 +196,26 @@ export function SalesConsolidatedView() {
           message="Cambia el período o los filtros para comparar otras ventas."
         />
       ) : (
-        <SectionCard title={`Sociedades encontradas (${analytics.partnerships.length})`}>
+        <SectionCard
+          title={`Cada quien en los lotes compartidos (${analytics.partnerships.length})`}
+          subtitle="Una fila por persona, tú incluido. Cada cifra es solo suya, así que no se suman entre sí."
+        >
           {analytics.partnerships.map((partnership) => (
-            <div key={partnership.key} className="min-w-0 rounded-xl border border-stone-200 p-3">
+            <div
+              key={partnership.key}
+              className={`min-w-0 rounded-xl border p-3 ${
+                partnership.isOwner ? 'border-brand-200 bg-brand-50' : 'border-stone-200'
+              }`}
+            >
               <p className="break-words text-sm font-semibold text-stone-900">
                 {partnership.partnerName}
               </p>
               <div className="mt-3 space-y-2">
+                <SummaryRow label="Puso" value={formatCOP(partnership.investedCop)} />
                 <SummaryRow
-                  label="Tu parte"
-                  value={`${formatCOP(partnership.myProfitCop)} · ${percentLabel(partnership.myReturnPercent)}`}
-                />
-                <SummaryRow
-                  label={`Parte de ${partnership.partnerName}`}
-                  value={`${formatCOP(partnership.partnerProfitCop)} · ${percentLabel(partnership.partnerReturnPercent)}`}
+                  label="Ganó"
+                  value={`${formatCOP(partnership.profitCop)} · ${percentLabel(partnership.returnPercent)}`}
+                  bold
                 />
               </div>
             </div>

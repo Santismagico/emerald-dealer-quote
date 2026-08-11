@@ -1557,3 +1557,42 @@ Beto vencido desde el 1 de agosto.
 
 **Siguiente:** etapa 7 (separación por socio en Cierre del día y Consolidado), luego Excel
 (8) y nube (9).
+
+### Etapa S7 — TERMINADA (2026-08-10). Dinero separado por socio
+
+Cierra la otra mitad del pedido del 2026-08-06: *"también en la parte de money, panel,
+cierre del día, consolidado […] necesito ver qué tiene cada socio"*.
+
+**Tercer fallo del mismo origen, encontrado y corregido.** El **libro del negocio**
+(`ledger.ts`, D-057) guardaba en cada evento el trío `partnerId` / `partnerName` /
+`myPercent` del modelo de socio único. De ahí bebían el Panel, el Consolidado y el Excel,
+así que **todos repartían como si el lote tuviera un solo socio**. Ahora cada evento de un
+lote de piedras lleva `partners`, `equityBaseCop` y `myContributionCop`; los campos viejos
+quedan `@deprecated` pero presentes.
+
+**Consolidado y Panel.** «Sociedades encontradas» pasa a **«Cada quien en los lotes
+compartidos»**: una fila por persona, **Santiago incluido** (`isOwner`), con lo que puso, lo
+que ganó y su rentabilidad. La fila perdió el par «tu parte / parte del socio», que repetía
+la cifra de Santiago en cada tarjeta e invitaba a sumarla varias veces. Las tarjetas de
+comparación —Más dinero, Más rentable— miran **solo a los socios**: incluir a Santiago no
+dice nada, porque él está en todos los lotes y ganaría siempre.
+
+**Cierre del día y su PDF.** El renglón del gasto decía «Socio X: 60% propio», que con
+varios socios nombraba a uno solo. Ahora dice **quién puso cuánto, persona por persona**:
+«Compartido: tuyo $800.000 · Ana Restrepo $800.000 · Beto Cárdenas $400.000». `DailyExpense`
+estrena `partners`; los campos viejos quedan `@deprecated`.
+
+**Excel.** La hoja del consolidado cambia «Comparación de sociedades» por «Comparación por
+persona», con la ganancia y la rentabilidad de esa persona.
+
+**Verificación en navegador (modo local, 320 px, sin desbordamiento).** Lote de $1.000.000
+con Ana $300.000, Beto $200.000 y Santiago $500.000, vendido en $2.000.000 y cobrado. El
+Consolidado da tres filas: **Tú $500.000 puestos → $500.000 ganados (100%)**, Ana $300.000 →
+$300.000 (100%), Beto $200.000 → $200.000 (100%). El Cierre del día muestra el gasto de
+$2.000.000 repartido nombre por nombre.
+
+**Cierre:** 1086 pruebas en 73 archivos y build en verde.
+
+**Siguiente:** etapa 8 (Excel por socio) y etapa 9 (nube: migración SQL, RPC, RLS y
+sincronización de socios y fondo). Con S9 pendiente, socios y fondo siguen viviendo solo en
+el dispositivo.

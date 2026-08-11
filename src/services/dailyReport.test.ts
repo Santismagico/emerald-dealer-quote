@@ -220,6 +220,30 @@ describe('gastos en los cierres (B1)', () => {
     expect(buildMonthlyReport('2026-08', [], [], [], [expense]).totals.expensesPaid).toBe(0);
   });
 
+  it('el cierre dice quién puso cuánto, persona por persona', () => {
+    const compartido = {
+      ...expense,
+      id: 'g-varios',
+      amountCop: 1000000,
+      partners: [
+        { id: 'p-1', partnerId: 'soc-1', partnerName: 'Ana', amountCop: 300000 },
+        { id: 'p-2', partnerId: 'soc-2', partnerName: 'Beto', amountCop: 200000 }
+      ]
+    };
+    const day = buildDailyReport(DAY, [], [], [], [compartido]);
+    expect(day.expenses[0].partners).toEqual([
+      { partnerName: 'Ana', amountCop: 300000 },
+      { partnerName: 'Beto', amountCop: 200000 }
+    ]);
+    // Lo propio se deriva: el millón menos lo que pusieron los dos.
+    expect(day.expenses[0].myAmountCop).toBe(500000);
+  });
+
+  it('un gasto sin socios no inventa reparto', () => {
+    const propio = { ...expense, id: 'g-propio', partnerId: null, partnerName: '', myPercent: 100 };
+    expect(buildDailyReport(DAY, [], [], [], [propio]).expenses[0].partners).toEqual([]);
+  });
+
   it('un mes que solo tiene gastos aparece en el historial mensual', () => {
     expect(listMonthlySummaries([], [], [], [expense])).toEqual([
       { month: '2026-07', cashIn: 0, cashOut: 450001, net: -450001 }

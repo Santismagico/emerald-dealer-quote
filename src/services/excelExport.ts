@@ -478,20 +478,20 @@ function salesSummaryData(analytics: SalesAnalytics, options: SalesWorkbookOptio
     const mostProfitable = analytics.comparison.mostProfitable;
     data.push(
       Array<Cell>(columns).fill(null),
-      sectionRow('Comparación de sociedades', columns),
-      headerRow(['Comparación', 'Sociedad', 'Ganancia propia COP', 'Rentabilidad', 'Observación']),
+      sectionRow('Comparación por persona', columns),
+      headerRow(['Comparación', 'Persona', 'Su ganancia COP', 'Rentabilidad', 'Observación']),
       [
         'Más dinero',
         mostMoney?.partnerName ?? 'Sin registrar',
-        moneyCell(mostMoney?.myProfitCop),
-        decimalCell(mostMoney?.myReturnPercent),
+        moneyCell(mostMoney?.profitCop),
+        decimalCell(mostMoney?.returnPercent),
         'Rentabilidad en porcentaje'
       ],
       [
         'Más rentable',
         mostProfitable?.partnerName ?? 'Sin registrar',
-        moneyCell(mostProfitable?.myProfitCop),
-        decimalCell(mostProfitable?.myReturnPercent),
+        moneyCell(mostProfitable?.profitCop),
+        decimalCell(mostProfitable?.returnPercent),
         'Rentabilidad en porcentaje'
       ],
       totalRow('FILTROS APLICADOS', [analytics.filters.societyLabel, analytics.filters.productTypeLabel, null, ''], columns)

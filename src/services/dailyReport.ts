@@ -18,7 +18,7 @@ import {
 import { clientPaidTotal } from './payments';
 import { formatCOP, toSafeCOP } from '../utils/money';
 import { formatDateCO, isValidISODate, parseISODate, toISODate } from '../utils/dates';
-import { expenseSplit } from './expenses';
+import { expensePartners, expenseSplit } from './expenses';
 import {
   buildLedger,
   ledgerCashTotals,
@@ -133,10 +133,16 @@ export interface DailyExpense {
   amountCop: number;
   method: string;
   paidBy: string;
+  /** @deprecated Modelo de socio unico. Lo vigente es `partners` (D-073). */
   partnerName: string;
+  /** @deprecated Modelo de socio unico. Lo vigente es `partners` (D-073). */
   myPercent: number;
+  /** Lo que le tocó a Santiago de este gasto. */
   myAmountCop: number;
+  /** Lo que pusieron entre todos los socios. */
   partnerAmountCop: number;
+  /** Quiénes lo compartieron y cuánto puso cada uno (D-073). */
+  partners: { partnerName: string; amountCop: number }[];
   notes: string;
 }
 
@@ -415,6 +421,10 @@ function buildBusinessReport(
         myPercent: expense.myPercent,
         myAmountCop: split.myAmountCop,
         partnerAmountCop: split.partnerAmountCop,
+        partners: expensePartners(expense).map((partner) => ({
+          partnerName: partner.partnerName.trim() || 'socio',
+          amountCop: partner.amountCop
+        })),
         notes: expense.notes
       };
     });
@@ -788,9 +798,14 @@ function businessSections(report: BusinessReport): PdfSection[] {
     sections.push({
       title: 'Gastos del negocio',
       paragraphs: report.expenses.map((expense) => {
-        const partner = expense.partnerName
-          ? ` · sociedad: ${expense.partnerName} (${expense.myPercent}% propio)`
-          : '';
+        // Persona por persona (D-073): nombrar a un solo socio mentía cuando
+        // el gasto se comparte entre varios.
+        const partner =
+          expense.partners.length > 0
+            ? ` · compartido: tuyo ${formatCOP(expense.myAmountCop)}, ${expense.partners
+                .map((item) => `${item.partnerName} ${formatCOP(item.amountCop)}`)
+                .join(', ')}`
+            : '';
         const note = expense.notes.trim() ? ` · nota: ${expense.notes.trim()}` : '';
         return `• ${expense.concept} · ${expense.category} — ${formatCOP(expense.amountCop)} · medio: ${expense.method || 'Sin registrar'} · pagó: ${expense.paidBy || 'Sin registrar'}${partner}${note}`;
       })

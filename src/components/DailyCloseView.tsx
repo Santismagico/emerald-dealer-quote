@@ -460,10 +460,13 @@ export function DailyCloseView({
 
 function expenseDetail(expense: BusinessReport['expenses'][number]): string {
   const parts = [expense.category, `Medio: ${expense.method}`, `pagó: ${expense.paidBy}`];
-  if (expense.partnerName) {
-    parts.push(
-      `${expense.partnerName}: ${expense.myPercent}% propio · ${100 - expense.myPercent}% socio`
-    );
+  // Quién puso cuánto, persona por persona (D-073). Antes decía «X: 60% propio»,
+  // que con varios socios era falso: nombraba a uno solo.
+  if (expense.partners.length > 0) {
+    const reparto = expense.partners
+      .map((partner) => `${partner.partnerName} ${formatCOP(partner.amountCop)}`)
+      .join(' · ');
+    parts.push(`Compartido: tuyo ${formatCOP(expense.myAmountCop)} · ${reparto}`);
   }
   if (expense.notes) parts.push(`Nota: ${expense.notes}`);
   return parts.join(' · ');

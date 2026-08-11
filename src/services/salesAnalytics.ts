@@ -51,6 +51,9 @@ export interface SalesAnalyticsSale {
   partnerId: string | null;
   partnerName: string;
   myPercent: number;
+  partners: LedgerEvent['partners'];
+  equityBaseCop: number;
+  myContributionCop: number;
   productType: string;
   counterparty: string;
 }
@@ -67,18 +70,28 @@ export interface SalesAnalyticsLot {
   saleCount: number;
 }
 
+/**
+ * Una PERSONA dentro de los lotes compartidos del periodo (D-073 + D-076).
+ *
+ * Antes esto era una fila por «sociedad» con la parte de Santiago y la del
+ * socio juntas, y agrupaba por el socio único del modelo viejo: con dos socios
+ * en un lote, todo se le atribuía a uno. Ahora hay una fila por persona
+ * —Santiago incluido, con `isOwner`— y **todas sus cifras son suyas**, así que
+ * leer varias seguidas nunca lleva a sumar dos veces lo mismo.
+ */
 export interface SalesAnalyticsPartnership {
   key: string;
   partnerId: string | null;
   partnerName: string;
-  myProfitCop: number;
-  partnerProfitCop: number;
-  myInvestedCop: number;
-  partnerInvestedCop: number;
-  myReturnPercent: number | null;
-  partnerReturnPercent: number | null;
-  myProfitUsd: number;
-  partnerProfitUsd: number;
+  /** true en la fila de Santiago. */
+  isOwner: boolean;
+  /** Plata que puso en los lotes que vendieron en el periodo. */
+  investedCop: number;
+  /** Su parte de la ganancia de esas ventas. */
+  profitCop: number;
+  /** Su rendimiento: ganancia sobre lo que puso. null si no puso nada. */
+  returnPercent: number | null;
+  profitUsd: number;
   usdKnownCount: number;
   usdMissingCount: number;
 }
@@ -166,16 +179,6 @@ export function salesPeriodRange(period: SalesPeriodKind, anchorDate: string): S
 
 function eventsInRange(events: readonly LedgerEvent[], range: SalesPeriodRange): LedgerEvent[] {
   return events.filter((entry) => entry.date >= range.start && entry.date <= range.end);
-}
-
-function splitCop(amount: number, myPercent: number): { mine: number; partner: number } {
-  const partner = Math.trunc((amount * (100 - myPercent)) / 100);
-  return { mine: amount - partner, partner };
-}
-
-function splitUsd(amount: number, myPercent: number): { mine: number; partner: number } {
-  const partner = (amount * (100 - myPercent)) / 100;
-  return { mine: amount - partner, partner };
 }
 
 function partnershipKey(event: Pick<LedgerEvent, 'partnerId' | 'partnerName'>): string | null {
@@ -275,6 +278,9 @@ export function buildSalesAnalytics({
       partnerId: entry.partnerId,
       partnerName: entry.partnerName,
       myPercent: entry.myPercent,
+      partners: entry.partners,
+      equityBaseCop: entry.equityBaseCop,
+      myContributionCop: entry.myContributionCop,
       productType: entry.productType,
       counterparty: entry.counterparty
     };
@@ -345,66 +351,100 @@ export function buildSalesAnalytics({
     byLotMap.set(sale.lotId, current);
   }
 
+  // Una fila por PERSONA, Santiago incluido. Cada quien recibe su parte en
+  // proporción a lo que puso, sobre la base de patrimonio que excluye el fondo.
   const partnershipsMap = new Map<string, SalesAnalyticsPartnership>();
-  for (const sale of sales) {
-    const key = partnershipKey(sale);
-    if (!key) continue;
-    const current = partnershipsMap.get(key) ?? {
+  const OWNER_KEY = 'owner';
+
+  const personRow = (
+    key: string,
+    partnerId: string | null,
+    partnerName: string,
+    isOwner: boolean
+  ): SalesAnalyticsPartnership => {
+    const existing = partnershipsMap.get(key);
+    if (existing) return existing;
+    const created: SalesAnalyticsPartnership = {
       key,
-      partnerId: sale.partnerId,
-      partnerName: sale.partnerName.trim() || 'Sin registrar',
-      myProfitCop: 0,
-      partnerProfitCop: 0,
-      myInvestedCop: 0,
-      partnerInvestedCop: 0,
-      myReturnPercent: null,
-      partnerReturnPercent: null,
-      myProfitUsd: 0,
-      partnerProfitUsd: 0,
+      partnerId,
+      partnerName,
+      isOwner,
+      investedCop: 0,
+      profitCop: 0,
+      returnPercent: null,
+      profitUsd: 0,
       usdKnownCount: 0,
       usdMissingCount: 0
     };
-    const profit = splitCop(sale.profitCop, sale.myPercent);
-    current.myProfitCop += profit.mine;
-    current.partnerProfitCop += profit.partner;
-    if (sale.profitUsd === null) current.usdMissingCount += 1;
-    else {
-      const profitUsd = splitUsd(sale.profitUsd, sale.myPercent);
-      current.myProfitUsd += profitUsd.mine;
-      current.partnerProfitUsd += profitUsd.partner;
-      current.usdKnownCount += 1;
+    partnershipsMap.set(key, created);
+    return created;
+  };
+
+  for (const sale of sales) {
+    const base = sale.equityBaseCop;
+    // Sin socios no hay nada que separar: el lote es entero de Santiago y ya
+    // está contado en los totales generales del periodo.
+    if (sale.partners.length === 0 || base <= 0) continue;
+
+    const reparto: { key: string; id: string | null; name: string; owner: boolean; puso: number }[] = [
+      { key: OWNER_KEY, id: null, name: 'Tú', owner: true, puso: sale.myContributionCop },
+      ...sale.partners.map((partner) => ({
+        key: partnershipKey(partner) ?? `name:${partner.partnerName.trim().toLocaleLowerCase('es')}`,
+        id: partner.partnerId,
+        name: partner.partnerName.trim() || 'Sin registrar',
+        owner: false,
+        puso: partner.amountCop
+      }))
+    ];
+
+    for (const persona of reparto) {
+      if (persona.puso <= 0) continue;
+      const fila = personRow(persona.key, persona.id, persona.name, persona.owner);
+      fila.profitCop += Math.trunc((sale.profitCop * persona.puso) / base);
+      if (sale.profitUsd === null) fila.usdMissingCount += 1;
+      else {
+        fila.profitUsd += (sale.profitUsd * persona.puso) / base;
+        fila.usdKnownCount += 1;
+      }
     }
-    partnershipsMap.set(key, current);
   }
 
+  // Lo puesto se cuenta una sola vez por lote, aunque el lote tenga varias ventas.
   const investedLots = new Set<string>();
   for (const sale of sales) {
     if (!sale.lotId || investedLots.has(sale.lotId)) continue;
-    const key = partnershipKey(sale);
-    const current = key ? partnershipsMap.get(key) : undefined;
     const lot = lotById.get(sale.lotId);
-    if (!current || !lot) continue;
-    const investment = splitCop(summarizeStoneLot(lot).totalInvested, lot.myPercent);
-    current.myInvestedCop += investment.mine;
-    current.partnerInvestedCop += investment.partner;
+    if (!lot || sale.partners.length === 0 || sale.equityBaseCop <= 0) continue;
+    const invertido = summarizeStoneLot(lot).totalInvested;
+    const owner = partnershipsMap.get(OWNER_KEY);
+    if (owner) {
+      owner.investedCop += Math.trunc((invertido * sale.myContributionCop) / sale.equityBaseCop);
+    }
+    for (const partner of sale.partners) {
+      const key =
+        partnershipKey(partner) ?? `name:${partner.partnerName.trim().toLocaleLowerCase('es')}`;
+      const fila = partnershipsMap.get(key);
+      if (fila) fila.investedCop += Math.trunc((invertido * partner.amountCop) / sale.equityBaseCop);
+    }
     investedLots.add(sale.lotId);
   }
 
   const partnerships = [...partnershipsMap.values()].map((item) => ({
     ...item,
-    myReturnPercent:
-      item.myInvestedCop > 0 ? (item.myProfitCop / item.myInvestedCop) * 100 : null,
-    partnerReturnPercent:
-      item.partnerInvestedCop > 0
-        ? (item.partnerProfitCop / item.partnerInvestedCop) * 100
-        : null
+    returnPercent: item.investedCop > 0 ? (item.profitCop / item.investedCop) * 100 : null
   }));
-  const sortedPartnerships = partnerships.sort((a, b) => b.myProfitCop - a.myProfitCop);
-  const mostMoney = sortedPartnerships[0] ?? null;
+  // Santiago primero; los demás por lo que ganaron.
+  const sortedPartnerships = partnerships.sort((a, b) =>
+    a.isOwner === b.isOwner ? b.profitCop - a.profitCop : a.isOwner ? -1 : 1
+  );
+  // La comparación mira SOLO a los socios: incluir a Santiago no dice nada,
+  // porque él está en todos los lotes y siempre ganaría las dos tarjetas.
+  const comparables = sortedPartnerships.filter((item) => !item.isOwner);
+  const mostMoney = [...comparables].sort((a, b) => b.profitCop - a.profitCop)[0] ?? null;
   const mostProfitable =
-    [...sortedPartnerships]
-      .filter((item) => item.myReturnPercent !== null)
-      .sort((a, b) => (b.myReturnPercent ?? 0) - (a.myReturnPercent ?? 0))[0] ?? null;
+    [...comparables]
+      .filter((item) => item.returnPercent !== null)
+      .sort((a, b) => (b.returnPercent ?? 0) - (a.returnPercent ?? 0))[0] ?? null;
 
   return {
     range,

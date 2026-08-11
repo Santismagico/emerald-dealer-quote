@@ -277,30 +277,32 @@ export function SalesDashboardView() {
       )}
 
       {analytics.partnerships.length > 0 ? (
-        <SectionCard title="Sociedades" subtitle="Monto y rentabilidad siempre aparecen juntos.">
+        <SectionCard
+          title="Cada quien en los lotes compartidos"
+          subtitle="Una fila por persona, tú incluido. Monto y rentabilidad siempre aparecen juntos."
+        >
           {analytics.partnerships.map((partnership) => (
-            <div key={partnership.key} className="min-w-0 rounded-xl border border-stone-200 p-3">
-              <p className="break-words text-sm font-semibold text-stone-900">Con {partnership.partnerName}</p>
+            <div
+              key={partnership.key}
+              className={`min-w-0 rounded-xl border p-3 ${
+                partnership.isOwner ? 'border-brand-200 bg-brand-50' : 'border-stone-200'
+              }`}
+            >
+              <p className="break-words text-sm font-semibold text-stone-900">
+                {partnership.partnerName}
+              </p>
               <div className="mt-3 space-y-2">
+                <SummaryRow label="Puso" value={formatCOP(partnership.investedCop)} />
                 <SummaryRow
-                  label="Tu parte"
+                  label="Ganó"
                   value={`${profitValue(
-                    partnership.myProfitCop,
-                    partnership.myProfitUsd,
+                    partnership.profitCop,
+                    partnership.profitUsd,
                     partnership.usdKnownCount,
                     partnership.usdMissingCount,
                     currency
-                  )} · ${percentLabel(partnership.myReturnPercent)}`}
-                />
-                <SummaryRow
-                  label={`Parte de ${partnership.partnerName}`}
-                  value={`${profitValue(
-                    partnership.partnerProfitCop,
-                    partnership.partnerProfitUsd,
-                    partnership.usdKnownCount,
-                    partnership.usdMissingCount,
-                    currency
-                  )} · ${percentLabel(partnership.partnerReturnPercent)}`}
+                  )} · ${percentLabel(partnership.returnPercent)}`}
+                  bold
                 />
               </div>
               {currency === 'USD' && partnership.usdMissingCount > 0 ? (
