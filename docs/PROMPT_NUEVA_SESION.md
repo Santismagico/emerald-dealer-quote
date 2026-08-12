@@ -1,6 +1,6 @@
 # Prompt para abrir una sesión nueva de trabajo
 
-_Actualizado: **2026-08-10**, al cierre de la jornada en que se publicó socios y fondo.
+_Actualizado: **2026-08-11**, al confirmar la instalación en la MacBook.
 Copiar desde la línea marcada hasta el final y pegarlo como primer mensaje._
 
 > **Para el agente que actualice este archivo:** es lo primero que lee una sesión nueva. Si
@@ -18,7 +18,9 @@ de Santiago (comerciante en Colombia).
 copia de OneDrive **fue borrada** el 2026-08-10 porque los agentes trabajaban sobre ella por
 error. No la recrees.
 
-Si la Mac está recién estrenada, el paso a paso está en `docs/TRASPASO_A_MAC.md`.
+**La Mac ya está instalada y verificada** (2026-08-11): 1120 pruebas y build en verde, 0
+vulnerabilidades, la app abre en el navegador. `docs/TRASPASO_A_MAC.md` queda solo como
+historia; no hay que volver a instalar nada.
 
 ## Quién es el dueño — esto manda sobre todo lo demás
 
@@ -45,7 +47,7 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 3. `docs/README.md` — qué está vigente y qué es historia cerrada.
 4. `DECISIONS.md`, de **D-070 a D-077**.
 
-## Estado a 2026-08-10 — verificado
+## Estado a 2026-08-11 — verificado
 
 **La aplicación de Santiago está PUBLICADA con socios y fondo funcionando.**
 

@@ -1817,3 +1817,31 @@ archivos versionados, evidencia de base de datos en verde, 1120 pruebas y build.
 **Overrides conscientes de Santiago**, ambos razonables porque es el único usuario del
 enlace: se publicó sin N6 real y con los documentos legales aún en `BORRADOR`. **Los dos
 dejan de ser negociables antes de migrar a las 7 joyerías.**
+
+### Instalación en la MacBook — CONFIRMADA (2026-08-11)
+
+Primera sesión en la Mac. Se comprobó la instalación de punta a punta, no por suposición.
+
+| Comprobación | Resultado |
+|---|---|
+| Carpeta canónica `~/Dev/emerald-dealer`, rama `codex/fase2-nube` | ✅ en `3635602`, sin cambios sueltos |
+| Al día con GitHub | ✅ 0 commits de diferencia en ambos sentidos |
+| Node 24.19.0 / npm 11.17.0, 285 paquetes instalados | ✅ |
+| `npm test` | ✅ **1120 pruebas en 75 archivos** + verificación PWA |
+| `npm run build` | ✅ sin errores de TypeScript; `sw.js` y 18 entradas de precaché |
+| `npm audit --audit-level=high` | ✅ 0 vulnerabilidades |
+| App en el navegador (`emerald-local-dev`, 375 y 320 px) | ✅ carga, 0 errores de consola, 0 errores del servidor, sin desborde horizontal |
+| Socios y Fondo presentes en la pantalla de inicio | ✅ bajo "TU GENTE" |
+
+**Lo único que faltaba:** `.env.sinnube.local` no existía —no viaja por GitHub, como advierte
+`docs/TRASPASO_A_MAC.md`—. Creado con sus dos líneas vacías. `.env.local` ya estaba y apunta
+al servidor de **Pruebas** (`ovfaehoeidxcjrlapioo`), que es lo correcto para trabajar en
+local. Ninguno de los dos se versiona; `.gitignore` los cubre.
+
+**Límite honesto de esta verificación:** el panel del navegador no aceptó clics durante la
+sesión, así que **no se recorrieron pantallas a mano** — se comprobó que la app monta,
+dibuja y no falla, y el recorrido funcional queda cubierto por las 1120 pruebas. Tampoco se
+tocó Supabase, ni `main`, ni nada publicado.
+
+**No cambia nada de lo pendiente:** siguen abiertos la N6 real, los documentos legales en
+`BORRADOR` y el plan pago de Supabase antes de migrar a las 7 joyerías.
