@@ -2,7 +2,7 @@
 
 > **BORRADOR — pendiente de revisión profesional**
 >
-> Versión técnica: `draft-2026-08-12`. Última actualización del borrador: 12 de agosto de 2026. Recoge las condiciones comerciales decididas para la fase beta. Quedan pendientes los campos tributarios y el acuerdo de tratamiento de datos del proveedor, que exigen revisión contable y jurídica antes de cobrar el primer peso.
+> Versión técnica: `draft-2026-08-12`. Última actualización: 12 de agosto de 2026. Ya no quedan campos por completar: recoge las condiciones comerciales de la fase beta y las determinaciones del operador. Conserva la marca de borrador hasta que este apruebe expresamente pasarlo a versión final.
 
 ## 1. Identificación y aceptación
 

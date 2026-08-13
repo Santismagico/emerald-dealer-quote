@@ -2,7 +2,7 @@
 
 > **BORRADOR — pendiente de revisión profesional**
 >
-> Versión técnica: `draft-2026-08-12`. Última actualización del borrador: 12 de agosto de 2026. Recoge los procedimientos de conservación, eliminación y atención de solicitudes decididos para la fase beta. Queda pendiente confirmar los contratos del proveedor y la revisión jurídica antes de cobrar.
+> Versión técnica: `draft-2026-08-12`. Última actualización: 12 de agosto de 2026. Ya no quedan campos por completar: recoge los procedimientos de conservación, eliminación y atención de solicitudes de la fase beta. Conserva la marca de borrador hasta que el operador apruebe expresamente pasarla a versión final.
 
 ## 1. Responsable y Encargado del tratamiento
 

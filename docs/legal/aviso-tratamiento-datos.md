@@ -2,7 +2,7 @@
 
 > **BORRADOR — pendiente de revisión profesional**
 >
-> Versión técnica: `draft-2026-08-12`. No debe presentarse como aviso definitivo hasta completar los campos pendientes y recibir aprobación profesional.
+> Versión técnica: `draft-2026-08-12`. Ya no quedan campos por completar. Conserva la marca de borrador hasta que el operador apruebe expresamente pasarlo a versión final.
 
 Emerald Dealer, operado por Héctor Germán Santiago Orjuela Rodríguez (persona natural, Bogotá, Colombia), trata los datos de identificación, contacto y operación que la joyería registra para crear la cuenta, prestar el servicio, administrar cotizaciones, clientes, proveedores, citas, trabajos de taller, pagos e inventario de piedras, brindar soporte y cumplir obligaciones legales.
 
