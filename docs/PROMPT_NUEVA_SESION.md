@@ -56,8 +56,8 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 | `emerald-dealer-app` | sitio `a5b9ca1`, compilado de `codex/fase2-nube@4a12ff7` | **Solo Santiago**, con nube. Verificado en vivo |
 | `emerald-dealer-quote` | `main` = `d3e5af4` | Las **7 joyerías del piloto**. 100% local, sin servidor. **No se tocó** |
 
-- Rama de trabajo `codex/fase2-nube`. **1120 pruebas en 75 archivos**, build en verde.
-- **N6 real APROBADA el 2026-08-12**: 21 controles, commit `5e03ac2`, en Pruebas. Es la
+- Rama de trabajo `codex/fase2-nube`. **1125 pruebas en 75 archivos**, build en verde.
+- **N6 real APROBADA el 2026-08-12**: **22 controles**, commit `ac52b8f`, en Pruebas. Es la
   primera vez que se corre contra un servidor real. Detalle completo al final de
   `PROJECT_STATE.md`.
 - Puntos de retorno: enlace de la nube → `f9ba18a`; `main` → `0a86e5a`.
@@ -102,7 +102,7 @@ historial de su negocio. Ese es el mejor argumento a favor de migrarlos.
 cerrado; quedan dos.** Los tres se saltaron conscientemente para el enlace de Santiago solo,
 y eso ya no aplica con siete negocios de terceros:
 
-1. ~~**N6 real**~~ **HECHO el 2026-08-12.** 21 controles en verde sobre el commit `5e03ac2`.
+1. ~~**N6 real**~~ **HECHO el 2026-08-12.** 22 controles en verde sobre el commit `ac52b8f`.
    Para repetirla en Mac: copia la clave secreta de Pruebas y corre
    `npm run security:n6:mac:portapapeles` (la toma del portapapeles, no la guarda, y borra
    el portapapeles al terminar). El guion viejo `security:n6:secure:mac` sigue existiendo,
@@ -137,11 +137,11 @@ datos, y mirarlo una semana antes de seguir con los demás.
 
 ## Pendientes abiertos con Santiago
 
-- **Decisión de seguridad sin responder (2026-08-12):** el servidor **no exige `id`** en los
-  abonos de venta, y la regla que congela la tasa de cambio empareja por `id`. Un cliente
-  que no fuera la app podría omitirlo y reescribir tasas históricas. **No es aislamiento ni
-  privacidad**: es integridad contable. La app siempre envía `id`. Blindarlo exige migración
-  nueva aplicada también a Producción.
+- **PENDIENTE CONCRETO — aplicar en Producción el arreglo del `id`.** Ya está corregido,
+  aplicado y probado en **Pruebas** (N6 con 22 controles), pero **`wrvokfzrcmmlzekudypu`
+  sigue sin él**, así que el hueco continúa abierto ahí. El bloque a pegar y la consulta de
+  control (debe devolver **4**) están en `docs/ACTIVACION_ID_VENTAS_Y_ABONOS.md`. Es
+  autorización aparte de Santiago.
 
 - **Pregunta sin responder:** en el panel, "Ganancia" no descuenta los gastos. Él pidió los
   gastos diciendo que "sin gastos, cualquier ganancia sería mentira". Debe decidir si se

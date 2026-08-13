@@ -1891,3 +1891,49 @@ secreto versionado y controles de publicación y base de datos en verde.
 **Quedan dos candados** antes de migrar a las 7 joyerías: documentos legales en `BORRADOR` y
 plan pago de Supabase. Y siguen sin resolver el flujo de invitación y el correo de
 recuperación de contraseña.
+
+### Cerrado el hueco del `id` en ventas y abonos (2026-08-12) — aplicado en PRUEBAS
+
+Santiago autorizó corregir la observación que dejó N6. Migración
+`20260813050000_exigir_id_en_ventas_y_abonos.sql`.
+
+**Qué estaba mal.** La regla que congela la tasa de cambio empareja el registro guardado con
+el que llega **por `id`**. En SQL `NULL = NULL` no es verdadero: es `NULL`. Un abono sin `id`
+no encontraba pareja, el `EXISTS` no devolvía filas, la regla no se disparaba y la tasa se
+dejaba reescribir en silencio. La venta de joya en stock tenía el mismo patrón
+(`v_existing_data->'sale'->>'id' = p_data->'sale'->>'id'`).
+
+**Alcance real.** No es aislamiento ni privacidad: nada de esto alcanza datos de otra
+joyería. Es integridad contable — reescribir a qué dólar se vendió o se abonó algo.
+
+**Cierre.** El servidor exige `id` no vacío en venta de piedra, abono de venta y venta de
+joya, y rechaza `id` repetidos dentro de su ámbito. **Solo valida escrituras**: ni un
+`update`, `delete` ni `truncate` sobre datos guardados.
+
+**Compatibilidad comprobada antes de escribir nada.** `normalizeBuyerPayment`,
+`normalizeStoneSale` y `normalizeStockJewelSale` rellenan el `id` que falte, y **todos** los
+caminos de escritura normalizan antes de enviar —incluido `readPartnerLinkedData`, que pasa
+por `listStoneLots`—. Ningún dato del usuario queda imposible de guardar.
+
+**Aplicada y verificada en Pruebas:** la consulta de control devolvió **4**.
+
+**N6 real re-ejecutada sobre el commit `ac52b8f`: 22 controles**, con
+`saleAndPaymentIdsRequired` y `cleanupVerified` en verde. Los cuatro casos nuevos —abono sin
+`id`, venta sin `id`, dos abonos con el mismo `id`, venta de joya sin `id`— quedan rechazados
+por el servidor.
+
+**Sobre la prueba negativa:** no se revirtió la migración para ver fallar la prueba, pero el
+control negativo ya existía: la **segunda** corrida de N6, contra este mismo servidor sin la
+migración, falló exactamente aquí con *"la operación debía ser rechazada"*. Sin el arreglo el
+servidor aceptaba; con él, rechaza.
+
+**PRODUCCIÓN: NO APLICADA.** Es autorización aparte de Santiago. El bloque y la consulta de
+control están en `docs/ACTIVACION_ID_VENTAS_Y_ABONOS.md`. Hasta que se aplique, el hueco
+sigue abierto en `wrvokfzrcmmlzekudypu`.
+
+**Límite conocido, no cerrado.** La regla protege el abono que **conserva** su `id`. Borrar
+un abono y crear otro con `id` distinto sigue permitido: es una operación legítima del
+usuario y distinguirla de un fraude exige una decisión de negocio, no una técnica.
+
+**Verificación de cierre:** 1125 pruebas en 75 archivos, build, evidencia de seguridad en
+verde. Controles locales de N6: 20.
