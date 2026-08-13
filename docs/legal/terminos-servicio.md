@@ -48,7 +48,7 @@ La joyería declara que cuenta con la autorización o base jurídica necesaria p
 
 **Al terminar el servicio**, los datos se devuelven mediante exportación y se eliminan conforme al numeral 8.
 
-Para el Plan Nube se usa a Supabase y sus subencargados. [COMPLETAR ANTES DE COBRAR: revisión y aceptación expresa del acuerdo de tratamiento de datos de Supabase, confirmación de la región definitiva y del mecanismo jurídico de la transmisión internacional.]
+Para el Plan Nube se usa a Supabase y sus subencargados. Su acuerdo de tratamiento de datos (DPA, versión 1 del 1 de agosto de 2026) **forma parte de sus Términos de Servicio y rige automáticamente** desde que estos se aceptan: no exige firma ni solicitud aparte, y su aceptación surte el mismo efecto que firmar las Cláusulas Contractuales Tipo. La lista de subencargados se publica y actualiza en su portal, con aviso de cambios con treinta (30) días de anticipación. [COMPLETAR CON REVISIÓN JURÍDICA: confirmar que ese acuerdo basta como mecanismo de transmisión internacional bajo la Ley 1581 de 2012 y el Decreto 1377 de 2013, y dejar registrada la región del proyecto de Producción.]
 
 ## 5. Propiedad intelectual
 

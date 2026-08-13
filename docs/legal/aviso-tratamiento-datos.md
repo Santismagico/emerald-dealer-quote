@@ -8,7 +8,7 @@ Emerald Dealer, operado por Héctor Germán Santiago Orjuela Rodríguez (persona
 
 Respecto de los datos de tus clientes, proveedores y otras personas que registres en la plataforma, actúas como Responsable del tratamiento; Emerald Dealer actúa únicamente como Encargado, siguiendo tus instrucciones y bajo las condiciones de seguridad descritas en la política de privacidad. Declaras contar con la autorización o base jurídica necesaria para registrar sus datos.
 
-Emerald Dealer no usa por sí mismo los datos para publicidad ni para entrenar modelos de inteligencia artificial. [COMPLETAR ANTES DE PUBLICAR: confirmar y reflejar aquí las condiciones vigentes de cada proveedor y subencargado]. Para el Plan Nube se prevé alojarlos con Supabase y sus subencargados. Antes de producción deben confirmarse el contrato de encargo, las ubicaciones aplicables y el mecanismo jurídico de la transmisión internacional.
+Emerald Dealer no usa por sí mismo los datos para publicidad ni para entrenar modelos de inteligencia artificial. Para el Plan Nube se alojan con Supabase y sus subencargados, bajo su acuerdo de tratamiento de datos (versión 1 del 1 de agosto de 2026), que forma parte de sus Términos de Servicio y rige automáticamente. La lista de subencargados es pública y sus cambios se avisan con treinta (30) días de anticipación.
 
 Como titular puedes conocer, actualizar, rectificar y solicitar la supresión de tus datos, así como revocar la autorización cuando legalmente proceda. Ejerce tus derechos en santisorjuela@gmail.com y WhatsApp 3105725618.
 
