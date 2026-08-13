@@ -2,9 +2,9 @@ import type { Settings } from '../../types';
 import { getSupabase } from './config';
 
 /** Versiones independientes de los textos que hoy siguen en borrador. */
-export const TERMS_VERSION = 'draft-2026-07-20';
-export const PRIVACY_VERSION = 'draft-2026-07-20';
-export const NOTICE_VERSION = 'draft-2026-07-20';
+export const TERMS_VERSION = 'draft-2026-08-12';
+export const PRIVACY_VERSION = 'draft-2026-08-12';
+export const NOTICE_VERSION = 'draft-2026-08-12';
 
 export interface LegalAcceptance {
   acceptedTerms: boolean;
