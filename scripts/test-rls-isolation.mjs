@@ -180,7 +180,10 @@ export function validPayloads(prefix) {
         quantity: 1,
         productType: 'Anillo',
         usdRate: 4200.5,
-        payments: [{ amount: 200000, usdRate: 4210 }],
+        // El abono necesita id: la regla que congela la tasa (20260803233000)
+        // empareja abono viejo con nuevo por id, y sin el la comparacion no
+        // encuentra pareja y la tasa se deja reescribir sin que nadie proteste.
+        payments: [{ id: `${prefix}-stone-sale-payment`, amount: 200000, usdRate: 4210 }],
       }],
     },
     suppliers: { id: `${prefix}-supplier`, name: `Proveedor ${prefix}` },

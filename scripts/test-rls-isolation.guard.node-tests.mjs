@@ -170,6 +170,35 @@ test('el lote de piedras N6 cumple lo que exige el SQL de inventario', () => {
   assert.ok(lot.quantity >= vendidasPiedras, 'el lote N6 vende mas piedras de las que compro')
 })
 
+// La regla que congela las tasas empareja abono viejo con nuevo por id. Un abono
+// sin id no encuentra pareja, la comparacion no devuelve filas y la tasa se deja
+// reescribir en silencio. N6 enviaba abonos sin id, asi que daba por proteccion
+// algo que nunca se ejecutaba.
+test('los abonos del lote N6 llevan id, sin el la tasa no queda congelada', () => {
+  const moneda = readFileSync(
+    new URL('../supabase/migrations/20260803233000_tipo_producto_moneda.sql', import.meta.url),
+    'utf8'
+  )
+  assert.ok(
+    moneda.includes("on new_payment->>'id' = old_payment->>'id'"),
+    'la regla de tasa de abono ya no empareja por id: revisar esta guarda'
+  )
+
+  const lot = validPayloads('guard').stone_lots
+  for (const sale of lot.sales) {
+    assert.ok(
+      typeof sale.id === 'string' && sale.id.trim() !== '',
+      'cada venta N6 necesita id para que su tasa quede congelada'
+    )
+    for (const payment of sale.payments ?? []) {
+      assert.ok(
+        typeof payment.id === 'string' && payment.id.trim() !== '',
+        'cada abono N6 necesita id para que su tasa quede congelada'
+      )
+    }
+  }
+})
+
 test('un rechazo N6 solo cuenta cuando coincide con el código esperado', () => {
   assert.doesNotThrow(() => assertRejectedWithCode(
     { error: { code: '42501', message: 'permiso denegado' } },
