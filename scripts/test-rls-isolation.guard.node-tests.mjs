@@ -131,6 +131,45 @@ test('los payloads N6 nuevos son válidos y completos', () => {
   assert.equal(payloads.fund_contributions.payments[0].kind, 'rendimiento')
 })
 
+// N6 real no se corria nunca, asi que sus payloads envejecieron sin que nadie lo
+// notara: C1 volvio obligatorios los quilates el 2026-08-04 y el guion siguio
+// enviando lotes sin ellos. La prueba en vivo se detenia en la preparacion, antes
+// de comprobar un solo control de aislamiento. Esta guarda lee el SQL vigente y
+// exige que el payload lo cumpla, para que `npm test` lo detecte sin servidor.
+test('el lote de piedras N6 cumple lo que exige el SQL de inventario', () => {
+  const c1 = readFileSync(
+    new URL('../supabase/migrations/20260804144748_fase_c1_tandas_talla.sql', import.meta.url),
+    'utf8'
+  )
+  // Si el SQL dejara de exigirlo, esta guarda debe enterarse en vez de seguir sola.
+  assert.ok(
+    c1.includes("private.is_nonnegative_number(p_data->'carats')"),
+    'C1 ya no exige quilates en el lote: revisar esta guarda'
+  )
+  assert.ok(
+    c1.includes("private.is_nonnegative_number(sale->'carats')"),
+    'C1 ya no exige quilates en la venta: revisar esta guarda'
+  )
+
+  const lot = validPayloads('guard').stone_lots
+  const esNumeroNoNegativo = (valor) => typeof valor === 'number' && Number.isFinite(valor) && valor >= 0
+  const esEnteroNoNegativo = (valor) => Number.isInteger(valor) && valor >= 0
+
+  assert.ok(esNumeroNoNegativo(lot.carats), 'el lote N6 debe declarar quilates comprados')
+  assert.ok(esEnteroNoNegativo(lot.quantity), 'el lote N6 debe declarar cantidad comprada')
+  for (const sale of lot.sales) {
+    assert.ok(esNumeroNoNegativo(sale.carats), 'cada venta N6 debe declarar quilates vendidos')
+    assert.ok(esEnteroNoNegativo(sale.quantity), 'cada venta N6 debe declarar cantidad vendida')
+  }
+
+  // Lo comprado tiene que alcanzar para lo vendido, o el servidor responde
+  // 'raw stone inventory exceeded'. Sin tandas de talla, lo vendido es en bruto.
+  const vendidosQuilates = lot.sales.reduce((total, sale) => total + sale.carats, 0)
+  const vendidasPiedras = lot.sales.reduce((total, sale) => total + sale.quantity, 0)
+  assert.ok(lot.carats >= vendidosQuilates, 'el lote N6 vende mas quilates de los que compro')
+  assert.ok(lot.quantity >= vendidasPiedras, 'el lote N6 vende mas piedras de las que compro')
+})
+
 test('un rechazo N6 solo cuenta cuando coincide con el código esperado', () => {
   assert.doesNotThrow(() => assertRejectedWithCode(
     { error: { code: '42501', message: 'permiso denegado' } },

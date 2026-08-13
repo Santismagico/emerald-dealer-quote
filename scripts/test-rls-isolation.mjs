@@ -159,7 +159,11 @@ export function validPayloads(prefix) {
     },
     appointments: { id: `${prefix}-appointment`, status: 'programada', durationMinutes: 60 },
     stone_lots: {
-      id: `${prefix}-stone`, purchaseValueCop: 1000000, quantity: 1,
+      // C1 (20260804144748) volvio obligatorios los quilates del lote y de cada
+      // venta. Sin ellos el servidor rechaza el lote con
+      // 'invalid stone lot inventory payload' y N6 no pasa de la preparacion.
+      // Los comprados deben cubrir los vendidos: 5 - 2 = 3 quilates en bruto.
+      id: `${prefix}-stone`, purchaseValueCop: 1000000, carats: 5, quantity: 1,
       partnerId: null, partnerName: '', myPercent: 100,
       partners: [{
         id: `${prefix}-stone-partner-share`,
@@ -172,6 +176,7 @@ export function validPayloads(prefix) {
       sales: [{
         id: `${prefix}-stone-sale`,
         valueCop: 700000,
+        carats: 2,
         quantity: 1,
         productType: 'Anillo',
         usdRate: 4200.5,
