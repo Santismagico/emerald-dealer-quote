@@ -1944,5 +1944,45 @@ bloque**, verificado por contenido con la consulta de control, sobre las mismas 
 un abono y crear otro con `id` distinto sigue permitido: es una operación legítima del
 usuario y distinguirla de un fraude exige una decisión de negocio, no una técnica.
 
+### DECISIÓN DE NEGOCIO (2026-08-12): sale al mercado en beta de 20 cupos
+
+Santiago decidió lanzar asumiendo los riesgos de producto. Condiciones: **20 cuentas**,
+**1 mes gratis** por cuenta, **$80.000 COP/mes** después, **cobro manual** por transferencia,
+**10 días** de gracia y luego **solo lectura**, y **30 días** de conservación antes de borrar.
+
+**Dato que corrige el estado anterior:** de las "7 joyerías del piloto", **solo 1 usa la app
+de verdad**. La migración deja de ser un riesgo y pasa a ser un trámite de una persona. No
+repetir la cifra de 7 como si fueran usuarios activos.
+
+**Legal.** Los tres documentos pasan a `draft-2026-08-12` —y las constantes del código con
+ellos, así que la app pedirá re-aceptación—. Los huecos bajan de **11 a 6**, y los 6 dependen
+de terceros: contador (régimen tributario e IVA), acuerdo de datos de Supabase, y abogado
+(revisión y si aplica registro ante la SIC). Siguen marcados **BORRADOR**, y la prueba
+automática lo exige mientras quede cualquier `[COMPLETAR`.
+
+Regla que se respetó al redactar: **solo se promete lo que el software hace o hará antes de
+cobrar.** El modo solo lectura está comprometido en los términos y listado como requisito
+previo al primer cobro, no al lanzamiento.
+
+**Construido y aplicado en Pruebas** (`20260813120000_cupo_beta_y_borrado_de_cuenta.sql`):
+
+- **Cupo**, en `platform_limits`. Subirlo es un `UPDATE`, no una migración. El registro 21
+  recibe `53400`, que la app traduce a un mensaje con salida por WhatsApp.
+- **Borrado de la propia joyería**: exige ser `owner` y **escribir el nombre exacto**. Las 15
+  tablas cascadean desde `organizations` —verificado tabla por tabla—. Deja constancia en
+  `deletion_records` con fecha y **conteos**, nunca datos de clientes.
+- **No borra la cuenta de acceso**: eso es manual desde el panel, dentro de los 5 días
+  hábiles que prometen los términos. Documentado en `docs/ACTIVACION_CUPO_Y_BORRADO.md`.
+
+**N6 re-ejecutada sobre `ad0c5ba`: 22 controles en verde.** Importaba correrla porque el
+bloque **redefine `create_organization`**, que es la función con la que N6 crea sus dos
+joyerías: si el registro se hubiera roto, N6 no arranca. Verificación local: 1133 pruebas.
+
+**PRODUCCIÓN: sin aplicar.** Falta, y es autorización aparte.
+
+**Lo que le toca a Santiago**, en `docs/PLAN_SALIDA_AL_MERCADO.md`: Supabase Pro (sin él el
+servidor se apaga y no hay respaldos, y los términos ya prometen respaldo diario), aceptar el
+acuerdo de datos de Supabase —cierra 4 de los 6 huecos—, contador y abogado.
+
 **Verificación de cierre:** 1125 pruebas en 75 archivos, build, evidencia de seguridad en
 verde. Controles locales de N6: 20.

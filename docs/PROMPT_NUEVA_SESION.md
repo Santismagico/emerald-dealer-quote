@@ -1,6 +1,6 @@
 # Prompt para abrir una sesión nueva de trabajo
 
-_Actualizado: **2026-08-12**, al aprobar la prueba N6 real.
+_Actualizado: **2026-08-12**, al decidir la salida al mercado en beta de 20 cupos.
 Copiar desde la línea marcada hasta el final y pegarlo como primer mensaje._
 
 > **Para el agente que actualice este archivo:** es lo primero que lee una sesión nueva. Si
@@ -54,10 +54,10 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 | Enlace | Qué sirve | Quién lo usa |
 |---|---|---|
 | `emerald-dealer-app` | sitio `a5b9ca1`, compilado de `codex/fase2-nube@4a12ff7` | **Solo Santiago**, con nube. Verificado en vivo |
-| `emerald-dealer-quote` | `main` = `d3e5af4` | Las **7 joyerías del piloto**. 100% local, sin servidor. **No se tocó** |
+| `emerald-dealer-quote` | `main` = `d3e5af4` | El piloto: 7 con acceso, **solo 1 usándola**. 100% local, sin servidor. **No se tocó** |
 
-- Rama de trabajo `codex/fase2-nube`. **1125 pruebas en 75 archivos**, build en verde.
-- **N6 real APROBADA el 2026-08-12**: **22 controles**, commit `ac52b8f`, en Pruebas. Es la
+- Rama de trabajo `codex/fase2-nube`. **1133 pruebas en 75 archivos**, build en verde.
+- **N6 real APROBADA el 2026-08-12**: **22 controles**, commit `ad0c5ba`, en Pruebas. Es la
   primera vez que se corre contra un servidor real. Detalle completo al final de
   `PROJECT_STATE.md`.
 - Puntos de retorno: enlace de la nube → `f9ba18a`; `main` → `0a86e5a`.
@@ -93,33 +93,45 @@ guarda local que valide lo mismo sin servidor. Aquí se hicieron las dos cosas.
 
 ## Lo que sigue
 
-**El siguiente proyecto que Santiago quiere: migrar a las 7 joyerías del piloto** a la
-aplicación con nube, y dejar un solo enlace para pruebas. Hoy usan la versión local, sin
-servidor y **sin ningún respaldo**: si a un colega se le daña el teléfono, pierde el
-historial de su negocio. Ese es el mejor argumento a favor de migrarlos.
+**Santiago decidió el 2026-08-12 sacar el producto al mercado**, asumiendo los riesgos de
+producto. El plan completo está en `docs/PLAN_SALIDA_AL_MERCADO.md`; lo esencial:
 
-**Tres candados que dejaban de ser opcionales antes de esa migración. El primero ya está
-cerrado; quedan dos.** Los tres se saltaron conscientemente para el enlace de Santiago solo,
-y eso ya no aplica con siete negocios de terceros:
+| | |
+|---|---|
+| Cupo | **20 cuentas** |
+| Prueba | **1 mes gratis** por cuenta |
+| Precio | **$80.000 COP**/mes después |
+| Cobro | **Manual**, por transferencia. Nada de tarjeta ni débito |
+| Mora | **10 días** de gracia, luego **solo lectura** (nunca se pierde consultar ni exportar) |
+| Al cancelar | Datos **30 días**, luego eliminación definitiva |
 
-1. ~~**N6 real**~~ **HECHO el 2026-08-12.** 22 controles en verde sobre el commit `ac52b8f`.
-   Para repetirla en Mac: copia la clave secreta de Pruebas y corre
-   `npm run security:n6:mac:portapapeles` (la toma del portapapeles, no la guarda, y borra
-   el portapapeles al terminar). El guion viejo `security:n6:secure:mac` sigue existiendo,
-   pero su prompt oculto no da señal al pegar y en la práctica bloquea la ejecución.
-2. **Documentos legales.** Siguen marcados `BORRADOR`, versión `draft-2026-07-20`, sin
-   revisión profesional. Con datos de clientes de terceros y cobro de por medio, no se
-   sostiene.
-3. **Plan pago de Supabase.** El gratuito apaga el proyecto tras una semana sin uso; con
-   clientes pagando, eso es la app caída.
+**Corrección importante al estado anterior:** de las "7 joyerías del piloto", **solo 1 usa la
+app de verdad**. No repitas la cifra de 7 como si fueran usuarios activos. La migración es un
+trámite de una persona, y Santiago aceptó el riesgo de pérdida de datos avisando que exporten
+su respaldo antes (Ajustes → Exportar respaldo, que ya funciona).
 
-Dos cosas más de la misma migración, aún sin resolver: **no existe flujo de invitación** de
-joyerías (crear cuentas sería manual, una por una) y **el correo de recuperación de
-contraseña** sale por el servicio básico de Supabase, que con siete personas no técnicas es
-un problema semanal.
+**Ya construido para esto:** cupo de 20 y borrado de la propia joyería con constancia
+(`20260813120000`, aplicado en **Pruebas**, N6 en verde después). Los tres documentos legales
+pasaron a `draft-2026-08-12` con precio, mora, conservación y procedimientos redactados.
 
-Cuando llegue el momento, la forma sensata es migrar **a un solo colega primero**, con sus
-datos, y mirarlo una semana antes de seguir con los demás.
+**Bloquea recibir al primer usuario** (detalle y pasos exactos en el plan):
+
+1. **Supabase Pro.** Sin él el servidor se apaga tras una semana y **no hay copias de
+   seguridad** — y los términos ya prometen respaldo diario, así que sin Pro ese texto sería
+   falso. Se cobra por organización: cubre los dos proyectos.
+2. **Aplicar en Producción** el bloque del cupo y el borrado.
+3. **Correo transaccional decente.** El básico de Supabase con 20 personas no técnicas es un
+   problema semanal.
+4. **Aceptar el acuerdo de datos de Supabase.** Cierra 4 de los 6 huecos legales.
+5. **Publicar la app.** La publicada es del 2026-08-10: le falta el arreglo del `id` y la
+   versión nueva de los documentos.
+
+**Bloquea el primer COBRO, no el lanzamiento** —el mes gratis compra 30 días—: contador
+(régimen tributario e IVA), **modo solo lectura** (prometido en los términos, aún sin
+construir), estado de cada cuenta, y abogado (revisión y si aplica registro ante la SIC).
+
+**No hace falta construir:** cobro automático con Wompi (con 20 personas, transferencia y
+WhatsApp bastan) ni flujo de invitación (ya existe "Crear cuenta"; el tope lo pone el cupo).
 
 ## Reglas que no se rompen
 
