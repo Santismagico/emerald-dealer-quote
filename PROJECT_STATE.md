@@ -1845,3 +1845,49 @@ tocó Supabase, ni `main`, ni nada publicado.
 
 **No cambia nada de lo pendiente:** siguen abiertos la N6 real, los documentos legales en
 `BORRADOR` y el plan pago de Supabase antes de migrar a las 7 joyerías.
+
+### N6 REAL EJECUTADA Y APROBADA (2026-08-12) — el candado 1 de 3 queda cerrado
+
+Primera ejecución de N6 contra un servidor real en la historia del proyecto. **21 controles
+en verde**, 116 segundos, sobre el commit exacto `5e03ac2`, en `ovfaehoeidxcjrlapioo`
+(Pruebas). Evidencia en `security-evidence/n6-evidence.json`, que no se versiona.
+
+Incluye lo que faltaba y no cubría la prueba en la base: dos joyerías reales recorriendo la
+app, lecturas propias y cruzadas, escrituras directas, RPC que intentan elegir otra
+organización, membresías ajenas, acceso anónimo, consecutivos concurrentes y cargas
+inválidas. `cleanupVerified` en verde: no quedó ningún dato ficticio.
+
+**Cómo se pudo correr por fin.** El guion de Windows pedía la clave en un prompt oculto que
+no da señal al pegar; en la práctica eso bloqueaba la ejecución. Se agregó
+`scripts/run-n6-clipboard.sh` (`npm run security:n6:mac:portapapeles`), que toma la clave del
+portapapeles de macOS con las mismas garantías —no toca disco, se filtra de la salida, se
+borra de memoria y del portapapeles al terminar— y el mismo candado contra Producción.
+
+**Dos defectos que solo aparecieron al correrla de verdad.** Los dos eran del guion, no de la
+aplicación, y llevaban meses invisibles precisamente porque N6 nunca se ejecutó:
+
+1. **Faltaban los quilates.** C1 (2026-08-04) los volvió obligatorios en el lote y en cada
+   venta. El guion seguía sin enviarlos, así que el servidor rechazaba el lote de ejemplo y
+   N6 **moría en la preparación, antes de comprobar un solo control de aislamiento**.
+2. **Los abonos iban sin `id`.** La regla que congela la tasa de cambio empareja abono viejo
+   con nuevo **por `id`**; sin `id` no hay pareja, la comparación no devuelve filas y la
+   regla no se dispara. N6 daba por protegido algo que nunca llegaba a ejecutarse.
+
+Los dos corregidos, y cada uno con su guarda local en
+`test-rls-isolation.guard.node-tests.mjs`: leen el SQL vigente y exigen que el payload lo
+cumpla, sin servidor ni clave. **Se comprobó que ambas fallan si se retira el arreglo.** Los
+controles locales pasaron de 18 a 20.
+
+**Observación abierta, NO corregida — decisión de Santiago.** El servidor **no exige `id`**
+en los abonos de venta. La app siempre lo envía (`BuyerPayment.id` es obligatorio), así que
+en uso normal la regla protege; pero un cliente que no fuera la app podría omitirlo y
+reescribir tasas históricas. **No es un problema de aislamiento ni de privacidad** —no
+alcanza datos de otra joyería—, es integridad contable. Blindarlo exige una migración nueva
+aplicada también a Producción, que es autorización aparte.
+
+**Verificación de cierre:** 1120 pruebas en 75 archivos, build, 0 vulnerabilidades, ningún
+secreto versionado y controles de publicación y base de datos en verde.
+
+**Quedan dos candados** antes de migrar a las 7 joyerías: documentos legales en `BORRADOR` y
+plan pago de Supabase. Y siguen sin resolver el flujo de invitación y el correo de
+recuperación de contraseña.

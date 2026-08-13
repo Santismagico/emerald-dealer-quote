@@ -1,6 +1,6 @@
 # Prompt para abrir una sesión nueva de trabajo
 
-_Actualizado: **2026-08-11**, al confirmar la instalación en la MacBook.
+_Actualizado: **2026-08-12**, al aprobar la prueba N6 real.
 Copiar desde la línea marcada hasta el final y pegarlo como primer mensaje._
 
 > **Para el agente que actualice este archivo:** es lo primero que lee una sesión nueva. Si
@@ -47,7 +47,7 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 3. `docs/README.md` — qué está vigente y qué es historia cerrada.
 4. `DECISIONS.md`, de **D-070 a D-077**.
 
-## Estado a 2026-08-11 — verificado
+## Estado a 2026-08-12 — verificado
 
 **La aplicación de Santiago está PUBLICADA con socios y fondo funcionando.**
 
@@ -57,6 +57,9 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 | `emerald-dealer-quote` | `main` = `d3e5af4` | Las **7 joyerías del piloto**. 100% local, sin servidor. **No se tocó** |
 
 - Rama de trabajo `codex/fase2-nube`. **1120 pruebas en 75 archivos**, build en verde.
+- **N6 real APROBADA el 2026-08-12**: 21 controles, commit `5e03ac2`, en Pruebas. Es la
+  primera vez que se corre contra un servidor real. Detalle completo al final de
+  `PROJECT_STATE.md`.
 - Puntos de retorno: enlace de la nube → `f9ba18a`; `main` → `0a86e5a`.
 - Publicar el enlace de la nube: `docs/PUBLICAR_ENLACE_NUBE.md`. Es **manual**, no hay
   automatismo, y tiene dos trampas documentadas que ya casi causan un accidente.
@@ -82,6 +85,12 @@ corregidos, con `directWriteLockdown.test.ts` vigilando que no vuelva.
 **Lección:** cuando una prueba lleva meses en verde sobre algo delicado, comprueba que falle
 si quitas el arreglo. Si no falla, es un adorno.
 
+**Corolario, aprendido al correr N6 el 2026-08-12:** una prueba que **nunca se ejecuta** es
+peor que un adorno, porque envejece en silencio. N6 llevaba desde el 2026-08-04 rota —el
+servidor volvió obligatorios los quilates y el guion no acompañó— y nadie podía saberlo. Si
+una prueba exige manos humanas para correr, o se le quita esa fricción o se le pone una
+guarda local que valide lo mismo sin servidor. Aquí se hicieron las dos cosas.
+
 ## Lo que sigue
 
 **El siguiente proyecto que Santiago quiere: migrar a las 7 joyerías del piloto** a la
@@ -89,14 +98,15 @@ aplicación con nube, y dejar un solo enlace para pruebas. Hoy usan la versión 
 servidor y **sin ningún respaldo**: si a un colega se le daña el teléfono, pierde el
 historial de su negocio. Ese es el mejor argumento a favor de migrarlos.
 
-**Tres candados que dejan de ser opcionales antes de esa migración.** Los tres se saltaron
-conscientemente para el enlace de Santiago solo, y eso ya no aplica con siete negocios de
-terceros:
+**Tres candados que dejaban de ser opcionales antes de esa migración. El primero ya está
+cerrado; quedan dos.** Los tres se saltaron conscientemente para el enlace de Santiago solo,
+y eso ya no aplica con siete negocios de terceros:
 
-1. **N6 real** con dos cuentas a través de la app. Nunca se ha corrido sobre este código.
-   En Mac: `npm run security:n6:secure:mac` (pide la clave secreta en pantalla, no la
-   guarda). Hoy solo hay evidencia de aislamiento **en la base de datos**, probada con dos
-   joyerías reales: es fuerte, pero no es lo mismo.
+1. ~~**N6 real**~~ **HECHO el 2026-08-12.** 21 controles en verde sobre el commit `5e03ac2`.
+   Para repetirla en Mac: copia la clave secreta de Pruebas y corre
+   `npm run security:n6:mac:portapapeles` (la toma del portapapeles, no la guarda, y borra
+   el portapapeles al terminar). El guion viejo `security:n6:secure:mac` sigue existiendo,
+   pero su prompt oculto no da señal al pegar y en la práctica bloquea la ejecución.
 2. **Documentos legales.** Siguen marcados `BORRADOR`, versión `draft-2026-07-20`, sin
    revisión profesional. Con datos de clientes de terceros y cobro de por medio, no se
    sostiene.
@@ -126,6 +136,12 @@ datos, y mirarlo una semana antes de seguir con los demás.
 - Al terminar: commit, push de la rama y **regenera este archivo** si cambió el estado.
 
 ## Pendientes abiertos con Santiago
+
+- **Decisión de seguridad sin responder (2026-08-12):** el servidor **no exige `id`** en los
+  abonos de venta, y la regla que congela la tasa de cambio empareja por `id`. Un cliente
+  que no fuera la app podría omitirlo y reescribir tasas históricas. **No es aislamiento ni
+  privacidad**: es integridad contable. La app siempre envía `id`. Blindarlo exige migración
+  nueva aplicada también a Producción.
 
 - **Pregunta sin responder:** en el panel, "Ganancia" no descuenta los gastos. Él pidió los
   gastos diciendo que "sin gastos, cualquier ganancia sería mentira". Debe decidir si se
