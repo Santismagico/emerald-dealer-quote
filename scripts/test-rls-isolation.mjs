@@ -1114,6 +1114,60 @@ async function verifyMalformedPayloads(api, organizationId, now) {
     )
     assertRowUnchanged(expenseBefore, expenseAfter, `gasto con tasa ${invalidRate}`)
   }
+
+  // La regla que congela la tasa empareja por id. Sin id no hay pareja, no se
+  // dispara, y la tasa se deja reescribir. Desde 20260813050000 el servidor
+  // exige el id en vez de confiar en que el cliente lo mande.
+  const baseStone = validPayloads('n6-identificadores').stone_lots
+  for (const [label, id, data] of [
+    ['abono de venta sin id', 'n6-abono-sin-id', {
+      sales: [{ ...baseStone.sales[0], payments: [{ amount: 200000, usdRate: 4210 }] }],
+    }],
+    ['venta de piedra sin id', 'n6-venta-sin-id', {
+      sales: [{ ...baseStone.sales[0], id: '   ' }],
+    }],
+    ['dos abonos con el mismo id', 'n6-abonos-id-repetido', {
+      sales: [{
+        ...baseStone.sales[0],
+        carats: 2,
+        quantity: 1,
+        payments: [
+          { ...baseStone.sales[0].payments[0], amount: 100000 },
+          { ...baseStone.sales[0].payments[0], amount: 50000 },
+        ],
+      }],
+    }],
+  ]) {
+    assertRejectedWithCode(
+      await api.rpc('upsert_stone_lot', {
+        p_id: id,
+        p_data: { ...baseStone, id, ...data },
+        p_updated_at: now,
+      }),
+      label,
+      '22023'
+    )
+    await assertEntityAbsent(api, 'stone_lots', organizationId, id, label)
+  }
+
+  const jewelWithoutSaleId = 'n6-joya-venta-sin-id'
+  const baseJewel = validPayloads('n6-identificadores').stock_jewels
+  assertRejectedWithCode(
+    await api.rpc('upsert_stock_jewel', {
+      p_id: jewelWithoutSaleId,
+      p_data: {
+        ...baseJewel,
+        id: jewelWithoutSaleId,
+        sale: { ...baseJewel.sale, id: '' },
+      },
+      p_updated_at: now,
+    }),
+    'venta de joya sin id',
+    '22023'
+  )
+  await assertEntityAbsent(
+    api, 'stock_jewels', organizationId, jewelWithoutSaleId, 'venta de joya sin id'
+  )
 }
 
 async function cleanupN6(admin, apis, organizations, users) {
@@ -1241,6 +1295,7 @@ export async function runN6(env = process.env) {
         invalidProductTypesBlocked: true,
         invalidUsdRatesBlocked: true,
         immutableUsdRatesBlocked: true,
+        saleAndPaymentIdsRequired: true,
       },
     }
   } catch (error) {

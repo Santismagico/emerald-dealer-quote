@@ -15,6 +15,7 @@ import jewelTransformationSource from '../../../supabase/migrations/202608041512
 import stonePurchaseOriginSource from '../../../supabase/migrations/20260804184500_compra_lote_bruto_tallado.sql?raw'
 import deletedStoneLotHistorySource from '../../../supabase/migrations/20260804193000_eliminar_lote_con_historia_joya.sql?raw'
 import sociosFundCloudSource from '../../../supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql?raw'
+import saleIdentifiersSource from '../../../supabase/migrations/20260813050000_exigir_id_en_ventas_y_abonos.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -33,6 +34,7 @@ const jewelTransformation = jewelTransformationSource.toLowerCase()
 const stonePurchaseOrigin = stonePurchaseOriginSource.toLowerCase()
 const deletedStoneLotHistory = deletedStoneLotHistorySource.toLowerCase()
 const sociosFundCloud = sociosFundCloudSource.toLowerCase()
+const saleIdentifiers = saleIdentifiersSource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -1211,5 +1213,67 @@ describe('migracion de tipo de producto y moneda (B3)', () => {
     expect(productCurrency).toContain("p_data->'pricecop'")
     expect(productCurrency).toContain("p_data->'amountcop'")
     expect(productCurrency).toContain("p_data->'paidby'")
+  })
+})
+
+describe('migracion que exige id en ventas y abonos (2026-08-13)', () => {
+  it('exige un id no vacio en la venta, el abono y la venta de joya', () => {
+    expect(saleIdentifiers).toContain('assert_stone_sale_identifiers')
+    expect(saleIdentifiers).toContain('assert_stock_jewel_sale_identifier')
+    expect(saleIdentifiers).toContain("private.is_nonblank_string(sale->'id')")
+    expect(saleIdentifiers).toContain("private.is_nonblank_string(payment->'id')")
+    expect(saleIdentifiers).toContain("private.is_nonblank_string(p_data->'sale'->'id')")
+    expect(saleIdentifiers).toContain('stone sale requires an id')
+    expect(saleIdentifiers).toContain('buyer payment requires an id')
+    expect(saleIdentifiers).toContain('stock jewel sale requires an id')
+  })
+
+  it('rechaza ids repetidos, que confundirian el emparejamiento de la tasa', () => {
+    expect(saleIdentifiers).toContain('duplicate stone sale id')
+    expect(saleIdentifiers).toContain('duplicate buyer payment id')
+    expect(saleIdentifiers.match(/having count\(\*\) > 1/g)?.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('engancha las comprobaciones en las dos funciones protegidas', () => {
+    expect(saleIdentifiers).toContain('perform private.assert_stone_sale_identifiers(p_data)')
+    expect(saleIdentifiers).toContain('perform private.assert_stock_jewel_sale_identifier(p_data)')
+    // Redefinir la funcion no puede perder ninguna comprobacion que ya existia.
+    for (const previa of [
+      'perform private.assert_stone_lot_payload(p_id, p_data, p_updated_at)',
+      'perform private.assert_stone_lot_cutting_payload(p_id, p_data, p_updated_at)',
+      'perform private.assert_stone_lot_internal_uses_payload(p_data)',
+      'perform private.assert_stone_internal_uses_preserved(p_id, p_data)',
+      'perform private.assert_stock_jewel_payload(p_id, p_data, p_updated_at)',
+      'perform private.assert_stock_jewel_c2_payload(p_data)',
+      'perform private.assert_stock_transformations_preserved(p_id, p_data)',
+    ]) {
+      expect(saleIdentifiers).toContain(previa)
+    }
+  })
+
+  it('usa revoke all y nunca la forma debil que abrio el hueco de TRUNCATE', () => {
+    expect(saleIdentifiers).toContain('revoke all on function')
+    expect(saleIdentifiers).not.toContain('revoke insert, update, delete')
+    expect(saleIdentifiers).toContain(
+      'grant execute on function public.upsert_stone_lot(text, jsonb, timestamptz) to authenticated'
+    )
+    expect(saleIdentifiers).toContain(
+      'grant execute on function public.upsert_stock_jewel(text, jsonb, timestamptz) to authenticated'
+    )
+  })
+
+  it('no toca datos ya guardados: solo valida escrituras', () => {
+    // Los comentarios explican el hueco de TRUNCATE del 2026-08-10, asi que se
+    // miran las sentencias reales y no el texto de la cabecera.
+    const sentencias = saleIdentifiers
+      .split('\n')
+      .filter((linea) => !linea.trimStart().startsWith('--'))
+      .join('\n')
+    expect(sentencias).not.toContain('update public.stone_lots set')
+    expect(sentencias).not.toContain('update public.stock_jewels set')
+    expect(sentencias).not.toContain('delete from public.')
+    expect(sentencias).not.toContain('truncate')
+    // El unico insert permitido es el que ya hacia la funcion protegida.
+    expect(sentencias.match(/insert into public\./g)).toHaveLength(2)
   })
 })
