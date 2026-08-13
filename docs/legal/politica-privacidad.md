@@ -1,8 +1,8 @@
 # Política de privacidad de Emerald Dealer
 
-> **BORRADOR — pendiente de revisión profesional**
->
-> Versión técnica: `draft-2026-08-12`. Última actualización: 12 de agosto de 2026. Ya no quedan campos por completar: recoge los procedimientos de conservación, eliminación y atención de solicitudes de la fase beta. Conserva la marca de borrador hasta que el operador apruebe expresamente pasarla a versión final.
+> Versión `v1-2026-08-12`, vigente desde el 12 de agosto de 2026. Aprobada por el operador, que es abogado en ejercicio. Reemplaza el borrador `draft-2026-07-20`.
+> 
+> Versión técnica: `v1-2026-08-12`
 
 ## 1. Responsable y Encargado del tratamiento
 
@@ -14,6 +14,8 @@ Emerald Dealer es operado por Héctor Germán Santiago Orjuela Rodríguez, perso
 ## 2. Qué datos se tratan
 
 La versión local (sin Plan Nube) guarda los datos únicamente en el dispositivo del joyero; Emerald Dealer no los recibe en servidores propios. En el Plan Nube se almacenan en Supabase datos de la cuenta y de la joyería, clientes, proveedores, cotizaciones, citas, trabajos de taller, pagos, inventario y movimientos de piedras, ajustes y la demás información que la joyería decida registrar para usar esas funciones.
+
+Además se registran **datos técnicos mínimos de la sesión**: un identificador del dispositivo y la fecha del último acceso. Sirven para dos cosas y nada más: proteger la cuenta y verificar la regla de una cuenta por joyería del numeral 3 de los términos. No se registra la ubicación, ni la navegación dentro de la aplicación, ni la actividad comercial.
 
 ## 3. Finalidades
 

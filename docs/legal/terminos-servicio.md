@@ -1,8 +1,8 @@
 # Términos de servicio de Emerald Dealer
 
-> **BORRADOR — pendiente de revisión profesional**
->
-> Versión técnica: `draft-2026-08-12`. Última actualización: 12 de agosto de 2026. Ya no quedan campos por completar: recoge las condiciones comerciales de la fase beta y las determinaciones del operador. Conserva la marca de borrador hasta que este apruebe expresamente pasarlo a versión final.
+> Versión `v1-2026-08-12`, vigente desde el 12 de agosto de 2026. Aprobada por el operador, que es abogado en ejercicio. Reemplaza el borrador `draft-2026-07-20`.
+> 
+> Versión técnica: `v1-2026-08-12`
 
 ## 1. Identificación y aceptación
 
@@ -15,6 +15,10 @@ Emerald Dealer ayuda a administrar cotizaciones, clientes, citas, trabajos de ta
 ## 3. Fase beta, plan y pagos
 
 **Fase beta con cupo limitado.** El Plan Nube se ofrece inicialmente a un máximo de **20 cuentas**. Alcanzado el cupo, no se admiten nuevos registros hasta que el operador amplíe el límite. Durante la beta el servicio puede tener fallas o cambios más frecuentes de lo habitual, y la joyería lo acepta al registrarse.
+
+**Una cuenta por joyería.** El Plan Nube se contrata **por joyería** y da acceso a una sola. Las credenciales son **personales e intransferibles**: la joyería no puede compartirlas, cederlas, revenderlas ni permitir que otra joyería opere bajo su cuenta. Cada joyería que use el servicio debe tener su propia cuenta y su propio pago, aunque comparta local, dueños o proveedores con otra.
+
+**Verificación del uso.** Para hacer efectiva la regla anterior, el operador registra datos técnicos de la sesión —en particular el número de dispositivos distintos desde los que se usa cada cuenta— y puede pedir explicación cuando encuentre indicios de uso compartido. Este registro es solo para seguridad y control de uso; no rastrea la actividad comercial de la joyería ni sus datos de clientes. El incumplimiento se trata conforme al numeral 6.
 
 **Mes gratuito.** Cada cuenta nueva recibe **un (1) mes de servicio sin costo**, contado desde su creación. Durante ese mes el servicio es completo y la joyería no adquiere obligación de pago ni de permanencia. Si al terminar no desea continuar, no debe hacer nada: la cuenta pasa a solo lectura conforme al numeral siguiente.
 
@@ -59,6 +63,8 @@ Emerald Dealer y su software son propiedad de su operador y están protegidos po
 La joyería es responsable de la exactitud de los precios, cotizaciones, inventario y demás información que registra; de su relación comercial con sus propios clientes; de obtener las autorizaciones necesarias para tratar datos personales; de proteger sus accesos y dispositivos, y de revisar los documentos antes de enviarlos.
 
 No se permite usar el servicio para actividades ilegales, acceder a cuentas ajenas, introducir código malicioso, intentar superar controles de seguridad o afectar la disponibilidad para otras joyerías.
+
+Tampoco se permite **compartir las credenciales, cederlas o permitir que otra joyería opere bajo la cuenta propia**, conforme al numeral 3. Verificado el uso compartido, el operador podrá exigir que cada joyería contrate su propia cuenta, y aplicar el procedimiento siguiente si no se corrige.
 
 **Procedimiento ante un incumplimiento.** El operador enviará una **advertencia escrita** por WhatsApp o correo describiendo el hecho y otorgando **cinco (5) días hábiles** para corregirlo o explicarlo. Si no se corrige, la cuenta pasa a **solo lectura** por otros quince (15) días calendario, durante los cuales la joyería puede exportar toda su información; vencidos estos, el operador puede terminar el servicio.
 

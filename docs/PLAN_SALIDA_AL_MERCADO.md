@@ -28,23 +28,48 @@ registra a su primer cliente: las obligaciones sobre **datos personales de terce
 
 ## Bloque 1 — Antes del PRIMER usuario (bloquea el lanzamiento)
 
-| # | Qué | Por qué | Quién |
+| # | Qué | Estado | Quién |
 |---|---|---|---|
-| 1 | **Supabase Pro** | Sin él el servidor se apaga tras una semana y **no hay copias de seguridad**. Los términos ya prometen respaldo diario: sin Pro, ese texto sería falso | Santiago (~$25 USD/mes) |
-| 2 | **Cupo de 20** | Hoy cualquiera con el enlace crea cuenta. Sin tope no hay beta controlada | Construir |
-| 3 | **Borrar cuenta y datos** | Es un derecho del titular, no una función opcional. **Puede ser manual al principio** (el operador borra y deja constancia), pero el procedimiento tiene que existir y estar probado | Construir o documentar como manual |
-| 4 | **Correo de registro y recuperación** | El servicio básico de Supabase es limitado. Con 20 personas no técnicas, un correo que no llega es una llamada | Construir |
-| 5 | **Aceptar el acuerdo de datos de Supabase** | Cierra 4 de los 6 huecos legales que quedan | Santiago, trámite de lectura |
-| 6 | **Publicar la app actualizada** | La versión publicada es del 10 de agosto: no tiene el arreglo del `id` ni la versión nueva de los términos | Publicar |
+| 1 | **Supabase Pro** | ✅ **Activado el 2026-08-12.** Sin él el servidor se apaga tras una semana y no hay copias de seguridad, y los términos prometen respaldo diario | Santiago |
+| 2 | **Cupo de 20** | ✅ Construido y **aplicado en Pruebas**. Falta Producción | — |
+| 3 | **Borrar cuenta y datos** | ✅ Construido y **aplicado en Pruebas**. Falta Producción. El borrado del correo de acceso sigue siendo manual, documentado en `ACTIVACION_CUPO_Y_BORRADO.md` | — |
+| 4 | **Aplicar en Producción** el cupo y el borrado | ⬜ Pendiente. Bloque listo, comprobación debe dar 4 | Santiago pega el SQL |
+| 5 | **Correo de registro y recuperación** | ⬜ Pendiente. El servicio de fábrica manda **2 correos por hora** y no sirve para producción. Con SMTP propio pasa a 30/hora | Santiago crea la cuenta del proveedor |
+| 6 | **Publicar la app actualizada** | ⬜ Pendiente. La publicada es del 10 de agosto: le falta el arreglo del `id`, el cupo, el borrado y los documentos `v1` | Claude publica, con orden expresa |
 
 ## Bloque 2 — Durante el mes gratis (bloquea el primer COBRO, no el lanzamiento)
 
 | # | Qué | Por qué | Quién |
 |---|---|---|---|
 | 7 | **Contador** | Régimen tributario, si $80.000 incluye o excluye impuestos, cómo facturar. Con 20 clientes son $1.600.000 al mes | Profesional |
-| 8 | **Modo solo lectura** | Los términos lo prometen para el día 11 de mora. No hace falta antes de que alguien deba dinero, pero sí antes de cobrar | Construir |
+| 8 | **Modo solo lectura** | Los términos lo prometen para el día 11 de mora. No hace falta antes de que alguien deba dinero, pero sí antes de cobrar. **Confirmado como tarea por Santiago el 2026-08-12** | Construir |
 | 9 | **Estado de la cuenta** | La app no sabe quién está en prueba, quién al día y quién en mora. Con 20 se puede llevar a mano al principio | Construir o llevar a mano |
-| 10 | **Abogado** | Revisar los dos documentos y responder una pregunta concreta: **si le toca registrar bases de datos ante la SIC** | Profesional |
+| 10 | **Control de cuentas compartidas** | Requisito nuevo de Santiago: que ocho colegas no se repartan una sola cuenta pagada. Ver abajo | Construir |
+
+## El control de cuentas compartidas
+
+Santiago pidió el 2026-08-12 poder controlar que una cuenta pagada no la usen varias joyerías.
+Los términos `v1-2026-08-12` ya lo prohíben expresamente (numeral 3, «Una cuenta por joyería»
+y «Verificación del uso»; numeral 6 para las consecuencias), y la política de privacidad ya
+declara el registro técnico que lo hace verificable.
+
+**Lo que hay que construir:** guardar por cuenta un identificador de dispositivo y la fecha
+del último acceso, y una consulta que le diga a Santiago desde cuántos dispositivos distintos
+se usó cada cuenta en los últimos 30 días. Nada más: ni ubicación, ni navegación, ni actividad
+comercial — la política promete justamente eso y no puede quedarse corta ni pasarse.
+
+**El umbral no puede ser 1.** Un joyero legítimo usa el celular, la tableta y el computador,
+y cambia de teléfono. Un número bajo generaría falsos positivos con clientes que pagan. La
+señal útil está más arriba, y la decisión de dónde ponerla es de Santiago.
+
+**Enforcement manual, no automático.** Con 20 cuentas, la app **señala** y Santiago decide.
+Bloquear solo por número de dispositivos castigaría a un cliente honesto sin que nadie
+revisara el caso; los términos ya obligan a pedir explicación antes de aplicar el numeral 6.
+
+**Disuasión que ya existe y conviene recordar:** ocho joyerías bajo una sola cuenta compartirían
+**una sola joyería** — los mismos clientes, las mismas cotizaciones, la misma numeración
+consecutiva y los mismos precios a la vista. Entre competidores eso es inservible. El riesgo
+real no son ocho negocios distintos, sino un grupo que ya opera como uno solo.
 
 ## Bloque 3 — Operación del lanzamiento
 
@@ -66,23 +91,29 @@ registra a su primer cliente: las obligaciones sobre **datos personales de terce
 
 ## Estado legal a 2026-08-12
 
-Los tres documentos pasaron de **11 huecos a 6**, y los 6 dependen de terceros:
+Los tres documentos quedaron **sin ningún hueco** y en versión final. Cómo se cerró cada uno:
 
-| Hueco | De quién depende |
+| Hueco que había | Cómo se cerró |
 |---|---|
-| Régimen tributario, impuestos y facturación | Contador |
-| Acuerdo de datos de Supabase, región y transmisión internacional | Santiago (aceptar) + abogado |
-| Confirmar condiciones de proveedores y subencargados (×2) | Lo anterior lo resuelve |
-| Dejar evidencia de esa revisión | Lo anterior lo resuelve |
-| Enlace público permanente de los documentos | Solo si el abogado lo exige |
+| Régimen tributario e IVA | Santiago determinó que como persona natural no está obligado a facturar. Se retiró la mención contable y quedó que los $80.000 son el valor total a pagar |
+| Acuerdo de datos de Supabase | **Verificado:** su DPA (v1, 1 de agosto de 2026) forma parte de sus Términos de Servicio y rige automáticamente. No había nada que firmar ni solicitar. Santiago dudó de esta tarea y tenía razón |
+| Región y transmisión internacional | Confirmada por Santiago: los dos proyectos en Sudamérica (São Paulo) |
+| Registro de bases ante la SIC | Santiago, abogado en ejercicio, determinó que no aplica |
+| Enlace público permanente | El revisor no lo exigió |
+
+**Dato de hecho que se le reportó antes de decidir:** la app sí guarda teléfono, correo,
+ciudad y documento de identidad de los clientes, y teléfono de compradores y proveedores —no
+solo el nombre—. La conclusión jurídica es suya, tomada con ese dato a la vista.
 
 Todo lo demás quedó redactado: precio, mes gratis, cupo, medio de pago, mora, solo lectura,
 reactivación, cancelación, reembolsos, cambios de precio, medidas de seguridad verificadas,
 aviso de incidentes, procedimiento de advertencia y suspensión, exportación permanente,
 conservación 30 días, eliminación anticipada y comprobable, y aviso de cambios con 30 días.
 
-**Los documentos siguen marcados BORRADOR**, y deben seguir así hasta que el abogado los
-revise. Hay una prueba automática que lo obliga mientras quede cualquier `[COMPLETAR`.
+**Los tres documentos pasaron a `v1-2026-08-12`** el 2026-08-12: Santiago los leyó, los aprobó
+y quitó la marca de borrador. Él es abogado en ejercicio y es el revisor. Las constantes del
+código cambiaron con ellos, así que la app **pedirá aceptación** — hoy no hay nadie
+registrado, que era el momento barato para hacerlo.
 
 ## La frontera que no se cruza
 

@@ -1,10 +1,14 @@
 import type { Settings } from '../../types';
 import { getSupabase } from './config';
 
-/** Versiones independientes de los textos que hoy siguen en borrador. */
-export const TERMS_VERSION = 'draft-2026-08-12';
-export const PRIVACY_VERSION = 'draft-2026-08-12';
-export const NOTICE_VERSION = 'draft-2026-08-12';
+/**
+ * Versiones independientes de cada texto legal. Cambiar una obliga a re-aceptar
+ * ese documento: `legalAcceptanceRequirements` compara la versión aceptada con
+ * estas constantes, así que deben ir siempre a la par de `docs/legal/`.
+ */
+export const TERMS_VERSION = 'v1-2026-08-12';
+export const PRIVACY_VERSION = 'v1-2026-08-12';
+export const NOTICE_VERSION = 'v1-2026-08-12';
 
 export interface LegalAcceptance {
   acceptedTerms: boolean;
