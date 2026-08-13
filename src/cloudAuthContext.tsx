@@ -17,6 +17,7 @@ import {
   type CloudAuthService,
   type CloudOrganization,
   type CloudSession,
+  type DeletionReceipt,
   type LegalAcceptance
 } from './services/cloud/auth';
 
@@ -44,6 +45,8 @@ interface CloudAuthContextValue {
   }) => Promise<void>;
   signOut: () => Promise<void>;
   createOrganization: (name: string, settings: Settings) => Promise<void>;
+  /** Borra la joyería y todos sus datos. Exige el nombre exacto como confirmación. */
+  deleteMyOrganization: (confirmation: string) => Promise<DeletionReceipt>;
   refreshOrganization: () => Promise<void>;
 }
 
@@ -147,6 +150,15 @@ export function CloudAuthProvider({
       async createOrganization(name, settings) {
         const created = await service.createOrganization(name, settings);
         setOrganization(created);
+      },
+      async deleteMyOrganization(confirmation) {
+        const receipt = await service.deleteMyOrganization(confirmation);
+        // Ya no hay joyería a la que volver: se cierra la sesión de inmediato
+        // para no dejar la app mostrando datos que el servidor acaba de borrar.
+        setOrganization(null);
+        await service.signOut();
+        await applySession(null, 'SIGNED_OUT');
+        return receipt;
       },
       refreshOrganization
     }}>

@@ -5,6 +5,8 @@ import {
   PRIVACY_VERSION,
   TERMS_VERSION,
   authErrorInSpanish,
+  rpcErrorInSpanish,
+  BETA_CAPACITY_CODE,
   createCloudAuthService,
   legalAcceptanceRequirements,
   mustAcceptLegal,
@@ -281,5 +283,26 @@ describe('cuenta de nube', () => {
     expect(client.auth.resetPasswordForEmail).toHaveBeenCalledWith('cuenta@ejemplo.com', {
       redirectTo: 'https://ejemplo.test/app/'
     });
+  });
+});
+
+describe('mensajes de las funciones protegidas', () => {
+  it('explica el cupo lleno sin jerga y deja una salida', () => {
+    const mensaje = rpcErrorInSpanish({ code: BETA_CAPACITY_CODE });
+    expect(mensaje).toContain('cupos');
+    expect(mensaje).toContain('3105725618');
+    expect(mensaje).not.toContain('53400');
+    expect(mensaje).not.toMatch(/error|exception|capacity/i);
+  });
+
+  it('traduce los rechazos del borrado a algo accionable', () => {
+    expect(rpcErrorInSpanish({ code: '22023' })).toContain('no coincide');
+    expect(rpcErrorInSpanish({ code: '42501' })).toContain('dueño');
+    expect(rpcErrorInSpanish({ code: '23505' })).toContain('ya tiene una joyería');
+  });
+
+  it('no inventa explicaciones para un error que no conoce', () => {
+    expect(rpcErrorInSpanish({ code: 'XX999' })).toContain('Revisa tu conexión');
+    expect(rpcErrorInSpanish(null)).toContain('Revisa tu conexión');
   });
 });

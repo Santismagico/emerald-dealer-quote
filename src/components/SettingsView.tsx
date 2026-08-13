@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useStore } from '../store';
+import { useCloudAuth } from '../cloudAuthContext';
 import type { BackupFile, Settings } from '../types';
 import { fileToCompressedDataUrl } from '../utils/images';
 import { formatCOP } from '../utils/money';
@@ -97,6 +98,80 @@ export async function runBackupRestoreFlow(actions: {
 
   actions.showSuccess();
   return 'success';
+}
+
+/**
+ * Borrado de la joyería y de todos sus datos. Es el derecho de supresión de la
+ * Ley 1581, así que tiene que existir y ser encontrable — pero también es la
+ * acción más destructiva de la app, de modo que exige escribir el nombre exacto
+ * de la joyería. Un clic distraído no puede borrar el historial de un negocio.
+ */
+export function DeleteAccountSection() {
+  const store = useStore();
+  const cloud = useCloudAuth();
+  const [open, setOpen] = useState(false);
+  const [typedName, setTypedName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const jewelryName = cloud.organization?.name ?? '';
+  const nameMatches = typedName.trim() === jewelryName.trim() && jewelryName.trim() !== '';
+
+  const handleDelete = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await cloud.deleteMyOrganization(typedName);
+      store.showToast('Tu joyería y todos sus datos fueron borrados');
+    } catch (deletionError) {
+      setError(deletionError instanceof Error ? deletionError.message : 'No se pudo borrar.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      title="Eliminar mi joyería y mis datos"
+      subtitle="Borra para siempre todo lo que tienes guardado. No se puede deshacer."
+    >
+      <p className="text-sm text-stone-600">
+        Se borran clientes, cotizaciones, agenda, piedras, proveedores, compradores, joyas,
+        socios, material y gastos. <strong>Exporta tu respaldo antes</strong> si quieres
+        conservar una copia.
+      </p>
+      <p className="text-sm text-stone-600">
+        Tu correo de acceso lo elimina el operador dentro de los 5 días hábiles siguientes.
+      </p>
+      {open ? (
+        <>
+          <Field
+            label={`Escribe el nombre exacto de tu joyería para confirmar: ${jewelryName}`}
+          >
+            <TextInput
+              value={typedName}
+              onChange={setTypedName}
+              placeholder={jewelryName}
+            />
+          </Field>
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          <Button
+            variant="danger"
+            full
+            disabled={!nameMatches || busy}
+            onClick={() => void handleDelete()}
+          >
+            {busy ? 'Borrando…' : 'Borrar definitivamente'}
+          </Button>
+          <Button variant="ghost" full disabled={busy} onClick={() => { setOpen(false); setTypedName(''); setError(''); }}>
+            Cancelar
+          </Button>
+        </>
+      ) : (
+        <Button variant="secondary" full onClick={() => setOpen(true)}>
+          Quiero eliminar mi joyería
+        </Button>
+      )}
+    </SectionCard>
+  );
 }
 
 export function SettingsView({
@@ -522,6 +597,8 @@ export function SettingsView({
           <strong>Android:</strong> abre en Chrome → menú ⋮ → “Instalar aplicación”.
         </p>
       </SectionCard>
+
+      {isCloudAccount ? <DeleteAccountSection /> : null}
 
       <div>
         <Button full onClick={handleSave} disabled={!dirty}>

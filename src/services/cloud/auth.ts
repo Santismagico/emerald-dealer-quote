@@ -161,6 +161,29 @@ export interface CloudAuthService {
   signOut: () => Promise<void>;
   getOrganization: () => Promise<CloudOrganization | null>;
   createOrganization: (name: string, settings: Settings) => Promise<CloudOrganization>;
+  deleteMyOrganization: (confirmation: string) => Promise<DeletionReceipt>;
+}
+
+/** Constancia de borrado. Lleva conteos, nunca datos de clientes. */
+export interface DeletionReceipt {
+  organizationId: string;
+  organizationName: string;
+  deletedAt: string;
+  scope: Record<string, number>;
+}
+
+/** El cupo de la beta se agotó: `53400` es configuration_limit_exceeded. */
+export const BETA_CAPACITY_CODE = '53400';
+
+export function rpcErrorInSpanish(error: { code?: string; message?: string } | null): string {
+  const code = error?.code ?? '';
+  if (code === BETA_CAPACITY_CODE) {
+    return 'Los cupos de la prueba están llenos por ahora. Escríbenos por WhatsApp al 3105725618 y te avisamos apenas se libere uno.';
+  }
+  if (code === '23505') return 'Esta cuenta ya tiene una joyería.';
+  if (code === '22023') return 'El nombre no coincide exactamente con el de tu joyería.';
+  if (code === '42501') return 'Solo el dueño de la joyería puede hacer esto.';
+  return 'No se pudo completar la acción. Revisa tu conexión e intenta de nuevo.';
 }
 
 export function authErrorInSpanish(error: AuthError | null): string {
@@ -328,7 +351,7 @@ export function createCloudAuthService(
       if (!cleanName) throw new Error('Escribe el nombre de tu joyería.');
       const client = await getClient();
       const created = await client.rpc('create_organization', { org_name: cleanName });
-      throwIfError(created.error);
+      if (created.error) throw new Error(rpcErrorInSpanish(created.error));
       if (typeof created.data !== 'string') {
         throw new Error('No se pudo crear la joyería. Intenta de nuevo.');
       }
@@ -338,6 +361,27 @@ export function createCloudAuthService(
       });
       throwIfError(saved.error);
       return { id: created.data, name: cleanName, role: 'owner' };
+    },
+    async deleteMyOrganization(confirmation) {
+      const cleanConfirmation = confirmation.trim();
+      if (!cleanConfirmation) {
+        throw new Error('Escribe el nombre de tu joyería para confirmar.');
+      }
+      const client = await getClient();
+      const result = await client.rpc('delete_my_organization', {
+        p_confirmation: cleanConfirmation
+      });
+      if (result.error) throw new Error(rpcErrorInSpanish(result.error));
+      const data = result.data as Partial<DeletionReceipt> | null;
+      if (!data || typeof data.organizationId !== 'string') {
+        throw new Error('No se pudo confirmar el borrado. Revisa antes de volver a intentar.');
+      }
+      return {
+        organizationId: data.organizationId,
+        organizationName: typeof data.organizationName === 'string' ? data.organizationName : '',
+        deletedAt: typeof data.deletedAt === 'string' ? data.deletedAt : new Date().toISOString(),
+        scope: (data.scope ?? {}) as Record<string, number>
+      };
     }
   };
 }

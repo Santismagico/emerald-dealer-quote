@@ -16,6 +16,7 @@ import stonePurchaseOriginSource from '../../../supabase/migrations/202608041845
 import deletedStoneLotHistorySource from '../../../supabase/migrations/20260804193000_eliminar_lote_con_historia_joya.sql?raw'
 import sociosFundCloudSource from '../../../supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql?raw'
 import saleIdentifiersSource from '../../../supabase/migrations/20260813050000_exigir_id_en_ventas_y_abonos.sql?raw'
+import betaLimitsSource from '../../../supabase/migrations/20260813120000_cupo_beta_y_borrado_de_cuenta.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -35,6 +36,7 @@ const stonePurchaseOrigin = stonePurchaseOriginSource.toLowerCase()
 const deletedStoneLotHistory = deletedStoneLotHistorySource.toLowerCase()
 const sociosFundCloud = sociosFundCloudSource.toLowerCase()
 const saleIdentifiers = saleIdentifiersSource.toLowerCase()
+const betaLimits = betaLimitsSource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -1275,5 +1277,60 @@ describe('migracion que exige id en ventas y abonos (2026-08-13)', () => {
     expect(sentencias).not.toContain('truncate')
     // El unico insert permitido es el que ya hacia la funcion protegida.
     expect(sentencias.match(/insert into public\./g)).toHaveLength(2)
+  })
+})
+
+describe('migracion de cupo beta y borrado de cuenta (2026-08-13)', () => {
+  it('pone un tope configurable, sin obligar a una migracion nueva para cambiarlo', () => {
+    expect(betaLimits).toContain('create table if not exists public.platform_limits')
+    expect(betaLimits).toContain('max_organizations')
+    expect(betaLimits).toContain('values (true, 20)')
+    expect(betaLimits).toContain('beta capacity reached')
+    // Un tope nulo significa "sin tope": hay que poder abrir la beta sin migrar.
+    expect(betaLimits).toContain('if v_max is not null and')
+  })
+
+  it('conserva intactas las comprobaciones que create_organization ya hacia', () => {
+    for (const previa of [
+      "raise exception 'authentication required'",
+      "raise exception 'invalid organization name'",
+      "raise exception 'user already belongs to an organization'",
+      'insert into public.organizations (name)',
+      'insert into public.memberships (user_id, organization_id, role)',
+      'insert into public.org_counters (organization_id, quote_seq)',
+      'insert into public.org_settings (organization_id, data, updated_at)',
+    ]) {
+      expect(betaLimits).toContain(previa)
+    }
+  })
+
+  it('el borrado exige ser dueno y escribir el nombre exacto de la joyeria', () => {
+    expect(betaLimits).toContain('create or replace function public.delete_my_organization')
+    expect(betaLimits).toContain("m.role = 'owner'")
+    expect(betaLimits).toContain("raise exception 'only the owner can delete the jewelry'")
+    expect(betaLimits).toContain("raise exception 'deletion confirmation does not match'")
+    expect(betaLimits).toContain('is distinct from btrim(coalesce(v_name')
+  })
+
+  it('deja constancia con conteos, y nunca con datos de clientes', () => {
+    expect(betaLimits).toContain('create table if not exists public.deletion_records')
+    expect(betaLimits).toContain('insert into public.deletion_records')
+    // El alcance se cuenta antes de borrar: despues no queda nada que contar.
+    const alcance = betaLimits.indexOf('into v_scope')
+    const borrado = betaLimits.indexOf('delete from public.organizations where id = v_organization_id')
+    expect(alcance).toBeGreaterThan(0)
+    expect(borrado).toBeGreaterThan(alcance)
+    // La constancia guarda conteos, no nombres ni contactos de clientes.
+    for (const columna of ['clients', 'quotes', 'stonelots', 'expenses', 'fundcontributions']) {
+      expect(betaLimits).toContain(`'${columna}', (select count(*)`)
+    }
+  })
+
+  it('las tablas nuevas no quedan al alcance de una sesion cualquiera', () => {
+    expect(betaLimits).toContain('alter table public.platform_limits enable row level security')
+    expect(betaLimits).toContain('alter table public.deletion_records enable row level security')
+    expect(betaLimits).toContain('revoke all on table public.platform_limits from public, anon, authenticated')
+    expect(betaLimits).toContain('revoke all on table public.deletion_records from public, anon, authenticated')
+    expect(betaLimits).not.toContain('revoke insert, update, delete')
   })
 })
