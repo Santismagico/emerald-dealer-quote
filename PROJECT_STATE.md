@@ -1927,9 +1927,18 @@ control negativo ya existía: la **segunda** corrida de N6, contra este mismo se
 migración, falló exactamente aquí con *"la operación debía ser rechazada"*. Sin el arreglo el
 servidor aceptaba; con él, rechaza.
 
-**PRODUCCIÓN: NO APLICADA.** Es autorización aparte de Santiago. El bloque y la consulta de
-control están en `docs/ACTIVACION_ID_VENTAS_Y_ABONOS.md`. Hasta que se aplique, el hueco
-sigue abierto en `wrvokfzrcmmlzekudypu`.
+**APLICADA TAMBIÉN EN PRODUCCIÓN (2026-08-12).** Santiago pegó el mismo bloque en
+`wrvokfzrcmmlzekudypu` y la consulta de control devolvió **4**. El hueco queda cerrado en los
+**dos** servidores.
+
+| | Pruebas | Producción |
+|---|---|---|
+| Migración del `id` (control = 4) | ✅ | ✅ |
+| N6 real, 22 controles | ✅ | — (N6 se **niega** a correr contra Producción, por diseño) |
+
+Producción no tiene ni puede tener evidencia de N6: `validateN6Environment` aborta si el
+proyecto coincide con `N6_PRODUCTION_PROJECT_REF`. Su garantía es que se aplicó **el mismo
+bloque**, verificado por contenido con la consulta de control, sobre las mismas funciones.
 
 **Límite conocido, no cerrado.** La regla protege el abono que **conserva** su `id`. Borrar
 un abono y crear otro con `id` distinto sigue permitido: es una operación legítima del

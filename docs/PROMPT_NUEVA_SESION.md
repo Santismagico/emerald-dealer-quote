@@ -137,11 +137,11 @@ datos, y mirarlo una semana antes de seguir con los demás.
 
 ## Pendientes abiertos con Santiago
 
-- **PENDIENTE CONCRETO — aplicar en Producción el arreglo del `id`.** Ya está corregido,
-  aplicado y probado en **Pruebas** (N6 con 22 controles), pero **`wrvokfzrcmmlzekudypu`
-  sigue sin él**, así que el hueco continúa abierto ahí. El bloque a pegar y la consulta de
-  control (debe devolver **4**) están en `docs/ACTIVACION_ID_VENTAS_Y_ABONOS.md`. Es
-  autorización aparte de Santiago.
+- **Prueba de usuario sin hacer (2026-08-12):** el arreglo del `id` cambió
+  `upsert_stone_lot` y `upsert_stock_jewel` **en Producción**, que son las funciones con las
+  que la app de Santiago guarda de verdad. El análisis dice que es compatible y la consulta
+  de control dio 4, pero **él todavía no ha guardado una venta con abono desde la app**.
+  Confirmarlo con él antes de darlo por cerrado del todo.
 
 - **Pregunta sin responder:** en el panel, "Ganancia" no descuenta los gastos. Él pidió los
   gastos diciendo que "sin gastos, cualquier ganancia sería mentira". Debe decidir si se

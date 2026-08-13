@@ -31,6 +31,9 @@ integridad contable: reescribir a qué dólar se vendió o se abonó algo en el 
 3. **Producción** (`wrvokfzrcmmlzekudypu`) solo después, y con autorización aparte de
    Santiago en ese momento.
 
+**ESTADO: los tres pasos están HECHOS (2026-08-12).** Pruebas = 4, N6 con 22 controles,
+Producción = 4. Este documento queda como historia y como receta si hay que repetirlo.
+
 ## Bloque a pegar
 
 El contenido íntegro de `supabase/migrations/20260813050000_exigir_id_en_ventas_y_abonos.sql`,
