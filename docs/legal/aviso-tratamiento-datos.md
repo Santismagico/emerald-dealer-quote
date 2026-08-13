@@ -12,4 +12,6 @@ Emerald Dealer no usa por sí mismo los datos para publicidad ni para entrenar m
 
 Como titular puedes conocer, actualizar, rectificar y solicitar la supresión de tus datos, así como revocar la autorización cuando legalmente proceda. Ejerce tus derechos en santisorjuela@gmail.com y WhatsApp 3105725618.
 
-Antes de registrarte puedes abrir este aviso y la política de privacidad completa desde los botones ubicados junto a la casilla de autorización. [COMPLETAR ANTES DE PUBLICAR: enlace público permanente, si el revisor profesional lo exige]. Al marcar voluntariamente la casilla de autorización y continuar, declaras haber podido leer este aviso y autorizas el tratamiento descrito, sin perjuicio de tus derechos bajo la Ley 1581 de 2012.
+Antes de registrarte puedes abrir este aviso y la política de privacidad completa desde los botones ubicados junto a la casilla de autorización. Al marcar voluntariamente la casilla de autorización y continuar, declaras haber podido leer este aviso y autorizas el tratamiento descrito, sin perjuicio de tus derechos bajo la Ley 1581 de 2012.
+
+El servicio **no está diseñado para tratar datos sensibles** en los términos de la Ley 1581 de 2012, y no debes registrarlos en él.

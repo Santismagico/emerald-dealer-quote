@@ -21,7 +21,7 @@ Crear y administrar la cuenta y la joyería; autenticar y proteger el acceso; cr
 
 ## 4. Transferencia y transmisión internacional
 
-Para el Plan Nube se usa Supabase. El acuerdo de tratamiento de datos entre Emerald Dealer y Supabase **está vigente**: su DPA (versión 1 del 1 de agosto de 2026) forma parte de los Términos de Servicio del proveedor y rige automáticamente desde que estos se aceptan, sin firma ni solicitud aparte, y su aceptación surte el mismo efecto que firmar las Cláusulas Contractuales Tipo. Los datos se almacenan y procesan principalmente en la región elegida para el proyecto; el proveedor puede usar subencargados en otras ubicaciones conforme a su lista pública, actualizada por última vez el 1 de junio de 2026, cuyos cambios avisa con treinta (30) días de anticipación. [COMPLETAR CON REVISIÓN JURÍDICA: confirmar que ese acuerdo basta como mecanismo de transmisión internacional bajo la Ley 1581 de 2012 y el Decreto 1377 de 2013, y dejar registrada la región del proyecto de Producción].
+Para el Plan Nube se usa Supabase. El acuerdo de tratamiento de datos entre Emerald Dealer y Supabase **está vigente**: su DPA (versión 1 del 1 de agosto de 2026) forma parte de los Términos de Servicio del proveedor y rige automáticamente desde que estos se aceptan, sin firma ni solicitud aparte, y su aceptación surte el mismo efecto que firmar las Cláusulas Contractuales Tipo. Los datos se almacenan y procesan principalmente en la región **Sudamérica (São Paulo, Brasil)**; el proveedor puede usar subencargados en otras ubicaciones conforme a su lista pública, actualizada por última vez el 1 de junio de 2026, cuyos cambios avisa con treinta (30) días de anticipación.
 
 ## 5. Derechos de las personas
 

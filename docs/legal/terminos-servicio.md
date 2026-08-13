@@ -30,7 +30,7 @@ Emerald Dealer ayuda a administrar cotizaciones, clientes, citas, trabajos de ta
 
 **Cambios de precio.** Un cambio de precio se avisa con **treinta (30) días calendario** de anticipación por WhatsApp o correo y rige desde el siguiente periodo. Quien no lo acepte puede cancelar antes de su entrada en vigencia y conserva íntegro el derecho de exportación descrito en el numeral 8.
 
-[COMPLETAR ANTES DE COBRAR, CON REVISIÓN CONTABLE: régimen tributario aplicable al operador, si el precio de $80.000 COP incluye o excluye impuestos, obligación y formato de facturación, y periodicidad de la declaración.]
+Los $80.000 COP son el **valor total a pagar** por mes y por joyería: no se suman cargos adicionales.
 
 ## 4. Tratamiento de datos personales (encargo)
 
@@ -48,7 +48,7 @@ La joyería declara que cuenta con la autorización o base jurídica necesaria p
 
 **Al terminar el servicio**, los datos se devuelven mediante exportación y se eliminan conforme al numeral 8.
 
-Para el Plan Nube se usa a Supabase y sus subencargados. Su acuerdo de tratamiento de datos (DPA, versión 1 del 1 de agosto de 2026) **forma parte de sus Términos de Servicio y rige automáticamente** desde que estos se aceptan: no exige firma ni solicitud aparte, y su aceptación surte el mismo efecto que firmar las Cláusulas Contractuales Tipo. La lista de subencargados se publica y actualiza en su portal, con aviso de cambios con treinta (30) días de anticipación. [COMPLETAR CON REVISIÓN JURÍDICA: confirmar que ese acuerdo basta como mecanismo de transmisión internacional bajo la Ley 1581 de 2012 y el Decreto 1377 de 2013, y dejar registrada la región del proyecto de Producción.]
+Para el Plan Nube se usa a Supabase y sus subencargados. Su acuerdo de tratamiento de datos (DPA, versión 1 del 1 de agosto de 2026) **forma parte de sus Términos de Servicio y rige automáticamente** desde que estos se aceptan: no exige firma ni solicitud aparte, y su aceptación surte el mismo efecto que firmar las Cláusulas Contractuales Tipo. La lista de subencargados se publica y actualiza en su portal, con aviso de cambios con treinta (30) días de anticipación. Los datos se alojan en la región **Sudamérica (São Paulo, Brasil)**.
 
 ## 5. Propiedad intelectual
 
