@@ -19,6 +19,7 @@ import saleIdentifiersSource from '../../../supabase/migrations/20260813050000_e
 import betaLimitsSource from '../../../supabase/migrations/20260813120000_cupo_beta_y_borrado_de_cuenta.sql?raw'
 import readOnlySource from '../../../supabase/migrations/20260814090000_modo_solo_lectura.sql?raw'
 import devicesSource from '../../../supabase/migrations/20260814093000_control_de_equipos.sql?raw'
+import operatorAccessSource from '../../../supabase/migrations/20260814120000_devolver_acceso_al_operador.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -41,6 +42,7 @@ const saleIdentifiers = saleIdentifiersSource.toLowerCase()
 const betaLimits = betaLimitsSource.toLowerCase()
 const readOnly = readOnlySource.toLowerCase()
 const devices = devicesSource.toLowerCase()
+const operatorAccess = operatorAccessSource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -1430,5 +1432,39 @@ describe('migracion del control de equipos (2026-08-14)', () => {
   it('usa revoke all, nunca la forma debil que abrio el hueco de TRUNCATE', () => {
     expect(devices).toContain('revoke all on function')
     expect(devices).not.toContain('revoke insert, update, delete')
+  })
+})
+
+describe('acceso del operador a las tablas de operacion (2026-08-14)', () => {
+  it('devuelve a service_role lo que necesita en cada tabla', () => {
+    expect(operatorAccess).toContain(
+      'grant select, insert, update, delete on table public.organization_billing to service_role'
+    )
+    expect(operatorAccess).toContain('on table public.platform_limits to service_role')
+    expect(operatorAccess).toContain('on table public.deletion_records to service_role')
+    expect(operatorAccess).toContain('on table public.device_sessions to service_role')
+  })
+
+  it('no le devuelve nada a una sesion normal', () => {
+    // La correccion no puede aprovecharse para abrir lo que estaba cerrado.
+    const sentencias = operatorAccess
+      .split('\n').filter((l) => !l.trimStart().startsWith('--')).join('\n')
+    expect(sentencias).not.toContain('to authenticated')
+    expect(sentencias).not.toContain('to anon')
+    expect(sentencias).not.toContain('to public')
+  })
+
+  it('mantiene minimo privilegio: nadie recibe grant all', () => {
+    const sentencias = operatorAccess
+      .split('\n').filter((l) => !l.trimStart().startsWith('--')).join('\n')
+    expect(sentencias).not.toContain('grant all')
+    // Las constancias solo se leen: reescribirlas destruiria su valor probatorio.
+    expect(operatorAccess).toContain('grant select on table public.deletion_records to service_role')
+  })
+
+  it('ninguna tabla de operacion queda al alcance de anon', () => {
+    for (const fuente of [betaLimits, readOnly, devices]) {
+      expect(fuente).toContain('from public, anon, authenticated')
+    }
   })
 })
