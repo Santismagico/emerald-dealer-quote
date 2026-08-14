@@ -2051,9 +2051,17 @@ el correo llegó a la bandeja de Santiago.
 **Estado del Bloque 1: los seis puntos cerrados.** Supabase Pro, cupo de 20, borrado de
 cuenta, aplicado en los dos servidores, correo transaccional y app publicada.
 
-**Aviso sobre la caché:** el PWA instalado seguía sirviendo la versión vieja aun cerrándolo.
-Santiago lo desinstaló; hay que reinstalarlo desde el enlace. Al abrir la versión nueva la app
-**pedirá aceptar los términos `v1`**, y esa aceptación la da él, no Claude.
+**La caché sí era el problema y ya se resolvió.** El PWA instalado seguía sirviendo la
+versión vieja aun cerrándolo; Santiago lo desinstaló. Verificado después en su Chrome: la app
+carga `index-BI1E_0Zn.js` —el bundle publicado— y muestra «Eliminar mi joyería» en Ajustes,
+que solo existe en esta versión.
+
+**Los términos `v1` quedaron aceptados** el 2026-08-13 a las 05:19 UTC, con
+`terms_version`, `privacy_version` y `notice_version` en `v1-2026-08-12` y sus tres marcas de
+tiempo. Santiago los aceptó él mismo cuando el diálogo apareció durante la sesión. Por eso la
+app ya no vuelve a pedirlos: **no es un error ni la versión vieja**, es la aceptación ya
+registrada. De paso queda probado en vivo el mecanismo de versionado legal: cambiar la
+constante obligó a re-aceptar, y la aceptación quedó guardada con su versión.
 
 **Sigue pendiente la prueba de usuario del arreglo del `id`:** guardar una venta con abono
 desde la app. Conviene hacerla al reinstalar.
