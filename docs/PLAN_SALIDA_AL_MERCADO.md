@@ -42,9 +42,9 @@ registra a su primer cliente: las obligaciones sobre **datos personales de terce
 | # | Qué | Por qué | Quién |
 |---|---|---|---|
 | 7 | **Contador** | Régimen tributario, si $80.000 incluye o excluye impuestos, cómo facturar. Con 20 clientes son $1.600.000 al mes | Profesional |
-| 8 | **Modo solo lectura** | Los términos lo prometen para el día 11 de mora. No hace falta antes de que alguien deba dinero, pero sí antes de cobrar. **Confirmado como tarea por Santiago el 2026-08-12** | Construir |
+| 8 | **Modo solo lectura** | ✅ **Construido el 2026-08-13** y aplicado en Pruebas. Probado en vivo por N6: bloquea, deja leer y exportar, y reactiva sin pérdida | — |
 | 9 | **Estado de la cuenta** | La app no sabe quién está en prueba, quién al día y quién en mora. Con 20 se puede llevar a mano al principio | Construir o llevar a mano |
-| 10 | **Control de cuentas compartidas** | Requisito nuevo de Santiago: que ocho colegas no se repartan una sola cuenta pagada. Ver abajo | Construir |
+| 10 | **Control de cuentas compartidas** | ✅ **Construido el 2026-08-13** y aplicado en Pruebas. Probado en vivo: registra, deduplica y ninguna joyería puede leer el registro | — |
 
 ## El control de cuentas compartidas
 

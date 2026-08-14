@@ -2065,3 +2065,51 @@ constante obligó a re-aceptar, y la aceptación quedó guardada con su versión
 
 **Sigue pendiente la prueba de usuario del arreglo del `id`:** guardar una venta con abono
 desde la app. Conviene hacerla al reinstalar.
+
+### Modo solo lectura y control de equipos (2026-08-13) — APLICADOS EN PRUEBAS
+
+Las dos funciones que los términos `v1-2026-08-12` prometían y no existían. **N6 aprobó 24
+controles** sobre el commit exacto `be2966b`, con `readOnlyLockEnforced` y
+`deviceControlEnforced` en verde.
+
+**Decisión de arquitectura: el candado va en la TABLA, no en cada función.** Hay **31
+funciones públicas de escritura**. Comprobar en cada una deja el sistema a merced de que
+ninguna se olvide —hoy y en cada función futura—, y un solo descuido abre la puerta entera.
+El disparador `private.enforce_read_only` cuelga de las 13 tablas con datos de la joyería, así
+que atrapa cualquier camino de escritura, incluido uno que nadie recuerde, y no obligó a
+reescribir ninguna función vigente.
+
+**Lo que a propósito NO bloquea:** lecturas y exportación —los términos las garantizan siempre
+a un cliente en mora— y `service_role`, sin el cual no habría respaldo de una cuenta
+suspendida. **Sin fila en `organization_billing` la joyería escribe:** bloquear es decisión
+explícita del operador, nunca el efecto de un olvido.
+
+**Control de equipos: SEÑALA, NO BLOQUEA.** Umbral de 3 equipos en 30 días. Cortar por conteo
+castigaría a quien cambió de teléfono, y los términos obligan a pedir explicación antes de
+suspender. `device_sessions` guarda **exactamente** lo que promete la política —joyería,
+usuario, identificador opaco y dos fechas— y hay una prueba que **falla** si alguien agrega
+`user_agent`, IP o ubicación: la promesa queda amarrada al código.
+
+### Dos fallos que solo aparecieron al probar, no al revisar
+
+**1. `revoke ... from public` dejó fuera al operador.** Escribí
+`revoke all on table ... from public, anon, authenticated` en cuatro tablas. El patrón probado
+del proyecto revoca solo de `anon, authenticated`; agregar `public` parece más estricto y en
+PostgreSQL significa **todos los roles**, así que se llevó el acceso de `service_role`.
+Consecuencia: **el operador no podía suspender ni reactivar una cuenta**. Ninguna de las 1151
+pruebas ni los 22 controles previos lo vieron: lo destapó el control nuevo que comprueba que
+el candado **bloquea**, no solo que no estorba. Corregido en
+`20260814120000_devolver_acceso_al_operador.sql`, que conserva el revoke estricto y concede
+por tabla lo mínimo. **Afecta también a Producción**, donde `platform_limits` y
+`deletion_records` ya están con el error.
+
+**2. El aviso de solo lectura rompía la app en modo local.** Usaba el contexto de sesión, y
+`AppShell` también corre **sin nube**, donde ese contexto no existe: pantalla en blanco. Las
+pruebas pasaban igual. Se encontró abriendo la app en el navegador. El estado viaja ahora como
+dato, no como contexto.
+
+**Lección que se repite:** probar que algo *no molesta* no es probar que *funciona*. Los dos
+fallos vivían en el espacio entre esas dos afirmaciones.
+
+**Producción: sin aplicar.** Faltan los dos bloques —funciones nuevas y permisos del operador—
+y es autorización aparte.
