@@ -1,6 +1,6 @@
 # Prompt para abrir una sesión nueva de trabajo
 
-_Actualizado: **2026-08-12**, al publicar la beta de 20 cupos.
+_Actualizado: **2026-08-13**, al publicar el modo solo lectura y el control de equipos.
 Copiar desde la línea marcada hasta el final y pegarlo como primer mensaje._
 
 > **Para el agente que actualice este archivo:** es lo primero que lee una sesión nueva. Si
@@ -53,14 +53,14 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 
 | Enlace | Qué sirve | Quién lo usa |
 |---|---|---|
-| `emerald-dealer-app` | sitio `8551516`, compilado de `codex/fase2-nube@bc5cfd0` | La **beta de 20 cupos**. Verificado en vivo el 2026-08-12 |
+| `emerald-dealer-app` | sitio `515422e`, compilado de `codex/fase2-nube@4648a56` | La **beta de 20 cupos**. Verificado en vivo el 2026-08-13 |
 | `emerald-dealer-quote` | `main` = `d3e5af4` | El piloto: 7 con acceso, **solo 1 usándola**. 100% local, sin servidor. **No se tocó** |
 
-- Rama de trabajo `codex/fase2-nube`. **1133 pruebas en 75 archivos**, build en verde.
-- **N6 real APROBADA el 2026-08-12**: **22 controles**, commit `ad0c5ba`, en Pruebas. Es la
+- Rama de trabajo `codex/fase2-nube`. **1155 pruebas en 76 archivos**, build en verde.
+- **N6 real APROBADA el 2026-08-13**: **24 controles**, commit `be2966b`, en Pruebas. Es la
   primera vez que se corre contra un servidor real. Detalle completo al final de
   `PROJECT_STATE.md`.
-- Puntos de retorno: enlace de la nube → `a5b9ca1`; `main` → `0a86e5a`.
+- Puntos de retorno: enlace de la nube → `8551516`; `main` → `0a86e5a`.
 - Publicar el enlace de la nube: `docs/PUBLICAR_ENLACE_NUBE.md`. Es **manual**, no hay
   automatismo, y tiene dos trampas documentadas que ya casi causan un accidente.
 
@@ -127,12 +127,14 @@ proveedor que permita verificar **un solo remitente** —Brevo o SendGrid— por
 dominio propio**; Resend y SES exigen dominio. Los datos SMTP los pega él en Supabase →
 Authentication → Emails.
 
-**Bloquea el primer COBRO, no el lanzamiento** —el mes gratis compra 30 días—: el **modo
-solo lectura** (prometido en el numeral 3 de los términos, aún sin construir), el **control
-de cuentas compartidas** (umbral decidido: **3 equipos por cuenta**, contando dispositivos
-distintos de los últimos 30 días) y el estado de cada cuenta. Lo contable y lo jurídico ya
-los cerró Santiago: no está obligado a facturar como persona natural y determinó que no
-aplica registro de bases ante la SIC.
+**Ya no queda ningún compromiso de los términos sin construir.** El **modo solo lectura** y
+el **control de equipos** (umbral: 3 equipos en 30 días) se construyeron el 2026-08-13, se
+probaron en vivo con N6 y están aplicados y publicados en los dos servidores. Lo contable y
+lo jurídico los cerró Santiago: no está obligado a facturar como persona natural y determinó
+que no aplica registro de bases ante la SIC.
+
+**Lo único pendiente antes de cobrar es llevar el estado de cada cuenta** —quién está en
+prueba, quién al día, quién en mora—, que con 20 se lleva a mano con `organization_billing`.
 
 **No hace falta construir:** cobro automático con Wompi (con 20 personas, transferencia y
 WhatsApp bastan) ni flujo de invitación (ya existe "Crear cuenta"; el tope lo pone el cupo).

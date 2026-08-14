@@ -2111,5 +2111,19 @@ dato, no como contexto.
 **Lección que se repite:** probar que algo *no molesta* no es probar que *funciona*. Los dos
 fallos vivían en el espacio entre esas dos afirmaciones.
 
-**Producción: sin aplicar.** Faltan los dos bloques —funciones nuevas y permisos del operador—
-y es autorización aparte.
+**APLICADO TAMBIÉN EN PRODUCCIÓN Y PUBLICADO (2026-08-13).** Santiago aplicó los dos bloques
+—funciones nuevas y permisos del operador— y la comprobación devolvió 18. Verificado además
+por sonda con la llave pública: `touch_device` y `device_usage_report` existen y ninguna es
+alcanzable sin sesión; `organization_billing` no se lee de forma anónima.
+
+**Sitio `515422e`, compilado de `codex/fase2-nube@4648a56`. Punto de retorno: `8551516`.**
+Los cuatro candados en verde, y esta vez **el control CSP se corrió sobre el build de
+Producción**, no sobre el normal:
+`EXPECT_CLOUD_ORIGIN=https://wrvokfzrcmmlzekudypu.supabase.co node scripts/verify-csp-hash.mjs`.
+Era el hueco anotado el 2026-08-12 y queda cubierto en este despliegue.
+
+**Verificado en vivo:** el sitio sirve `assets/index-CNL0pJL-.js`, apunta a Producción, trae
+`touch_device` y el aviso de solo lectura, y carga sin un solo error de consola.
+
+**Con esto el producto cumple todo lo que sus términos prometen.** No quedan compromisos
+contractuales sin construir.
