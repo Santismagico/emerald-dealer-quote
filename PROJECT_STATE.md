@@ -2024,3 +2024,36 @@ distintos vistos en los últimos 30 días, no acumulados de por vida.
 **Lo único que falta del Bloque 1 es el correo transaccional.** El servicio de fábrica de
 Supabase manda **2 correos por hora** y su propia documentación dice que no sirve para
 producción; con SMTP propio pasa a 30/hora.
+
+### BLOQUE 1 COMPLETO (2026-08-13) — el correo transaccional funciona
+
+Último punto que faltaba para poder recibir al primer colega.
+
+**Error cometido y corregido.** Se le indicó a Santiago verificar su Gmail como remitente en
+Brevo. **Ya no es posible**: desde febrero de 2024 Gmail y Yahoo exigen dominio propio
+autenticado, y Brevo reemplaza el remitente por uno suyo. Le costó tiempo y él lo reclamó con
+razón. **Regla:** ningún proveedor externo acepta webmail gratuito como remitente; no sugerir
+«verifica un solo remitente» sin comprobarlo.
+
+**Solución aplicada: Gmail como servidor SMTP**, no como remitente prestado. Así el correo
+sale realmente de Gmail y no hay problema de autenticación. Configuración en Producción:
+`smtp.gmail.com:587`, usuario y remitente `santisorjuela@gmail.com`, contraseña de aplicación
+de 16 caracteres (exige verificación en dos pasos). Límite subido de 30 a **100 por hora**.
+Límite de Gmail: 500 al día, veinticinco veces lo que necesita la beta.
+
+**Hecho con Claude operando el Chrome de Santiago.** Él solo hizo tres cosas: autenticarse con
+Touch ID, presionar «Crear» en la contraseña de aplicación, y pegarla. **La contraseña nunca
+entró en el contexto de Claude**: el campo la devolvió como `[value redacted]`.
+
+**Probado en vivo, no supuesto:** se disparó un `POST /auth/v1/recover` con la llave pública y
+el correo llegó a la bandeja de Santiago.
+
+**Estado del Bloque 1: los seis puntos cerrados.** Supabase Pro, cupo de 20, borrado de
+cuenta, aplicado en los dos servidores, correo transaccional y app publicada.
+
+**Aviso sobre la caché:** el PWA instalado seguía sirviendo la versión vieja aun cerrándolo.
+Santiago lo desinstaló; hay que reinstalarlo desde el enlace. Al abrir la versión nueva la app
+**pedirá aceptar los términos `v1`**, y esa aceptación la da él, no Claude.
+
+**Sigue pendiente la prueba de usuario del arreglo del `id`:** guardar una venta con abono
+desde la app. Conviene hacerla al reinstalar.

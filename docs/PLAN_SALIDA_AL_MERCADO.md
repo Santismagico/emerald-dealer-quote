@@ -26,7 +26,7 @@ bloquea el primer cobro.
 Lo que sí bloquea el lanzamiento es lo que empieza a correr en el instante en que un colega
 registra a su primer cliente: las obligaciones sobre **datos personales de terceros**.
 
-## Bloque 1 — Antes del PRIMER usuario (bloquea el lanzamiento)
+## Bloque 1 — Antes del PRIMER usuario — **COMPLETO el 2026-08-13**
 
 | # | Qué | Estado | Quién |
 |---|---|---|---|
@@ -34,7 +34,7 @@ registra a su primer cliente: las obligaciones sobre **datos personales de terce
 | 2 | **Cupo de 20** | ✅ Construido y aplicado en **Pruebas y Producción** | — |
 | 3 | **Borrar cuenta y datos** | ✅ Construido y aplicado en **Pruebas y Producción**. El borrado del correo de acceso sigue siendo manual, documentado en `ACTIVACION_CUPO_Y_BORRADO.md` | — |
 | 4 | **Aplicar en Producción** el cupo y el borrado | ✅ **Hecho el 2026-08-12.** Verificado con sonda pública: `delete_my_organization` existe y solo la app puede llamarla | Santiago |
-| 5 | **Correo de registro y recuperación** | ⬜ **Lo único que falta del Bloque 1.** El servicio de fábrica manda **2 correos por hora** y no sirve para producción. Ver la sección de abajo: **no se puede usar un Gmail como remitente en un proveedor externo** | Santiago |
+| 5 | **Correo de registro y recuperación** | ✅ **Hecho el 2026-08-13.** Gmail como servidor SMTP con contraseña de aplicación. Probado en vivo: se disparó un correo de recuperación y llegó. Límite subido a 100/hora | Santiago + Claude |
 | 6 | **Publicar la app actualizada** | ✅ **Publicado el 2026-08-12** con orden expresa. Sitio `8551516`, fuente `bc5cfd0`. Verificado en vivo | — |
 
 ## Bloque 2 — Durante el mes gratis (bloquea el primer COBRO, no el lanzamiento)
