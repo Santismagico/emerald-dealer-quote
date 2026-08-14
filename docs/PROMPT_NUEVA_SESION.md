@@ -60,7 +60,7 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 - **N6 real APROBADA el 2026-08-12**: **22 controles**, commit `ad0c5ba`, en Pruebas. Es la
   primera vez que se corre contra un servidor real. Detalle completo al final de
   `PROJECT_STATE.md`.
-- Puntos de retorno: enlace de la nube → `f9ba18a`; `main` → `0a86e5a`.
+- Puntos de retorno: enlace de la nube → `a5b9ca1`; `main` → `0a86e5a`.
 - Publicar el enlace de la nube: `docs/PUBLICAR_ENLACE_NUBE.md`. Es **manual**, no hay
   automatismo, y tiene dos trampas documentadas que ya casi causan un accidente.
 
@@ -110,9 +110,11 @@ app de verdad**. No repitas la cifra de 7 como si fueran usuarios activos. La mi
 trámite de una persona, y Santiago aceptó el riesgo de pérdida de datos avisando que exporten
 su respaldo antes (Ajustes → Exportar respaldo, que ya funciona).
 
-**Ya construido para esto:** cupo de 20 y borrado de la propia joyería con constancia
-(`20260813120000`, aplicado en **Pruebas**, N6 en verde después). Los tres documentos legales
-pasaron a `draft-2026-08-12` con precio, mora, conservación y procedimientos redactados.
+**Ya construido y aplicado en los dos servidores:** cupo de 20 y borrado de la propia
+joyería con constancia (`20260813120000`), con N6 en verde después. Los tres documentos
+legales están en **`v1-2026-08-12`**, sin marca de borrador: Santiago los leyó y los aprobó
+como abogado en ejercicio, y ahí quedaron precio, mora, conservación, procedimientos y la
+regla de **una cuenta por joyería**.
 
 **El Bloque 1 está casi cerrado.** Hechos el 2026-08-12: Supabase Pro activado, cupo y
 borrado aplicados en **los dos** servidores, documentos legales en `v1-2026-08-12`, y la app
@@ -125,9 +127,12 @@ proveedor que permita verificar **un solo remitente** —Brevo o SendGrid— por
 dominio propio**; Resend y SES exigen dominio. Los datos SMTP los pega él en Supabase →
 Authentication → Emails.
 
-**Bloquea el primer COBRO, no el lanzamiento** —el mes gratis compra 30 días—: contador
-(régimen tributario e IVA), **modo solo lectura** (prometido en los términos, aún sin
-construir), estado de cada cuenta, y abogado (revisión y si aplica registro ante la SIC).
+**Bloquea el primer COBRO, no el lanzamiento** —el mes gratis compra 30 días—: el **modo
+solo lectura** (prometido en el numeral 3 de los términos, aún sin construir), el **control
+de cuentas compartidas** (umbral decidido: **3 equipos por cuenta**, contando dispositivos
+distintos de los últimos 30 días) y el estado de cada cuenta. Lo contable y lo jurídico ya
+los cerró Santiago: no está obligado a facturar como persona natural y determinó que no
+aplica registro de bases ante la SIC.
 
 **No hace falta construir:** cobro automático con Wompi (con 20 personas, transferencia y
 WhatsApp bastan) ni flujo de invitación (ya existe "Crear cuenta"; el tope lo pone el cupo).
