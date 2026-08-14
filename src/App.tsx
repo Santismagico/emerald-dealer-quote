@@ -68,6 +68,8 @@ interface CloudAccountInfo {
   email: string;
   organizationName: string;
   canImport: boolean;
+  /** Numeral 3 de los términos: la cuenta consulta y exporta, pero no escribe. */
+  readOnly: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -433,6 +435,7 @@ function AppShell({ cloudAccount }: { cloudAccount?: CloudAccountInfo }) {
       </header>
 
       {isInAppBrowser() && <InAppBrowserBanner />}
+      {cloudAccount?.readOnly ? <ReadOnlyBanner /> : null}
 
       <main ref={mainRef} className="app-main relative min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-5">
         {backupReminder.shouldShow && !store.backupExporting ? (
@@ -677,6 +680,28 @@ function BackupReminderBanner({
   );
 }
 
+/**
+ * Aviso de cuenta en solo lectura (numeral 3 de los términos).
+ *
+ * Es una cortesía para que el usuario entienda por qué no puede guardar: quien
+ * lo oculte en su navegador seguirá sin poder escribir, porque el candado real
+ * es un disparador en la base de datos.
+ */
+function ReadOnlyBanner() {
+  return (
+    <div className="bg-amber-100 px-4 py-3">
+      <p className="text-sm text-amber-900">
+        <strong>Tu cuenta está en modo solo lectura.</strong> Puedes consultar toda tu
+        información y exportarla completa, pero no registrar ni modificar datos.
+      </p>
+      <p className="mt-1 text-sm text-amber-900">
+        Escríbenos por WhatsApp al <strong>3105725618</strong> para reactivarla. No se pierde
+        nada: al reactivarse queda todo igual.
+      </p>
+    </div>
+  );
+}
+
 function InAppBrowserBanner() {
   const [copied, setCopied] = useState(false);
   return (
@@ -866,6 +891,7 @@ function ReadyCloudWorkspace() {
         email: auth.session?.user.email ?? '',
         organizationName: auth.organization?.name ?? '',
         canImport: auth.organization?.role === 'owner' || auth.organization?.role === 'admin',
+        readOnly: auth.accountState.status === 'solo_lectura',
         signOut: auth.signOut
       }} />
     </StoreProvider>

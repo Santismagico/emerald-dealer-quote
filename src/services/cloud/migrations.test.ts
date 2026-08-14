@@ -17,6 +17,8 @@ import deletedStoneLotHistorySource from '../../../supabase/migrations/202608041
 import sociosFundCloudSource from '../../../supabase/migrations/20260811023039_etapa9_socios_fondo_nube.sql?raw'
 import saleIdentifiersSource from '../../../supabase/migrations/20260813050000_exigir_id_en_ventas_y_abonos.sql?raw'
 import betaLimitsSource from '../../../supabase/migrations/20260813120000_cupo_beta_y_borrado_de_cuenta.sql?raw'
+import readOnlySource from '../../../supabase/migrations/20260814090000_modo_solo_lectura.sql?raw'
+import devicesSource from '../../../supabase/migrations/20260814093000_control_de_equipos.sql?raw'
 import materialValidationInstructionsSource from '../../../docs/SQL_PRODUCCION_CORRECCION_VALIDACION_MATERIALES.md?raw'
 
 const schema = schemaSource.toLowerCase()
@@ -37,6 +39,8 @@ const deletedStoneLotHistory = deletedStoneLotHistorySource.toLowerCase()
 const sociosFundCloud = sociosFundCloudSource.toLowerCase()
 const saleIdentifiers = saleIdentifiersSource.toLowerCase()
 const betaLimits = betaLimitsSource.toLowerCase()
+const readOnly = readOnlySource.toLowerCase()
+const devices = devicesSource.toLowerCase()
 const jewelTransformationStart = jewelTransformation.indexOf(
   'create or replace function public.transform_stock_jewel_to_natural'
 )
@@ -1332,5 +1336,99 @@ describe('migracion de cupo beta y borrado de cuenta (2026-08-13)', () => {
     expect(betaLimits).toContain('revoke all on table public.platform_limits from public, anon, authenticated')
     expect(betaLimits).toContain('revoke all on table public.deletion_records from public, anon, authenticated')
     expect(betaLimits).not.toContain('revoke insert, update, delete')
+  })
+})
+
+const TABLAS_CON_CANDADO = [
+  'org_settings', 'org_counters', 'clients', 'quotes', 'appointments',
+  'stone_lots', 'suppliers', 'buyers', 'stock_jewels',
+  'material_partners', 'material_lots', 'expenses', 'fund_contributions',
+]
+
+describe('migracion del modo solo lectura (2026-08-14)', () => {
+  it('pone el candado en la TABLA y no en cada funcion, que es lo que no se puede rodear', () => {
+    // 31 funciones publicas de escritura: comprobar en cada una deja el sistema
+    // a merced de que ninguna se olvide. El disparador atrapa cualquier camino.
+    expect(readOnly).toContain('create or replace function private.enforce_read_only')
+    for (const tabla of TABLAS_CON_CANDADO) {
+      expect(readOnly, tabla).toContain(`'${tabla}'`)
+    }
+    expect(readOnly).toContain('before insert or update or delete')
+    expect(readOnly).toContain('for each row execute function private.enforce_read_only')
+  })
+
+  it('distingue DELETE de INSERT: en un borrado no existe la fila nueva', () => {
+    expect(readOnly).toContain("if tg_op = 'delete' then")
+    expect(readOnly).toContain('v_fila := to_jsonb(old)')
+    expect(readOnly).toContain('v_fila := to_jsonb(new)')
+  })
+
+  it('no bloquea respaldos, importacion ni soporte', () => {
+    // Sin usuario autenticado es service_role o conexion directa: si esta rama
+    // se cierra, un respaldo sobre una cuenta suspendida falla.
+    expect(readOnly).toContain('if auth.uid() is null then')
+  })
+
+  it('bloquear es una decision explicita, nunca un olvido', () => {
+    // Sin fila en organization_billing la joyeria escribe: el estado por defecto
+    // jamas puede dejar a un cliente encerrado por descuido.
+    expect(readOnly).toContain("status text not null default 'activa'")
+    expect(readOnly).toContain("check (status in ('activa', 'solo_lectura'))")
+    expect(readOnly).toContain("if v_status = 'solo_lectura' then")
+  })
+
+  it('deja intactas la lectura y la exportacion, que los terminos garantizan siempre', () => {
+    const sentencias = readOnly.split('\n').filter((l) => !l.trimStart().startsWith('--')).join('\n')
+    // El disparador solo se engancha a escrituras.
+    expect(sentencias).not.toContain('before select')
+    expect(sentencias).not.toContain('after select')
+    // La joyeria puede leer su propio estado para que la app se lo explique.
+    expect(readOnly).toContain('grant select on table public.organization_billing to authenticated')
+    expect(sentencias).not.toContain('revoke insert, update, delete')
+  })
+})
+
+describe('migracion del control de equipos (2026-08-14)', () => {
+  it('guarda exactamente lo que promete la politica de privacidad, y nada mas', () => {
+    expect(devices).toContain('create table if not exists public.device_sessions')
+    for (const columna of ['organization_id', 'user_id', 'device_id', 'first_seen_at', 'last_seen_at']) {
+      expect(devices, columna).toContain(columna)
+    }
+  })
+
+  it('NO guarda navegador, IP, ubicacion ni actividad: la promesa es verificable', () => {
+    // Agregar cualquiera de estos exige cambiar antes la politica de privacidad
+    // y volver a pedir aceptacion. La prueba existe para que nadie lo haga solo.
+    const definicion = devices.slice(
+      devices.indexOf('create table if not exists public.device_sessions'),
+      devices.indexOf('create index')
+    )
+    for (const prohibido of ['user_agent', 'ip_address', 'ip ', 'latitude', 'longitude', 'location', 'referrer', 'url']) {
+      expect(definicion, prohibido).not.toContain(prohibido)
+    }
+  })
+
+  it('el servidor decide la joyeria; el navegador nunca la envia', () => {
+    expect(devices).toContain('v_organization_id := private.current_organization_id()')
+    expect(devices).toContain("raise exception 'authentication required'")
+    expect(devices).toContain("raise exception 'invalid device identifier'")
+  })
+
+  it('el informe es solo del operador: una joyeria no puede ver a las demas', () => {
+    expect(devices).toContain('revoke all on table public.device_sessions from public, anon, authenticated')
+    expect(devices).toContain('grant execute on function public.device_usage_report(integer) to service_role')
+    expect(devices).not.toContain('grant execute on function public.device_usage_report(integer) to authenticated')
+  })
+
+  it('el umbral senala, no bloquea', () => {
+    expect(devices).toContain('supera_umbral')
+    expect(devices).toContain('count(distinct d.device_id) > 3')
+    // No debe existir ninguna excepcion por exceso de equipos.
+    expect(devices).not.toContain('too many devices')
+  })
+
+  it('usa revoke all, nunca la forma debil que abrio el hueco de TRUNCATE', () => {
+    expect(devices).toContain('revoke all on function')
+    expect(devices).not.toContain('revoke insert, update, delete')
   })
 })

@@ -1,5 +1,6 @@
 import type { Settings } from '../../types';
 import { getSupabase } from './config';
+import { isReadOnlyError } from './accountStatus';
 
 /**
  * Versiones independientes de cada texto legal. Cambiar una obliga a re-aceptar
@@ -181,6 +182,11 @@ export const BETA_CAPACITY_CODE = '53400';
 
 export function rpcErrorInSpanish(error: { code?: string; message?: string } | null): string {
   const code = error?.code ?? '';
+  // El modo solo lectura también responde 42501, así que se distingue por el
+  // mensaje antes de caer en el genérico de permisos.
+  if (isReadOnlyError(error)) {
+    return 'Tu cuenta está en modo solo lectura: puedes consultar y exportar toda tu información, pero no registrar ni modificar. Escríbenos por WhatsApp al 3105725618 para reactivarla.';
+  }
   if (code === BETA_CAPACITY_CODE) {
     return 'Los cupos de la prueba están llenos por ahora. Escríbenos por WhatsApp al 3105725618 y te avisamos apenas se libere uno.';
   }

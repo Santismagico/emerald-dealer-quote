@@ -10,6 +10,11 @@ import {
 import type { Settings } from './types';
 import { cloudEnabled } from './services/cloud/config';
 import {
+  readAccountState,
+  registerDevice,
+  type AccountState
+} from './services/cloud/accountStatus';
+import {
   cloudAuth,
   legalAcceptanceRequirements,
   mustSetOwnPassword,
@@ -25,6 +30,8 @@ interface CloudAuthContextValue {
   ready: boolean;
   session: CloudSession | null;
   organization: CloudOrganization | null;
+  /** Estado de la cuenta. Es cortesía para explicar; el candado está en la base. */
+  accountState: AccountState;
   passwordRecovery: boolean;
   /** Cuenta que aún debe fijar su contraseña propia o aceptar los documentos legales. */
   needsFirstAccess: boolean;
@@ -64,6 +71,9 @@ export function CloudAuthProvider({
   const [ready, setReady] = useState(!enabled);
   const [session, setSession] = useState<CloudSession | null>(null);
   const [organization, setOrganization] = useState<CloudOrganization | null>(null);
+  const [accountState, setAccountState] = useState<AccountState>({
+    status: 'activa', paidThrough: null, readOnlySince: null
+  });
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const revisionRef = useRef(0);
 
@@ -76,13 +86,21 @@ export function CloudAuthProvider({
     if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
     if (!nextSession) {
       setOrganization(null);
+      setAccountState({ status: 'activa', paidThrough: null, readOnlySince: null });
       setPasswordRecovery(false);
       setReady(true);
       return;
     }
     try {
       const nextOrganization = await service.getOrganization();
-      if (revision === revisionRef.current) setOrganization(nextOrganization);
+      if (revision !== revisionRef.current) return;
+      setOrganization(nextOrganization);
+      if (nextOrganization) {
+        // Ninguna de las dos puede impedir trabajar si falla.
+        void registerDevice();
+        const estado = await readAccountState();
+        if (revision === revisionRef.current) setAccountState(estado);
+      }
     } finally {
       if (revision === revisionRef.current) setReady(true);
     }
@@ -122,6 +140,7 @@ export function CloudAuthProvider({
       ready,
       session,
       organization,
+      accountState,
       passwordRecovery,
       needsFirstAccess,
       needsPasswordSetup,
