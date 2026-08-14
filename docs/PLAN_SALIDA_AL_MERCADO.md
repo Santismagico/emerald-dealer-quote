@@ -34,7 +34,7 @@ registra a su primer cliente: las obligaciones sobre **datos personales de terce
 | 2 | **Cupo de 20** | ✅ Construido y aplicado en **Pruebas y Producción** | — |
 | 3 | **Borrar cuenta y datos** | ✅ Construido y aplicado en **Pruebas y Producción**. El borrado del correo de acceso sigue siendo manual, documentado en `ACTIVACION_CUPO_Y_BORRADO.md` | — |
 | 4 | **Aplicar en Producción** el cupo y el borrado | ✅ **Hecho el 2026-08-12.** Verificado con sonda pública: `delete_my_organization` existe y solo la app puede llamarla | Santiago |
-| 5 | **Correo de registro y recuperación** | ⬜ **Lo único que falta del Bloque 1.** El servicio de fábrica manda **2 correos por hora** y no sirve para producción. Con SMTP propio pasa a 30/hora | Santiago crea la cuenta del proveedor |
+| 5 | **Correo de registro y recuperación** | ⬜ **Lo único que falta del Bloque 1.** El servicio de fábrica manda **2 correos por hora** y no sirve para producción. Ver la sección de abajo: **no se puede usar un Gmail como remitente en un proveedor externo** | Santiago |
 | 6 | **Publicar la app actualizada** | ✅ **Publicado el 2026-08-12** con orden expresa. Sitio `8551516`, fuente `bc5cfd0`. Verificado en vivo | — |
 
 ## Bloque 2 — Durante el mes gratis (bloquea el primer COBRO, no el lanzamiento)
@@ -126,3 +126,38 @@ Lo que no es suyo de asumir son los **datos personales de los clientes de sus co
 él es Encargado y cada joyería es Responsable, y la Ley 1581 impone deberes que no dependen de
 la voluntad de ninguno de los dos. Por eso los puntos 1, 3, 5 y 10 no son negociables por
 prisa: son los que sostienen esa parte.
+
+
+## El correo transaccional y por qué no sirve un Gmail como remitente
+
+**Error cometido el 2026-08-13, para que no se repita.** Se le indicó a Santiago crear cuenta
+en Brevo y verificar su Gmail como remitente. **Eso ya no es posible** y le costó tiempo.
+
+**La causa.** Desde febrero de 2024 Gmail y Yahoo exigen que quien envía correo automático
+autentique su propio dominio; Microsoft se sumó en 2025. Un proveedor externo no puede enviar
+«de parte de» una dirección `@gmail.com`: el mensaje no pasaría la verificación. Brevo lo
+aplica reemplazando el remitente por uno suyo, del tipo `algo@brevosend.com`.
+
+**Regla para futuras sesiones:** cualquier proveedor de correo transaccional —Brevo, SendGrid,
+Resend, SES— exige **dominio propio** para poder poner al usuario como remitente. Ninguno
+acepta ya webmail gratuito. No sugerir «verifica un solo remitente» sin comprobarlo antes.
+
+**Las dos salidas reales**, en `docs/` y explicadas paso a paso para Santiago:
+
+1. **Gmail directo como servidor SMTP** (`smtp.gmail.com:587`, usuario = el Gmail completo,
+   contraseña = una **contraseña de aplicación** de 16 letras que exige verificación en dos
+   pasos). No hay problema de autenticación porque el correo sale realmente de Gmail. Límite:
+   **500 al día**, veinticinco veces lo que necesita la beta. Gratis, veinte minutos.
+   **No funciona** con cuentas de Google Workspace —Google retiró las contraseñas de
+   aplicación en mayo de 2025— ni con Protección Avanzada ni con 2FA solo por llave física.
+2. **Dominio propio** (~$50.000 COP/año) autenticado en Brevo con SPF, DKIM y DMARC. Es lo
+   que conviene a mediano plazo, y no solo por el correo: un producto de pago viviendo en una
+   dirección de GitHub se ve improvisado.
+
+**Recomendado:** el 1 ahora para desbloquear la beta, el 2 dentro del mes. Cambiar de uno a
+otro son cuatro campos en Supabase, no rompe nada.
+
+**Ojo con el campo Username, que es la confusión número uno:** con Gmail es el correo
+completo; con Brevo es un identificador propio terminado en `@smtp-brevo.com`, **no** el
+correo. Supabase arranca todo SMTP nuevo limitado a **30 correos por hora**, ajustable en
+Authentication → Rate Limits.
