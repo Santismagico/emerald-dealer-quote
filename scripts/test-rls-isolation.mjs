@@ -1170,6 +1170,67 @@ async function verifyMalformedPayloads(api, organizationId, now) {
   )
 }
 
+/**
+ * El candado de solo lectura del numeral 3 de los terminos.
+ *
+ * Que N6 pase con el disparador puesto solo prueba que no estorba. Esto prueba
+ * lo contrario y lo que de verdad importa: que **bloquea**. Y que al reactivar
+ * la cuenta todo vuelve a funcionar sin perder nada, que es la otra mitad de la
+ * promesa.
+ */
+async function verifyReadOnlyLock(admin, api, organizationId, now) {
+  const id = 'n6-solo-lectura'
+  const payload = { id, name: 'Cliente solo lectura' }
+
+  // 1. El operador suspende la cuenta.
+  assertSuccess(
+    await admin.from('organization_billing').upsert({
+      organization_id: organizationId,
+      status: 'solo_lectura',
+      read_only_since: now,
+    }),
+    'marcar la joyería en solo lectura'
+  )
+
+  // 2. Escribir queda rechazado, y por el motivo correcto.
+  const rechazo = await api.rpc('upsert_client', { p_id: id, p_data: payload, p_updated_at: now })
+  assertRejectedWithCode(rechazo, 'escritura con la cuenta en solo lectura', '42501')
+  if (!String(rechazo.error?.message ?? '').includes('organization is read only')) {
+    throw new Error(
+      'solo lectura: se rechazó por otro motivo, no por el candado: '
+      + String(rechazo.error?.message ?? 'sin mensaje')
+    )
+  }
+  await assertEntityAbsent(api, 'clients', organizationId, id, 'cliente en solo lectura')
+
+  // 3. Leer y exportar siguen disponibles: los términos lo garantizan siempre.
+  assertSuccess(
+    await api.from('clients').select('organization_id').eq('organization_id', organizationId),
+    'lectura con la cuenta en solo lectura'
+  )
+  assertSuccess(
+    await api.from('stone_lots').select('organization_id').eq('organization_id', organizationId),
+    'exportación con la cuenta en solo lectura'
+  )
+
+  // 4. Reactivar devuelve la escritura, sin cargo y sin pérdida.
+  assertSuccess(
+    await admin.from('organization_billing')
+      .update({ status: 'activa', read_only_since: null })
+      .eq('organization_id', organizationId),
+    'reactivar la joyería'
+  )
+  assertSuccess(
+    await api.rpc('upsert_client', { p_id: id, p_data: payload, p_updated_at: now }),
+    'escritura después de reactivar'
+  )
+  assertSuccess(await api.rpc('delete_client', { p_id: id }), 'limpiar el cliente de la prueba')
+  assertSuccess(
+    await admin.from('organization_billing').delete().eq('organization_id', organizationId),
+    'quitar el estado de la joyería de prueba'
+  )
+}
+
 async function cleanupN6(admin, apis, organizations, users) {
   const errors = []
 
@@ -1266,6 +1327,7 @@ export async function runN6(env = process.env) {
     await verifyAnonymous(anonymous, apis[0], organizations[0], payloadA, now)
     await verifyConcurrentNumbers(apis[0])
     await verifyMalformedPayloads(apis[0], organizations[0], now)
+    await verifyReadOnlyLock(admin, apis[0], organizations[0], now)
 
     evidence = {
       checkedAt: new Date().toISOString(),
@@ -1296,6 +1358,7 @@ export async function runN6(env = process.env) {
         invalidUsdRatesBlocked: true,
         immutableUsdRatesBlocked: true,
         saleAndPaymentIdsRequired: true,
+        readOnlyLockEnforced: true,
       },
     }
   } catch (error) {
