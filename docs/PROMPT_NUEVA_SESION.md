@@ -1,6 +1,6 @@
 # Prompt para abrir una sesión nueva de trabajo
 
-_Actualizado: **2026-08-12**, al decidir la salida al mercado en beta de 20 cupos.
+_Actualizado: **2026-08-12**, al publicar la beta de 20 cupos.
 Copiar desde la línea marcada hasta el final y pegarlo como primer mensaje._
 
 > **Para el agente que actualice este archivo:** es lo primero que lee una sesión nueva. Si
@@ -53,7 +53,7 @@ El camino barato para "¿en qué vamos?" es `git log -1` más el **final** de
 
 | Enlace | Qué sirve | Quién lo usa |
 |---|---|---|
-| `emerald-dealer-app` | sitio `a5b9ca1`, compilado de `codex/fase2-nube@4a12ff7` | **Solo Santiago**, con nube. Verificado en vivo |
+| `emerald-dealer-app` | sitio `8551516`, compilado de `codex/fase2-nube@bc5cfd0` | La **beta de 20 cupos**. Verificado en vivo el 2026-08-12 |
 | `emerald-dealer-quote` | `main` = `d3e5af4` | El piloto: 7 con acceso, **solo 1 usándola**. 100% local, sin servidor. **No se tocó** |
 
 - Rama de trabajo `codex/fase2-nube`. **1133 pruebas en 75 archivos**, build en verde.
@@ -114,17 +114,16 @@ su respaldo antes (Ajustes → Exportar respaldo, que ya funciona).
 (`20260813120000`, aplicado en **Pruebas**, N6 en verde después). Los tres documentos legales
 pasaron a `draft-2026-08-12` con precio, mora, conservación y procedimientos redactados.
 
-**Bloquea recibir al primer usuario** (detalle y pasos exactos en el plan):
+**El Bloque 1 está casi cerrado.** Hechos el 2026-08-12: Supabase Pro activado, cupo y
+borrado aplicados en **los dos** servidores, documentos legales en `v1-2026-08-12`, y la app
+**publicada y verificada en vivo**.
 
-1. **Supabase Pro.** Sin él el servidor se apaga tras una semana y **no hay copias de
-   seguridad** — y los términos ya prometen respaldo diario, así que sin Pro ese texto sería
-   falso. Se cobra por organización: cubre los dos proyectos.
-2. **Aplicar en Producción** el bloque del cupo y el borrado.
-3. **Correo transaccional decente.** El básico de Supabase con 20 personas no técnicas es un
-   problema semanal.
-4. **Aceptar el acuerdo de datos de Supabase.** Cierra 4 de los 6 huecos legales.
-5. **Publicar la app.** La publicada es del 2026-08-10: le falta el arreglo del `id` y la
-   versión nueva de los documentos.
+**Falta una sola cosa antes de recibir al primer colega: el correo transaccional.** El
+servicio de fábrica de Supabase manda **2 correos por hora** y su documentación dice que no
+sirve para producción. Con SMTP propio pasa a 30/hora. Santiago debe crear la cuenta en un
+proveedor que permita verificar **un solo remitente** —Brevo o SendGrid— porque **no tiene
+dominio propio**; Resend y SES exigen dominio. Los datos SMTP los pega él en Supabase →
+Authentication → Emails.
 
 **Bloquea el primer COBRO, no el lanzamiento** —el mes gratis compra 30 días—: contador
 (régimen tributario e IVA), **modo solo lectura** (prometido en los términos, aún sin

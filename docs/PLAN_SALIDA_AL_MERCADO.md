@@ -31,11 +31,11 @@ registra a su primer cliente: las obligaciones sobre **datos personales de terce
 | # | Qué | Estado | Quién |
 |---|---|---|---|
 | 1 | **Supabase Pro** | ✅ **Activado el 2026-08-12.** Sin él el servidor se apaga tras una semana y no hay copias de seguridad, y los términos prometen respaldo diario | Santiago |
-| 2 | **Cupo de 20** | ✅ Construido y **aplicado en Pruebas**. Falta Producción | — |
-| 3 | **Borrar cuenta y datos** | ✅ Construido y **aplicado en Pruebas**. Falta Producción. El borrado del correo de acceso sigue siendo manual, documentado en `ACTIVACION_CUPO_Y_BORRADO.md` | — |
-| 4 | **Aplicar en Producción** el cupo y el borrado | ⬜ Pendiente. Bloque listo, comprobación debe dar 4 | Santiago pega el SQL |
-| 5 | **Correo de registro y recuperación** | ⬜ Pendiente. El servicio de fábrica manda **2 correos por hora** y no sirve para producción. Con SMTP propio pasa a 30/hora | Santiago crea la cuenta del proveedor |
-| 6 | **Publicar la app actualizada** | ⬜ Pendiente. La publicada es del 10 de agosto: le falta el arreglo del `id`, el cupo, el borrado y los documentos `v1` | Claude publica, con orden expresa |
+| 2 | **Cupo de 20** | ✅ Construido y aplicado en **Pruebas y Producción** | — |
+| 3 | **Borrar cuenta y datos** | ✅ Construido y aplicado en **Pruebas y Producción**. El borrado del correo de acceso sigue siendo manual, documentado en `ACTIVACION_CUPO_Y_BORRADO.md` | — |
+| 4 | **Aplicar en Producción** el cupo y el borrado | ✅ **Hecho el 2026-08-12.** Verificado con sonda pública: `delete_my_organization` existe y solo la app puede llamarla | Santiago |
+| 5 | **Correo de registro y recuperación** | ⬜ **Lo único que falta del Bloque 1.** El servicio de fábrica manda **2 correos por hora** y no sirve para producción. Con SMTP propio pasa a 30/hora | Santiago crea la cuenta del proveedor |
+| 6 | **Publicar la app actualizada** | ✅ **Publicado el 2026-08-12** con orden expresa. Sitio `8551516`, fuente `bc5cfd0`. Verificado en vivo | — |
 
 ## Bloque 2 — Durante el mes gratis (bloquea el primer COBRO, no el lanzamiento)
 
@@ -58,9 +58,11 @@ del último acceso, y una consulta que le diga a Santiago desde cuántos disposi
 se usó cada cuenta en los últimos 30 días. Nada más: ni ubicación, ni navegación, ni actividad
 comercial — la política promete justamente eso y no puede quedarse corta ni pasarse.
 
-**El umbral no puede ser 1.** Un joyero legítimo usa el celular, la tableta y el computador,
-y cambia de teléfono. Un número bajo generaría falsos positivos con clientes que pagan. La
-señal útil está más arriba, y la decisión de dónde ponerla es de Santiago.
+**Umbral decidido por Santiago el 2026-08-12: tres (3) equipos por cuenta.** Cubre el uso
+legítimo —celular, tableta y computador— y deja fuera el reparto entre varias joyerías. Al
+construirlo hay que contar **dispositivos distintos vistos en los últimos 30 días**, no
+acumulados de por vida: si no, cambiar de teléfono dos veces en un año dispararía la alarma
+de un cliente honesto.
 
 **Enforcement manual, no automático.** Con 20 cuentas, la app **señala** y Santiago decide.
 Bloquear solo por número de dispositivos castigaría a un cliente honesto sin que nadie

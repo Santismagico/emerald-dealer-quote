@@ -1986,3 +1986,41 @@ acuerdo de datos de Supabase —cierra 4 de los 6 huecos—, contador y abogado.
 
 **Verificación de cierre:** 1125 pruebas en 75 archivos, build, evidencia de seguridad en
 verde. Controles locales de N6: 20.
+
+### PUBLICADA la beta (2026-08-12) — cupo, borrado y documentos v1 en vivo
+
+Santiago dio orden expresa de publicar. Sitio `8551516`, compilado de `codex/fase2-nube@bc5cfd0`.
+Punto de retorno del sitio: `a5b9ca1`. `main` y el enlace del piloto **no se tocaron**.
+
+**Candados antes de publicar, los cuatro en verde:** 0 vulnerabilidades, ninguna credencial
+versionada, evidencia de base de datos, y 1133 pruebas en 75 archivos.
+
+**Las dos trampas documentadas, evitadas:** la configuración se sacó del bundle ya publicado
+—información pública, nunca hizo falta una clave— y se comprobó **antes** de subir que el
+build apuntaba a `wrvokfzrcmmlzekudypu`; y `.nojekyll` se recreó tras el borrado previo.
+
+**Verificado en vivo:** el sitio sirve `assets/index-BI1E_0Zn.js`, ese archivo apunta a
+Producción, trae `delete_my_organization` y los documentos `v1-2026-08-12`.
+
+**Un susto que no era:** la primera carga mostró un error de CSP en consola. No era un
+defecto: el navegador tenía en caché el `index.html` anterior, con la CSP vieja, mientras
+ejecutaba el script nuevo. Se comprobó descargando el HTML en vivo —su único script inline
+tiene exactamente el hash que su propia CSP declara— y, tras limpiar service worker y caché,
+la recarga quedó **sin un solo error**. **Santiago verá lo mismo hasta que su app se
+actualice sola**; si algo se ve raro, cerrarla y volver a abrirla.
+
+**Ojo con `npm run test:csp`:** compila en modo por defecto, así que **no** valida el build de
+Producción. Para eso:
+`EXPECT_CLOUD_ORIGIN=https://wrvokfzrcmmlzekudypu.supabase.co node scripts/verify-csp-hash.mjs`
+tras compilar con `--mode produccion`. Se verificó así y pasó.
+
+**Cupo y borrado aplicados también en Producción**, confirmado con una sonda que usa solo la
+llave pública: `delete_my_organization` existe y responde «permiso denegado» incluso a esa
+llave, que es exactamente lo correcto — solo la app, con la sesión del dueño, puede llamarla.
+
+**Umbral de cuentas compartidas decidido: 3 equipos por cuenta**, contando dispositivos
+distintos vistos en los últimos 30 días, no acumulados de por vida.
+
+**Lo único que falta del Bloque 1 es el correo transaccional.** El servicio de fábrica de
+Supabase manda **2 correos por hora** y su propia documentación dice que no sirve para
+producción; con SMTP propio pasa a 30/hora.
