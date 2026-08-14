@@ -1231,6 +1231,56 @@ async function verifyReadOnlyLock(admin, api, organizationId, now) {
   )
 }
 
+/**
+ * El registro de equipos de la regla «una cuenta por joyeria».
+ *
+ * Comprueba que registra, que no duplica, que rechaza basura, y sobre todo que
+ * **ninguna joyeria puede leer el registro**: si pudiera, veria cuantos equipos
+ * usan las demas, que es justo lo contrario de lo que promete la privacidad.
+ */
+async function verifyDeviceControl(admin, anonymous, api, organizationId) {
+  const equipo = 'n6-equipo-de-prueba-0001'
+
+  assertSuccess(await api.rpc('touch_device', { p_device_id: equipo }), 'registrar equipo')
+  // Repetir no crea otro: es el mismo aparato entrando de nuevo.
+  assertSuccess(await api.rpc('touch_device', { p_device_id: equipo }), 'registrar el mismo equipo')
+
+  assertRejectedWithCode(
+    await api.rpc('touch_device', { p_device_id: 'corto' }),
+    'identificador de equipo invalido',
+    '22023'
+  )
+  assertRejectedWithCode(
+    await anonymous.rpc('touch_device', { p_device_id: equipo }),
+    'registrar equipo sin sesion',
+    '42501'
+  )
+
+  // Una sesion normal NO puede leer el registro, ni el propio.
+  assertNoVisibleRows(
+    await api.from('device_sessions').select('device_id'),
+    'lectura del registro de equipos con sesion normal'
+  )
+
+  const informe = assertSuccess(
+    await admin.rpc('device_usage_report', { p_days: 30 }),
+    'informe de equipos del operador'
+  )
+  const fila = (informe ?? []).find((r) => r.organization_id === organizationId)
+  if (!fila) throw new Error('el informe de equipos no incluyo la joyeria de prueba')
+  if (fila.equipos !== 1) {
+    throw new Error(`el informe conto ${fila.equipos} equipos y debia contar 1: no deduplica`)
+  }
+  if (fila.supera_umbral !== false) {
+    throw new Error('un solo equipo no puede superar el umbral de 3')
+  }
+
+  assertSuccess(
+    await admin.from('device_sessions').delete().eq('organization_id', organizationId),
+    'limpiar el registro de equipos de la prueba'
+  )
+}
+
 async function cleanupN6(admin, apis, organizations, users) {
   const errors = []
 
@@ -1328,6 +1378,7 @@ export async function runN6(env = process.env) {
     await verifyConcurrentNumbers(apis[0])
     await verifyMalformedPayloads(apis[0], organizations[0], now)
     await verifyReadOnlyLock(admin, apis[0], organizations[0], now)
+    await verifyDeviceControl(admin, anonymous, apis[0], organizations[0])
 
     evidence = {
       checkedAt: new Date().toISOString(),
@@ -1359,6 +1410,7 @@ export async function runN6(env = process.env) {
         immutableUsdRatesBlocked: true,
         saleAndPaymentIdsRequired: true,
         readOnlyLockEnforced: true,
+        deviceControlEnforced: true,
       },
     }
   } catch (error) {
