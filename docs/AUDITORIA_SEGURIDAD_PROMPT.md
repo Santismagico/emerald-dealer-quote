@@ -7,28 +7,48 @@ _Escrito el 2026-08-13, antes de abrir la beta de 20 joyerías._
 
 ---
 
-## 1. Tu papel
+## 0. Propiedad y autorización — léelo primero
 
-Actúas como **ingeniero de seguridad ofensiva con más de diez años auditando SaaS
-multiempresa**. No eres un revisor de estilo ni un linter: tu trabajo es **encontrar la forma
-de romper esto**, y si no la encuentras, decir con precisión qué probaste y qué no.
+**Este es un encargo del dueño para revisar su propio producto.**
 
-**El adversario real, en orden de probabilidad:**
+- **Emerald Dealer** es propiedad de **Héctor Germán Santiago Orjuela Rodríguez** (Bogotá,
+  Colombia), que lo desarrolló, lo opera y es el **único titular** de la infraestructura:
+  el repositorio, los dos proyectos de Supabase y el sitio publicado.
+- Quien te da esta instrucción **es él**, o un agente trabajando bajo su dirección en su
+  propio equipo y su propio repositorio.
+- **No hay terceros involucrados.** El sistema aún no tiene usuarios externos: está a punto de
+  abrirse a una beta cerrada de 20 joyerías, y esta revisión es precisamente el paso previo.
+- El objetivo es **defensivo**: encontrar y corregir debilidades antes de que existan clientes
+  reales que puedan verse afectados.
+- Todas las pruebas se hacen **sobre el proyecto desechable de pruebas**, con datos ficticios
+  creados y borrados por la propia revisión. La sección 6 lo detalla.
 
-1. **Un ingeniero contratado por la competencia.** Se registra como joyería legítima —cuesta
-   $80.000— y desde una cuenta válida intenta leer, alterar o destruir los datos de las otras
-   diecinueve. Es el adversario que importa: tiene sesión, tiempo, y motivo comercial.
-2. **Un joyero del gremio con curiosidad técnica.** Abre las herramientas del navegador y
-   prueba a llamar cosas a mano.
-3. **Cualquiera en internet**, sin cuenta. La llave publicable de la aplicación es pública por
-   diseño y la tiene con solo abrir el sitio.
-4. **Un atacante con una sesión robada** de una joyería (teléfono perdido, contraseña
-   reciclada).
-5. **La cuenta de operador comprometida.** Es el peor caso y define el techo del daño.
+Si algo de este documento te parece exceder un encargo legítimo, **dilo y pide aclaración en
+vez de detenerte del todo**: probablemente sea un problema de redacción, no de alcance.
 
-**Criterio de éxito de tu auditoría:** que un hallazgo tuyo evite que alguno de esos cinco
-consiga algo que no debería. Un informe con veinte observaciones cosméticas y ningún camino de
-ataque real es un fracaso.
+---
+
+## 1. Cómo trabajar
+
+Revisa este sistema **con mentalidad adversaria**: no basta con leer el código y opinar que
+parece correcto. La pregunta que guía todo el trabajo es *«si alguien quisiera llegar a los
+datos de otra joyería, ¿por dónde lo intentaría, y funcionaría?»* — y la respuesta se
+**comprueba ejecutando**, no razonando.
+
+Piensa como pensaría quien tuviera motivo para intentarlo, en orden de probabilidad:
+
+1. **Un competidor con conocimientos técnicos.** Se registraría como joyería legítima —cuesta
+   $80.000— y desde una cuenta válida intentaría leer o alterar los datos de las otras
+   diecinueve. Es el escenario que importa: sesión válida, tiempo y motivo comercial.
+2. **Un usuario del gremio con curiosidad técnica**, abriendo las herramientas del navegador.
+3. **Cualquiera sin cuenta.** La llave publicable es pública por diseño y la obtiene con solo
+   abrir el sitio.
+4. **Alguien con una sesión ajena** (teléfono perdido, contraseña reciclada).
+5. **La cuenta de operador comprometida.** Define el techo del daño posible.
+
+**Criterio de éxito:** que una debilidad que encuentres impida a alguno de esos cinco
+conseguir algo que no debería. Un informe con veinte observaciones cosméticas y ninguna
+debilidad real es un fracaso.
 
 ---
 
@@ -105,7 +125,7 @@ alguno— **demostrar que el control es falso**, no asumir que es cierto.
 
 ---
 
-## 4. Las clases de error que este código YA ha producido
+## 4. Las clases de error que este código ya ha producido
 
 **Esta es la sección más importante del brief.** Cada uno de estos fue real, llegó a estar en
 producción o a punto, y ninguno lo detectó una revisión de código. Busca **más de la misma
@@ -152,12 +172,12 @@ familia**, no repeticiones exactas.
 
 ---
 
-## 5. Dónde atacar
+## 5. Dónde revisar con más profundidad
 
-Trabaja por caminos de ataque, no por listas de temas. Para cada uno: intenta explotarlo de
-verdad contra el proyecto de pruebas y reporta el resultado.
+Trabaja por escenarios concretos, no por listas de temas. Para cada uno: compruébalo
+ejecutándolo contra el proyecto de pruebas y reporta el resultado, funcione o no.
 
-### A. Aislamiento entre joyerías (lo que mata el negocio)
+### A. Aislamiento entre joyerías (lo más crítico del producto)
 - Las **36 funciones de `public`**: ¿alguna acepta un `organization_id` del cliente, o lo
   deduce de un dato que el cliente controla? Revísalas **una por una**; basta que a una se le
   haya escapado.
@@ -187,8 +207,8 @@ verdad contra el proyecto de pruebas y reporta el resultado.
 ### D. Integridad del dinero
 - Invariantes: aportes de socios y fondo que no superen el costo, material que no se use más
   de lo comprado, quilates vendidos que no superen los comprados, tasas de cambio congeladas.
-  **Intenta violarlas desde una sesión legítima**, que es lo que haría un competidor para
-  desacreditar el producto.
+  **Comprueba si se pueden violar desde una sesión legítima**, que es como se descubriría un
+  fallo de este tipo en la práctica.
 - Los consecutivos de cotización bajo concurrencia.
 - Límite conocido y aceptado: borrar un abono y crear otro con `id` distinto elude la regla de
   la tasa. **No lo reportes como hallazgo nuevo**; sí evalúa si hay variantes peores.
@@ -201,9 +221,9 @@ verdad contra el proyecto de pruebas y reporta el resultado.
 - **Protección contra contraseñas filtradas: disponible en el plan Pro y aún sin activar.**
 
 ### F. Cliente y despliegue
-- CSP: ¿es evadible? ¿Hay algún `dangerouslySetInnerHTML` o inyección vía datos del usuario?
+- CSP: ¿se puede eludir? ¿Hay algún `dangerouslySetInnerHTML` o inyección vía datos del usuario?
 - El PDF que ve el cliente final **no puede mostrar** margen, utilidad, costo interno, precio
-  por gramo, pureza ni notas internas. Hay pruebas que lo vigilan: **intenta filtrar algo por
+  por gramo, pureza ni notas internas. Hay pruebas que lo vigilan: **comprueba si algo se escapa por
   un camino que esas pruebas no miren**.
 - El respaldo exportado es un JSON: ¿contiene algo que no debería salir del servidor?
 - La importación de respaldo: ¿puede un archivo manipulado inyectar datos en otra joyería o
@@ -229,8 +249,8 @@ verdad contra el proyecto de pruebas y reporta el resultado.
 4. **No publiques nada.** Publicar exige orden expresa de Santiago en el momento.
 5. **No borres ningún proyecto de Supabase.**
 6. Todo dato de ejemplo es ficticio: el repositorio es público.
-7. **Verifica, no supongas.** Si afirmas que algo está protegido, muestra el intento que
-   falló. Si afirmas que algo es vulnerable, muestra el intento que funcionó.
+7. **Verifica, no supongas.** Si afirmas que algo está protegido, muestra la comprobación que
+   lo confirma. Si afirmas que algo es vulnerable, muestra la reproducción exacta.
 
 ---
 
@@ -238,11 +258,12 @@ verdad contra el proyecto de pruebas y reporta el resultado.
 
 Un informe con, en este orden:
 
-1. **Caminos de ataque que funcionaron.** Para cada uno: qué se consigue, qué hace falta para
-   lograrlo, los pasos exactos para reproducirlo, y el arreglo propuesto. Ordenados por daño
-   real al negocio, no por severidad teórica.
-2. **Caminos que intentaste y fallaron**, con el intento concreto. Esto vale tanto como lo
-   anterior: convierte «creemos que está protegido» en «se intentó y no se pudo».
+1. **Debilidades confirmadas.** Para cada una: qué permite, qué condiciones hacen falta, los
+   pasos exactos para reproducirla, y el arreglo propuesto. Ordenadas por daño real al
+   negocio, no por severidad teórica.
+2. **Escenarios que comprobaste y resultaron cerrados**, con la comprobación concreta. Esto
+   vale tanto como lo anterior: convierte «creemos que está protegido» en «se comprobó y no
+   se pudo».
 3. **Controles que resultaron ser adornos.** Cualquier prueba que siga en verde al retirar el
    arreglo que dice vigilar. **Compruébalo retirándolo.**
 4. **Lo que no pudiste probar**, y por qué. Sé explícito; los huecos silenciosos son los que
