@@ -111,8 +111,8 @@ invalidUsdRatesBlocked · immutableUsdRatesBlocked · saleAndPaymentIdsRequired
 readOnlyLockEnforced · deviceControlEnforced · cleanupVerified
 ```
 
-**Tu trabajo no es repetir esto. Es atacar lo que estos controles NO cubren**, y —si dudas de
-alguno— **demostrar que el control es falso**, no asumir que es cierto.
+**Tu trabajo no es repetir esto. Es examinar lo que estos controles NO cubren**, y —si dudas
+de alguno— **comprobar si el control es falso**, no asumir que es cierto.
 
 **Verificado aparte, no hace falta rehacerlo:**
 
