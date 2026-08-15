@@ -1464,3 +1464,74 @@ decimales y pagos del Fondo completos y no repetidos.
 **Estado de aplicación:** preparada y verificada localmente en `codex/fase2-nube`. No se
 considera aplicada al servidor hasta ejecutar la migración completa, comprobar su contenido
 y aprobar N6 entre dos cuentas. Producción requiere autorización separada de Santiago.
+
+## D-078 · Una joya se muestra con hasta tres fotos, y la primera manda · 2026-08-14 · Vigente
+
+Un usuario de prueba señaló que la sección de Joyas solo acepta una foto. Tiene razón:
+una pieza no se vende con una imagen. Santiago decidió **tres fotos por joya**: la pieza
+completa, el detalle y la puesta.
+
+Tres y no cuatro —el número que ya usan las cotizaciones— porque cada foto viaja dentro de
+la joya como texto incrustado: se guarda en el teléfono, se sincroniza con la nube y se
+incrusta en el catálogo que se manda por WhatsApp. La cuarta foto agregaría peso a los tres
+sitios sin agregar nada que un cliente necesite ver.
+
+**La primera foto es la principal** y es la única que la aplicación garantiza que existe.
+Es la que se ve en la lista de joyas y la que sale grande en el catálogo; las otras dos
+acompañan. Quitar la principal asciende a la siguiente: una joya nunca queda con fotos
+secundarias y sin principal.
+
+**Implementación (2026-08-14):** el campo `photo` conserva su significado exacto y se suma
+`extraPhotos: string[]`, con tope de dos. No es la forma más elegante —`photos: string[]`
+lo sería—, y esa fue la razón para descartarla: mientras algún dispositivo siga con la
+versión anterior de la aplicación, ese dispositivo no entendería `photos` y devolvería la
+joya **sin foto alguna** al guardarla. Con esta forma, el peor caso de esa ventana es
+perder las dos secundarias, y las joyas que ya existen no requieren migración de ningún
+tipo. Las fotos secundarias se comprimen a 700 px en vez de 1000: se imprimen a 29 mm y no
+necesitan más. No hubo migración SQL: las joyas viajan como `jsonb` y los validadores del
+servidor comprueban campos concretos, no una lista cerrada de claves.
+
+## D-079 · El catálogo tiene documento propio, y deja de compartir plantilla con las cotizaciones · 2026-08-14 · Vigente
+
+El mismo usuario dijo que el catálogo se ve genérico. No era una impresión: `createCatalogPdfFile`
+dibujaba con `renderPdf`, el motor de las cotizaciones. De ahí venía todo lo que se veía
+mal —la foto de 46 mm, los seis renglones de etiqueta y valor por pieza, y un recuadro
+verde de totales que en una cotización es la cuenta a pagar y en un catálogo parece una
+cuenta de cobro—.
+
+Santiago eligió, sobre maqueta, el formato **ficha grande: dos piezas por página**, con
+portada y contraportada. Los formatos de página completa y cuadrícula quedaron como opción
+futura, sin construir.
+
+**Las decisiones de diseño que hacen la diferencia**, todas medidas y no opinables: la foto
+principal pasa de 46 a 76 mm y se **recorta cuadrada**, para que ninguna página quede
+despareja; los datos técnicos pasan de seis renglones a una línea (`Oro 18K · 4,2 g ·
+Talla 7`); el nombre de la pieza y el precio usan letra con serifa; los márgenes pasan de
+16 a 20 mm; el verde y el dorado quedan solo en filetes; y desaparece el recuadro de
+totales.
+
+**Regla nueva de honestidad: lo que no se sabe, no se escribe.** Hasta hoy una joya sin
+peso registrado le imprimía **"Sin registrar"** al cliente. En un catálogo eso es un dato
+faltante puesto en la vitrina. Los datos ausentes se omiten; un precio en cero no se
+imprime aunque el catálogo lleve precios.
+
+Lo que **no** cambia, porque es lo que protege a Santiago: la lista blanca de D-065 sigue
+siendo la única forma de armar el documento, el constructor sigue recibiendo
+`CatalogJewel[]` y nunca `StockJewel[]` —la garantía la impone el compilador, no la
+disciplina—, y el detector de palabras sensibles sigue corriendo sobre el texto final sin
+posibilidad de continuar ante un hallazgo. El PDF de cotización y el Cierre del día
+conservan `renderPdf` intacto.
+
+## D-080 · Cada pieza del catálogo lleva un número que solo vive en ese archivo · 2026-08-14 · Vigente
+
+El catálogo se manda por WhatsApp y el cliente responde por ahí mismo. Sin un número, esa
+respuesta es *"me interesa el anillo verde, el de la tercera foto"*. Con número es
+*"me interesa la 07"*.
+
+El número es la posición dentro del catálogo generado —`01`, `02`, `03`…—, **se calcula al
+armar el archivo y no se guarda en ninguna parte**. Por eso dos catálogos distintos pueden
+numerar la misma joya de forma distinta, y está bien: es un número de referencia de esa
+conversación, no un código de inventario.
+
+**Nunca se usa el identificador interno de la joya.** Es un dato del sistema y no tiene por
+qué salir hacia un cliente; hay una prueba que falla si aparece en el documento.

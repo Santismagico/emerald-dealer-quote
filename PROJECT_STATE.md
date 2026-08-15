@@ -2127,3 +2127,44 @@ Era el hueco anotado el 2026-08-12 y queda cubierto en este despliegue.
 
 **Con esto el producto cumple todo lo que sus términos prometen.** No quedan compromisos
 contractuales sin construir.
+
+## Catálogo presentable y tres fotos por joya (2026-08-14, ORDEN ENTREGADA A CODEX)
+
+Un usuario de prueba señaló dos cosas de la sección de Joyas, las dos ciertas: **solo deja
+adjuntar una foto** y **el catálogo se ve genérico**. La segunda no era una impresión: el
+catálogo se dibujaba con `renderPdf`, el motor de las cotizaciones, y por eso heredaba la
+foto de 46 mm, los seis renglones de etiqueta y valor por pieza y el recuadro verde de
+totales, que en un catálogo parece una cuenta de cobro.
+
+Santiago vio una maqueta con tres formatos posibles y decidió: **ficha grande** (dos
+piezas por página, con portada y contraportada), **tres fotos** por joya y **sí** al número
+de pieza visible. Decisiones registradas en **D-078, D-079 y D-080**.
+
+**Orden de trabajo: `docs/ORDEN_CATALOGO_Y_FOTOS.md`.** Dos commits en orden fijo: primero
+las tres fotos, después el catálogo.
+
+**Tres hallazgos de la revisión previa que ahorran trabajo y riesgo:**
+
+1. **No hace falta migración SQL.** Las joyas viajan como `data jsonb` y los validadores
+   del servidor (`assert_stock_jewel_payload`, `assert_entity_payload`) comprueban campos
+   concretos, no una lista cerrada de claves. Un campo nuevo dentro de la joya entra sin
+   tocar el servidor.
+2. **La app ya sabe manejar varias fotos:** `QuoteFormView.tsx` lo hace desde siempre con
+   `MAX_IMAGES = 4`. El commit 1 sigue ese patrón en vez de inventar otro.
+3. **`photo` + `extraPhotos` en vez de `photos: string[]`.** La forma elegante rompe a un
+   dispositivo que todavía corra la versión anterior: no entendería `photos` y devolvería
+   la joya sin foto al guardarla. Con esta forma el peor caso es perder las dos
+   secundarias, y las joyas existentes no requieren migración.
+
+**Hallazgo adicional, corregido en la misma orden:** hoy una joya sin peso registrado le
+imprime **"Peso: Sin registrar"** al cliente. La regla nueva es que lo que no se sabe no se
+escribe.
+
+**Lo que la orden protege explícitamente:** `renderPdf`, el PDF de cotización, el Cierre
+del día, `pdfContent.test.ts`, el motor de cálculo, `main`, el piloto y el workflow. Cero
+dependencias nuevas y cero migraciones. La cadena de privacidad de D-065 se conserva
+entera: el constructor sigue recibiendo `CatalogJewel[]` y nunca `StockJewel[]`, y las 11
+pruebas de `catalog.test.ts` se adaptan a la forma nueva **sin debilitarse**.
+
+**Estado:** orden escrita y entregada. Codex no ha empezado. Nada de código fue modificado
+en esta sesión.
