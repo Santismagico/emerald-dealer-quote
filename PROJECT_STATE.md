@@ -2194,3 +2194,19 @@ y 1280 px: tres fotos cargadas, principal intercambiada, una retirada y las dos 
 persistentes tras recargar; sin overflow, controles mínimos de 44 px, campos de 16 px y
 consola limpia. Catálogos con y sin precios abiertos en A4: portada, dos fichas por página,
 numeración, contraportada, sin NIT y sin recuadro verde de totales.
+
+### Catálogo presentable y tres fotos por joya — PUBLICADO (2026-08-14)
+
+Publicación manual del enlace de usuarios `emerald-dealer-app`, construida desde una copia
+limpia de `codex/fase2-nube@56d97b9`. Los cambios concurrentes de nube, la migración y los
+workflows pendientes quedaron fuera de la compilación.
+
+**Sitio `449f6b7`; punto de retorno `515422e`.** Antes de publicar: 0 vulnerabilidades,
+detector de credenciales y evidencia de seguridad en verde, 1160 pruebas en 76 archivos,
+build de Producción y hash CSP aprobados. El bundle servido en vivo es
+`assets/index-C04emTK3.js`, coincide byte por byte con el compilado y apunta únicamente a
+`wrvokfzrcmmlzekudypu` (Producción).
+
+**Verificación en vivo:** la sección Joyas muestra `Crear catálogo PDF` y el formulario
+`Fotos de la pieza (0 de 3)`. A 320, 390 y 1280 px no hay overflow horizontal; controles
+de al menos 44 px y campos de 16 px. Consola del navegador sin errores ni advertencias.
