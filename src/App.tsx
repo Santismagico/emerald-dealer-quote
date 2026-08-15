@@ -34,6 +34,10 @@ import { CloudAuthProvider, useCloudAuth } from './cloudAuthContext';
 import { cloudEnabled } from './services/cloud/config';
 import { startCloudLifecycle } from './services/cloud/api';
 import {
+  defaultDatabaseContainsCloudData,
+  setCloudDatabaseScope
+} from './services/db';
+import {
   hasLocalDataToImport,
   isCloudEmpty,
   readLocalImportSource
@@ -903,31 +907,47 @@ function CloudWorkspace() {
   const [importState, setImportState] = useState<'checking' | 'offer' | 'ready'>('checking');
   const [localSource, setLocalSource] = useState<BackupFile | null>(null);
   const organizationId = auth.organization?.id ?? '';
+  const userId = auth.session?.user.id ?? '';
   const canImport = auth.organization?.role === 'owner' || auth.organization?.role === 'admin';
   const marker = `emerald-cloud-import-reviewed:${organizationId}`;
 
   useEffect(() => {
     let mounted = true;
-    if (!organizationId || !canImport || window.localStorage.getItem(marker) === 'yes') {
-      setImportState('ready');
-      return;
+    setCloudDatabaseScope(null);
+    const activate = (state: 'offer' | 'ready', local: BackupFile | null = null) => {
+      if (!mounted || !userId || !organizationId) return;
+      setCloudDatabaseScope({ userId, organizationId });
+      setLocalSource(local);
+      setImportState(state);
+    };
+    if (!userId || !organizationId) {
+      return () => { mounted = false; setCloudDatabaseScope(null); };
     }
-    void Promise.all([readLocalImportSource(), isCloudEmpty()])
-      .then(([local, empty]) => {
-        if (!mounted) return;
+    if (!canImport || window.localStorage.getItem(marker) === 'yes') {
+      activate('ready');
+      return () => { mounted = false; setCloudDatabaseScope(null); };
+    }
+    void defaultDatabaseContainsCloudData()
+      .then(async (containsLegacyCloudData) => {
+        if (containsLegacyCloudData) {
+          // El dueño de la caché antigua no es demostrable. Se conserva en la
+          // base local, pero jamás se asigna a la sesión que acaba de entrar.
+          activate('ready');
+          return;
+        }
+        const [local, empty] = await Promise.all([readLocalImportSource(), isCloudEmpty()]);
         if (empty && hasLocalDataToImport(local)) {
-          setLocalSource(local);
-          setImportState('offer');
+          activate('offer', local);
         } else {
-          setImportState('ready');
+          activate('ready');
         }
       })
       .catch(() => {
         // Una persona que ya trabajó en nube debe poder entrar con la caché aun sin internet.
-        if (mounted) setImportState('ready');
+        activate('ready');
       });
-    return () => { mounted = false; };
-  }, [canImport, marker, organizationId]);
+    return () => { mounted = false; setCloudDatabaseScope(null); };
+  }, [canImport, marker, organizationId, userId]);
 
   if (importState === 'checking') return <CloudLoadingView />;
   if (importState === 'offer') {
@@ -953,7 +973,7 @@ function CloudEntry() {
   if (auth.passwordRecovery) return <PasswordRecoveryView />;
   if (auth.needsFirstAccess) return <FirstAccessView />;
   if (!auth.organization) return <CreateOrganizationView />;
-  return <CloudWorkspace />;
+  return <CloudWorkspace key={`${auth.session.user.id}:${auth.organization.id}`} />;
 }
 
 export default function App() {

@@ -8,6 +8,7 @@ import {
   type SyncCacheRecord
 } from './sync';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
+import type { CloudOperationScope } from './scope';
 
 function deferred() {
   let resolve!: () => void;
@@ -99,6 +100,58 @@ const remoteQuote = (updated_at: string) => ({
 });
 
 describe('sincronización LWW', () => {
+  it('descarta una descarga si la identidad cambia antes de escribir la caché', async () => {
+    const cache = memoryCache([]);
+    const started = deferred();
+    const release = deferred();
+    let scope: CloudOperationScope | null = { userId: 'user-a', organizationId: 'org-a' };
+    const sync = createCloudSync({
+      remote: {
+        list: async () => {
+          started.resolve();
+          await release.promise;
+          return [{
+            id: 'client-a',
+            data: { id: 'client-a', name: 'Cliente de A' },
+            updated_at: '2026-08-14T10:00:00Z'
+          }];
+        }
+      },
+      cache,
+      listPending: async () => [],
+      getScope: () => scope
+    });
+
+    const pulling = sync.pullTable('clients');
+    await started.promise;
+    scope = { userId: 'user-b', organizationId: 'org-b' };
+    release.resolve();
+    await pulling;
+
+    expect(cache.values.size).toBe(0);
+  });
+
+  it('conserva la descarga cuando la identidad sigue siendo la misma', async () => {
+    const cache = memoryCache([]);
+    const scope = { userId: 'user-a', organizationId: 'org-a' } as const;
+    const sync = createCloudSync({
+      remote: {
+        list: async () => [{
+          id: 'client-a',
+          data: { id: 'client-a', name: 'Cliente de A' },
+          updated_at: '2026-08-14T10:00:00Z'
+        }]
+      },
+      cache,
+      listPending: async () => [],
+      getScope: () => scope
+    });
+
+    await sync.pullTable('clients');
+
+    expect(cache.values.has('client-a')).toBe(true);
+  });
+
   it('conserva datos locales previos cuando la nube está vacía y no hay cola', async () => {
     const cache = memoryCache([
       { id: 'c-1', data: { id: 'c-1' }, updatedAt: '2026-07-01T10:00:00Z' },

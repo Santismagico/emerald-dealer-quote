@@ -25,6 +25,8 @@ import {
   type DeletionReceipt,
   type LegalAcceptance
 } from './services/cloud/auth';
+import { setActiveCloudScope } from './services/cloud/scope';
+import { deleteCloudDatabaseScope, setCloudDatabaseScope } from './services/db';
 
 interface CloudAuthContextValue {
   ready: boolean;
@@ -76,16 +78,29 @@ export function CloudAuthProvider({
   });
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const revisionRef = useRef(0);
+  const userIdRef = useRef<string | null>(null);
 
   const applySession = useCallback(async (
     nextSession: CloudSession | null,
     event?: CloudAuthEvent
   ) => {
     const revision = ++revisionRef.current;
+    const nextUserId = nextSession?.user.id ?? null;
+    const identityChanged = userIdRef.current !== nextUserId;
+    userIdRef.current = nextUserId;
+    // Cerrar primero evita que una cola de la identidad anterior continúe
+    // mientras se resuelve la membresía de la sesión nueva.
+    setActiveCloudScope(null);
+    if (identityChanged) {
+      setOrganization(null);
+      setCloudDatabaseScope(null);
+      if (nextSession) setReady(false);
+    }
     setSession(nextSession);
     if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
     if (!nextSession) {
       setOrganization(null);
+      setCloudDatabaseScope(null);
       setAccountState({ status: 'activa', paidThrough: null, readOnlySince: null });
       setPasswordRecovery(false);
       setReady(true);
@@ -94,6 +109,10 @@ export function CloudAuthProvider({
     try {
       const nextOrganization = await service.getOrganization();
       if (revision !== revisionRef.current) return;
+      setActiveCloudScope(nextOrganization ? {
+        userId: nextSession.user.id,
+        organizationId: nextOrganization.id
+      } : null);
       setOrganization(nextOrganization);
       if (nextOrganization) {
         // Ninguna de las dos puede impedir trabajar si falla.
@@ -107,6 +126,8 @@ export function CloudAuthProvider({
   }, [service]);
 
   useEffect(() => {
+    setActiveCloudScope(null);
+    setCloudDatabaseScope(null);
     if (!enabled) return;
     let mounted = true;
     const stop = service.subscribe((event, nextSession) => {
@@ -121,13 +142,20 @@ export function CloudAuthProvider({
       });
     return () => {
       mounted = false;
+      setActiveCloudScope(null);
+      setCloudDatabaseScope(null);
       stop();
     };
   }, [applySession, enabled, service]);
 
   const refreshOrganization = useCallback(async () => {
-    setOrganization(await service.getOrganization());
-  }, [service]);
+    const refreshed = await service.getOrganization();
+    setActiveCloudScope(session && refreshed ? {
+      userId: session.user.id,
+      organizationId: refreshed.id
+    } : null);
+    setOrganization(refreshed);
+  }, [service, session]);
 
   const needsPasswordSetup = mustSetOwnPassword(session);
   const { needsTermsAcceptance, needsPrivacyAcceptance } =
@@ -163,20 +191,36 @@ export function CloudAuthProvider({
         await applySession(await service.getSession(), 'SIGNED_IN');
       },
       async signOut() {
+        setActiveCloudScope(null);
         await service.signOut();
         await applySession(null, 'SIGNED_OUT');
       },
       async createOrganization(name, settings) {
         const created = await service.createOrganization(name, settings);
+        if (!session) throw new Error('No hay una sesión activa para abrir la joyería.');
+        setActiveCloudScope({ userId: session.user.id, organizationId: created.id });
         setOrganization(created);
       },
       async deleteMyOrganization(confirmation) {
+        const deletingUserId = session?.user.id ?? null;
         const receipt = await service.deleteMyOrganization(confirmation);
         // Ya no hay joyería a la que volver: se cierra la sesión de inmediato
         // para no dejar la app mostrando datos que el servidor acaba de borrar.
+        setActiveCloudScope(null);
         setOrganization(null);
         await service.signOut();
         await applySession(null, 'SIGNED_OUT');
+        if (deletingUserId) {
+          try {
+            await deleteCloudDatabaseScope({
+              userId: deletingUserId,
+              organizationId: receipt.organizationId
+            });
+          } catch {
+            // La identidad ya quedó cerrada y esta base no volverá a abrirse.
+            // Otra pestaña actualizada la cerrará mediante `onversionchange`.
+          }
+        }
         return receipt;
       },
       refreshOrganization

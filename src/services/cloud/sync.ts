@@ -1,4 +1,14 @@
-import { dbDelete, dbGetAll, dbPut, dbWriteTransaction, type StoreName } from '../db';
+import {
+  dbDelete,
+  dbDeleteForCloudScope,
+  dbGetAll,
+  dbGetAllForCloudScope,
+  dbPut,
+  dbPutForCloudScope,
+  dbWriteTransaction,
+  dbWriteTransactionForCloudScope,
+  type StoreName
+} from '../db';
 import type { StockJewel, StoneLot } from '../../types';
 import {
   normalizeAppointment,
@@ -22,6 +32,7 @@ import { validateStockJewelSaleMetadata } from '../stockJewels';
 import { validateStoneLotInventory, validateStoneLotSalesMetadata } from '../stones';
 import { validateStoneJewelTransformationCollections } from '../stoneJewelTransformation';
 import type { CloudOutboxOperation, CloudTable } from './outbox';
+import type { CloudOperationScope } from './scope';
 
 export interface CloudRow {
   id?: string;
@@ -42,13 +53,17 @@ export interface CloudSyncRemote {
 }
 
 export interface CloudSyncCache {
-  list: (table: CloudTable) => Promise<SyncCacheRecord[]>;
-  put: (table: CloudTable, record: SyncCacheRecord) => Promise<void>;
-  remove: (table: CloudTable, id: string) => Promise<void>;
-  applyBatch?: (mutations: readonly CloudSyncCacheMutation[]) => Promise<void>;
+  list: (table: CloudTable, scope?: CloudOperationScope) => Promise<SyncCacheRecord[]>;
+  put: (table: CloudTable, record: SyncCacheRecord, scope?: CloudOperationScope) => Promise<void>;
+  remove: (table: CloudTable, id: string, scope?: CloudOperationScope) => Promise<void>;
+  applyBatch?: (
+    mutations: readonly CloudSyncCacheMutation[],
+    scope?: CloudOperationScope
+  ) => Promise<void>;
   applyBatchAndRemoveOutbox?: (
     mutations: readonly CloudSyncCacheMutation[],
-    outboxIds: readonly string[]
+    outboxIds: readonly string[],
+    scope?: CloudOperationScope
   ) => Promise<void>;
 }
 
@@ -61,7 +76,10 @@ export interface CloudSyncCacheMutation {
 export interface CloudSync {
   pullTable: (table: CloudTable) => Promise<void>;
   pullStoneJewelPair: () => Promise<void>;
-  replaceStoneJewelPairFromCloud?: (outboxIds: readonly string[]) => Promise<void>;
+  replaceStoneJewelPairFromCloud?: (
+    outboxIds: readonly string[],
+    scope?: CloudOperationScope
+  ) => Promise<void>;
   pullAll: () => Promise<void>;
 }
 
@@ -157,8 +175,10 @@ function b3MetadataError(
 }
 
 export const indexedDbSyncCache: CloudSyncCache = {
-  async list(table) {
-    const values = await dbGetAll<Record<string, unknown>>(storeByTable[table]);
+  async list(table, scope) {
+    const values = scope
+      ? await dbGetAllForCloudScope<Record<string, unknown>>(scope, storeByTable[table])
+      : await dbGetAll<Record<string, unknown>>(storeByTable[table]);
     return values.map((value) => ({
       id: recordId(table, value),
       data: value,
@@ -166,16 +186,24 @@ export const indexedDbSyncCache: CloudSyncCache = {
       seenInCloud: typeof value.cloudUpdatedAt === 'string' && value.cloudUpdatedAt.length > 0
     }));
   },
-  async put(table, record) {
+  async put(table, record, scope) {
     const value = normalized(table, record.data);
-    await dbPut(storeByTable[table], {
+    const stored = {
       ...value,
       id: table === 'org_settings' ? SETTINGS_KEY : record.id,
       cloudUpdatedAt: record.updatedAt
-    });
+    };
+    if (scope) await dbPutForCloudScope(scope, storeByTable[table], stored);
+    else await dbPut(storeByTable[table], stored);
   },
-  remove: (table, id) => dbDelete(storeByTable[table], table === 'org_settings' ? SETTINGS_KEY : id),
-  async applyBatch(mutations) {
+  remove: (table, id, scope) => scope
+    ? dbDeleteForCloudScope(
+        scope,
+        storeByTable[table],
+        table === 'org_settings' ? SETTINGS_KEY : id
+      )
+    : dbDelete(storeByTable[table], table === 'org_settings' ? SETTINGS_KEY : id),
+  async applyBatch(mutations, scope) {
     if (mutations.length === 0) return;
     const prepared = mutations.map((mutation) => ({
       ...mutation,
@@ -190,14 +218,16 @@ export const indexedDbSyncCache: CloudSyncCache = {
         : null
     }));
     const stores = [...new Set(prepared.map((mutation) => mutation.store))];
-    await dbWriteTransaction(stores, (getStore) => {
+    const apply = (getStore: (store: StoreName) => IDBObjectStore) => {
       for (const mutation of prepared) {
         if (mutation.value === null) getStore(mutation.store).delete(mutation.key);
         else getStore(mutation.store).put(mutation.value);
       }
-    });
+    };
+    if (scope) await dbWriteTransactionForCloudScope(scope, stores, apply);
+    else await dbWriteTransaction(stores, apply);
   },
-  async applyBatchAndRemoveOutbox(mutations, outboxIds) {
+  async applyBatchAndRemoveOutbox(mutations, outboxIds, scope) {
     const prepared = mutations.map((mutation) => ({
       ...mutation,
       store: storeByTable[mutation.table],
@@ -214,14 +244,16 @@ export const indexedDbSyncCache: CloudSyncCache = {
       ...prepared.map((mutation) => mutation.store),
       'cloudOutbox'
     ])];
-    await dbWriteTransaction(stores, (getStore) => {
+    const apply = (getStore: (store: StoreName) => IDBObjectStore) => {
       for (const mutation of prepared) {
         if (mutation.value === null) getStore(mutation.store).delete(mutation.key);
         else getStore(mutation.store).put(mutation.value);
       }
       const outboxStore = getStore('cloudOutbox');
       for (const id of outboxIds) outboxStore.delete(id);
-    });
+    };
+    if (scope) await dbWriteTransactionForCloudScope(scope, stores, apply);
+    else await dbWriteTransaction(stores, apply);
   }
 };
 
@@ -260,7 +292,17 @@ export function createCloudSync(options: {
   remote: CloudSyncRemote;
   cache: CloudSyncCache;
   listPending: () => Promise<CloudOutboxOperation[]>;
+  getScope?: () => CloudOperationScope | null;
 }): CloudSync {
+  const scopeIsCurrent = (expected: CloudOperationScope | null): boolean => {
+    if (!options.getScope) return true;
+    const current = options.getScope();
+    return Boolean(
+      current && expected &&
+      current.userId === expected.userId &&
+      current.organizationId === expected.organizationId
+    );
+  };
   const planTablePull = (
     table: CloudTable,
     remoteRows: CloudRow[],
@@ -336,40 +378,52 @@ export function createCloudSync(options: {
     return { mutations, finalRows };
   };
 
-  const applyMutations = async (mutations: CloudSyncCacheMutation[]) => {
+  const applyMutations = async (
+    mutations: CloudSyncCacheMutation[],
+    scope: CloudOperationScope | null = null
+  ) => {
     if (mutations.length === 0) return;
     if (options.cache.applyBatch) {
-      await options.cache.applyBatch(mutations);
+      await options.cache.applyBatch(mutations, scope ?? undefined);
       return;
     }
     for (const mutation of mutations) {
-      if (mutation.record) await options.cache.put(mutation.table, mutation.record);
-      else await options.cache.remove(mutation.table, mutation.id);
+      if (mutation.record) {
+        await options.cache.put(mutation.table, mutation.record, scope ?? undefined);
+      } else {
+        await options.cache.remove(mutation.table, mutation.id, scope ?? undefined);
+      }
     }
   };
 
   const pullTable = async (table: CloudTable) => {
+    const scope = options.getScope?.() ?? null;
+    if (options.getScope && !scope) return;
     const [remoteRows, localRows, pendingOperations] = await Promise.all([
       options.remote.list(table),
-      options.cache.list(table),
+      options.cache.list(table, scope ?? undefined),
       options.listPending()
     ]);
+    if (!scopeIsCurrent(scope)) return;
     const plan = planTablePull(table, remoteRows, localRows, pendingOperations);
-    await applyMutations(plan.mutations);
+    await applyMutations(plan.mutations, scope);
   };
 
   const runStoneJewelPairPull = async (
     forceRemote: boolean,
-    discardOutboxIds: readonly string[] = []
+    discardOutboxIds: readonly string[] = [],
+    scope: CloudOperationScope | null = null
   ): Promise<void> => {
+    if (options.getScope && !scope) return;
     const [remoteLots, remoteJewels, localLots, localJewels, pendingOperations] =
       await Promise.all([
         options.remote.list('stone_lots'),
         options.remote.list('stock_jewels'),
-        options.cache.list('stone_lots'),
-        options.cache.list('stock_jewels'),
+        options.cache.list('stone_lots', scope ?? undefined),
+        options.cache.list('stock_jewels', scope ?? undefined),
         options.listPending()
       ]);
+    if (!scopeIsCurrent(scope)) return;
     const lotPlan = planTablePull(
       'stone_lots', remoteLots, localLots, pendingOperations, forceRemote
     );
@@ -391,10 +445,14 @@ export function createCloudSync(options: {
       if (!options.cache.applyBatchAndRemoveOutbox) {
         throw new Error('No se puede reemplazar la pareja y limpiar la cola atómicamente.');
       }
-      await options.cache.applyBatchAndRemoveOutbox(mutations, discardOutboxIds);
+      await options.cache.applyBatchAndRemoveOutbox(
+        mutations,
+        discardOutboxIds,
+        scope ?? undefined
+      );
       return;
     }
-    await applyMutations(mutations);
+    await applyMutations(mutations, scope);
   };
 
   let inventoryPullTail: Promise<void> = Promise.resolve();
@@ -402,18 +460,19 @@ export function createCloudSync(options: {
   let activeReplacementPull: Promise<void> | null = null;
   const queueInventoryPull = (
     forceRemote: boolean,
-    discardOutboxIds: readonly string[] = []
+    discardOutboxIds: readonly string[] = [],
+    scope: CloudOperationScope | null = null
   ): Promise<void> => {
     const queued = inventoryPullTail
       .catch(() => {})
-      .then(() => runStoneJewelPairPull(forceRemote, discardOutboxIds));
+      .then(() => runStoneJewelPairPull(forceRemote, discardOutboxIds, scope));
     inventoryPullTail = queued;
     return queued;
   };
 
   const pullStoneJewelPair = (): Promise<void> => {
     if (activeNormalPull) return activeNormalPull;
-    const queued = queueInventoryPull(false);
+    const queued = queueInventoryPull(false, [], options.getScope?.() ?? null);
     activeNormalPull = queued;
     queued.then(
       () => { if (activeNormalPull === queued) activeNormalPull = null; },
@@ -423,10 +482,11 @@ export function createCloudSync(options: {
   };
 
   const replaceStoneJewelPairFromCloud = (
-    discardOutboxIds: readonly string[]
+    discardOutboxIds: readonly string[],
+    scope?: CloudOperationScope
   ): Promise<void> => {
     if (activeReplacementPull) return activeReplacementPull;
-    const queued = queueInventoryPull(true, discardOutboxIds);
+    const queued = queueInventoryPull(true, discardOutboxIds, scope ?? null);
     activeReplacementPull = queued;
     queued.then(
       () => { if (activeReplacementPull === queued) activeReplacementPull = null; },

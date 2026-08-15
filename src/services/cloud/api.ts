@@ -56,6 +56,7 @@ import {
   type CloudSync,
   type CloudSyncRemote
 } from './sync';
+import { getActiveCloudScope } from './scope';
 
 interface QueryResult<T> {
   data: T | null;
@@ -857,9 +858,16 @@ export function createCloudDataSource(options: {
       }
       await options.outbox.resolveTableChanges(
         ['stone_lots', 'stock_jewels'],
-        (operations) => options.sync.replaceStoneJewelPairFromCloud!(
-          operations.map((operation) => operation.id)
-        )
+        (operations) => {
+          const first = operations[0];
+          const scope = first?.userId && first.organizationId
+            ? { userId: first.userId, organizationId: first.organizationId }
+            : undefined;
+          return options.sync.replaceStoneJewelPairFromCloud!(
+            operations.map((operation) => operation.id),
+            scope
+          );
+        }
       );
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event(CLOUD_DATA_CHANGED_EVENT));
@@ -871,6 +879,7 @@ export function createCloudDataSource(options: {
 export const supabaseCloudRemote = createSupabaseCloudRemote();
 export const cloudOutbox = createCloudOutbox({
   repository: indexedDbOutboxRepository,
+  getScope: getActiveCloudScope,
   maxAttempts: 5,
   shouldHold: (error) => error instanceof CloudOperationRejectedError,
   onChange: () => {
@@ -893,7 +902,8 @@ export const cloudOutbox = createCloudOutbox({
 export const cloudSync = createCloudSync({
   remote: supabaseCloudRemote,
   cache: indexedDbSyncCache,
-  listPending: cloudOutbox.list
+  listPending: cloudOutbox.list,
+  getScope: getActiveCloudScope
 });
 export const cloudDataSource = createCloudDataSource({
   remote: supabaseCloudRemote,
