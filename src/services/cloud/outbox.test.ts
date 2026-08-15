@@ -5,6 +5,7 @@ import {
   type CloudOutboxOperation,
   type OutboxRepository
 } from './outbox';
+import type { CloudOperationScope } from './scope';
 
 function memoryRepository(): OutboxRepository & { values: Map<string, CloudOutboxOperation> } {
   const values = new Map<string, CloudOutboxOperation>();
@@ -28,12 +29,86 @@ function deferred() {
   return { promise, resolve };
 }
 
+const ACCOUNT_A = { userId: 'user-a', organizationId: 'org-a' } as const;
+const ACCOUNT_B = { userId: 'user-b', organizationId: 'org-b' } as const;
+
+type TestOutboxOptions = Parameters<typeof createCloudOutbox>[0];
+
+function createTestOutbox(
+  options: Omit<TestOutboxOptions, 'getScope'> & Partial<Pick<TestOutboxOptions, 'getScope'>>
+) {
+  return createCloudOutbox({ getScope: () => ACCOUNT_A, ...options });
+}
+
 describe('cola de sincronización', () => {
+  it('solo reproduce las operaciones de la identidad que las creó', async () => {
+    const repository = memoryRepository();
+    const uploaded: string[] = [];
+    let scope: CloudOperationScope = ACCOUNT_A;
+    const outbox = createTestOutbox({
+      repository,
+      getScope: () => scope,
+      createId: () => 'op-account-a',
+      now: () => 1_000,
+      execute: async (operation) => { uploaded.push(operation.entityId); }
+    });
+
+    const operation = await outbox.enqueue({
+      table: 'quotes', type: 'upsert', entityId: 'quote-a', data: { id: 'quote-a' },
+      updatedAt: '2026-08-14T10:00:00Z'
+    });
+    expect(operation).toMatchObject(ACCOUNT_A);
+
+    scope = ACCOUNT_B;
+    await outbox.flush();
+    expect(uploaded).toEqual([]);
+    expect(await outbox.list()).toEqual([]);
+    expect(repository.values.has('op-account-a')).toBe(true);
+
+    scope = ACCOUNT_A;
+    await outbox.flush();
+    expect(uploaded).toEqual(['quote-a']);
+    expect(repository.values.has('op-account-a')).toBe(false);
+  });
+
+  it('no acepta cambios cuando todavía no hay una identidad cloud activa', async () => {
+    const outbox = createTestOutbox({
+      repository: memoryRepository(),
+      getScope: () => null,
+      execute: async () => {}
+    });
+
+    await expect(outbox.enqueue({
+      table: 'clients', type: 'upsert', entityId: 'client-without-account', data: {},
+      updatedAt: '2026-08-14T10:00:00Z'
+    })).rejects.toThrow(/identidad cloud activa/i);
+  });
+
+  it('pone en cuarentena operaciones antiguas que no tienen dueño verificable', async () => {
+    const repository = memoryRepository();
+    repository.values.set('legacy-op', {
+      id: 'legacy-op', table: 'clients', type: 'delete', entityId: 'client-a', data: null,
+      updatedAt: '2026-08-14T10:00:00Z', queuedAt: 1, attempts: 0, nextAttemptAt: 0
+    });
+    const execute = vi.fn(async () => {});
+    const outbox = createTestOutbox({
+      repository,
+      getScope: () => ACCOUNT_A,
+      execute
+    });
+
+    await outbox.flush();
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(repository.values.has('legacy-op')).toBe(true);
+    expect(await outbox.list()).toEqual([]);
+  });
+
   it('conserva el orden de inserción aunque el reloj coincida y los ids vengan al revés', async () => {
     const repository = memoryRepository();
     const uploaded: string[] = [];
     const ids = ['z-primero', 'a-segundo'];
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: () => ids.shift()!,
       now: () => 1_000,
@@ -56,7 +131,7 @@ describe('cola de sincronización', () => {
 
   it('informa cinco cambios pendientes y cero después de subirlos', async () => {
     const repository = memoryRepository();
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: (() => { let id = 0; return () => `op-count-${++id}`; })(),
       now: () => 1_000,
@@ -78,7 +153,7 @@ describe('cola de sincronización', () => {
     const repository = memoryRepository();
     let time = 1_000;
     const uploaded: string[] = [];
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: (() => { let id = 0; return () => `op-reject-${++id}`; })(),
       now: () => time,
@@ -112,7 +187,7 @@ describe('cola de sincronización', () => {
     const repository = memoryRepository();
     let rejected = true;
     let time = 1_000;
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: () => 'op-held',
       now: () => time,
@@ -142,6 +217,7 @@ describe('cola de sincronización', () => {
   it('puede usar la nube retirando un cambio retenido antes de actualizar', async () => {
     const repository = memoryRepository();
     repository.values.set('op-held-inventory', {
+      ...ACCOUNT_A,
       id: 'op-held-inventory',
       table: 'stock_jewels',
       type: 'upsert',
@@ -153,7 +229,7 @@ describe('cola de sincronización', () => {
       nextAttemptAt: 0,
       state: 'held'
     });
-    const outbox = createCloudOutbox({ repository, execute: async () => {} });
+    const outbox = createTestOutbox({ repository, execute: async () => {} });
 
     await outbox.resolveTableChanges?.(['stone_lots', 'stock_jewels'], async (operations) => {
       expect(operations.map((operation) => operation.id)).toEqual(['op-held-inventory']);
@@ -167,6 +243,7 @@ describe('cola de sincronización', () => {
   it('conserva el cambio retenido si no logra traer la versión de la nube', async () => {
     const repository = memoryRepository();
     const held: CloudOutboxOperation = {
+      ...ACCOUNT_A,
       id: 'op-held-rollback',
       table: 'stone_lots',
       type: 'delete',
@@ -179,7 +256,7 @@ describe('cola de sincronización', () => {
       state: 'held'
     };
     repository.values.set(held.id, held);
-    const outbox = createCloudOutbox({ repository, execute: async () => {} });
+    const outbox = createTestOutbox({ repository, execute: async () => {} });
 
     await expect(outbox.resolveTableChanges?.(['stone_lots', 'stock_jewels'], async () => {
       throw new Error('Sin conexión');
@@ -191,11 +268,13 @@ describe('cola de sincronización', () => {
   it('si falla la retirada atómica conserva completa la cola original', async () => {
     const repository = memoryRepository();
     const first: CloudOutboxOperation = {
+      ...ACCOUNT_A,
       id: 'op-first', table: 'stone_lots', type: 'upsert', entityId: 'lot-1',
       data: { id: 'lot-1' }, updatedAt: '2026-08-04T10:00:00Z',
       queuedAt: 1, attempts: 5, nextAttemptAt: 0, state: 'held'
     };
     const second: CloudOutboxOperation = {
+      ...ACCOUNT_A,
       id: 'op-second', table: 'stock_jewels', type: 'upsert', entityId: 'jewel-1',
       data: { id: 'jewel-1' }, updatedAt: '2026-08-04T10:00:00Z',
       queuedAt: 2, attempts: 0, nextAttemptAt: 0
@@ -203,7 +282,7 @@ describe('cola de sincronización', () => {
     repository.values.set(first.id, first);
     repository.values.set(second.id, second);
     repository.removeMany = async () => { throw new Error('fallo atómico'); };
-    const outbox = createCloudOutbox({ repository, execute: async () => {} });
+    const outbox = createTestOutbox({ repository, execute: async () => {} });
 
     await expect(outbox.resolveTableChanges?.(
       ['stone_lots', 'stock_jewels'],
@@ -222,23 +301,26 @@ describe('cola de sincronización', () => {
     const uploaded: string[] = [];
     const operations: CloudOutboxOperation[] = [
       {
+        ...ACCOUNT_A,
         id: 'op-in-flight', table: 'stone_lots', type: 'upsert', entityId: 'lot-running',
         data: { id: 'lot-running' }, updatedAt: '2026-08-04T10:00:00Z',
         queuedAt: 1, attempts: 0, nextAttemptAt: 0
       },
       {
+        ...ACCOUNT_A,
         id: 'op-not-started', table: 'stock_jewels', type: 'upsert', entityId: 'jewel-pending',
         data: { id: 'jewel-pending' }, updatedAt: '2026-08-04T10:01:00Z',
         queuedAt: 2, attempts: 0, nextAttemptAt: 0
       },
       {
+        ...ACCOUNT_A,
         id: 'op-held-conflict', table: 'stock_jewels', type: 'delete', entityId: 'jewel-held',
         data: null, updatedAt: '2026-08-04T10:02:00Z',
         queuedAt: 3, attempts: 5, nextAttemptAt: 0, state: 'held'
       }
     ];
     for (const operation of operations) repository.values.set(operation.id, operation);
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       execute: async (operation) => {
         uploaded.push(operation.id);
@@ -276,7 +358,7 @@ describe('cola de sincronización', () => {
     let time = 1_000;
     let uploads = 0;
     let assigned = 0;
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: () => 'op-offline',
       now: () => time,
@@ -313,7 +395,7 @@ describe('cola de sincronización', () => {
     const repository = memoryRepository();
     let sequence = 6;
     const uploadedNumbers: string[] = [];
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: (() => { let id = 0; return () => `op-${++id}`; })(),
       now: () => 1_000,
@@ -344,7 +426,7 @@ describe('cola de sincronización', () => {
     const started: string[] = [];
     let ids = 0;
     let time = 100;
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: () => `op-${++ids}`,
       now: () => time++,
@@ -375,7 +457,7 @@ describe('cola de sincronización', () => {
     let time = 1_000;
     let calls = 0;
     const scheduled: number[] = [];
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: () => 'op-retry',
       now: () => time,
@@ -401,7 +483,7 @@ describe('cola de sincronización', () => {
   it('si cae la red a mitad del envío, deja esa operación y las siguientes en cola', async () => {
     const repository = memoryRepository();
     let ids = 0;
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: () => `op-${++ids}`,
       now: () => 1_000 + ids,
@@ -427,7 +509,7 @@ describe('cola de sincronización', () => {
     const repository = memoryRepository();
     const uploaded: string[] = [];
     const flushed = deferred();
-    const outbox = createCloudOutbox({
+    const outbox = createTestOutbox({
       repository,
       createId: (() => { let id = 0; return () => `op-boot-${++id}`; })(),
       now: () => 1_000,

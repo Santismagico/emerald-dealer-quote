@@ -4,6 +4,15 @@
 
 const DB_NAME = 'emerald-dealer-quote';
 
+export interface CloudDatabaseScope {
+  userId: string;
+  organizationId: string;
+}
+
+function cloudDatabaseName(scope: CloudDatabaseScope): string {
+  return `${DB_NAME}:cloud:${encodeURIComponent(scope.userId)}:${encodeURIComponent(scope.organizationId)}`;
+}
+
 export type StoreName =
   | 'settings'
   | 'clients'
@@ -88,23 +97,79 @@ export function applyDbMigrations(db: MigratableDb, oldVersion: number): void {
   }
 }
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+let activeDbName = DB_NAME;
+const dbPromises = new Map<string, Promise<IDBDatabase>>();
 
-function openDb(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+function switchDatabase(nextName: string): void {
+  activeDbName = nextName;
+}
+
+/** Selecciona la base local o la base privada de una identidad cloud. */
+export function setCloudDatabaseScope(scope: CloudDatabaseScope | null): void {
+  switchDatabase(scope ? cloudDatabaseName(scope) : DB_NAME);
+}
+
+/** Borra únicamente la base de la identidad indicada, nunca la base local. */
+export async function deleteCloudDatabaseScope(scope: CloudDatabaseScope): Promise<void> {
+  const target = cloudDatabaseName(scope);
+  if (activeDbName === target) switchDatabase(DB_NAME);
+  const existing = dbPromises.get(target);
+  dbPromises.delete(target);
+  if (existing) {
+    try {
+      (await existing).close();
+    } catch {
+      // Si nunca abrió, deleteDatabase sigue siendo la fuente de verdad.
+    }
+  }
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(target);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(
+      request.error ?? new Error('No se pudo borrar la información local de la cuenta.')
+    );
+    request.onblocked = () => reject(
+      new Error('Cierra las otras pestañas de la aplicación para completar el borrado local.')
+    );
+  });
+}
+
+function openDatabase(databaseName: string): Promise<IDBDatabase> {
+  const existing = dbPromises.get(databaseName);
+  if (existing) return existing;
+  let pending!: Promise<IDBDatabase>;
+  pending = new Promise((resolve, reject) => {
+    const request = indexedDB.open(databaseName, DB_VERSION);
     request.onupgradeneeded = (event) => {
       applyDbMigrations(request.result, event.oldVersion);
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('No se pudo abrir la base de datos local.'));
+    request.onsuccess = () => {
+      request.result.onversionchange = () => {
+        request.result.close();
+        if (dbPromises.get(databaseName) === pending) dbPromises.delete(databaseName);
+      };
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      if (dbPromises.get(databaseName) === pending) dbPromises.delete(databaseName);
+      reject(request.error ?? new Error('No se pudo abrir la base de datos local.'));
+    };
   });
-  return dbPromise;
+  dbPromises.set(databaseName, pending);
+  return pending;
 }
 
-function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest): Promise<T> {
-  return openDb().then(
+function openDb(): Promise<IDBDatabase> {
+  return openDatabase(activeDbName);
+}
+
+function txRequestInDatabase<T>(
+  databaseName: string,
+  store: StoreName,
+  mode: IDBTransactionMode,
+  run: (s: IDBObjectStore) => IDBRequest
+): Promise<T> {
+  return openDatabase(databaseName).then(
     (db) =>
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(store, mode);
@@ -123,6 +188,10 @@ function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBOb
   );
 }
 
+function txRequest<T>(store: StoreName, mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest): Promise<T> {
+  return txRequestInDatabase(activeDbName, store, mode, run);
+}
+
 /**
  * Ejecuta varias escrituras dentro de UNA sola transacción IndexedDB.
  * El callback debe encolar al menos una solicitud de forma síncrona. Sus
@@ -134,7 +203,15 @@ export function dbWriteTransaction(
   stores: readonly StoreName[],
   run: (getStore: StoreAccessor, abort: TransactionAbort) => void
 ): Promise<void> {
-  return openDb().then(
+  return dbWriteTransactionInDatabase(activeDbName, stores, run);
+}
+
+function dbWriteTransactionInDatabase(
+  databaseName: string,
+  stores: readonly StoreName[],
+  run: (getStore: StoreAccessor, abort: TransactionAbort) => void
+): Promise<void> {
+  return openDatabase(databaseName).then(
     (db) =>
       new Promise<void>((resolve, reject) => {
         let tx: IDBTransaction;
@@ -266,4 +343,78 @@ export function dbDelete(store: StoreName, key: string): Promise<void> {
 
 export function dbClear(store: StoreName): Promise<void> {
   return txRequest<void>(store, 'readwrite', (s) => s.clear());
+}
+
+const LEGACY_CLOUD_CACHE_STORES: readonly StoreName[] = [
+  'settings',
+  'clients',
+  'quotes',
+  'appointments',
+  'stoneLots',
+  'suppliers',
+  'buyers',
+  'stockJewels',
+  'materialPartners',
+  'materialLots',
+  'expenses',
+  'fundContributions'
+];
+
+/**
+ * Detecta la caché cloud anterior al aislamiento por cuenta. Su propietario no
+ * puede demostrarse, así que nunca debe ofrecerse como importación a otra sesión.
+ */
+export async function defaultDatabaseContainsCloudData(): Promise<boolean> {
+  const pending = await txRequestInDatabase<unknown[]>(
+    DB_NAME,
+    'cloudOutbox',
+    'readonly',
+    (store) => store.getAll()
+  );
+  if (pending.length > 0) return true;
+  for (const store of LEGACY_CLOUD_CACHE_STORES) {
+    const records = await txRequestInDatabase<unknown[]>(
+      DB_NAME,
+      store,
+      'readonly',
+      (objectStore) => objectStore.getAll()
+    );
+    if (records.some((record) => {
+      if (typeof record !== 'object' || record === null) return false;
+      const updatedAt = (record as { cloudUpdatedAt?: unknown }).cloudUpdatedAt;
+      return typeof updatedAt === 'string' && updatedAt.length > 0;
+    })) return true;
+  }
+  return false;
+}
+
+export function dbGetAllForCloudScope<T>(
+  scope: CloudDatabaseScope,
+  store: StoreName
+): Promise<T[]> {
+  return txRequestInDatabase<T[]>(cloudDatabaseName(scope), store, 'readonly', (s) => s.getAll());
+}
+
+export function dbPutForCloudScope(
+  scope: CloudDatabaseScope,
+  store: StoreName,
+  value: unknown
+): Promise<void> {
+  return txRequestInDatabase<void>(cloudDatabaseName(scope), store, 'readwrite', (s) => s.put(value));
+}
+
+export function dbDeleteForCloudScope(
+  scope: CloudDatabaseScope,
+  store: StoreName,
+  key: string
+): Promise<void> {
+  return txRequestInDatabase<void>(cloudDatabaseName(scope), store, 'readwrite', (s) => s.delete(key));
+}
+
+export function dbWriteTransactionForCloudScope(
+  scope: CloudDatabaseScope,
+  stores: readonly StoreName[],
+  run: (getStore: StoreAccessor, abort: TransactionAbort) => void
+): Promise<void> {
+  return dbWriteTransactionInDatabase(cloudDatabaseName(scope), stores, run);
 }

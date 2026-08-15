@@ -1,4 +1,14 @@
-import { dbDelete, dbGetAll, dbPut, dbWriteTransaction } from '../db';
+import {
+  dbDelete,
+  dbDeleteForCloudScope,
+  dbGetAll,
+  dbGetAllForCloudScope,
+  dbPut,
+  dbPutForCloudScope,
+  dbWriteTransaction,
+  dbWriteTransactionForCloudScope
+} from '../db';
+import type { CloudOperationScope } from './scope';
 
 export type CloudTable =
   | 'org_settings'
@@ -36,6 +46,9 @@ export interface CloudOutboxOperation {
   attempts: number;
   nextAttemptAt: number;
   state?: 'pending' | 'held';
+  /** Ausentes únicamente en registros antiguos, que se dejan en cuarentena. */
+  userId?: string;
+  organizationId?: string;
 }
 
 export interface NewCloudOperation {
@@ -47,11 +60,11 @@ export interface NewCloudOperation {
 }
 
 export interface OutboxRepository {
-  list: () => Promise<CloudOutboxOperation[]>;
+  list: (scope?: CloudOperationScope) => Promise<CloudOutboxOperation[]>;
   put: (operation: CloudOutboxOperation) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  remove: (id: string, scope?: CloudOperationScope) => Promise<void>;
   putMany?: (operations: readonly CloudOutboxOperation[]) => Promise<void>;
-  removeMany?: (ids: readonly string[]) => Promise<void>;
+  removeMany?: (ids: readonly string[], scope?: CloudOperationScope) => Promise<void>;
 }
 
 export interface OutboxFlushResult {
@@ -79,6 +92,7 @@ export interface CloudOutbox {
 
 interface OutboxOptions {
   repository: OutboxRepository;
+  getScope: () => CloudOperationScope | null;
   prepare?: (operation: CloudOutboxOperation) => Promise<CloudOutboxOperation>;
   execute: (operation: CloudOutboxOperation) => Promise<void>;
   now?: () => number;
@@ -90,18 +104,54 @@ interface OutboxOptions {
   scheduleRetry?: (callback: () => void, delayMs: number) => void;
 }
 
+function operationScope(operation: CloudOutboxOperation): CloudOperationScope | null {
+  return operation.userId && operation.organizationId
+    ? { userId: operation.userId, organizationId: operation.organizationId }
+    : null;
+}
+
 export const indexedDbOutboxRepository: OutboxRepository = {
-  list: () => dbGetAll<CloudOutboxOperation>('cloudOutbox'),
-  put: (operation) => dbPut('cloudOutbox', operation),
-  remove: (id) => dbDelete('cloudOutbox', id),
-  putMany: (operations) => dbWriteTransaction(['cloudOutbox'], (getStore) => {
-    const store = getStore('cloudOutbox');
-    for (const operation of operations) store.put(operation);
-  }),
-  removeMany: (ids) => dbWriteTransaction(['cloudOutbox'], (getStore) => {
-    const store = getStore('cloudOutbox');
-    for (const id of ids) store.delete(id);
-  })
+  list: (scope) => scope
+    ? dbGetAllForCloudScope<CloudOutboxOperation>(scope, 'cloudOutbox')
+    : dbGetAll<CloudOutboxOperation>('cloudOutbox'),
+  put: (operation) => {
+    const scope = operationScope(operation);
+    return scope
+      ? dbPutForCloudScope(scope, 'cloudOutbox', operation)
+      : dbPut('cloudOutbox', operation);
+  },
+  remove: (id, scope) => scope
+    ? dbDeleteForCloudScope(scope, 'cloudOutbox', id)
+    : dbDelete('cloudOutbox', id),
+  putMany: (operations) => {
+    if (operations.length === 0) return Promise.resolve();
+    const scope = operationScope(operations[0]);
+    if (scope && operations.some((operation) => !belongsToScope(operation, scope))) {
+      return Promise.reject(new Error('No se pueden mezclar identidades en una transacción de cola.'));
+    }
+    if (scope) {
+      return dbWriteTransactionForCloudScope(scope, ['cloudOutbox'], (getStore) => {
+        const store = getStore('cloudOutbox');
+        for (const operation of operations) store.put(operation);
+      });
+    }
+    return dbWriteTransaction(['cloudOutbox'], (getStore) => {
+      const store = getStore('cloudOutbox');
+      for (const operation of operations) store.put(operation);
+    });
+  },
+  removeMany: (ids, scope) => {
+    if (scope) {
+      return dbWriteTransactionForCloudScope(scope, ['cloudOutbox'], (getStore) => {
+        const store = getStore('cloudOutbox');
+        for (const id of ids) store.delete(id);
+      });
+    }
+    return dbWriteTransaction(['cloudOutbox'], (getStore) => {
+      const store = getStore('cloudOutbox');
+      for (const id of ids) store.delete(id);
+    });
+  }
 };
 
 function defaultOperationId(): string {
@@ -113,6 +163,24 @@ function ordered(operations: CloudOutboxOperation[]): CloudOutboxOperation[] {
   return [...operations].sort((a, b) => a.queuedAt - b.queuedAt || a.id.localeCompare(b.id));
 }
 
+function belongsToScope(
+  operation: CloudOutboxOperation,
+  scope: CloudOperationScope
+): boolean {
+  return operation.userId === scope.userId && operation.organizationId === scope.organizationId;
+}
+
+function sameScope(
+  current: CloudOperationScope | null,
+  expected: CloudOperationScope
+): boolean {
+  return Boolean(
+    current &&
+    current.userId === expected.userId &&
+    current.organizationId === expected.organizationId
+  );
+}
+
 export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
   const now = options.now ?? Date.now;
   const createId = options.createId ?? defaultOperationId;
@@ -122,18 +190,21 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
   const scheduleRetry = options.scheduleRetry ?? ((callback, delayMs) => {
     globalThis.setTimeout(callback, delayMs);
   });
-  let activeFlush: Promise<OutboxFlushResult> | null = null;
+  let activeFlush: { scope: CloudOperationScope; promise: Promise<OutboxFlushResult> } | null = null;
   let activeResolution: Promise<void> | null = null;
   let resolutionRequested = false;
   let retryScheduledFor = 0;
   let queueClockInitialized = false;
   let queueClock: Promise<number> = Promise.resolve(Number.NEGATIVE_INFINITY);
 
-  const nextQueuedAt = (): Promise<number> => {
+  const listForScope = async (scope: CloudOperationScope): Promise<CloudOutboxOperation[]> =>
+    ordered((await options.repository.list(scope)).filter((operation) => belongsToScope(operation, scope)));
+
+  const nextQueuedAt = (scope: CloudOperationScope): Promise<number> => {
     queueClock = queueClock.then(async (previous) => {
       let latest = previous;
       if (!queueClockInitialized) {
-        const stored = await options.repository.list();
+        const stored = await options.repository.list(scope);
         latest = stored.reduce(
           (maximum, operation) => Math.max(maximum, operation.queuedAt),
           latest
@@ -155,14 +226,20 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
   };
 
   const flush = (): Promise<OutboxFlushResult> => {
+    const flushScope = options.getScope();
+    if (!flushScope) return Promise.resolve({ processed: 0, pending: 0 });
     if (activeResolution) return activeResolution.then(() => flush(), () => flush());
-    if (activeFlush) return activeFlush;
+    if (activeFlush) {
+      if (sameScope(activeFlush.scope, flushScope)) return activeFlush.promise;
+      return activeFlush.promise.then(() => flush(), () => flush());
+    }
 
-    activeFlush = (async () => {
+    const promise = (async () => {
       let processed = 0;
-      const operations = ordered(await options.repository.list());
+      const operations = await listForScope(flushScope);
 
       for (const operation of operations) {
+        if (!sameScope(options.getScope(), flushScope)) break;
         if (resolutionRequested) break;
         if (operation.state === 'held') continue;
         const currentTime = now();
@@ -177,8 +254,9 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
             ready = await options.prepare(operation);
             if (ready !== operation) await options.repository.put(ready);
           }
+          if (!sameScope(options.getScope(), flushScope)) break;
           await options.execute(ready);
-          await options.repository.remove(operation.id);
+          await options.repository.remove(operation.id, flushScope);
           options.onChange?.();
           processed += 1;
         } catch (error) {
@@ -202,17 +280,22 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
         }
       }
 
-      return { processed, pending: (await options.repository.list()).length };
+      return { processed, pending: (await listForScope(flushScope)).length };
     })().finally(() => {
       activeFlush = null;
     });
 
-    return activeFlush;
+    activeFlush = { scope: flushScope, promise };
+    return promise;
   };
 
   return {
     async enqueue(input) {
       if (activeResolution) await activeResolution;
+      const scope = options.getScope();
+      if (!scope) {
+        throw new Error('No hay una identidad cloud activa para guardar este cambio.');
+      }
       const operation: CloudOutboxOperation = {
         id: createId(),
         table: input.table,
@@ -220,18 +303,24 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
         entityId: input.entityId,
         data: input.type === 'delete' ? null : input.data ?? null,
         updatedAt: input.updatedAt,
-        queuedAt: await nextQueuedAt(),
+        queuedAt: await nextQueuedAt(scope),
         attempts: 0,
-        nextAttemptAt: 0
+        nextAttemptAt: 0,
+        userId: scope.userId,
+        organizationId: scope.organizationId
       };
       await options.repository.put(operation);
       options.onChange?.();
       return operation;
     },
     flush,
-    list: async () => ordered(await options.repository.list()),
+    list: async () => {
+      const scope = options.getScope();
+      return scope ? listForScope(scope) : [];
+    },
     async status() {
-      const operations = ordered(await options.repository.list());
+      const scope = options.getScope();
+      const operations = scope ? await listForScope(scope) : [];
       return {
         pending: operations.filter((operation) => operation.state !== 'held').length,
         held: operations.filter((operation) => operation.state === 'held').length,
@@ -240,7 +329,9 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
     },
     async retryHeld(id) {
       if (activeResolution) await activeResolution;
-      const operations = await options.repository.list();
+      const scope = options.getScope();
+      if (!scope) return { processed: 0, pending: 0 };
+      const operations = await listForScope(scope);
       for (const operation of operations) {
         if (operation.state !== 'held' || (id && operation.id !== id)) continue;
         await options.repository.put({
@@ -255,12 +346,19 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
     },
     resolveTableChanges(tables, resolve) {
       if (activeResolution) return activeResolution;
+      const scope = options.getScope();
+      if (!scope) {
+        return Promise.reject(new Error('No hay una identidad cloud activa para resolver cambios.'));
+      }
       const selectedTables = new Set(tables);
       resolutionRequested = true;
       let resolutionCompleted = false;
       const run = (async () => {
-        if (activeFlush) await activeFlush;
-        const operations = (await options.repository.list()).filter(
+        if (activeFlush) await activeFlush.promise;
+        if (!sameScope(options.getScope(), scope)) {
+          throw new Error('La identidad cloud cambió antes de resolver los cambios.');
+        }
+        const operations = (await listForScope(scope)).filter(
           (operation) => selectedTables.has(operation.table)
         );
         if (!operations.some((operation) => operation.state === 'held')) {
@@ -269,7 +367,7 @@ export function createCloudOutbox(options: OutboxOptions): CloudOutbox {
         }
         await resolve(operations);
         const remainingIds = new Set(
-          (await options.repository.list()).map((operation) => operation.id)
+          (await listForScope(scope)).map((operation) => operation.id)
         );
         if (operations.some((operation) => remainingIds.has(operation.id))) {
           throw new Error('La versión de la nube no retiró toda la cola seleccionada.');
