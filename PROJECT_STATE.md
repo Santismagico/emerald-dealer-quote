@@ -2210,3 +2210,36 @@ build de Producción y hash CSP aprobados. El bundle servido en vivo es
 **Verificación en vivo:** la sección Joyas muestra `Crear catálogo PDF` y el formulario
 `Fotos de la pieza (0 de 3)`. A 320, 390 y 1280 px no hay overflow horizontal; controles
 de al menos 44 px y campos de 16 px. Consola del navegador sin errores ni advertencias.
+
+### Aislamiento local por cuenta y publicación en Producción y Pruebas (2026-08-14)
+
+La caché offline y la cola de cambios del navegador ya no usan un espacio compartido entre
+cuentas. Cada combinación de usuario y joyería abre su propia base local; las operaciones
+pendientes quedan ligadas a esa identidad y una descarga que termina después de un cambio
+de cuenta se descarta antes de escribir. La caché cloud antigua cuyo dueño no puede
+demostrarse queda en cuarentena y nunca se ofrece a otra cuenta. La importación legítima
+desde modo local se conserva cuando la fuente no contiene marcas cloud.
+
+**Fuente:** `codex/aislamiento-cuentas@13c0c3f`, con borrador de revisión en el PR `#1`.
+Son únicamente diez archivos de aplicación y pruebas. No contiene SQL, migraciones,
+documentos legales ni workflows.
+
+**Verificación:** 1169 pruebas en 77 archivos; 50 pruebas enfocadas de base local, cola y
+sincronización; build de 431 módulos; auditoría npm con 0 vulnerabilidades; credenciales y
+evidencia de seguridad en verde. En un navegador real se crearon A y B en Pruebas: A creó
+un cliente, B entró en el mismo navegador y apareció vacío; B creó otro, se volvió a A y A
+vio solamente el suyo. La misma secuencia pasó en el sitio público, sin errores ni
+advertencias de consola. Las dos cuentas, dos joyerías y dos clientes ficticios se
+eliminaron; Pruebas volvió a 1 cuenta, 1 joyería, 1 membresía y 0 clientes huérfanos.
+
+**Publicaciones:**
+
+- Producción: `https://santismagico.github.io/emerald-dealer-app/`, sitio `b64320d`, punto
+  de retorno `449f6b7`, bundle `assets/index-DZ9WnpTc.js`, conectado únicamente a
+  `wrvokfzrcmmlzekudypu`.
+- Pruebas: `https://santismagico.github.io/emerald-dealer-pruebas/`, sitio nuevo
+  `faae8af`, bundle `assets/index-DzOad75_.js`, conectado únicamente a
+  `ovfaehoeidxcjrlapioo` (`Emerald Dealer - Pruebas Fase 2`).
+
+Los dos bundles públicos coinciden byte por byte con sus compilaciones validadas. Producción
+carga la cuenta existente y conserva `Crear catálogo PDF` y `Fotos de la pieza (0 de 3)`.
