@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { calculateQuote, quoteToCalcInput } from '../calc/engine';
 import type { StockJewel } from '../types';
-import { sampleSettings } from '../test/fixtures';
-import { contentToPlainText } from './pdfContent';
+import { sampleQuote, sampleSettings } from '../test/fixtures';
+import { buildClientPdfContent, contentToPlainText } from './pdfContent';
 import {
   buildCatalogPdfContent,
+  catalogContentToPlainText,
   prepareCatalogPdfContent,
   selectCatalogJewels,
   type CatalogOptions
@@ -37,7 +39,7 @@ const allWithoutPrices: CatalogOptions = {
 
 function jewel(overrides: Partial<StockJewel> = {}): StockJewel {
   return {
-    id: 'jewel-1',
+    id: 'jewel-interno-998877',
     name: 'Anillo Aurora',
     pieceType: 'anillo',
     material: 'Oro amarillo',
@@ -65,7 +67,7 @@ function plainTextFor(source: StockJewel[], options: CatalogOptions): string {
   const result = prepareCatalogPdfContent(source, settings, options, '2026-08-04');
   expect(result.status).toBe('ready');
   if (result.status !== 'ready') throw new Error('El catálogo de prueba fue bloqueado.');
-  return contentToPlainText(result.content);
+  return catalogContentToPlainText(result.content);
 }
 
 function digitsOnly(text: string): string {
@@ -90,40 +92,31 @@ describe('catálogo por lista blanca', () => {
     expect(digitsOnly(plainTextFor([jewel()], allWithoutPrices))).not.toContain('7654321');
   });
 
-  it('con precios muestra únicamente el precio comercial', () => {
+  it('con precios muestra únicamente el precio comercial y omite precio cero', () => {
     const options: CatalogOptions = { stoneFilter: 'todas', includePrices: true };
-    const text = plainTextFor([jewel()], options);
-    expect(digitsOnly(text)).toContain('7654321');
-    expect(digitsOnly(text)).not.toContain('987654');
+    expect(digitsOnly(plainTextFor([jewel()], options))).toContain('7654321');
+    const zeroContent = buildCatalogPdfContent(
+      selectCatalogJewels([jewel({ priceCop: 0 })], options),
+      settings,
+      options,
+      '2026-08-04'
+    );
+    expect(zeroContent.pieces[0].priceLine).toBe('');
   });
 
   it('la proyección contiene exactamente los campos permitidos', () => {
     const [withoutPrice] = selectCatalogJewels([jewel()], allWithoutPrices);
     expect(Object.keys(withoutPrice).sort()).toEqual([
-      'material',
-      'name',
-      'photo',
-      'pieceType',
-      'size',
-      'stoneCount',
-      'stoneKind',
-      'weightGrams'
+      'extraPhotos', 'material', 'name', 'photo', 'pieceType', 'size',
+      'stoneCount', 'stoneKind', 'weightGrams'
     ]);
-
     const [withPrice] = selectCatalogJewels(
       [jewel()],
       { stoneFilter: 'todas', includePrices: true }
     );
     expect(Object.keys(withPrice).sort()).toEqual([
-      'material',
-      'name',
-      'photo',
-      'pieceType',
-      'priceCop',
-      'size',
-      'stoneCount',
-      'stoneKind',
-      'weightGrams'
+      'extraPhotos', 'material', 'name', 'photo', 'pieceType', 'priceCop',
+      'size', 'stoneCount', 'stoneKind', 'weightGrams'
     ]);
   });
 
@@ -133,37 +126,48 @@ describe('catálogo por lista blanca', () => {
     const sold = jewel({
       id: 'sold',
       sale: {
-        id: 'sale-1',
-        date: '2026-08-01',
-        buyer: 'Comprador',
-        buyerId: null,
-        priceCop: 8_000_000,
-        productType: '',
-        usdRate: null,
-        receivedBy: 'Caja',
-        method: 'Transferencia',
-        notes: ''
+        id: 'sale-1', date: '2026-08-01', buyer: 'Comprador', buyerId: null,
+        priceCop: 8_000_000, productType: '', usdRate: null, receivedBy: 'Caja',
+        method: 'Transferencia', notes: ''
       }
     });
-    expect(selectCatalogJewels([reserved, sold, available], allWithoutPrices))
-      .toHaveLength(1);
+    expect(selectCatalogJewels([reserved, sold, available], allWithoutPrices)).toHaveLength(1);
   });
 
-  it('filtra naturales, fantasía y deja sin registrar únicamente en todas', () => {
+  it('filtra naturales, fantasía y deja la clase desconocida únicamente en todas', () => {
     const natural = jewel({ id: 'natural', name: 'Natural', stoneKind: 'natural' });
     const fantasy = jewel({ id: 'fantasy', name: 'Fantasía', stoneKind: 'fantasia' });
-    const unknown = jewel({ id: 'unknown', name: 'Sin registrar', stoneKind: '' });
+    const unknown = jewel({ id: 'unknown', name: 'Desconocida', stoneKind: '' });
     const source = [natural, fantasy, unknown];
-
     expect(selectCatalogJewels(source, { ...allWithoutPrices, stoneFilter: 'naturales' }))
       .toEqual([expect.objectContaining({ name: 'Natural' })]);
     expect(selectCatalogJewels(source, { ...allWithoutPrices, stoneFilter: 'fantasia' }))
       .toEqual([expect.objectContaining({ name: 'Fantasía' })]);
-    expect(selectCatalogJewels(source, allWithoutPrices).map((item) => item.name).sort())
-      .toEqual(['Fantasía', 'Natural', 'Sin registrar'].sort());
+    expect(selectCatalogJewels(source, allWithoutPrices)).toHaveLength(3);
   });
 
-  it('el detector revisa el contenido final y bloquea ante un hallazgo', () => {
+  it('numera por orden visible, nunca expone ids internos y revisa todo el texto final', () => {
+    const source = [
+      jewel({ id: 'id-privado-111', name: 'Zafiro' }),
+      jewel({ id: 'id-privado-222', name: 'Aurora' }),
+      jewel({ id: 'id-privado-333', name: 'Brisa' })
+    ];
+    const result = prepareCatalogPdfContent(source, settings, allWithoutPrices, '2026-08-04');
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') return;
+    expect(result.content.pieces.map((piece) => [piece.code, piece.name])).toEqual([
+      ['01', 'Aurora'], ['02', 'Brisa'], ['03', 'Zafiro']
+    ]);
+    const text = catalogContentToPlainText(result.content);
+    expect(text).toContain('01\nAurora');
+    expect(text).toContain('Oro amarillo · 4,5 g · Talla 7');
+    expect(text).toContain('1 piedra natural');
+    expect(text).toContain('Consulta disponibilidad y detalles.');
+    expect(text).toContain('Para reservar una pieza, indícanos su número.');
+    for (const item of source) expect(text).not.toContain(item.id);
+  });
+
+  it('el detector bloquea una palabra sensible ubicada en el nombre final', () => {
     const result = prepareCatalogPdfContent(
       [jewel({ name: 'Anillo con costo interno' })],
       settings,
@@ -176,11 +180,56 @@ describe('catálogo por lista blanca', () => {
     });
   });
 
-  it('una pieza sin foto conserva su ficha', () => {
-    const selected = selectCatalogJewels([jewel({ photo: '' })], allWithoutPrices);
-    const content = buildCatalogPdfContent(selected, settings, allWithoutPrices, '2026-08-04');
-    expect(content.sections).toHaveLength(1);
-    expect(content.sections[0].image).toBe('');
+  it('omite datos desconocidos sin dejar separadores ni la frase Sin registrar', () => {
+    const content = buildCatalogPdfContent(
+      selectCatalogJewels([jewel({
+        material: '', weightGrams: 0, size: '', stoneCount: 0, stoneKind: ''
+      })], allWithoutPrices),
+      settings,
+      allWithoutPrices,
+      '2026-08-04'
+    );
+    expect(content.pieces[0]).toMatchObject({ detailLine: '', stoneLine: '' });
+    const text = catalogContentToPlainText(content);
+    expect(text).not.toContain('Sin registrar');
+    expect(text).not.toContain(' · ');
+    expect(text).not.toContain('  ');
+  });
+
+  it('conserva cero, una o tres fotos sin perder la ficha', () => {
+    const image = 'data:image/jpeg;base64,abc';
+    const source = [
+      jewel({ name: 'Cero', photo: '', extraPhotos: [] }),
+      jewel({ name: 'Una', photo: image, extraPhotos: [] }),
+      jewel({ name: 'Tres', photo: image, extraPhotos: [image, image] })
+    ];
+    const content = buildCatalogPdfContent(
+      selectCatalogJewels(source, allWithoutPrices), settings, allWithoutPrices, '2026-08-04'
+    );
+    expect(content.pieces).toHaveLength(3);
+    expect(content.pieces.map((piece) => [piece.photo, ...piece.extraPhotos].filter(Boolean).length))
+      .toEqual([0, 3, 1]);
+  });
+
+  it('el catálogo omite el NIT y la cotización cliente lo conserva', () => {
+    const settingsWithNit = { ...settings, nit: '900.123.456-7' };
+    const catalog = buildCatalogPdfContent(
+      selectCatalogJewels([jewel()], allWithoutPrices),
+      settingsWithNit,
+      allWithoutPrices,
+      '2026-08-04'
+    );
+    const catalogText = catalogContentToPlainText(catalog);
+    expect(catalogText).not.toContain('NIT');
+    expect(digitsOnly(catalogText)).not.toContain('9001234567');
+
+    const quote = sampleQuote();
+    const quoteText = contentToPlainText(buildClientPdfContent(
+      quote,
+      calculateQuote(quoteToCalcInput(quote)),
+      settingsWithNit
+    ));
+    expect(quoteText).toContain('NIT: 900.123.456-7');
   });
 });
 

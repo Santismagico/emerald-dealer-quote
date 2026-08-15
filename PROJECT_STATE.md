@@ -2173,3 +2173,24 @@ pruebas de `catalog.test.ts` se adaptan a la forma nueva **sin debilitarse**.
 
 **Estado:** orden escrita y entregada. Codex no ha empezado. Nada de código fue modificado
 en esta sesión.
+
+### Catálogo presentable y tres fotos por joya — IMPLEMENTADO (2026-08-14)
+
+La orden `docs/ORDEN_CATALOGO_Y_FOTOS.md` quedó implementada en dos commits. Las joyas
+conservan `photo` como principal y suman hasta dos `extraPhotos`; la normalización acepta
+registros y respaldos anteriores sin migración, descarta imágenes externas y limita las
+secundarias. El formulario permite cargar tres fotos, ascender o intercambiar la principal
+y quitar cualquiera sin dejar secundarias huérfanas.
+
+El catálogo ya usa su renderer propio en `src/services/catalogPdf.ts`: portada, dos piezas
+por página, contraportada, números de pieza locales, tipografías y colores de D-079, recorte
+cuadrado y versiones con o sin precios. No lleva NIT, no imprime datos desconocidos ni el
+recuadro de totales. `renderPdf`, cotizaciones, Cierre del día, `pdfContent.ts` y el motor de
+cálculo permanecieron intactos. La lista blanca sigue copiando campo por campo a
+`CatalogJewel[]` y el detector revisa todo el texto final antes de permitir el archivo.
+
+**Verificación:** 1160 pruebas en 76 archivos y build en verde. Recorrido real a 320, 390
+y 1280 px: tres fotos cargadas, principal intercambiada, una retirada y las dos restantes
+persistentes tras recargar; sin overflow, controles mínimos de 44 px, campos de 16 px y
+consola limpia. Catálogos con y sin precios abiertos en A4: portada, dos fichas por página,
+numeración, contraportada, sin NIT y sin recuadro verde de totales.

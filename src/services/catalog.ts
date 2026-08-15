@@ -1,15 +1,9 @@
 // Catálogo para cliente (D-065): se construye desde una lista blanca explícita.
-// Ningún objeto StockJewel completo llega al contenido del PDF.
+// Ningún objeto StockJewel completo llega al contenido ni al constructor del PDF.
 
 import type { Settings, StockJewel, StockJewelStoneKind } from '../types';
 import { formatCOP } from '../utils/money';
-import { formatDateCO } from '../utils/dates';
-import {
-  contentToPlainText,
-  findSensitiveWordsInText,
-  type PdfContent,
-  type PdfSection
-} from './pdfContent';
+import { findSensitiveWordsInText } from './pdfContent';
 
 export type CatalogStoneFilter = 'todas' | 'naturales' | 'fantasia';
 
@@ -24,6 +18,7 @@ export interface CatalogJewel {
   pieceType: string;
   material: string;
   photo: string;
+  extraPhotos: string[];
   weightGrams: number;
   size: string;
   stoneCount: number;
@@ -31,29 +26,53 @@ export interface CatalogJewel {
   priceCop?: number;
 }
 
+export interface CatalogPiece {
+  /** Número visible solo en este archivo. Jamás es el id interno (D-080). */
+  code: string;
+  name: string;
+  detailLine: string;
+  stoneLine: string;
+  priceLine: string;
+  photo: string;
+  extraPhotos: string[];
+}
+
+export interface CatalogContent {
+  jewelryName: string;
+  contactLines: string[];
+  periodLine: string;
+  footer: string;
+  pieces: CatalogPiece[];
+}
+
 export type CatalogPreparationResult =
-  | { status: 'ready'; content: PdfContent; jewels: CatalogJewel[] }
+  | { status: 'ready'; content: CatalogContent; jewels: CatalogJewel[] }
   | { status: 'sensitive'; words: string[] };
 
-const STONE_KIND_LABEL: Record<StockJewelStoneKind, string> = {
-  '': 'Sin registrar',
-  fantasia: 'Fantasía',
-  natural: 'Natural'
-};
+const MONTHS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
 
 function capitalize(text: string): string {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 }
 
-function historicalNumber(value: number, suffix = ''): string {
-  if (!Number.isFinite(value) || value <= 0) return 'Sin registrar';
-  return `${value.toLocaleString('es-CO', { maximumFractionDigits: 3 })}${suffix}`;
+function localizedNumber(value: number): string {
+  return value.toLocaleString('es-CO', { maximumFractionDigits: 3 });
 }
 
 function matchesStoneFilter(kind: StockJewelStoneKind, filter: CatalogStoneFilter): boolean {
   if (filter === 'naturales') return kind === 'natural';
   if (filter === 'fantasia') return kind === 'fantasia';
   return true;
+}
+
+function periodLine(generatedDate: string): string {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(generatedDate);
+  if (!match) return '';
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? `${MONTHS[month - 1]} ${match[1]}` : '';
 }
 
 /**
@@ -76,6 +95,7 @@ export function selectCatalogJewels(
         pieceType: jewel.pieceType,
         material: jewel.material,
         photo: jewel.photo,
+        extraPhotos: jewel.extraPhotos.slice(0, 2),
         weightGrams: jewel.weightGrams,
         size: jewel.size,
         stoneCount: jewel.stoneCount,
@@ -100,26 +120,34 @@ function customerContactLines(settings: Settings): string[] {
   ].filter(Boolean).join('  ·  ');
   if (phones) lines.push(phones);
   if (settings.email) lines.push(settings.email);
-  if (settings.nit) lines.push(`NIT: ${settings.nit}`);
   return lines;
 }
 
-function jewelSection(jewel: CatalogJewel, includePrices: boolean): PdfSection {
-  const rows: Array<[string, string]> = [
-    ['Tipo', capitalize(jewel.pieceType) || 'Sin registrar'],
-    ['Material', jewel.material.trim() || 'Sin registrar'],
-    ['Peso', historicalNumber(jewel.weightGrams, ' g')],
-    ['Talla o medida', jewel.size.trim() || 'Sin registrar'],
-    ['Número de piedras', historicalNumber(jewel.stoneCount)],
-    ['Clase de piedra', STONE_KIND_LABEL[jewel.stoneKind] ?? 'Sin registrar']
-  ];
-  if (includePrices && jewel.priceCop !== undefined) {
-    rows.push(['Precio', formatCOP(jewel.priceCop)]);
+function pieceContent(jewel: CatalogJewel, index: number, includePrices: boolean): CatalogPiece {
+  const details = [
+    jewel.material.trim().replace(/\s+/g, ' '),
+    jewel.weightGrams > 0 ? `${localizedNumber(jewel.weightGrams)} g` : '',
+    jewel.size.trim() ? `Talla ${jewel.size.trim()}` : ''
+  ].filter(Boolean);
+  let stoneLine = '';
+  if (jewel.stoneCount > 0) {
+    const count = localizedNumber(jewel.stoneCount);
+    if (jewel.stoneKind === 'natural') {
+      stoneLine = `${count} ${jewel.stoneCount === 1 ? 'piedra natural' : 'piedras naturales'}`;
+    } else if (jewel.stoneKind === 'fantasia') {
+      stoneLine = `${count} ${jewel.stoneCount === 1 ? 'piedra de fantasía' : 'piedras de fantasía'}`;
+    } else {
+      stoneLine = `${count} ${jewel.stoneCount === 1 ? 'piedra' : 'piedras'}`;
+    }
   }
   return {
-    title: jewel.name.trim() || capitalize(jewel.pieceType) || 'Pieza disponible',
-    rows,
-    image: jewel.photo
+    code: String(index + 1).padStart(2, '0'),
+    name: jewel.name.trim() || capitalize(jewel.pieceType) || 'Pieza disponible',
+    detailLine: details.join(' · '),
+    stoneLine,
+    priceLine: includePrices && (jewel.priceCop ?? 0) > 0 ? formatCOP(jewel.priceCop ?? 0) : '',
+    photo: jewel.photo,
+    extraPhotos: jewel.extraPhotos.slice(0, 2)
   };
 }
 
@@ -129,19 +157,33 @@ export function buildCatalogPdfContent(
   settings: Settings,
   options: CatalogOptions,
   generatedDate: string
-): PdfContent {
+): CatalogContent {
   return {
-    internal: false,
-    jewelryName: settings.jewelryName,
+    jewelryName: settings.jewelryName.trim(),
     contactLines: customerContactLines(settings),
-    docTitle: 'CATÁLOGO',
-    quoteNumber: '',
-    dateLine: `Generado: ${formatDateCO(generatedDate)}`,
-    sections: jewels.map((jewel) => jewelSection(jewel, options.includePrices)),
-    totals: [],
-    totalLine: ['PIEZAS DISPONIBLES', String(jewels.length)],
-    footer: settings.commercialMessage.trim() || 'Consulta disponibilidad y detalles.'
+    periodLine: periodLine(generatedDate),
+    footer: settings.commercialMessage.trim() || 'Consulta disponibilidad y detalles.',
+    pieces: jewels.map((jewel, index) => pieceContent(jewel, index, options.includePrices))
   };
+}
+
+/** Incluye cada cadena que el renderer puede imprimir; es la barrera final de privacidad. */
+export function catalogContentToPlainText(content: CatalogContent): string {
+  return [
+    content.jewelryName,
+    ...content.contactLines,
+    content.periodLine,
+    ...content.pieces.flatMap((piece) => [
+      piece.code,
+      piece.name,
+      piece.detailLine,
+      piece.stoneLine,
+      piece.priceLine
+    ]),
+    content.footer,
+    'CATÁLOGO',
+    'Para reservar una pieza, indícanos su número.'
+  ].filter(Boolean).join('\n');
 }
 
 /**
@@ -156,7 +198,7 @@ export function prepareCatalogPdfContent(
 ): CatalogPreparationResult {
   const jewels = selectCatalogJewels(stockJewels, options);
   const content = buildCatalogPdfContent(jewels, settings, options, generatedDate);
-  const words = findSensitiveWordsInText(contentToPlainText(content));
+  const words = findSensitiveWordsInText(catalogContentToPlainText(content));
   if (words.length > 0) return { status: 'sensitive', words };
   return { status: 'ready', content, jewels };
 }

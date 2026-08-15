@@ -7,6 +7,7 @@ import type { Quote, Settings, StockJewel } from '../types';
 import type { CalcResult } from '../calc/engine';
 import { buildClientPdfContent, buildInternalPdfContent, type PdfContent } from './pdfContent';
 import { prepareCatalogPdfContent, type CatalogOptions } from './catalog';
+import { renderCatalogPdf } from './catalogPdf';
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -352,7 +353,7 @@ export async function createCatalogPdfFile(
 ): Promise<File> {
   const prepared = prepareCatalogPdfContent(stockJewels, settings, options, generatedDate);
   if (prepared.status === 'sensitive') throw new CatalogPrivacyError(prepared.words);
-  const doc = await renderPdf(prepared.content, [], settings.logoDataUrl);
+  const doc = await renderCatalogPdf(prepared.jewels, prepared.content, settings.logoDataUrl);
   const output = doc.output('blob');
   const blob = output.type === 'application/pdf'
     ? output
