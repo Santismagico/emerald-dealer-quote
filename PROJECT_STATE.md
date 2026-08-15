@@ -2160,6 +2160,11 @@ las tres fotos, después el catálogo.
 imprime **"Peso: Sin registrar"** al cliente. La regla nueva es que lo que no se sabe no se
 escribe.
 
+**Punto que la auditoría de la Fase F había dejado anotado y que Santiago cerró el
+2026-08-14:** el catálogo llevaba el NIT del negocio. Ya no. La línea sale de
+`customerContactLines` en `catalog.ts`, que es exclusiva del catálogo; el PDF de cotización
+conserva el suyo y no se toca. Registrado dentro de D-079.
+
 **Lo que la orden protege explícitamente:** `renderPdf`, el PDF de cotización, el Cierre
 del día, `pdfContent.test.ts`, el motor de cálculo, `main`, el piloto y el workflow. Cero
 dependencias nuevas y cero migraciones. La cadena de privacidad de D-065 se conserva

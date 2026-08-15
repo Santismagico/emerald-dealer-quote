@@ -1515,6 +1515,14 @@ peso registrado le imprimía **"Sin registrar"** al cliente. En un catálogo eso
 faltante puesto en la vitrina. Los datos ausentes se omiten; un precio en cero no se
 imprime aunque el catálogo lleve precios.
 
+**El catálogo no lleva NIT.** La auditoría de la Fase F había dejado anotado, sin pedir
+cambio, que el catálogo identificaba públicamente al negocio con su número tributario.
+Santiago cerró el punto el 2026-08-14: un catálogo es una pieza comercial, no un documento
+tributario, y ese número no tiene por qué circular por WhatsApp entre desconocidos. Quedan
+dirección y ciudad, teléfonos y correo. **El PDF de cotización sí conserva su NIT**: ahí
+identifica una operación concreta con un cliente conocido, y esa diferencia entre los dos
+documentos es deliberada.
+
 Lo que **no** cambia, porque es lo que protege a Santiago: la lista blanca de D-065 sigue
 siendo la única forma de armar el documento, el constructor sigue recibiendo
 `CatalogJewel[]` y nunca `StockJewel[]` —la garantía la impone el compilador, no la

@@ -331,8 +331,17 @@ Portada y contraportada **no llevan número de página**.
 | Filete dorado | 32 mm centrado, grosor 0.4, 10 mm bajo la última línea |
 | Cierre | `helvetica italic` 8.5 pt, MUTED, centrado, 12 mm más abajo: *"Para reservar una pieza, indícanos su número."* |
 
-Las líneas de contacto son las mismas de hoy (`customerContactLines`), NIT incluido: es
-coherente con el PDF de cotización y ya quedó anotado en la auditoría de la Fase F.
+**El catálogo NO lleva NIT.** Decisión de Santiago del 2026-08-14: un catálogo es una
+pieza comercial, no un documento tributario, y el número de identificación del negocio no
+tiene por qué circular por WhatsApp entre desconocidos.
+
+Quita esa línea de `customerContactLines` en `src/services/catalog.ts:103`. Esa función es
+**exclusiva del catálogo** —ya lo verifiqué—, así que el cambio no toca ningún otro
+documento: el PDF de cotización conserva su NIT en `src/services/pdfContent.ts:114` y **no
+se modifica**.
+
+Quedan entonces: dirección y ciudad, teléfono y WhatsApp, y correo. Cualquiera de esas
+líneas se omite si está vacía, como hoy.
 
 ### 7.4 Recorte cuadrado — la regla que más se nota
 Hoy cada foto conserva su proporción y la página queda despareja. Nuevo helper en
@@ -375,6 +384,11 @@ su mensaje en pantalla (`CatalogPdfTooLargeError`) **se conservan tal cual**.
 9. El tope de 15 MB sigue disparando `CatalogPdfTooLargeError`.
 10. `renderPdf` y el PDF de cotización quedan **sin un solo cambio de comportamiento**:
     las pruebas de `pdf.test.ts` y `pdfContent.test.ts` pasan sin tocarlas.
+11. **El NIT no aparece en el catálogo.** Con un NIT configurado en Ajustes, ni la cadena
+    `NIT` ni el número aparecen en el contenido del catálogo (compáralo con `digitsOnly`,
+    igual que la prueba del número delator). La misma prueba debe confirmar que el PDF de
+    cotización **sí lo conserva**: son dos documentos distintos y esa diferencia es
+    deliberada.
 
 ---
 
