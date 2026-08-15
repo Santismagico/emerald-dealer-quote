@@ -24,6 +24,7 @@ function joya(overrides: Partial<StockJewel> = {}): StockJewel {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: '2026-07-01',
     weightGrams: 0,
     size: '',
@@ -328,6 +329,7 @@ describe('formularios en blanco', () => {
     expect(j.status).toBe('disponible');
     expect(j.sale).toBeNull();
     expect(j.acquiredDate).toBe('2026-07-21');
+    expect(j.extraPhotos).toEqual([]);
     expect(j.id).not.toBe(emptyStockJewel('2026-07-21', '2026-07-21T09:00:00.000Z').id);
   });
 

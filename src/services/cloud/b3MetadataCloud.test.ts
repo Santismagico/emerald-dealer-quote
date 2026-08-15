@@ -99,6 +99,7 @@ function stockJewel(usdRate: number | null = 4100): StockJewel {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: '2026-08-03',
     weightGrams: 0,
     size: '',

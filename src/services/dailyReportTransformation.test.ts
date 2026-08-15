@@ -39,6 +39,7 @@ const jewel: StockJewel = {
   pieceType: 'anillo',
   material: 'Oro',
   photo: '',
+  extraPhotos: [],
   acquiredDate: '2026-08-02',
   weightGrams: 4,
   size: '7',

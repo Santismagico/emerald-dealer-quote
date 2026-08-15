@@ -391,6 +391,7 @@ export function emptyStockJewel(today: string, nowIso: string): StockJewel {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: today,
     weightGrams: 0,
     size: '',

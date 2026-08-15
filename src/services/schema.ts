@@ -544,6 +544,10 @@ export function normalizeStockJewel(raw: unknown): StockJewel {
     pieceType: oneOf(j.pieceType, PIECE_TYPES, 'otro'),
     material: safeString(j.material),
     photo: safeImageDataUrl(j.photo),
+    extraPhotos: safeArray(j.extraPhotos)
+      .map((item) => safeImageDataUrl(item))
+      .filter((item) => item !== '')
+      .slice(0, 2),
     acquiredDate: safeString(j.acquiredDate),
     weightGrams: Math.max(0, safeNumber(j.weightGrams)),
     size: safeString(j.size),

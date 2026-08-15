@@ -72,6 +72,7 @@ function joya(overrides: Partial<StockJewel> = {}): StockJewel {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: DIA,
     weightGrams: 0,
     size: '',

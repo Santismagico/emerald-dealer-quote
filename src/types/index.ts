@@ -659,8 +659,10 @@ export interface StockJewel {
   name: string;
   pieceType: PieceType;
   material: string;
-  /** Foto en data URL comprimida por la app. Nunca una URL externa. */
+  /** Foto PRINCIPAL en data URL comprimida por la app. Nunca una URL externa. */
   photo: string;
+  /** Hasta DOS fotos secundarias, en data URL comprimida. Nunca URLs externas. */
+  extraPhotos: string[];
   /** Fecha en que la pieza entró al inventario (YYYY-MM-DD). Es cuando salió el dinero. */
   acquiredDate: string;
   /** Peso total de la pieza. 0 significa historico sin registrar. */

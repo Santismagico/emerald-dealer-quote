@@ -79,6 +79,8 @@ const FILTERS: Array<{ key: JewelFilter; label: string }> = [
   { key: 'todas', label: 'Todas' }
 ];
 
+const MAX_JEWEL_PHOTOS = 3;
+
 const STONE_KIND_LABEL: Record<StockJewelStoneKind, string> = {
   '': 'Sin registrar',
   fantasia: 'Fantasía',
@@ -200,14 +202,49 @@ export function StockJewelsView() {
     );
   }
 
-  const pickPhoto = async (files: FileList | null) => {
+  const addPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0 || !editing) return;
     setError('');
+    const currentPhotos = [editing.photo, ...editing.extraPhotos].filter(Boolean);
+    const available = MAX_JEWEL_PHOTOS - currentPhotos.length;
+    const selected = Array.from(files).slice(0, available);
+    const exceededLimit = files.length > available;
     try {
-      setEditing({ ...editing, photo: await fileToCompressedDataUrl(files[0]) });
+      const compressed = await Promise.all(
+        selected.map((file, index) => fileToCompressedDataUrl(
+          file,
+          currentPhotos.length === 0 && index === 0 ? undefined : { maxDimension: 700 }
+        ))
+      );
+      const nextPhotos = [...currentPhotos, ...compressed];
+      setEditing({
+        ...editing,
+        photo: nextPhotos[0] ?? '',
+        extraPhotos: nextPhotos.slice(1, 3)
+      });
+      if (exceededLimit) setError('Máximo 3 fotos por joya.');
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : 'No se pudo procesar la foto.');
     }
+  };
+
+  const removePhoto = (index: number) => {
+    if (!editing) return;
+    const nextPhotos = [editing.photo, ...editing.extraPhotos]
+      .filter(Boolean)
+      .filter((_, photoIndex) => photoIndex !== index);
+    setEditing({
+      ...editing,
+      photo: nextPhotos[0] ?? '',
+      extraPhotos: nextPhotos.slice(1, 3)
+    });
+  };
+
+  const makePrimaryPhoto = (index: number) => {
+    if (!editing || index === 0) return;
+    const nextPhotos = [editing.photo, ...editing.extraPhotos].filter(Boolean);
+    [nextPhotos[0], nextPhotos[index]] = [nextPhotos[index], nextPhotos[0]];
+    setEditing({ ...editing, photo: nextPhotos[0], extraPhotos: nextPhotos.slice(1, 3) });
   };
 
   if (transforming) {
@@ -342,8 +379,8 @@ export function StockJewelsView() {
             />
           </Field>
 
-          <Field label="Foto">
-            <div className="space-y-2">
+          <Field label={`Fotos de la pieza (${[editing.photo, ...editing.extraPhotos].filter(Boolean).length} de 3)`}>
+            <div className="space-y-3">
               {editing.photo ? (
                 <div className="relative">
                   <img
@@ -354,11 +391,53 @@ export function StockJewelsView() {
                   <button
                     type="button"
                     className="absolute right-2 top-2 min-h-11 rounded-lg bg-black/60 px-3 text-sm font-medium text-white"
-                    onClick={() => setEditing({ ...editing, photo: '' })}
+                    onClick={() => removePhoto(0)}
                   >
                     Quitar
                   </button>
                 </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {editing.extraPhotos.map((photo, index) => (
+                  <div key={`${photo.slice(0, 40)}-${index}`} className="relative">
+                    <button
+                      type="button"
+                      aria-label={`Hacer principal la foto ${index + 2}`}
+                      className="block min-h-11 min-w-11 rounded-xl"
+                      onClick={() => makePrimaryPhoto(index + 1)}
+                    >
+                      <img
+                        src={photo}
+                        alt={`Foto ${index + 2} de ${editing.name || 'la pieza'}`}
+                        className="h-20 w-20 rounded-xl object-cover"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Quitar foto ${index + 2}`}
+                      className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full"
+                      onClick={() => removePhoto(index + 1)}
+                    >
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-red-600 text-sm font-bold text-white shadow-lg">✕</span>
+                    </button>
+                  </div>
+                ))}
+                {[editing.photo, ...editing.extraPhotos].filter(Boolean).length < MAX_JEWEL_PHOTOS ? (
+                  <button
+                    type="button"
+                    aria-label="Agregar fotos de la pieza"
+                    className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl border border-dashed border-stone-300 text-2xl text-stone-400"
+                    onClick={() => {
+                      store.showToast('Abriendo la galería…');
+                      photoInputRef.current?.click();
+                    }}
+                  >
+                    ＋
+                  </button>
+                ) : null}
+              </div>
+              {editing.extraPhotos.length > 0 ? (
+                <p className="text-xs text-stone-500">Toca una foto para hacerla la principal.</p>
               ) : null}
               {/* Clic programático: en la PWA instalada de Android un input
                   oculto dentro de un label puede no abrir el selector. */}
@@ -366,15 +445,30 @@ export function StockJewelsView() {
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  void pickPhoto(e.target.files);
+                  void addPhotos(e.target.files);
                   e.target.value = '';
                 }}
               />
-              <Button variant="ghost" full onClick={() => photoInputRef.current?.click()}>
-                {editing.photo ? 'Cambiar foto' : '＋ Agregar foto'}
-              </Button>
+              {[editing.photo, ...editing.extraPhotos].filter(Boolean).length < MAX_JEWEL_PHOTOS ? (
+                <>
+                  <p className="text-xs text-stone-500">
+                    ¿El botón ＋ no abre la galería? Usa este selector directo:
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="block min-h-11 w-full text-base text-stone-600"
+                    onChange={(e) => {
+                      void addPhotos(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              ) : null}
             </div>
           </Field>
 

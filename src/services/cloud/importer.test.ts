@@ -55,6 +55,7 @@ function largeBackup(): BackupFile {
       pieceType: 'anillo',
       material: 'Oro',
       photo: '',
+      extraPhotos: [],
       acquiredDate: '2026-07-18',
       weightGrams: 0,
       size: '',

@@ -123,6 +123,7 @@ function joyaVendidaAlComprador(): StockJewel {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: '2026-07-05',
     weightGrams: 0,
     size: '',

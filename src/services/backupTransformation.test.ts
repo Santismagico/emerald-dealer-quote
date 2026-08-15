@@ -42,6 +42,7 @@ const jewel: StockJewel = {
   pieceType: 'anillo',
   material: 'Oro',
   photo: '',
+  extraPhotos: [],
   acquiredDate: '2026-08-02',
   weightGrams: 4.5,
   size: '7',
@@ -120,6 +121,7 @@ describe('respaldo de transformaciones de joyas', () => {
     delete legacyJewel.stoneCount;
     delete legacyJewel.stoneKind;
     delete legacyJewel.stoneTransformations;
+    delete legacyJewel.extraPhotos;
     legacyJewel.costCop = 500_000;
 
     const parsed = parseBackup(JSON.stringify(backup({
@@ -134,6 +136,8 @@ describe('respaldo de transformaciones de joyas', () => {
       stoneCount: 0,
       stoneKind: '',
       stoneTransformations: [],
+      photo: '',
+      extraPhotos: [],
       costCop: 500_000,
       priceCop: 1_200_000
     });

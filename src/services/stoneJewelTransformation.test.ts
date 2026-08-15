@@ -50,6 +50,7 @@ function jewel(overrides: Partial<StockJewel> = {}): StockJewel {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: '2026-08-01',
     weightGrams: 4.5,
     size: '7',

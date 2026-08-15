@@ -81,7 +81,7 @@ const c2Lot: StoneLot = {
   sales: [], createdAt: '2026-08-01T09:00:00.000Z', updatedAt: '2026-08-01T09:00:00.000Z'
 };
 const c2Jewel: StockJewel = {
-  id: 'jewel-pair', name: 'Anillo pareja', pieceType: 'anillo', material: 'Oro', photo: '',
+  id: 'jewel-pair', name: 'Anillo pareja', pieceType: 'anillo', material: 'Oro', photo: '', extraPhotos: [],
   acquiredDate: '2026-08-02', weightGrams: 4, size: '7', stoneCount: 1,
   stoneKind: 'fantasia', costCop: 500_000, priceCop: 1_500_000, status: 'disponible',
   notes: '', sale: null, collectionId: null, stoneTransformations: [],

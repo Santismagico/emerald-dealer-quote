@@ -20,12 +20,16 @@ export function assertImageFileSize(file: Pick<File, 'size'>): void {
   }
 }
 
-export async function fileToCompressedDataUrl(file: File): Promise<string> {
+export async function fileToCompressedDataUrl(
+  file: File,
+  options: { maxDimension?: number } = {}
+): Promise<string> {
   assertImageFileSize(file);
   const objectUrl = URL.createObjectURL(file);
   try {
     const img = await loadImage(objectUrl);
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
+    const maxDimension = options.maxDimension ?? MAX_DIMENSION;
+    const scale = Math.min(1, maxDimension / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));
 

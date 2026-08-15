@@ -508,6 +508,7 @@ describe('normalizeStockJewel', () => {
     expect(j.priceCop).toBe(0);
     expect(j.sale).toBeNull();
     expect(j.photo).toBe('');
+    expect(j.extraPhotos).toEqual([]);
     expect(j).toMatchObject({
       weightGrams: 0,
       size: '',
@@ -528,6 +529,23 @@ describe('normalizeStockJewel', () => {
     expect(normalizeStockJewel({ photo: 'data:image/jpeg;base64,abc' }).photo).toBe(
       'data:image/jpeg;base64,abc'
     );
+  });
+
+  it('normaliza hasta dos fotos secundarias y descarta entradas inseguras', () => {
+    const photos = [
+      'data:image/jpeg;base64,uno',
+      'https://ejemplo.invalido/foto.jpg',
+      'data:image/png;base64,dos',
+      'data:image/webp;base64,tres',
+      'data:image/jpeg;base64,cuatro'
+    ];
+    expect(normalizeStockJewel({ extraPhotos: photos }).extraPhotos).toEqual([
+      photos[0],
+      photos[2]
+    ]);
+    for (const extraPhotos of ['texto', null, { foto: photos[0] }]) {
+      expect(normalizeStockJewel({ extraPhotos }).extraPhotos).toEqual([]);
+    }
   });
 
   it('lleva a cero costos y precios negativos o corruptos', () => {

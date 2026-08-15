@@ -107,7 +107,7 @@ export function QuoteFormView({
     }
     try {
       const selected = Array.from(files).slice(0, remaining);
-      const dataUrls = await Promise.all(selected.map(fileToCompressedDataUrl));
+      const dataUrls = await Promise.all(selected.map((file) => fileToCompressedDataUrl(file)));
       patch({ images: [...quote.images, ...dataUrls] });
     } catch (error) {
       setImageError(

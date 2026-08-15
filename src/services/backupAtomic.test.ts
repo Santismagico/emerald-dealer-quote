@@ -161,6 +161,7 @@ function makeFullBackup(prefix: string): BackupFile {
     pieceType: 'anillo',
     material: 'Oro',
     photo: '',
+    extraPhotos: [],
     acquiredDate: '2026-07-25',
     weightGrams: 0,
     size: '',
